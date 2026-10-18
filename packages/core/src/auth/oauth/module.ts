@@ -6,6 +6,7 @@
 import { and, eq, lt } from "drizzle-orm";
 import { generateId } from "../../crypto/web-crypto.js";
 import type { Database } from "../../db/database.js";
+import { resolveRedirectTarget } from "../../redirect/allowlist.js";
 import { generateCodeVerifier } from "./pkce.js";
 import { oauthAccounts, oauthStates } from "./schema.js";
 import { createTokenApi } from "./token-api.js";
@@ -89,11 +90,32 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		return null;
 	}
 
+	const allowedRedirectUris = config.allowedRedirectUris
+		? new Set(config.allowedRedirectUris)
+		: null;
+
+	/** With an allow list set, only an exact entry that is also a clean http(s) URL passes. */
+	function assertRedirectUri(redirectUri: string): void {
+		if (!allowedRedirectUris) return;
+		const target = resolveRedirectTarget(redirectUri, {
+			allowedOrigins: [...allowedRedirectUris].map((u) => new URL(u).origin),
+		});
+		if (
+			target === null ||
+			target.startsWith("/") ||
+			redirectUri.includes("#") ||
+			!allowedRedirectUris.has(redirectUri)
+		) {
+			throw new Error("OAuth: redirectUri is not in allowedRedirectUris.");
+		}
+	}
+
 	async function getAuthorizationUrl(
 		providerId: string,
 		redirectUri: string,
 	): Promise<{ url: string; state: string }> {
 		const provider = getProvider(providerId);
+		assertRedirectUri(redirectUri);
 
 		const state = generateId();
 		const codeVerifier = generateCodeVerifier();
@@ -122,6 +144,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		redirectUri: string,
 	): Promise<OAuthCallbackResult> {
 		const provider = getProvider(providerId);
+		assertRedirectUri(redirectUri);
 		const now = new Date(nowMs());
 
 		const stateRows = await db.select().from(oauthStates).where(eq(oauthStates.state, state));

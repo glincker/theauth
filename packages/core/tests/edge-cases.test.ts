@@ -145,7 +145,7 @@ describe("edge cases", () => {
 			expect(result.allowed).toBe(false);
 		});
 
-		it("exact match is checked alongside wildcards — exact permission grants access even without wildcard", async () => {
+		it("exact match is checked alongside wildcards: exact permission grants access even without wildcard", async () => {
 			const agent = await theauth.agent.create({
 				ownerId: "user-1",
 				name: "exact-match-agent",

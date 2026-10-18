@@ -1,4 +1,5 @@
 import { getDpopAlgs, readDpopHeader, verifyDpopProof } from "./dpop.js";
+import type { McpRevalidateOptions } from "./revocation-types.js";
 import type { McpAuthContext, McpDelegationHop, McpSession } from "./types.js";
 import { validateAccessToken } from "./validate.js";
 
@@ -29,7 +30,7 @@ export type McpProtectedHandler = (
 	principal: McpPrincipal,
 ) => Response | Promise<Response>;
 
-export interface RequireMcpAuthOptions {
+export interface RequireMcpAuthOptions extends McpRevalidateOptions {
 	/** Scopes the token must carry. A shortfall gives 403 `insufficient_scope`. */
 	requiredScopes?: string[];
 	/** Canonical URI of this resource server. Default: `McpConfig.resource`. */
@@ -58,7 +59,7 @@ function challenge(scheme: "Bearer" | "DPoP", params: Record<string, string | un
 }
 
 interface FailureInit {
-	status: 401 | 403 | 500;
+	status: 401 | 403 | 500 | 503;
 	error: string;
 	description: string;
 	challenges: string[];
@@ -90,6 +91,23 @@ function parseAuthorization(request: Request): { scheme: "Bearer" | "DPoP"; toke
 }
 
 /**
+ * With `revalidateEveryMs`, `session.revalidate()` skips the store reads while the last check is
+ * younger than that, so a long running handler can call it before every tool invocation or stream chunk batch.
+ */
+function throttleRevalidate(session: McpSession, everyMs: number | undefined): void {
+	const base = session.revalidate;
+	if (!base || !everyMs || everyMs <= 0) return;
+	session.revalidate = async () => {
+		const last = session.freshness?.checkedAt.getTime();
+		const now = Date.now();
+		if (last !== undefined && now >= last && now - last < everyMs) {
+			return { success: true, data: undefined };
+		}
+		return base();
+	};
+}
+
+/**
  * Protect a Web API handler with MCP OAuth. Accepts `Authorization: Bearer` and, when `McpConfig.dpop` is set, `Authorization: DPoP` with a proof.
  * What it enforces:
  * - signature, issuer, expiry and audience (RFC 8707) of the access token
@@ -115,10 +133,17 @@ export function requireMcpAuth(
 		options.resourceMetadataUrl ?? `${ctx.config.baseUrl}/.well-known/oauth-protected-resource`;
 	const algs = dpopConfig ? getDpopAlgs(ctx).join(" ") : undefined;
 
+	// MCP authorization spec: tell the client which scopes this endpoint needs (optional `scope` on a 401).
+	const needed = options.requiredScopes?.length ? options.requiredScopes.join(" ") : undefined;
 	const bearer = (extra: Record<string, string | undefined> = {}) =>
-		challenge("Bearer", { ...extra, resource_metadata: metadataUrl });
+		challenge("Bearer", { ...extra, resource_metadata: metadataUrl, scope: extra.scope ?? needed });
 	const dpop = (extra: Record<string, string | undefined> = {}) =>
-		challenge("DPoP", { ...extra, algs, resource_metadata: metadataUrl });
+		challenge("DPoP", {
+			...extra,
+			algs,
+			resource_metadata: metadataUrl,
+			scope: extra.scope ?? needed,
+		});
 	/** Every scheme this resource accepts, so the client can pick one. */
 	const offered = (extra: Record<string, string | undefined> = {}) =>
 		dpopConfig && requireDpop
@@ -207,6 +232,15 @@ export function requireMcpAuth(
 		});
 		if (!result.success) {
 			if (result.error.code === "SERVER_ERROR") {
+				// Revocation status could not be read: fail closed with 503 (retryable), never allow.
+				if (result.error.details?.unavailable === true) {
+					return failure({
+						status: 503,
+						error: "temporarily_unavailable",
+						description: result.error.message,
+						challenges: [],
+					});
+				}
 				return failure({
 					status: 500,
 					error: "server_error",
@@ -249,6 +283,8 @@ export function requireMcpAuth(
 				extra: { required_scopes: required, current_scopes: session.scopes },
 			});
 		}
+
+		throttleRevalidate(session, options.revalidateEveryMs);
 
 		return handler(request, {
 			userId: session.userId,

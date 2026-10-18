@@ -3,25 +3,19 @@
  * Edge-compatible, no Node.js `crypto` module required. This binds the signature to a point in time so consumers can reject replays outside their tolerance window.
  */
 
-function toHex(bytes: Uint8Array): string {
-	return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
+import type { SecretRingConfig } from "../crypto/secrets.js";
+import { DEFAULT_MIN_SECRET_BYTES, SecretRing } from "../crypto/secrets.js";
+import { fromHex, toHex } from "../crypto/web-crypto.js";
 
-async function importHmacKey(secret: string): Promise<CryptoKey> {
-	const enc = new TextEncoder();
-	return crypto.subtle.importKey(
-		"raw",
-		enc.encode(secret),
-		{ name: "HMAC", hash: "SHA-256" },
-		false,
-		["sign", "verify"],
-	);
-}
-
-async function computeHmac(key: CryptoKey, message: string): Promise<string> {
-	const enc = new TextEncoder();
-	const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
-	return toHex(new Uint8Array(sig));
+/**
+ * Build the ring for a webhook secret. A plain string keeps the historical rules (any non-empty secret) so existing endpoints keep working. The array and `{ id, secret }` forms are the rotation API and enforce the 32 byte minimum.
+ */
+export function webhookSecretRing(secret: SecretRingConfig | SecretRing): SecretRing {
+	if (secret instanceof SecretRing) return secret;
+	return new SecretRing(secret, {
+		label: "Webhooks",
+		minBytes: typeof secret === "string" ? 1 : DEFAULT_MIN_SECRET_BYTES,
+	});
 }
 
 export interface WebhookHeaders {
@@ -29,24 +23,26 @@ export interface WebhookHeaders {
 	"X-TheAuth-Timestamp": string;
 	"X-TheAuth-Event": string;
 	"X-TheAuth-Delivery-Id": string;
+	/** Present only when the current signing key was configured with an `id`. Receivers try that key first. */
+	"X-TheAuth-Key-Id"?: string;
 }
 
-/** Generate all four required webhook headers for a single delivery. */
+/** Generate the webhook headers for a single delivery. Signs with the first (current) secret of a ring. */
 export async function buildWebhookHeaders(
-	secret: string,
+	secret: SecretRingConfig | SecretRing,
 	rawBody: string,
 	event: string,
 	deliveryId: string,
 	timestamp: string,
 ): Promise<WebhookHeaders> {
-	const key = await importHmacKey(secret);
-	const hex = await computeHmac(key, `${timestamp}.${rawBody}`);
+	const { signature, kid } = await webhookSecretRing(secret).sign(`${timestamp}.${rawBody}`);
 
 	return {
-		"X-TheAuth-Signature": `sha256=${hex}`,
+		"X-TheAuth-Signature": `sha256=${toHex(signature)}`,
 		"X-TheAuth-Timestamp": timestamp,
 		"X-TheAuth-Event": event,
 		"X-TheAuth-Delivery-Id": deliveryId,
+		...(kid === undefined ? {} : { "X-TheAuth-Key-Id": kid }),
 	};
 }
 
@@ -70,6 +66,7 @@ export function currentTimestamp(): string {
  * import { verify } from '@glinr/theauth/webhook';
  *
  * const ok = await verify({
+ *   // During a rotation pass [newSecret, oldSecret].
  *   secret: process.env.WEBHOOK_SECRET,
  *   rawBody: await request.text(),
  *   signature: request.headers.get('X-TheAuth-Signature') ?? '',
@@ -83,9 +80,13 @@ export async function verify({
 	rawBody,
 	signature,
 	timestamp,
+	keyId,
 	maxAgeSeconds = 300,
 }: {
-	secret: string;
+	/** One secret, or `[current, ...previous]` so deliveries signed before a rotation still verify. */
+	secret: SecretRingConfig | SecretRing;
+	/** Value of `X-TheAuth-Key-Id`, when present. Only changes which key is tried first. */
+	keyId?: string;
 	rawBody: string;
 	signature: string;
 	timestamp: string;
@@ -98,17 +99,7 @@ export async function verify({
 	if (age > maxAgeSeconds || age < -60) return false;
 
 	if (!signature.startsWith("sha256=")) return false;
-	const key = await importHmacKey(secret);
-	const expectedHex = await computeHmac(key, `${timestamp}.${rawBody}`);
-	const expected = `sha256=${expectedHex}`;
-
-	if (expected.length !== signature.length) return false;
-	const enc = new TextEncoder();
-	const a = enc.encode(expected);
-	const b = enc.encode(signature);
-	let diff = 0;
-	for (let i = 0; i < a.length; i++) {
-		diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
-	}
-	return diff === 0;
+	const hex = signature.slice("sha256=".length);
+	if (!/^[0-9a-f]{64}$/i.test(hex)) return false;
+	return webhookSecretRing(secret).verify(`${timestamp}.${rawBody}`, fromHex(hex), keyId);
 }

@@ -1,17 +1,10 @@
-import type { AdapterSecurityOptions, TheAuth } from "@glinr/theauth";
-import { createAdapterGuard } from "@glinr/theauth";
-import type { McpAuthModule } from "@glinr/theauth/mcp";
+import type { TheAuth } from "@glinr/theauth";
+import type { TheAuthHandlerOptions } from "@glinr/theauth/http";
+import { createTheAuthHandler } from "@glinr/theauth/http";
 import type { APIRoute } from "astro";
-import { dispatch } from "./dispatch.js";
 
-export interface TheAuthAstroOptions extends AdapterSecurityOptions {
-	mcp?: McpAuthModule;
-	/** URL path prefix before the catch-all segment. Defaults to `/api/theauth`. */
-	basePath?: string;
-}
-
-/** @deprecated Use `TheAuthAstroOptions` instead. Will be removed in a future major version. */
-export type AuthAstroOptions = TheAuthAstroOptions;
+/** Same options as the core handler: `mcp`, `basePath`, `routes`, `maxBodyBytes` plus the shared security options. */
+export type TheAuthAstroOptions = TheAuthHandlerOptions;
 
 export interface TheAuthAstroHandlers {
 	GET: APIRoute;
@@ -22,50 +15,20 @@ export interface TheAuthAstroHandlers {
 	ALL: APIRoute;
 }
 
-/** @deprecated Use `TheAuthAstroHandlers` instead. Will be removed in a future major version. */
-export type AuthAstroHandlers = TheAuthAstroHandlers;
-
 /**
  * Create Astro API route handlers for all TheAuth REST API routes.
- *
  * Mount in `src/pages/api/theauth/[...path].ts`:
  *
  * @example
  * ```typescript
- * import { createTheAuth } from '@glinr/theauth';
- * import { theAuthAstro } from '@glinr/theauth-astro';
- *
- * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
- * const handlers = theAuthAstro(auth);
- *
- * export const GET = handlers.GET;
- * export const POST = handlers.POST;
- * export const PATCH = handlers.PATCH;
- * export const DELETE = handlers.DELETE;
- * export const OPTIONS = handlers.OPTIONS;
- * ```
- *
- * Or use the catch-all handler:
- * ```typescript
- * export const ALL = handlers.ALL;
- * ```
- *
- * With MCP OAuth 2.1:
- * ```typescript
- * import { createMcpModule } from '@glinr/theauth/mcp';
- * const mcp = createMcpModule({ ... });
  * const handlers = theAuthAstro(auth, { mcp });
+ * export const ALL = handlers.ALL;
  * ```
  */
 export function theAuthAstro(auth: TheAuth, options?: TheAuthAstroOptions): TheAuthAstroHandlers {
-	const mcp = options?.mcp;
-	const basePath = options?.basePath ?? "/api/theauth";
-	// Fails closed at construction when nothing can authenticate callers.
-	const guard = createAdapterGuard(auth, options, "theAuthAstro");
-
-	// The Astro context already hands over a Web API Request, so it goes straight to dispatch.
-	const handler: APIRoute = ({ request }) => dispatch(request, auth, mcp, basePath, guard);
-
+	const handle = createTheAuthHandler(auth, options);
+	// Astro already hands over a Web API Request.
+	const handler: APIRoute = ({ request }) => handle(request);
 	return {
 		GET: handler,
 		POST: handler,
@@ -75,6 +38,3 @@ export function theAuthAstro(auth: TheAuth, options?: TheAuthAstroOptions): TheA
 		ALL: handler,
 	};
 }
-
-/** @deprecated Use `theAuthAstro` instead. Will be removed in a future major version. */
-export const authAstro = theAuthAstro;

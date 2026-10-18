@@ -5,7 +5,7 @@ import { bold, green, yellow } from "kolorist";
 import { scaffold } from "./scaffold.js";
 
 type PackageManager = "pnpm" | "npm" | "yarn" | "bun";
-type DbDriver = "sql.js" | "pg";
+type DbDriver = "better-sqlite3" | "pg";
 type Template = "next-saas" | "hono-mcp" | "cloudflare-workers" | "expo-mobile";
 
 function detectPackageManager(): PackageManager {
@@ -17,7 +17,7 @@ function detectPackageManager(): PackageManager {
 }
 
 function defaultDbUrl(driver: DbDriver): string {
-	if (driver === "sql.js") return "./theauth.db";
+	if (driver === "better-sqlite3") return "./theauth.db";
 	return "";
 }
 
@@ -32,13 +32,15 @@ function printNextSteps(targetDir: string, pm: PackageManager, template: Templat
 	const runCmd = pm === "npm" ? "npm run" : pm;
 	const envStep =
 		template === "cloudflare-workers"
-			? `cp .dev.vars.example .dev.vars   # then fill in SESSION_SECRET`
-			: `cp .env.example .env   # then fill in THEAUTH_SECRET`;
+			? `# .dev.vars was created with a generated SESSION_SECRET`
+			: `# .env was created with generated secrets (gitignored)`;
 	const steps = [`cd ${rel}`, `${pm} install`, envStep];
 	if (template === "next-saas") {
 		steps.push(`${runCmd} db:push`);
 	}
 	steps.push(`${runCmd} dev`);
+	if (template === "hono-mcp")
+		steps.push(`${runCmd} doctor   # checks the setup, add --live to probe the server`);
 	if (template === "next-saas") {
 		steps.push("", "Optional: sign-in UI as source you own", "npx @glinr/theauth-cli add sign-in");
 	}
@@ -103,11 +105,15 @@ export async function main(): Promise<void> {
 
 			dbDriver: ({ results }) =>
 				results.template === "cloudflare-workers"
-					? Promise.resolve("sql.js" as DbDriver)
+					? Promise.resolve("better-sqlite3" as DbDriver)
 					: p.select<DbDriver>({
 							message: "Database",
 							options: [
-								{ value: "sql.js", label: "SQLite", hint: "local · zero config" },
+								{
+									value: "better-sqlite3",
+									label: "SQLite",
+									hint: "local file · survives restarts",
+								},
 								{ value: "pg", label: "Postgres", hint: "pg driver · set DATABASE_URL" },
 							],
 						}),

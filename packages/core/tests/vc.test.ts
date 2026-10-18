@@ -22,7 +22,7 @@ async function createTestIssuer() {
 	return { issuer, keyPair };
 }
 
-describe("VC issuance – agent credential", () => {
+describe("VC issuance: agent credential", () => {
 	it("issues a credential with all agent fields", async () => {
 		const { issuer } = await createTestIssuer();
 		const result = await issuer.issueAgentCredential({
@@ -118,7 +118,7 @@ describe("VC issuance – agent credential", () => {
 	});
 });
 
-describe("VC issuance – permission credential", () => {
+describe("VC issuance: permission credential", () => {
 	it("issues a permission credential with permissions array", async () => {
 		const { issuer } = await createTestIssuer();
 		const result = await issuer.issuePermissionCredential({
@@ -156,7 +156,7 @@ describe("VC issuance – permission credential", () => {
 	});
 });
 
-describe("VC issuance – delegation credential", () => {
+describe("VC issuance: delegation credential", () => {
 	it("issues a delegation credential with chain", async () => {
 		const { issuer } = await createTestIssuer();
 		const result = await issuer.issueDelegationCredential({
@@ -215,7 +215,7 @@ describe("VC issuance – delegation credential", () => {
 	});
 });
 
-describe("VC verification – JWT format", () => {
+describe("VC verification: JWT format", () => {
 	it("verifies a valid JWT credential", async () => {
 		const { issuer, keyPair } = await createTestIssuer();
 		const issueResult = await issuer.issueAgentCredential({
@@ -329,7 +329,7 @@ describe("VC verification – JWT format", () => {
 	});
 });
 
-describe("VC verification – JSON-LD format", () => {
+describe("VC verification: JSON-LD format", () => {
 	it("verifies a valid JSON-LD credential with embedded proof", async () => {
 		const { issuer, keyPair } = await createTestIssuer();
 		const issueResult = await issuer.issueAgentCredential({
@@ -416,7 +416,7 @@ describe("VC verification – JSON-LD format", () => {
 	});
 });
 
-describe("VC verification – presentations", () => {
+describe("VC verification: presentations", () => {
 	it("verifies a presentation with multiple credentials", async () => {
 		const { issuer, keyPair } = await createTestIssuer();
 

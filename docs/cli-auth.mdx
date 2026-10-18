@@ -18,7 +18,7 @@ The device flow lets a program with no browser (a CLI, a headless agent, an MCP 
 import { createTheAuth, deviceAuth } from "@glinr/theauth";
 
 const theauth = await createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   secondaryStorage: "database", // device codes must survive restarts and reach every instance
   plugins: [deviceAuth({ verificationUri: "https://app.example.com/device" })],

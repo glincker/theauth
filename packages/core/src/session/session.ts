@@ -24,9 +24,19 @@ import { jwtVerify, SignJWT } from "jose";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
+import type { SessionActivityConfig, SessionInvalidReason } from "./activity.js";
+import {
+	LAST_ACTIVE_KEY,
+	REMEMBER_ME_KEY,
+	resolveSessionActivity,
+	splitMetadata,
+} from "./activity.js";
+import { assertUserNotBanned } from "./banned.js";
 import { MultiSessionLimitError } from "./multi-session.js";
 
-export interface SessionConfig {
+export type { SessionInvalidReason } from "./activity.js";
+
+export interface SessionConfig extends SessionActivityConfig {
 	/** Signing secret for session tokens. Must be at least 32 characters. */
 	secret: string;
 	/** Session lifetime in seconds. Default: 604800 (7 days). */
@@ -47,11 +57,21 @@ export interface Session {
 	expiresAt: Date;
 	createdAt: Date;
 	metadata?: Record<string, unknown>;
+	/** Last recorded activity. Set only when `idleTimeoutMs` is on. Written at most once per `activityGranularityMs`. */
+	lastActiveAt?: Date;
+	/** Set when the session was created with an explicit `rememberMe` choice. */
+	rememberMe?: boolean;
 }
+
+export type SessionValidation =
+	| { session: Session; reason?: undefined }
+	| { session: null; reason: SessionInvalidReason };
 
 export interface CreateSessionOptions {
 	/** A session this one replaces (refresh). It is ignored when `maxConcurrent` is applied, so a refresh at the cap does not evict another device. */
 	replacing?: string;
+	/** `true` gives the session the longer `rememberMeMaxAge` lifetime (capped by `rememberMeMaxAgeCap`). `false` keeps the normal lifetime and records that the cookie should be a browser session cookie. Unset keeps the legacy behavior. */
+	rememberMe?: boolean;
 }
 
 export interface SessionManager {
@@ -64,6 +84,9 @@ export interface SessionManager {
 
 	/** Validates a session token: verifies the JWT and checks that the database record exists. */
 	validate(token: string): Promise<Session | null>;
+
+	/** Like `validate`, but says why a token was refused: `invalid_token`, `not_found`, `expired` or `idle_timeout`. An idle session is deleted, so it cannot come back. */
+	validateDetailed(token: string): Promise<SessionValidation>;
 
 	/** Revokes a single session by ID. The row is deleted, so its token stops working. */
 	revoke(sessionId: string): Promise<void>;
@@ -84,6 +107,7 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 	}
 
 	const maxAge = config.maxAge ?? DEFAULT_MAX_AGE_SECONDS;
+	const activity = resolveSessionActivity(config);
 	const keyObject = new TextEncoder().encode(config.secret);
 	const maxConcurrent =
 		config.maxConcurrent !== undefined && config.maxConcurrent >= 1
@@ -98,12 +122,15 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 		createdAt: Date;
 		metadata: Record<string, unknown> | null;
 	}): Session {
+		const split = splitMetadata(row.metadata);
 		return {
 			id: row.id,
 			userId: row.userId,
 			expiresAt: row.expiresAt,
 			createdAt: row.createdAt,
-			...(row.metadata !== null && { metadata: row.metadata }),
+			...(split.metadata !== undefined && { metadata: split.metadata }),
+			...(split.lastActiveAt !== undefined && { lastActiveAt: new Date(split.lastActiveAt) }),
+			...(split.rememberMe !== undefined && { rememberMe: split.rememberMe }),
 		};
 	}
 
@@ -213,23 +240,33 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 		metadata?: Record<string, unknown>,
 		options?: CreateSessionOptions,
 	): Promise<{ session: Session; token: string }> {
+		await assertUserNotBanned(db, userId);
 		await enforceLimit(userId, metadata, options?.replacing);
 		const id = generateId();
-		const now = new Date();
-		const expiresAt = new Date(now.getTime() + maxAge * 1000);
+		const nowMs = activity.now();
+		const now = new Date(nowMs);
+		const split = splitMetadata(metadata);
+		const rememberMe = options?.rememberMe ?? split.rememberMe;
+		const lifetime = rememberMe === true ? activity.rememberMeSeconds : maxAge;
+		const expiresAt = new Date(nowMs + lifetime * 1000);
+		const stored: Record<string, unknown> = {
+			...(split.metadata ?? {}),
+			...(rememberMe !== undefined && { [REMEMBER_ME_KEY]: rememberMe }),
+			...(activity.idleTimeoutMs !== undefined && { [LAST_ACTIVE_KEY]: nowMs }),
+		};
 
 		await db.insert(sessions).values({
 			id,
 			userId,
 			expiresAt,
-			metadata: metadata ?? null,
+			metadata: Object.keys(stored).length > 0 ? stored : null,
 			createdAt: now,
 		});
 		await reconcileLimit(userId, id, metadata, options?.replacing);
 
 		const token = await new SignJWT({ sub: id })
 			.setProtectedHeader({ alg: "HS256" })
-			.setIssuedAt()
+			.setIssuedAt(Math.floor(nowMs / 1000))
 			.setExpirationTime(Math.floor(expiresAt.getTime() / 1000))
 			.sign(keyObject);
 
@@ -238,41 +275,80 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			userId,
 			expiresAt,
 			createdAt: now,
-			...(metadata !== undefined && { metadata }),
+			...(split.metadata !== undefined && { metadata: split.metadata }),
+			...(activity.idleTimeoutMs !== undefined && { lastActiveAt: now }),
+			...(rememberMe !== undefined && { rememberMe }),
 		};
 
 		return { session, token };
 	}
 
-	async function validate(token: string): Promise<Session | null> {
+	async function validateDetailed(token: string): Promise<SessionValidation> {
 		let sessionId: string;
 
 		try {
-			const { payload } = await jwtVerify(token, keyObject);
-			if (typeof payload.sub !== "string" || !payload.sub) return null;
+			const { payload } = await jwtVerify(token, keyObject, {
+				currentDate: new Date(activity.now()),
+			});
+			if (typeof payload.sub !== "string" || !payload.sub) {
+				return { session: null, reason: "invalid_token" };
+			}
 			sessionId = payload.sub;
 		} catch {
-			return null;
+			return { session: null, reason: "invalid_token" };
 		}
 
-		const now = new Date();
-
+		const nowMs = activity.now();
 		const rows = await db
 			.select()
 			.from(sessions)
 			.where(and(eq(sessions.id, sessionId)));
 
 		const row = rows[0];
-		if (!row) return null;
+		if (!row) return { session: null, reason: "not_found" };
 
 		// Belt-and-suspenders: also check DB expiry (token expiry is the same but
 		// allows for clock skew during revokeAll / manual deletion flows).
-		if (row.expiresAt <= now) {
+		if (row.expiresAt.getTime() <= nowMs) {
 			await db.delete(sessions).where(eq(sessions.id, sessionId));
-			return null;
+			return { session: null, reason: "expired" };
 		}
 
-		return rowToSession(row);
+		const session = rowToSession(row);
+		const idle = activity.idleTimeoutMs;
+		if (idle === undefined) return { session };
+
+		// A session with no stamp predates idle tracking: treat it as active now
+		// instead of killing every live session the moment the feature is enabled.
+		const last = session.lastActiveAt?.getTime();
+		if (last !== undefined && nowMs - last >= idle) {
+			await db.delete(sessions).where(eq(sessions.id, sessionId));
+			await notifyRevoked([session]);
+			return { session: null, reason: "idle_timeout" };
+		}
+		if (last === undefined || nowMs - last >= activity.granularityMs) {
+			return { session: await touch(sessionId, session, nowMs) };
+		}
+		return { session };
+	}
+
+	/** Records activity. Best effort: a failed write never denies a valid session. Re-reads the row so a metadata write made since validation is not overwritten. */
+	async function touch(sessionId: string, session: Session, nowMs: number): Promise<Session> {
+		try {
+			const fresh = (await db.select().from(sessions).where(eq(sessions.id, sessionId)))[0];
+			if (!fresh) return session;
+			await db
+				.update(sessions)
+				.set({ metadata: { ...(fresh.metadata ?? {}), [LAST_ACTIVE_KEY]: nowMs } })
+				.where(eq(sessions.id, sessionId));
+			return { ...session, lastActiveAt: new Date(nowMs) };
+		} catch {
+			return session;
+		}
+	}
+
+	async function validate(token: string): Promise<Session | null> {
+		return (await validateDetailed(token)).session;
 	}
 
 	async function revoke(sessionId: string): Promise<void> {
@@ -305,5 +381,5 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			.map(rowToSession);
 	}
 
-	return { create, validate, revoke, revokeAll, list };
+	return { create, validate, validateDetailed, revoke, revokeAll, list };
 }

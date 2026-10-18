@@ -50,7 +50,7 @@ describe("createFigmaProvider", () => {
 	});
 });
 
-describe("createFigmaProvider — getAuthorizationUrl", () => {
+describe("createFigmaProvider: getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and PKCE S256", async () => {
 		const provider = createFigmaProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
 		const url = await provider.getAuthorizationUrl("state-abc", CODE_VERIFIER, REDIRECT_URI);

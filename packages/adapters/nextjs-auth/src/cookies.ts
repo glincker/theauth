@@ -1,24 +1,33 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { NextResponse } from "next/server";
+import { getConfigSecret } from "./config.js";
+import {
+	isHttpsForwarded,
+	REFRESH_MAX_AGE_S,
+	readAuthCookie,
+	sessionCookieAttrs,
+} from "./cookie-options.js";
+import { createCsrfToken } from "./csrf.js";
+import { decodeSessionCache, encodeSessionCache } from "./session-cache-codec.js";
+import { createSessionMarker } from "./session-marker.js";
 import type { ResolvedAuthConfig, SessionCacheEntry } from "./types.js";
 
-/** Returns the session access token, checking prefixed + unprefixed names. */
-export async function getSessionToken<TUser>(config: ResolvedAuthConfig<TUser>): Promise<string> {
-	const store = await cookies();
-	// Always check both __Host- variant and plain variant for migration safety.
-	const prefixedName = `__Host-${config.cookies.sessionPrefix}-token`;
-	const plainName = `${config.cookies.sessionPrefix}-token`;
-	return store.get(prefixedName)?.value ?? store.get(plainName)?.value ?? "";
+function storeGetter(
+	store: Awaited<ReturnType<typeof cookies>>,
+): (name: string) => string | undefined {
+	return (name) => store.get(name)?.value;
 }
 
-/** Returns the CSRF token, checking prefixed + unprefixed names. */
+/** Returns the session access token. See readAuthCookie for the `__Host-` / plain name rules. */
+export async function getSessionToken<TUser>(config: ResolvedAuthConfig<TUser>): Promise<string> {
+	return readAuthCookie(storeGetter(await cookies()), config, "token");
+}
+
+/** Returns the CSRF cookie value (same name rules as the session token). */
 export async function getCsrfToken<TUser>(config: ResolvedAuthConfig<TUser>): Promise<string> {
-	const store = await cookies();
-	const prefixedName = `__Host-${config.cookies.sessionPrefix}-csrf`;
-	const plainName = `${config.cookies.sessionPrefix}-csrf`;
-	return store.get(prefixedName)?.value ?? store.get(plainName)?.value ?? "";
+	return readAuthCookie(storeGetter(await cookies()), config, "csrf");
 }
 
 /** Cheap check: does the request carry a session access token? */
@@ -27,52 +36,62 @@ export async function hasSessionCookie<TUser>(config: ResolvedAuthConfig<TUser>)
 	return token.length > 0;
 }
 
-// Session cache cookie (better-auth-inspired cookie cache)
+// Session cache cookie
 //
-// Instead of calling the backend on every RSC render, we store a lightweight
-// JSON blob {user, expiresAt, stampedAt} in a short-lived cookie. If the
-// cookie is fresher than cookieCacheMaxAgeMs we return it immediately.
+// Instead of calling the backend on every RSC render, we store a signed blob
+// {user, expiresAt, stampedAt} in a short-lived cookie. The value is HMAC-SHA256 signed with the
+// required config secret, bound to a hash of the current session token and to an expiry (see
+// session-cache-codec). Anything that fails verification, including legacy unsigned JSON from
+// 0.2.0 and earlier, is treated as "no cache" and getServerSession asks the backend instead.
 //
-// v0.1: plain JSON (no HMAC signing). The cookie is httpOnly+sameSite=lax so
-// it can only be set by the server: a passive attacker reading TLS can see
-// it but cannot forge it (they'd need the access token anyway). An active
-// MITM could poison it, but that already requires breaking TLS. v0.2 will
-// add HMAC-SHA256 signing for defence-in-depth.
-//
-// Tradeoff: session data (user id, email, name) is stored in a cookie. Any
-// code path that can read cookies will see this. For most apps this is
-// acceptable since the same information is in the JWT claims anyway.
+// The payload is signed, not encrypted: session data (user id, email, name) is readable by anyone
+// who can read the cookie. It is httpOnly, so page JavaScript cannot.
+
+async function requestIsHttps(): Promise<boolean> {
+	try {
+		const h = await headers();
+		return isHttpsForwarded(h.get("x-forwarded-proto"));
+	} catch {
+		return false;
+	}
+}
 
 export async function readSessionCache<TUser>(
 	config: ResolvedAuthConfig<TUser>,
 ): Promise<SessionCacheEntry<TUser> | null> {
 	if (config.cookieCacheMaxAgeMs === 0) return null;
+	const secret = getConfigSecret(config);
+	if (!secret) return null;
+	// A cache entry is only meaningful together with the session token it was issued for.
+	const token = await getSessionToken(config);
+	if (!token) return null;
 	const store = await cookies();
 	const raw = store.get(config.cookies.cacheName)?.value;
 	if (!raw) return null;
 	try {
-		const entry = JSON.parse(raw) as SessionCacheEntry<TUser>;
-		const age = Date.now() - entry.stampedAt;
-		if (age > config.cookieCacheMaxAgeMs) return null;
-		return entry;
+		return await decodeSessionCache<TUser>(secret, token, raw, config.cookieCacheMaxAgeMs);
 	} catch {
 		return null;
 	}
 }
 
+/** Writes the signed cache cookie, bound to `token`. Best-effort: never throws. */
 export async function writeSessionCache<TUser>(
 	config: ResolvedAuthConfig<TUser>,
 	entry: SessionCacheEntry<TUser>,
+	token: string,
 ): Promise<void> {
 	if (config.cookieCacheMaxAgeMs === 0) return;
+	const secret = getConfigSecret(config);
+	if (!secret || !token) return;
 	try {
+		const encoded = await encodeSessionCache(secret, token, entry, config.cookieCacheMaxAgeMs);
+		if (!encoded) return; // too large or already expired: skip rather than set a broken cookie
 		const store = await cookies();
-		store.set(config.cookies.cacheName, JSON.stringify(entry), {
-			httpOnly: true,
-			secure: config.isProd,
+		store.set(config.cookies.cacheName, encoded.value, {
+			...sessionCookieAttrs(config, await requestIsHttps()),
 			sameSite: "lax",
-			path: "/",
-			maxAge: Math.floor(config.cookieCacheMaxAgeMs / 1000),
+			maxAge: encoded.maxAgeS,
 		});
 	} catch {
 		// Silently fail if called from a Server Component (where cookie writes
@@ -83,7 +102,10 @@ export async function writeSessionCache<TUser>(
 export async function clearSessionCache<TUser>(config: ResolvedAuthConfig<TUser>): Promise<void> {
 	try {
 		const store = await cookies();
-		store.delete(config.cookies.cacheName);
+		store.set(config.cookies.cacheName, "", {
+			...sessionCookieAttrs(config, await requestIsHttps()),
+			maxAge: 0,
+		});
 	} catch {}
 }
 
@@ -91,25 +113,30 @@ export async function clearSessionCache<TUser>(config: ResolvedAuthConfig<TUser>
 
 interface SessionCookieValues {
 	accessToken: string;
-	csrfToken: string;
 	refreshToken?: string;
 }
 
-/** Sets all session cookies on a NextResponse: __Host- prefix in prod, plain names in dev. */
-export function setSessionCookies<TUser>(
+/**
+ * Sets all session cookies on a NextResponse: __Host- prefix in prod, plain names in dev. Also
+ * sets the signed middleware marker and a signed CSRF token bound to `accessToken`, and returns
+ * that CSRF token. Needs the secret from createAuthConfig, so it is async.
+ */
+export async function setSessionCookies<TUser>(
 	response: NextResponse,
-	{ accessToken, csrfToken, refreshToken }: SessionCookieValues,
+	{ accessToken, refreshToken }: SessionCookieValues,
 	config: ResolvedAuthConfig<TUser>,
-): void {
-	const sessionOpts = {
-		httpOnly: true,
-		secure: config.isProd,
-		sameSite: "lax" as const,
-		path: "/",
-		maxAge: 60 * 60 * 24 * 7, // 7 days
-	};
+): Promise<string> {
+	const secret = getConfigSecret(config);
+	if (!secret) throw new Error("[theauth-nextjs-auth] config was not created by createAuthConfig");
+	const sessionOpts = sessionCookieAttrs(config);
+	const csrfToken = await createCsrfToken(secret, accessToken);
 
 	response.cookies.set(config.cookies.sessionName, accessToken, sessionOpts);
+	response.cookies.set(
+		config.cookies.markerName,
+		await createSessionMarker(secret, accessToken),
+		sessionOpts,
+	);
 
 	// CSRF double-submit: httpOnly=false so JS can read and echo in X-CSRF-Token.
 	response.cookies.set(config.cookies.csrfName, csrfToken, {
@@ -120,9 +147,10 @@ export function setSessionCookies<TUser>(
 	if (refreshToken) {
 		response.cookies.set(config.cookies.refresh, refreshToken, {
 			...sessionOpts,
-			maxAge: 60 * 60 * 24 * 30, // 30 days
+			maxAge: REFRESH_MAX_AGE_S,
 		});
 	}
+	return csrfToken;
 }
 
 /** Clears all auth cookies on a NextResponse, both __Host- and plain variants, for clean migration. */
@@ -131,12 +159,23 @@ export function clearAllAuthCookies<TUser>(
 	config: ResolvedAuthConfig<TUser>,
 ): void {
 	const { sessionPrefix } = config.cookies;
-	response.cookies.delete(`__Host-${sessionPrefix}-token`);
-	response.cookies.delete(`${sessionPrefix}-token`);
-	response.cookies.delete(`__Host-${sessionPrefix}-csrf`);
-	response.cookies.delete(`${sessionPrefix}-csrf`);
-	response.cookies.set(config.cookies.refresh, "", { path: "/", maxAge: 0 });
-	response.cookies.set(config.cookies.cacheName, "", { path: "/", maxAge: 0 });
+	// Secure is required for the browser to accept an expiry of a __Host- cookie.
+	const expire = { path: "/", maxAge: 0, secure: config.secure, httpOnly: true } as const;
+	for (const name of [
+		`__Host-${sessionPrefix}-token`,
+		`${sessionPrefix}-token`,
+		`__Host-${sessionPrefix}-csrf`,
+		`${sessionPrefix}-csrf`,
+		`__Host-${sessionPrefix}-gate`,
+		`${sessionPrefix}-gate`,
+		config.cookies.refresh,
+		`__Host-${sessionPrefix}-refresh-token`,
+		`${sessionPrefix}-refresh-token`,
+		config.cookies.cacheName,
+		`${sessionPrefix}-session-cache`,
+	]) {
+		response.cookies.set(name, "", expire);
+	}
 }
 
 /** Clears session cookies via next/headers cookies() store (server actions). */
@@ -145,10 +184,20 @@ export async function clearAllAuthCookiesFromStore<TUser>(
 ): Promise<void> {
 	const store = await cookies();
 	const { sessionPrefix } = config.cookies;
-	store.delete(`__Host-${sessionPrefix}-token`);
-	store.delete(`${sessionPrefix}-token`);
-	store.delete(`__Host-${sessionPrefix}-csrf`);
-	store.delete(`${sessionPrefix}-csrf`);
-	store.delete(config.cookies.refresh);
-	store.delete(config.cookies.cacheName);
+	const expire = { path: "/", maxAge: 0, secure: config.secure, httpOnly: true } as const;
+	for (const name of [
+		`__Host-${sessionPrefix}-token`,
+		`${sessionPrefix}-token`,
+		`__Host-${sessionPrefix}-csrf`,
+		`${sessionPrefix}-csrf`,
+		`__Host-${sessionPrefix}-gate`,
+		`${sessionPrefix}-gate`,
+		config.cookies.refresh,
+		`__Host-${sessionPrefix}-refresh-token`,
+		`${sessionPrefix}-refresh-token`,
+		config.cookies.cacheName,
+		`${sessionPrefix}-session-cache`,
+	]) {
+		store.set(name, "", expire);
+	}
 }

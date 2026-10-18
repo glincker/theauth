@@ -259,7 +259,7 @@ describe("GitHub provider", () => {
 
 // OAuth module, state management
 
-describe("createOAuthModule — state management", () => {
+describe("createOAuthModule: state management", () => {
 	let db: Database;
 
 	beforeEach(async () => {
@@ -369,7 +369,7 @@ describe("createOAuthModule — state management", () => {
 
 // OAuth module, callback and account management
 
-describe("createOAuthModule — handleCallback", () => {
+describe("createOAuthModule: handleCallback", () => {
 	let db: Database;
 
 	beforeEach(async () => {
@@ -450,7 +450,7 @@ describe("createOAuthModule — handleCallback", () => {
 
 // OAuth module, linkAccount and findLinkedUser
 
-describe("createOAuthModule — linkAccount / findLinkedUser", () => {
+describe("createOAuthModule: linkAccount / findLinkedUser", () => {
 	let db: Database;
 
 	beforeEach(async () => {

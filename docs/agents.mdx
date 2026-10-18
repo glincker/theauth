@@ -21,7 +21,7 @@ const agent = await theauth.agent.create({
   ],
 });
 
-// agent.token is a kv_... bearer, shown once, hashed at rest
+// agent.token is a ta_... bearer, shown once, hashed at rest
 console.log(agent.token);
 ```
 </Columns>
@@ -29,13 +29,13 @@ console.log(agent.token);
 ## Anatomy
 
 <ParamField path="id" type="string">Stable identifier (a UUID). Never changes.</ParamField>
-<ParamField path="token" type="string">Bearer token with a `kv_` prefix. Shown once at creation, then SHA-256 hashed. Rotate to replace.</ParamField>
+<ParamField path="token" type="string">Bearer token with a `ta_` prefix (legacy `kv_` tokens are still accepted). Shown once at creation, then SHA-256 hashed. Rotate to replace.</ParamField>
 <ParamField path="permissions" type="Permission[]">What this agent is allowed to do. Evaluated at every `authorize()` call.</ParamField>
 <ParamField path="status" type="'active' | 'revoked' | 'expired'">Current state. Revocation is permanent.</ParamField>
-<ParamField path="ownerId" type="string">The user who owns this agent. Must match an existing row in `theauth_users` (foreign key).</ParamField>
+<ParamField path="ownerId" type="string">The user who owns this agent. Must match an existing row in `theauth_users` (foreign key). Create the row with `theauth.user.create({ id, email })`.</ParamField>
 <ParamField path="name" type="string">Human-readable label.</ParamField>
 <ParamField path="type" type="'autonomous' | 'delegated' | 'service'">Determines how the agent acquires and uses permissions.</ParamField>
-<ParamField path="expiresAt" type="Date" default="now + agents.tokenExpiry (24h)">Optional at creation; when omitted it defaults to `agents.tokenExpiry` from now. Token validation (`authorizeByToken`) rejects an expired agent and flips its `status` to `expired`. `authorize(agentId)` only checks `status`, so it does not notice an elapsed `expiresAt` until the agent has been marked expired.</ParamField>
+<ParamField path="expiresAt" type="Date" default="now + agents.tokenExpiry (24h)">Optional at creation; when omitted it defaults to `agents.tokenExpiry` from now. Token validation (`authorizeByToken`) rejects an expired agent and flips its `status` to `expired`. `authorize(agentId)` also compares `expiresAt` to the clock, so an elapsed agent is denied with code `agent_expired` (and an audit row) even before its stored `status` flips.</ParamField>
 <ParamField path="metadata" type="Record<string, unknown>" default="{}">Arbitrary key/value pairs for your own use.</ParamField>
 
 ## Agent types
@@ -70,7 +70,7 @@ const agent = await theauth.agent.create({
   metadata: { purpose: 'nightly PR review' },
 });
 
-console.log(agent.token); // kv_..., only shown here
+console.log(agent.token); // ta_..., only shown here
 ```
 
 <Warning>
@@ -81,10 +81,10 @@ The token is returned once at creation. theAuth stores only the SHA-256 hash, so
 
 <Step title="Authenticate">
 
-Tokens use the `kv_` prefix followed by 32 random bytes encoded as base64url (43 characters, 46 in total). Pass as a Bearer credential:
+Tokens use the `ta_` prefix followed by 32 random bytes encoded as base64url (43 characters, 46 in total). Pass as a Bearer credential:
 
 ```http
-Authorization: Bearer kv_a3f8c2e1d4b5...
+Authorization: Bearer ta_a3f8c2e1d4b5...
 ```
 
 <Tip>
@@ -92,6 +92,7 @@ Hash-only storage: a full database dump cannot reveal an active token. There are
 </Tip>
 
 </Step>
+
 
 <Step title="Authorize">
 
@@ -159,9 +160,9 @@ await theauth.agent.revoke(agentId);
 // The agent's token is rejected immediately
 ```
 
-Each attempt by a revoked or expired agent is still written to the audit log as a denied row with the reason `agent_revoked` or `agent_expired`. See [what gets recorded](/audit-trail#what-gets-recorded). `policy.evaluate()` denies a revoked, suspended or expired agent with `POLICY_AGENT_INACTIVE`. This check is pending in a changeset and is available in the next release after 1.1.2. Before it, `evaluate()` took an agent id directly and did not read the agent's status.
+Each attempt by a revoked or expired agent is still written to the audit log as a denied row with the reason `agent_revoked` or `agent_expired`. See [what gets recorded](/audit-trail#what-gets-recorded). `policy.evaluate()` denies a revoked, suspended or expired agent with `POLICY_AGENT_INACTIVE`.
 
-In the TypeScript package, `agent.revoke()` also revokes every active delegation chain the agent gave or received, and the chains downstream of them. The call returns `{ revokedDelegations }` with the chain ids, writes one `agent.cascade.revoked` audit row, and fires `onAgentRevoke`. The cascade is pending in a changeset and is available in the next release after 1.1.2. Before it, `agent.revoke()` did not touch delegation chains.
+In the TypeScript package, `agent.revoke()` also revokes every active delegation chain the agent gave or received, and the chains downstream of them. The call returns `{ revokedDelegations }` with the chain ids, writes one `agent.cascade.revoked` audit row, and fires `onAgentRevoke`.
 
 <Warning>
 Revocation is permanent. There is no un-revoke. To restore access, create a new agent.
@@ -171,13 +172,45 @@ Revocation is permanent. There is no un-revoke. To restore access, create a new 
 
 </Steps>
 
+## Token format
+
+New agent tokens look like `ta_` followed by 43 base64url characters (32 random bytes, 46 characters in total). The first 11 characters are stored as a non-secret lookup prefix; the rest is only ever stored as a SHA-256 hash.
+
+Tokens issued by earlier releases start with `kv_` (the old kavachOS name). They are still accepted everywhere, and their stored rows are not rewritten, so no migration is needed. Nothing new is issued with `kv_`.
+
+To move an agent off a legacy token, rotate it. The old token stops working at once and the new one starts with `ta_`:
+
+```typescript
+const rotated = await auth.agent.rotate(agent.id);
+console.log(rotated.token); // ta_..., shown once
+```
+
+### Secret scanning
+
+Use this regex for GitHub secret scanning custom patterns and gitleaks. It matches both the current and the legacy prefix. The final character is limited to the 16 values a 32 byte base64url string can end with.
+
+```text
+\b(?:ta|kv)_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]\b
+```
+
+A gitleaks rule:
+
+```toml
+[[rules]]
+id = "theauth-agent-token"
+description = "theAuth agent token"
+regex = '''\b(?:ta|kv)_[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]\b'''
+keywords = ["ta_", "kv_"]
+```
+
+
 ## Limits
 
 The default is 10 active agents per user. Raise at initialization:
 
 ```ts
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   agents: {
     enabled: true,
     maxPerUser: 50,

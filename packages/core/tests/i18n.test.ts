@@ -41,7 +41,7 @@ describe("variable interpolation", () => {
 		const i18n = createI18n({
 			translations: {
 				en: {
-					"email.invitation.subject": "Join {{orgName}} — invited by {{inviter}}",
+					"email.invitation.subject": "Join {{orgName}}: invited by {{inviter}}",
 				},
 			},
 		});
@@ -49,7 +49,7 @@ describe("variable interpolation", () => {
 			orgName: "Acme",
 			inviter: "Alice",
 		});
-		expect(result).toBe("Join Acme — invited by Alice");
+		expect(result).toBe("Join Acme: invited by Alice");
 	});
 
 	it("leaves unknown placeholders intact", () => {
@@ -84,7 +84,7 @@ describe("custom locale", () => {
 		expect(i18n.t("auth.invalidCredentials", "pt")).toBe("E-mail ou senha inválidos.");
 	});
 
-	it("partially overrides English — missing keys fall back to English", () => {
+	it("partially overrides English: missing keys fall back to English", () => {
 		const i18n = createI18n({
 			translations: {
 				pt: {

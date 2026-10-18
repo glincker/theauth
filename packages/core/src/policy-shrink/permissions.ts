@@ -9,11 +9,17 @@ const INTERNAL_ACTIONS = new Set([
 	"delegation.create",
 	"approval.request",
 ]);
+const INTERNAL_EVENTS = new Set(["delegation.create", "delegation.revoke"]);
 const NO_GRANT_PREFIX = "No permission grants";
 
 /** Classify an audit row for usage analysis. */
 export function classifyRow(row: DecisionRow): RowClass {
-	if (row.action.startsWith("audit.") || INTERNAL_ACTIONS.has(row.action)) return "internal";
+	if (
+		row.action.startsWith("audit.") ||
+		INTERNAL_ACTIONS.has(row.action) ||
+		(row.event != null && INTERNAL_EVENTS.has(row.event))
+	)
+		return "internal";
 	if (row.result === "allowed") return "allow";
 	if (
 		row.result === "denied" &&

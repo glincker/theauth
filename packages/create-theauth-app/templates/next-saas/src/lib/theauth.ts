@@ -4,14 +4,25 @@ import { createTheAuth } from "@glinr/theauth";
 // time. Import `getTheAuth()` from your server components or route handlers.
 let instance: Awaited<ReturnType<typeof createTheAuth>> | null = null;
 
+const DRIVER = "__DB_DRIVER__" as string;
+// SQLite uses a file on disk (better-sqlite3), so data survives restarts.
+const PROVIDER = DRIVER === "pg" ? "postgres" : DRIVER === "sql.js" ? "sqlite" : "sqlite-native";
+
+function requireSecret(): string {
+	const value = process.env["THEAUTH_SECRET"];
+	if (!value) throw new Error("THEAUTH_SECRET is not set. Fill it in .env.");
+	return value;
+}
+
 export async function getTheAuth() {
 	if (!instance) {
+		const secret = requireSecret();
 		instance = await createTheAuth({
 			database: {
-				provider: "__DB_DRIVER__" === "pg" ? "postgres" : "sqlite",
+				provider: PROVIDER,
 				url: process.env["DATABASE_URL"] ?? "./theauth.db",
 			},
-			secret: process.env["THEAUTH_SECRET"] ?? "dev-secret-change-me-at-least-32-chars",
+			secret,
 			// Sessions are what the API routes use to tell who is calling. The
 			// theAuthNextjs adapter rejects /agents, /audit and the other
 			// management routes unless the caller has a valid session. Any
@@ -19,7 +30,7 @@ export async function getTheAuth() {
 			// adapter if only admins should reach them.
 			auth: {
 				session: {
-					secret: process.env["THEAUTH_SECRET"] ?? "dev-secret-change-me-at-least-32-chars",
+					secret,
 				},
 			},
 		});

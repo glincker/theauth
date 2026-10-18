@@ -57,7 +57,7 @@ describe("requestCode", () => {
 
 // checkAuthorization, initial state
 
-describe("checkAuthorization — initial state", () => {
+describe("checkAuthorization: initial state", () => {
 	it("returns pending for a newly issued code", async () => {
 		const mod = createDeviceAuthModule(BASE_CONFIG);
 		const { deviceCode } = await mod.requestCode();
@@ -162,7 +162,7 @@ describe("deny", () => {
 
 // handleRequest, POST /auth/device/code
 
-describe("handleRequest — POST /auth/device/code", () => {
+describe("handleRequest: POST /auth/device/code", () => {
 	it("returns RFC 8628 snake_case fields", async () => {
 		const mod = createDeviceAuthModule(BASE_CONFIG);
 		const req = new Request("https://example.com/auth/device/code", { method: "POST" });
@@ -180,7 +180,7 @@ describe("handleRequest — POST /auth/device/code", () => {
 
 // handleRequest, POST /auth/device/token
 
-describe("handleRequest — POST /auth/device/token", () => {
+describe("handleRequest: POST /auth/device/token", () => {
 	it("returns authorization_pending while code is pending", async () => {
 		const mod = createDeviceAuthModule(BASE_CONFIG);
 		const { deviceCode } = await mod.requestCode();
@@ -267,7 +267,7 @@ describe("handleRequest — POST /auth/device/token", () => {
 
 // handleRequest, unrecognised paths
 
-describe("handleRequest — unrecognised paths", () => {
+describe("handleRequest: unrecognised paths", () => {
 	it("returns null for unknown routes", async () => {
 		const mod = createDeviceAuthModule(BASE_CONFIG);
 		const req = new Request("https://example.com/other", { method: "GET" });

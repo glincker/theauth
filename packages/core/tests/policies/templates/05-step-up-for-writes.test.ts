@@ -34,7 +34,7 @@ async function seedAgent(db: Database, id: string, ownerId: string): Promise<voi
 	});
 }
 
-describe("template 05 — step-up approval for writes", () => {
+describe("template 05: step-up approval for writes", () => {
 	let db: Database;
 
 	beforeEach(async () => {

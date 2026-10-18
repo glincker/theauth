@@ -83,12 +83,31 @@ export const ALL = handlers.ALL;
 
 ## Options
 
+`theAuthAstro(theauth, options?)` takes the same options as the core handler (`createTheAuthHandler` from `@glinr/theauth/http`), so they are identical on every adapter:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `mcp` | `McpAuthModule` | Enables the MCP OAuth 2.1 endpoints |
+| `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/theauth` |
+| `routes` | `{ management?, mcp?, plugins?, explain? }` | Turn route groups off. `mcp` also takes `{ register, authorize, token, revoke, jwks }` booleans |
+| `maxBodyBytes` | `number` | Largest request body, default 1 MiB (413 above it) |
+| `authenticate`, `allowUnauthenticated`, `trustedProxy`, `rateLimit`, `trustedOrigins`, `csrf` | | Shared security options |
+
+Every route and status code is listed on the [route reference](https://docs.theauth.dev/adapters/routes).
+
+## Protect a route with `requireScope`
+
 ```typescript
-interface AuthAstroOptions {
-  mcp?: McpAuthModule;     // enables MCP OAuth 2.1 endpoints
-  basePath?: string;       // defaults to '/api/theauth'
-}
+import { requireScope } from '@glinr/theauth-astro';
+
+export const GET = requireScope(
+  theauth,
+  { action: 'read', resource: 'invoices' },
+  ({ locals }) => Response.json({ agent: locals.agent.id }),
+);
 ```
+
+`requireScope(theauth, { action, resource }, handler)` reads the agent bearer token and checks it may perform the action. It answers 401 (`invalid_token`, `agent_not_found`, `agent_revoked`, `agent_expired`) or 403 (any other denial) with body `{ "error": { "code", "message" } }`, and otherwise passes the agent (without its token) on via `locals.agent`. Pass `clientIp` to feed `ipAllowlist` constraints.
 
 ## MCP endpoints
 
@@ -100,6 +119,8 @@ GET  /api/theauth/.well-known/oauth-protected-resource
 POST /api/theauth/mcp/register
 GET  /api/theauth/mcp/authorize
 POST /api/theauth/mcp/token
+POST /api/theauth/mcp/revoke
+GET  /api/theauth/mcp/jwks
 ```
 
 ## Management routes and client IP
@@ -116,21 +137,7 @@ On Cloudflare use `trustedHeader: 'cf-connecting-ip'`. Only trust a header your 
 
 ## Endpoint reference
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/agents` | Create an agent |
-| `GET` | `/agents` | List agents |
-| `GET` | `/agents/:id` | Get an agent |
-| `PATCH` | `/agents/:id` | Update an agent |
-| `DELETE` | `/agents/:id` | Revoke an agent |
-| `POST` | `/agents/:id/rotate` | Rotate token |
-| `POST` | `/authorize` | Authorize by agent ID |
-| `POST` | `/authorize/token` | Authorize by bearer token |
-| `POST` | `/delegations` | Create delegation |
-| `GET` | `/delegations/:agentId` | List delegation chains |
-| `DELETE` | `/delegations/:id` | Revoke delegation |
-| `GET` | `/audit` | Query audit logs |
-| `GET` | `/audit/export` | Export audit logs |
+See the [route reference](/adapters/routes) for every route, its auth level and status codes.
 
 ## Full example
 

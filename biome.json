@@ -111,6 +111,7 @@
       "!**/.cache",
       "!**/docs-local",
       "!docs",
+      "!packages/core/tests/fixtures/audit-chain-vectors.json",
       "!packages/create-theauth-app/templates",
       "!**/.next",
       "!sdks/python",

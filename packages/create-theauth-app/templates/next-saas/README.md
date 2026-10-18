@@ -30,6 +30,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | `THEAUTH_SECRET` | Yes | Long random string, used to sign sessions |
 | `DATABASE_URL` | Yes | SQLite: `./theauth.db` · Postgres: connection string |
 
+The SQLite option is a real file (`better-sqlite3`), so data survives restarts. `pnpm run doctor` checks the setup.
+
 ## Project structure
 
 ```

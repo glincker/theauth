@@ -126,7 +126,7 @@ export function apiKeys(config?: ApiKeyManagerConfig): TheAuthPlugin {
 				path: "/auth/api-keys/:id/rotate",
 				metadata: {
 					requireAuth: true,
-					description: "Rotate an API key — revokes the old one and returns a new key",
+					description: "Rotate an API key, revokes the old one and returns a new key",
 				},
 				async handler(request, endpointCtx) {
 					const user = await endpointCtx.getUser(request);

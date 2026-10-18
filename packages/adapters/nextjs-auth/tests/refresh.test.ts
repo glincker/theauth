@@ -2,6 +2,8 @@ import type { MockInstance } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthConfig } from "../src/config.js";
 
+const TEST_SECRET = "test-secret-test-secret-test-secret-0123456789";
+
 // refreshSession is tested in isolation: next/headers cookies() and global fetch are mocked.
 vi.mock("server-only", () => ({}));
 
@@ -18,6 +20,7 @@ vi.mock("next/headers", () => ({
 const { refreshSession } = await import("../src/refresh.js");
 
 const config = createAuthConfig({
+	secret: TEST_SECRET,
 	backendUrl: "https://api.example.com",
 	appUrl: "https://example.com",
 	isProd: false,
@@ -90,11 +93,31 @@ describe("refreshSession", () => {
 		const result = await refreshSession(config);
 
 		expect(result).toBeNull();
-		expect(mockCookieStore.delete).toHaveBeenCalledWith("__Host-glinr-token");
-		expect(mockCookieStore.delete).toHaveBeenCalledWith("glinr-token");
-		expect(mockCookieStore.delete).toHaveBeenCalledWith("__Host-glinr-csrf");
-		expect(mockCookieStore.delete).toHaveBeenCalledWith("glinr-csrf");
-		expect(mockCookieStore.delete).toHaveBeenCalledWith(config.cookies.refresh);
+		expect(mockCookieStore.set).toHaveBeenCalledWith(
+			"__Host-glinr-token",
+			"",
+			expect.objectContaining({ maxAge: 0 }),
+		);
+		expect(mockCookieStore.set).toHaveBeenCalledWith(
+			"glinr-token",
+			"",
+			expect.objectContaining({ maxAge: 0 }),
+		);
+		expect(mockCookieStore.set).toHaveBeenCalledWith(
+			"__Host-glinr-csrf",
+			"",
+			expect.objectContaining({ maxAge: 0 }),
+		);
+		expect(mockCookieStore.set).toHaveBeenCalledWith(
+			"glinr-csrf",
+			"",
+			expect.objectContaining({ maxAge: 0 }),
+		);
+		expect(mockCookieStore.set).toHaveBeenCalledWith(
+			config.cookies.refresh,
+			"",
+			expect.objectContaining({ maxAge: 0 }),
+		);
 	});
 
 	it("clears cookies and returns null on 403 from backend", async () => {
@@ -110,7 +133,11 @@ describe("refreshSession", () => {
 		const result = await refreshSession(config);
 
 		expect(result).toBeNull();
-		expect(mockCookieStore.delete).toHaveBeenCalledWith("glinr-token");
+		expect(mockCookieStore.set).toHaveBeenCalledWith(
+			"glinr-token",
+			"",
+			expect.objectContaining({ maxAge: 0 }),
+		);
 	});
 
 	it("returns null on network error without clearing cookies", async () => {

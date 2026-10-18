@@ -1,0 +1,212 @@
+---
+title: Audit receipts and chain vectors
+description: The receipt format shared by the TypeScript and Go libraries, how to verify one with either, and the chain test vectors an outside verifier can use. Receipts interoperate, chains do not.
+icon: file-certificate
+---
+
+## What interoperates and what does not
+
+The TypeScript library (`@glinr/theauth`) and the Go library (`theauth-go`) each keep their own tamper evident audit log. The two logs are different formats. Only the layer on top of them is shared.
+
+| Layer | Shared between the libraries | Notes |
+|-------|------------------------------|-------|
+| Receipt, leaf encoding, field commitments | Yes | Same bytes, tested in both CI pipelines |
+| Merkle tree (RFC 6962) and inclusion or consistency proofs | Yes | Same algorithm and same digests |
+| Signed checkpoint (Ed25519) | Yes | Same signed message |
+| Row hash chain | No | Different payloads, scope, timestamps and digests |
+| Database tables | No | `theauth_audit_logs` here, `audit_events` (or `theauth_audit_events` on SQLite) in Go |
+
+The claim this page supports, and no stronger one: **receipts and signed checkpoints interoperate; the chains are not interchangeable.** A receipt issued by either library verifies with the other. A chain written by one library cannot be verified, extended or read in place by the other, and one database cannot hold a single log written by both.
+
+| | TypeScript | Go |
+|---|---|---|
+| Chain scope | One chain per agent, unique `(agent_id, chain_seq)` | One chain per organization, unique `(chain_key, chain_seq)` |
+| Hash payload | `canonicalJson({v, seq, prev, row})`, keys sorted | `json.Marshal` of a struct, struct field order |
+| Timestamp hashed | Milliseconds, truncated to whole seconds | Microseconds |
+| Digest | SHA-256, or HMAC-SHA256 when `audit.hmacKey` is set | SHA-256 |
+| Hash versions | 1 (raw ids), 2 (pseudonyms) | 1, called 101 in the receipt layer |
+
+A receipt proves that one row, as disclosed, is a leaf of the log a checkpoint signed. It does not prove the log holds every event for an agent. See [Audit checkpoints and receipts](/audit-checkpoints) for what a receipt proves and what it does not.
+
+## What a receipt is
+
+A receipt is one JSON object that a counterparty can verify offline with the checkpoint public key:
+
+```json
+{
+  "version": 1,
+  "decision": {
+    "rowId": "r2",
+    "rowHash": "hex64",
+    "hashVersion": 2,
+    "revealed": { "action": { "value": "execute", "salt": "hex64" } },
+    "commitments": { "resource": "hex64" }
+  },
+  "proof": { "version": 1, "rowId": "r2", "leafIndex": 1, "treeSize": 3, "leafHash": "hex64", "path": ["hex64"] },
+  "checkpoint": { "version": 1, "alg": "Ed25519", "keyId": "k1", "size": 3, "rootHash": "hex64", "timestamp": 1790985600000, "since": null, "until": null, "signature": "base64url" }
+}
+```
+
+Every field of the row that the receipt layer knows about is either revealed (value plus salt) or hidden (commitment only). The verifier recomputes the commitments for revealed fields, rebuilds the leaf, checks the leaf is in the tree, and checks the checkpoint signature.
+
+## Leaf encoding
+
+For each field name in the field set of the row's hash version:
+
+```text
+salt       = hex(HMAC-SHA256(auditKey, "theauth.audit.receipt.salt.v1" 0x00 rowHash 0x00 field))
+commitment = hex(SHA-256("theauth.audit.receipt.field.v1" 0x00 field 0x00 salt 0x00 canonicalJson(value)))
+preimage   = canonicalJson({ v: 1, rowId, rowHash, hashVersion, fields: { field: commitment, ... } })
+leafHash   = SHA-256(0x00 || utf8(preimage))
+```
+
+`0x00` is a single zero byte. `canonicalJson` writes object keys sorted by UTF-16 code unit at every depth, no whitespace, strings escaped like JavaScript `JSON.stringify`, and `null` for absent values. `auditKey` is `audit.hmacKey` when set, otherwise the per-installation audit secret (as UTF-8 bytes of its hex string in TypeScript, as raw bytes in Go). Salts are derived, never stored, and a receipt reveals a salt only for a revealed field.
+
+Field sets, in the order the library lists them:
+
+| Hash version | Fields |
+|---|---|
+| 1 (TypeScript) | `id`, `action`, `resource`, `parameters`, `result`, `reason`, `durationMs`, `tokensCost`, `ip`, `userAgent`, `cacheHit`, `timestamp`, `agentId`, `userId` |
+| 2 (TypeScript) | `id`, `action`, `resource`, `parameters`, `result`, `reason`, `durationMs`, `tokensCost`, `ip`, `userAgent`, `cacheHit`, `timestamp`, `policyVersion`, `delegationChain`, `inputProvenance`, `idPseudonyms` |
+| 101 (Go) | `id`, `organizationId`, `action`, `targetType`, `targetId`, `metadata`, `ip`, `userAgent`, `createdAtMicro`, `policyVersion`, `delegationChain`, `inputProvenance`, `chainSeq`, `prevHash` |
+
+Version 2 and 101 leave the personal ids out so erasure does not break a receipt. The row hash still covers them through their pseudonyms (version 2) or their stored form (Go).
+
+## Tree construction
+
+Leaves are every chained row, sorted ascending by row timestamp in milliseconds, then by row id. The tree is the RFC 6962 Merkle tree:
+
+```text
+leaf hash   = SHA-256(0x00 || leaf bytes)
+node hash   = SHA-256(0x01 || left || right)
+empty tree  = SHA-256("")
+```
+
+The tree splits at the largest power of two below the leaf count, so an odd node at the end of a level is carried up unchanged. Inclusion and consistency proofs follow RFC 9162 section 2.1.
+
+A checkpoint signs `{version, alg, keyId, size, rootHash, timestamp, since, until}`. The signed bytes are the string `theauth.audit.checkpoint.v1` followed by a newline and the canonical JSON of that object. The signature is Ed25519, 64 bytes, encoded as base64url without padding. Any other `alg` is rejected, and the `keyId` must match one of the keys you pass in.
+
+## Verify with the TypeScript library
+
+```ts
+import { verifyReceipt } from "@glinr/theauth";
+
+// publicKeys: [{ keyId, publicKey: JsonWebKey }, ...]
+const verdict = await verifyReceipt(receipt, publicKeys);
+if (!verdict.valid) throw new Error(`receipt rejected: ${verdict.reason}`);
+```
+
+`verifyInclusionProof`, `verifyConsistencyProof` and `verifyCheckpoint` work the same way. Reasons include `malformed`, `unknown_key`, `bad_signature`, `leaf_mismatch`, `bad_proof` and `bad_commitment`.
+
+## Verify with the Go library
+
+```go
+import "github.com/glincker/theauth-go/v2/audit/checkpoint"
+
+// keys: []checkpoint.PublicKey{{KeyID: "k1", PublicKey: jwk}}
+out := checkpoint.VerifyReceipt(receipt, keys...)
+if !out.Valid {
+	return fmt.Errorf("receipt rejected: %s", out.Reason)
+}
+```
+
+`checkpoint.VerifyInclusionProof`, `VerifyConsistencyProof` and `VerifyCheckpoint` mirror the TypeScript functions and return the same reason strings.
+
+## How interoperation is tested
+
+- The Go repository writes `go-fixture.json` (checkpoints, inclusion and consistency proofs, receipts and tamper cases). This repository vendors a byte-identical copy in `packages/core/tests/fixtures/receipts/` and `tests/audit-receipt-go-fixture.test.ts` verifies it with the TypeScript verifiers in the normal test run. Refresh the copy with `node scripts/refresh-go-receipt-fixture.mjs` when the Go checkout sits next to this one. CI never needs the Go checkout.
+- The TypeScript side writes `ts-fixture.json` and Merkle vectors that the Go CI verifies and rebuilds byte for byte.
+- A drift in either direction fails a test in one of the two repositories.
+
+## Chain test vectors (TypeScript row hashes)
+
+`packages/core/tests/fixtures/audit-chain-vectors.json` lets an outside verifier recompute TypeScript row hashes without this library. It is generated by `npx tsx scripts/gen-audit-chain-vectors.mjs`, and a test regenerates it in memory and fails if the committed file differs. Go has its own, separate chain format; these vectors say nothing about it.
+
+Format (`formatVersion` 1; any incompatible change bumps the number):
+
+| Key | Meaning |
+|---|---|
+| `format` | `"theauth.audit.chain-vectors"` |
+| `formatVersion` | `1` |
+| `chains[]` | Chains. Each has `name`, `hashFormat` (`ts-v1` or `ts-v2`), `agentId`, `hashVersion`, `hmacKey` (string or `null`), `pseudonymKey` (string or `null`), `rows` |
+| `chains[].rows[]` | `seq`, `prev` (`null` at seq 1), `input` (every column of the row), `payload` (the exact string that is hashed), `hash`. Version 2 chains also carry `erasedInput` on the last row: the same row with the raw id columns blanked, which must hash identically |
+| `negative[]` | `name`, `chain`, `failsAtRow` (index in the chain after the mutation), `mutate`, `expect` |
+
+To verify a row: build `payload` as `canonicalJson({v: hashVersion, seq, prev, row})` where `row` holds the version's hashed fields, then `hash = hex(HMAC-SHA256(hmacKey, utf8(payload)))` when `hmacKey` is set (key as UTF-8 text) or `hex(SHA-256(utf8(payload)))` when it is `null`. Hashed fields:
+
+- Version 1: `id`, `action`, `resource`, `parameters`, `result`, `reason`, `durationMs`, `tokensCost`, `ip`, `userAgent`, `cacheHit`, `timestamp` (milliseconds), `agentId`, `userId`.
+- Version 2: the same twelve common fields plus `policyVersion`, `delegationChain`, `inputProvenance` and `idPseudonyms`. The raw id columns are not hashed.
+
+Absent values hash as `null`. `idPseudonyms[field] = hex(HMAC-SHA256(pseudonymKey, "theauth.audit.pseudonym.v1:" + id))` for `userId`, `agentId`, `subjectId`, `actorId` and `approverId`, where `pseudonymKey` is `audit.hmacKey` when set and the per-installation secret otherwise.
+
+Check order for a chain: `prev` equals the previous row's `hash` (`null` for the first row), then the recomputed hash equals `hash`, then, for version 2, every raw id still present and not starting with `[deleted-` matches its pseudonym. The negative vectors carry the reason each mutation must produce:
+
+| `mutate.kind` | Effect | `expect` |
+|---|---|---|
+| `set_input` | Replace one input field | `hash_mismatch`, or `pseudonym_mismatch` for a raw id that the version 2 hash does not cover |
+| `set_payload` | Hash a different string (reordered keys, pretty printed) | `hash_mismatch` |
+| `set_key` | Use another HMAC key, or none | `hash_mismatch` |
+| `set_seq` | Hash with a different sequence number | `hash_mismatch` |
+| `drop_row` | Remove a row (truncation in the middle or at the start) | `prev_hash_mismatch` |
+
+A chain cut off at its tail still verifies row by row. Detecting that needs a signed checkpoint or an `expectedHeads` anchor, which is why checkpoints exist.
+
+The vectors above test the row hash only. `verifyAuditChain` on a live database also checks where each chain starts. The oldest remaining row must be seq 1 with `prev = null`, or be explained by an `audit.checkpoint` row: either the one retention cleanup writes (`throughSeq` and `lastHash` match the first row's link) or the anchor `theauth.audit.checkpoint()` writes (`firstSeq`, `firstId` and `firstHash` name the first row). Both are chained rows and carry a `mac`: `hex(HMAC-SHA256(key, "theauth.audit.anchor.v1:" + canonicalJson(fields)))`, with the same key as the pseudonyms. Otherwise the result is `truncated_prefix`. `checkpoint()` also returns the anchors and heads, so you can keep them outside the database and pass them back as `anchors` and `expectedHeads`; a pinned anchor whose row is gone gives `truncated_prefix`, one whose hash differs gives `anchor_mismatch`. It anchors chains as they are when called, so verify first. `allowUnanchoredPrefix: true` turns the start check off.
+
+`audit.erasure` records follow the same rule. They are chained rows, and each entry is MACed under `"theauth.audit.erasure.v1:"` over the erased row's id, agent, seq, hash, `prevHash`, `hashVersion`, reason (`anonymized` or `deleted`) and, for an anonymized version 1 row, the hash of the row as erasure left it. A record that is not on a chain gives `erasure_unchained`, an entry with a bad MAC gives `erasure_forged`, and a row whose `hash_version` went back to 1 (or NULL) gives `version_downgrade`.
+
+## Verifying a Go export from TypeScript
+
+`verifyGoAuditChain(rows, options?)` recomputes the hash chain of rows exported by theauth-go. It is a separate verifier from `verifyAuditChain`, because the Go chain is a different format (see the table at the top). It is pure and runs on Web Crypto only, so it works in a browser, a worker or Node.
+
+```ts
+import { verifyGoAuditChain } from "@glinr/theauth";
+
+const result = await verifyGoAuditChain(rows, { pseudonymSecret: secretHex });
+if (!result.ok) console.error(result.firstFailure); // { reason, chainKey, rowId, seq, index }
+```
+
+From a shell: `theauth audit verify-go export.json [--secret-hex <hex>] [--partial] [--json]` (a JSON array, `{"rows": [...]}` or NDJSON). It reads the file and nothing else.
+
+Rows use the JSON of Go's `models.AuditEvent` (`id`, `organizationId`, `action`, `createdAt`, `chainSeq`, `prevHash`, `hash`, and so on). The four hashed pseudonyms are not part of that struct, so the export must add `actorUserPseudonym`, `subjectPseudonym`, `actorPseudonym` and `approverPseudonym` (empty or absent for ids that were never set). Without them you must pass `pseudonymSecret` (the 32 raw bytes as `Uint8Array`, or hex), and erased rows can then not be verified.
+
+What is checked, per chain key (the organization id, or `""` for global events), in this order, stopping at the first failure:
+
+| Check | Reason on failure |
+|---|---|
+| Row shape (`id`, `action`, `createdAt` as RFC 3339, `chainSeq` >= 1, `hash`) | `malformed_row` |
+| `hashVersion` absent or `1` | `unsupported_hash_version` |
+| `chainSeq` continues from 1 without a repeat or gap, rows in order | `seq_duplicate`, `seq_gap` |
+| `prevHash` equals the previous row's `hash` (empty at seq 1) | `prev_hash_mismatch` |
+| SHA-256 of the rebuilt `json.Marshal` bytes equals `hash` | `hash_mismatch` |
+| Pseudonym inputs are present | `missing_pseudonym_input` |
+| With `pseudonymSecret`: each raw id still present matches its pseudonym | `pseudonym_mismatch` |
+
+Erasure works as in Go: a row whose raw id is blank while its pseudonym is set counts as erased and still verifies through the pseudonym. Rows with no hash are skipped and counted as `unchained`. Interleaved chains are fine. `allowPartialStart` trusts the first row of each chain, for an export window.
+
+What is not checked:
+
+- **Truncation.** A chain cut at its tail still verifies. Only a signed checkpoint or an externally kept head detects that.
+- **Keys.** The Go chain is plain SHA-256, with no HMAC mode, so anyone who can write the table can rewrite a suffix and recompute every hash. This verifier cannot change that, and it has no HMAC support because there is nothing to support. Without `pseudonymSecret` the pseudonyms are trusted as exported (`pseudonymsUnchecked` counts those rows).
+- **Fields outside the hash.** `event`, `recordedAtUs` and the native columns of a database are not hashed.
+- **Numbers beyond 2^53** inside `metadata` or `inputProvenance`: JavaScript parses them as floats, so the rebuilt text can differ from Go's. Metadata with such values reports `hash_mismatch`.
+- **Storage.** It checks an export, not that the export matches the database.
+
+The conformance vectors are `packages/core/tests/fixtures/go-audit-chain-vectors.json`, produced by running the real Go hashing code. The generator source and the steps to rerun it are in `scripts/go-chain-vectors/`.
+
+## Running both libraries
+
+Do not point both libraries at one database or schema. Both create a table named `theauth_audit_secrets`, with incompatible layouts:
+
+| Library | `id` | `secret` |
+|---|---|---|
+| TypeScript | `TEXT`, value `audit-pseudonym-v1` | `TEXT`, 64 hex characters |
+| Go | `smallint` or `INTEGER`, always `1` | `bytea` or `BLOB`, raw bytes |
+
+The TypeScript library checks the table before it migrates and again on every start with `skipMigrations`. If the table exists with a layout it did not create, it throws:
+
+```text
+AUDIT_SECRETS_LAYOUT_MISMATCH: table theauth_audit_secrets already exists with a different layout (...)
+```
+
+The error has `code === "AUDIT_SECRETS_LAYOUT_MISMATCH"` and a `found` string listing the column types it saw. Nothing is renamed or altered. Give each library its own database or schema. To check by hand, list the column types of `theauth_audit_secrets` (`pragma_table_info` on SQLite, `information_schema.columns` on Postgres and MySQL): a TypeScript table has text `id` and `secret` columns. If you see an integer `id` and a binary `secret`, the Go library created it.

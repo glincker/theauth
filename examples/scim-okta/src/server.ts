@@ -14,7 +14,7 @@ if (!SCIM_TOKEN) throw new Error("SCIM_TOKEN env var required");
 const AUDIT_AGENT_ID = process.env.SCIM_AGENT_ID ?? "agent-scim-provisioner";
 
 const theauth = await createTheAuth({
-	database: { provider: "sqlite", url: process.env.DB_URL ?? "theauth.db" },
+	database: { provider: "sqlite-native", url: process.env.DB_URL ?? "theauth.db" },
 	plugins: [
 		scim({
 			bearerToken: SCIM_TOKEN,

@@ -25,6 +25,35 @@ theAuth does not replace your human auth. It runs alongside it. This guide assum
   </Card>
 </CardGroup>
 
+<Tip>
+Want the files below generated for you? Run `npx theauth init --framework nextjs` (or `hono`, `express`, `fastify`, `sveltekit`, `nuxt`) in your project. It writes `src/theauth.ts`, a seed script that creates the owner user and a demo agent, the route file, and a `.env` with generated secrets, then prints the install command for your package manager and a `curl` against the mounted routes. For Next.js it detects an existing `src/` folder and writes `src/app/api/theauth/[...theauth]/route.ts` (or `app/...` without one):
+
+```text title="npx theauth init --yes (Next.js, pnpm)"
+created     src/theauth.ts
+created     src/seed.ts
+created     src/app/api/theauth/[...theauth]/route.ts
+created     .env.example
+created     .gitignore
+created     .env (generated secrets, gitignored)
+
+Next steps
+
+  1. Install dependencies:
+       pnpm add @glinr/theauth @glinr/theauth-nextjs better-sqlite3 zod
+       pnpm add -D tsx
+  2. Create the owner user and a demo agent:
+       pnpm exec tsx --env-file=.env src/seed.ts
+  3. Start your app:
+       pnpm dev
+  4. List agents through the mounted routes:
+       curl -s -H "Authorization: Bearer $(grep '^ADMIN_API_KEY=' .env | cut -d= -f2)" http://localhost:3000/api/theauth/agents
+  5. Check the setup, including the running server:
+       theauth doctor --live http://localhost:3000/api/theauth
+```
+
+The generated `authenticate` checks a bearer `ADMIN_API_KEY`. In an app that already has human auth, replace it with your own check as shown in step 3. Re-running `init` never overwrites a file that exists.
+</Tip>
+
 ## Steps
 
 <Steps>
@@ -94,14 +123,17 @@ Pick a path that does not collide with your existing auth. `/api/theauth/*` live
 Hook into your existing post-sign-in flow. For Clerk, that is a webhook or a server action. For Auth.js, the `signIn` event. For better-auth, the `onSignIn` hook.
 
 <Warning>
-`theauth_agents.owner_id` is a foreign key to `theauth_users.id`, and `agent.create` does not create the user for you. Before the first agent, make sure a `theauth_users` row exists whose `id` is your provider's user ID (`id`, `email`, `createdAt`, and `updatedAt` are required). Otherwise the insert fails with a foreign key error.
+`theauth_agents.owner_id` is a foreign key to `theauth_users.id`, and `agent.create` does not create the user for you. Call `theauth.user.create` with your provider's user ID before the first agent. Otherwise the insert fails with a foreign key error. `create` is idempotent on email, so calling it on every sign-in is safe. If the email already belongs to a different id, it throws `USER_EMAIL_CONFLICT` instead of returning the wrong row.
 </Warning>
 
 ```ts title="wherever you create user-scoped resources"
 import { getTheAuth } from '@/lib/theauth';
 
-export async function createDefaultAgent(userId: string) {
+export async function createDefaultAgent(userId: string, email: string) {
   const theauth = await getTheAuth();
+
+  // Ensures the owner row exists. Returns the existing row on later calls.
+  await theauth.user.create({ id: userId, email });
 
   const agent = await theauth.agent.create({
     ownerId: userId,                     // stable ID from your auth provider

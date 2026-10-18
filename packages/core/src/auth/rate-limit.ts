@@ -22,29 +22,38 @@
  * ```
  */
 
+import type { TheAuthLogger } from "../observability/types.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import { isSecondaryStorage, rateLimitStoreFromStorage } from "../storage/rate-limit-store.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import type { TrustedProxyConfig } from "./client-ip.js";
 import { resolveClientIp } from "./client-ip.js";
+import type { EndpointLimit } from "./rate-limit-routes.js";
+import {
+	BUILT_IN_LIMITS,
+	endpointKeyFor,
+	normalizeRatePath,
+	PATH_TO_CONFIG_KEY,
+} from "./rate-limit-routes.js";
 import { MemoryStore } from "./stores/memory.js";
 import type { RateLimitStore } from "./stores/types.js";
 
-export type { RateLimitStore };
-
-export interface EndpointLimit {
-	/** Duration string: "15m", "1h", "30s", "1d" */
-	window: string;
-	max: number;
-}
+export type { EndpointLimit, RateLimitStore };
 
 /** What identifies a caller for rate limiting. */
 export type RateLimitKeyBy = "ip" | "client_id" | "ip+client_id";
 
 export interface RateLimitConfig extends TrustedProxyConfig {
-	signIn?: EndpointLimit;
-	signUp?: EndpointLimit;
-	passwordReset?: EndpointLimit;
+	/** Sign-in and the steps that finish one: username sign-in, two-factor and password-change challenges, passkey, SIWE and One Tap verify, username change-password. Default 30 per 15 minutes. `false` disables. */
+	signIn?: EndpointLimit | false;
+	/** Account creation: username sign-up, anonymous sign-in and upgrade. Default 10 per hour. `false` disables. */
+	signUp?: EndpointLimit | false;
+	/** Forgot and reset password, link and OTP variants. Default 5 per hour. `false` disables. */
+	passwordReset?: EndpointLimit | false;
+	/** Endpoints that send a code or link (magic link, email OTP, phone, verify-email). Default 10 per 15 minutes. `false` disables. */
+	codeSend?: EndpointLimit | false;
+	/** Endpoints that accept a short code or one time token (OTP, TOTP, magic link verify). Default 30 per 15 minutes. `false` disables. */
+	codeVerify?: EndpointLimit | false;
 	agentAuthorize?: EndpointLimit;
 	/** Limit for POST /mcp/token. Default 60 per minute. `false` disables. */
 	mcpToken?: EndpointLimit | false;
@@ -64,6 +73,10 @@ export interface RateLimitConfig extends TrustedProxyConfig {
 	store?: "memory" | RateLimitStore | SecondaryStorage;
 	/** Extracts the client part of the rate-limit key from the request. Defaults to the IP from `trustedProxy`. */
 	keyExtractor?: (request: Request) => string;
+	/** What to do when the counter store errors. `false` (default) lets the request through, so a store outage never takes sign-in down. `true` refuses it with a 503. */
+	failClosed?: boolean;
+	/** Receives store errors and the startup warning that the limiter fails open. */
+	logger?: Pick<TheAuthLogger, "warn">;
 	/** Custom response when a limit is exceeded. Defaults to a JSON 429 response. */
 	onLimit?: (request: Request, retryAfter: number) => Response;
 }
@@ -171,47 +184,22 @@ function defaultOnLimit(_request: Request, retryAfter: number): Response {
 	);
 }
 
-type EndpointKey =
-	| "signIn"
-	| "signUp"
-	| "passwordReset"
-	| "agentAuthorize"
-	| "mcpToken"
-	| "mcpRegister"
-	| "deviceCode"
-	| "deviceToken"
-	| "deviceAuthorize";
-
-const PATH_TO_CONFIG_KEY: Array<[string, EndpointKey]> = [
-	["/auth/sign-in", "signIn"],
-	["/auth/sign-up", "signUp"],
-	["/auth/password-reset", "passwordReset"],
-	["/auth/agent/authorize", "agentAuthorize"],
-	["/auth/device/code", "deviceCode"],
-	["/auth/device/token", "deviceToken"],
-	["/auth/device/authorize", "deviceAuthorize"],
-	["/mcp/token", "mcpToken"],
-	["/mcp/register", "mcpRegister"],
-];
-
-/** Applied when the caller does not configure the endpoint. */
-const BUILT_IN_LIMITS: Partial<Record<EndpointKey, EndpointLimit>> = {
-	mcpToken: { window: "1m", max: 60 },
-	mcpRegister: { window: "1h", max: 10 },
-	deviceCode: { window: "1m", max: 10 },
-	deviceToken: { window: "1m", max: 60 },
-	deviceAuthorize: { window: "1m", max: 20 },
-};
-
-function resolveLimit(pathname: string, config: RateLimitConfig): EndpointLimit | undefined {
-	for (const [suffix, key] of PATH_TO_CONFIG_KEY) {
-		if (pathname === suffix || pathname.endsWith(suffix)) {
-			const configured = config[key];
-			if (configured === false) return undefined;
-			return configured ?? BUILT_IN_LIMITS[key] ?? config.default;
-		}
+function resolveLimit(normalizedPath: string, config: RateLimitConfig): EndpointLimit | undefined {
+	const key = endpointKeyFor(normalizedPath);
+	if (key) {
+		const configured = config[key];
+		if (configured === false) return undefined;
+		return configured ?? BUILT_IN_LIMITS[key] ?? config.default;
 	}
-	return pathname.includes("/auth/") ? config.default : undefined;
+	return normalizedPath.includes("/auth/") ? config.default : undefined;
+}
+
+/** The limit the plugin applies to `pathname` under `config` (after normalization), for tests and tooling. */
+export function resolveRateLimit(
+	pathname: string,
+	config: RateLimitConfig = {},
+): EndpointLimit | undefined {
+	return resolveLimit(normalizeRatePath(pathname), config);
 }
 
 export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
@@ -246,6 +234,13 @@ export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 		config.keyExtractor ??
 		((request: Request): string => resolveClientIp(request, config) ?? "unknown");
 	const onLimitFn = config.onLimit ?? defaultOnLimit;
+	const failClosed = config.failClosed === true;
+	if (!failClosed) {
+		config.logger?.warn(
+			"rateLimit plugin fails open: when the counter store errors, requests (sign-in and sign-up included) are let through unthrottled. Set failClosed: true to refuse them instead.",
+			{ failClosed: false },
+		);
+	}
 
 	async function buildKey(request: Request): Promise<string> {
 		const ip = extractIp(request);
@@ -273,8 +268,8 @@ export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 
 		hooks: {
 			async onRequest(request: Request): Promise<Request | Response | undefined> {
-				const url = new URL(request.url);
-				const pathname = url.pathname;
+				// One canonical spelling per endpoint, so `//x`, `/x/`, `/X` and `%2F` share a counter.
+				const pathname = normalizeRatePath(new URL(request.url).pathname);
 
 				const limit = resolveLimit(pathname, config);
 				if (!limit) {
@@ -284,7 +279,23 @@ export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 				const windowMs = windowMsFor(limit.window);
 				const key = `rate-limit:${pathname}:${await buildKey(request)}`;
 
-				const { count, resetAt } = await getStore().increment(key, windowMs);
+				let hit: { count: number; resetAt: number };
+				try {
+					hit = await getStore().increment(key, windowMs);
+				} catch (err) {
+					config.logger?.warn("rateLimit store error", {
+						failClosed,
+						error: err instanceof Error ? err.message : String(err),
+					});
+					if (!failClosed) return undefined;
+					return new Response(
+						JSON.stringify({
+							error: { code: "RATE_LIMIT_UNAVAILABLE", message: "Rate limiting is unavailable" },
+						}),
+						{ status: 503, headers: { "Content-Type": "application/json", "Retry-After": "5" } },
+					);
+				}
+				const { count, resetAt } = hit;
 
 				if (count > limit.max) {
 					const retryAfterMs = Math.max(resetAt - Date.now(), 0);

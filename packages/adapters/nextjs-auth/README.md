@@ -4,7 +4,7 @@
 
 [npm](https://www.npmjs.com/package/@glinr/theauth-nextjs-auth) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/nextjs-auth) · [All packages](https://github.com/glincker/theauth#packages)
 
-Next.js 14/15/16 adapter for projects with an **external auth backend**. Handles cookies, proactive token refresh, CSRF double-submit, `getServerSession`, and middleware — all typed end-to-end.
+Next.js 14/15/16 adapter for projects with an **external auth backend**. Handles cookies, proactive token refresh, CSRF double-submit, `getServerSession`, and middleware, all typed end-to-end.
 
 Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
 
@@ -14,12 +14,16 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 |---|---|---|
 | **Use case** | You have an external auth backend (Spring, Rails, Hono, Express, etc.) and need session management on the Next.js FE | You're using the theAuth agent-management runtime with its built-in auth |
 | **Auth source** | External REST API (`/api/auth/*`) | In-process theAuth SDK |
-| **Zero deps on** | `@glinr/theauth` core, `@glinr/theauth-nextjs` | — |
+| **Zero deps on** | `@glinr/theauth` core, `@glinr/theauth-nextjs` | none |
 | **Key exports** | `getServerSession`, `withAuth`, `refreshSession`, `fetchWithRefresh` | `theAuthNextjs()` handler |
 
 vs **next-auth**: next-auth requires a database adapter and runs auth in-process. Use `@glinr/theauth-nextjs-auth` when your backend already handles session state and you just want the FE plumbing.
 
-vs **better-auth**: better-auth also runs in-process (or via a hosted service). Use this adapter when you cannot or do not want to run auth logic inside the Next.js process — only a REST call over the wire.
+vs **better-auth**: better-auth also runs in-process (or via a hosted service). Use this adapter when you cannot or do not want to run auth logic inside the Next.js process, only a REST call over the wire.
+
+> **Security: upgrade from 0.2.0 and earlier.** Versions up to and including 0.2.0 trusted an
+> unsigned session cache cookie in `getServerSession`, so a user could forge it and be treated as
+> any user or role. Fixed in 1.0.0, which requires a `secret`. See [Upgrading](#upgrading-from-020-breaking).
 
 ## Quickstart
 
@@ -35,6 +39,8 @@ import "server-only";
 import { createAuthConfig } from "@glinr/theauth-nextjs-auth";
 
 export const authConfig = createAuthConfig({
+  // Required, at least 32 bytes, server-only. Generate with: openssl rand -base64 48
+  secret: process.env.THEAUTH_SESSION_SECRET!,
   backendUrl: process.env.NEXT_PUBLIC_API_BASE_URL!,
   appUrl: process.env.NEXT_PUBLIC_APP_URL!,
   tenantDomain: "myapp.com",
@@ -86,7 +92,7 @@ export const config = {
 
 ### 4. Sign out
 
-The adapter returns a plain async function — you add `"use server"` in **your own** file so Next.js can statically analyse it:
+The adapter returns a plain async function: you add `"use server"` in **your own** file so Next.js can statically analyse it:
 
 ```ts
 // src/app/auth/actions.ts   ← your file, your directive
@@ -105,7 +111,7 @@ import { signOut } from "@/app/auth/actions";
 
 #### Why no inline `"use server"`?
 
-The adapter is imported by both server and client module graphs (e.g. a client component that imports a shared config file). Next.js forbids inline `"use server"` directives in any module reachable from a client component — the compiler errors out. By keeping the directive out of the adapter, the compiled output is a plain async function that is safe to import anywhere. The `"use server"` annotation belongs in **consumer code** (a dedicated `actions.ts` file), where Next.js can statically verify it belongs to a server-action boundary.
+The adapter is imported by both server and client module graphs (e.g. a client component that imports a shared config file). Next.js forbids inline `"use server"` directives in any module reachable from a client component. The compiler errors out. By keeping the directive out of the adapter, the compiled output is a plain async function that is safe to import anywhere. The `"use server"` annotation belongs in **consumer code** (a dedicated `actions.ts` file), where Next.js can statically verify it belongs to a server-action boundary.
 
 ## API Reference
 
@@ -115,6 +121,8 @@ Factory that resolves all defaults. Returns an immutable config object passed to
 
 | Option | Type | Default | Description |
 |---|---|---|---|
+| `secret` | `string` | required | At least 32 bytes. Signs the session cache cookie (HMAC-SHA256). `createAuthConfig` throws when missing or short |
+| `secure` | `boolean` | `true` | `Secure` cookie attribute. Never derived from `NODE_ENV`. Set `false` only for localhost development over http. Always forced on for https requests |
 | `backendUrl` | `string` | required | Backend base URL, no trailing slash |
 | `appUrl` | `string` | required | Public app URL for Origin headers |
 | `tenantDomain` | `string` | `""` | Sent as `X-Tenant-Domain` |
@@ -126,18 +134,18 @@ Factory that resolves all defaults. Returns an immutable config object passed to
 | `cookieCacheMaxAgeMs` | `number` | `300_000` (5 min) | Session cache TTL, `0` to disable |
 | `expiryRefreshBufferS` | `number` | `60` | Proactive refresh threshold |
 | `mapUser` | `(raw) => TUser \| null` | identity | Map backend payload to your User type |
-| `isProd` | `boolean` | `NODE_ENV === "production"` | Controls `__Host-` cookie prefix |
+| `isProd` | `boolean` | `NODE_ENV === "production"` | Controls only the `__Host-` cookie name prefix (used when `secure` is not disabled). Does not affect `Secure` |
 
 ### `getServerSession(config)` → `Promise<AuthSession<TUser> | null>`
 
 Server-only. Returns the authenticated session or null.
 
-Performance: memoized per render via `React.cache()` + cookie cache (5 min TTL by default). On cache miss, calls `GET /api/auth/me`. On 401, attempts one token refresh and retries.
+Performance: memoized per render via `React.cache()` + signed cookie cache (5 min TTL by default). Without a session token it returns null immediately. On cache miss, calls `GET /api/auth/me`. On 401, attempts one token refresh and retries.
 
 ```ts
 const session = await getServerSession(authConfig);
-// session.user — your TUser shape
-// session.expiresAt — Date | null (from JWT exp claim)
+// session.user: your TUser shape
+// session.expiresAt: Date | null (from JWT exp claim)
 ```
 
 ### `refreshSession(config)` → `Promise<RefreshResult | null>`
@@ -156,11 +164,11 @@ Server-only. Like `fetchWithRefresh` but for GraphQL. Throws `GraphQLRequestErro
 const data = await graphqlWithRefresh<MyQuery>(authConfig, MY_QUERY, { id: "123" });
 ```
 
-### `createSignOutHandler(config)` → `() => Promise<{ success: boolean }>`
+### `createSignOutHandler(config)` → `(csrfToken?: string) => Promise<{ success: boolean }>`
 
-Server-only. Returns an async function that calls the backend logout endpoint (best-effort) and clears all auth cookies. Does **not** include an inline `"use server"` directive — wrap it in your own `"use server"` file (see [Sign out](#4-sign-out)).
+Server-only. Returns an async function that calls the backend logout endpoint (best-effort) and clears all auth cookies. Does **not** include an inline `"use server"` directive; wrap it in your own `"use server"` file (see [Sign out](#4-sign-out)).
 
-> `createSignOutAction` is a deprecated alias for `createSignOutHandler` and will be removed in v0.2.
+> `createSignOutAction` is a deprecated alias for `createSignOutHandler`.
 
 ### `buildAuthHeaders(config, opts?)` → `Promise<Record<string, string>>`
 
@@ -175,11 +183,11 @@ Client-safe. Returns minimal headers for browser → backend fetches (no auth he
 Edge-runtime safe. Returns a Next.js middleware function.
 
 Options:
-- `protectedPaths: string[]` — paths requiring auth; redirects to `signInPath?next=<path>` when unauthenticated
-- `signInPath: string` — default `"/signin"`
-- `refreshTimeoutMs: number` — default `4000`
+- `protectedPaths: string[]`: paths requiring auth; redirects to `signInPath?next=<path>` when unauthenticated
+- `signInPath: string`: default `"/signin"`
+- `refreshTimeoutMs: number`: default `4000`
 
-## TypeScript — custom User shape
+## TypeScript: custom User shape
 
 ```ts
 interface MyUser {
@@ -203,37 +211,63 @@ const session = await getServerSession(authConfig);
 session?.user.role; // typed as "admin" | "member"
 ```
 
-## Cookie cache tradeoffs
+## Cookie cache
 
-The session cache stores `{ user, expiresAt, stampedAt }` in a short-lived httpOnly cookie. On cache hit (within `cookieCacheMaxAgeMs`), `getServerSession` returns immediately without calling the backend.
+The session cache stores `{ user, expiresAt, stampedAt }` in a short-lived cookie. On a cache hit (within `cookieCacheMaxAgeMs`), `getServerSession` returns without calling the backend.
 
-**Benefits**: reduces backend load; avoids 50–200ms network hop per RSC render.
+How it is protected:
+- The value is `v1.<payload>.<HMAC-SHA256>`, signed with keys derived from `secret` via HKDF-SHA256 (separate keys for the cookie MAC and for the token binding).
+- It is bound to an HMAC of the current session token, so a cache cookie cannot be replayed with another user's token, and it is never used when there is no session token.
+- It carries a hard expiry: the earlier of `cookieCacheMaxAgeMs` and the session expiry. The cookie `Max-Age` matches.
+- Verification is constant time. Any failure (bad signature, wrong token, expired, malformed, oversized, or an old unsigned 0.2.0 cookie) means "no cache": one extra backend call, no error.
+- Attributes: `HttpOnly`, `Secure` (default), `SameSite=Lax`, `Path=/`, and the `__Host-` name prefix when `secure` is on and `isProd` is true. Entries over 3800 bytes are not cached.
 
-**Tradeoffs**:
-- Stale user data for up to `cookieCacheMaxAgeMs`. Acceptable for display data (name, email); not suitable for permission checks that need real-time accuracy.
-- v0.1 stores plain JSON (no HMAC signing). The cookie is httpOnly+sameSite=lax — an attacker needs TLS access to read or forge it. v0.2 will add HMAC-SHA256 signing for defence-in-depth.
-- Set `cookieCacheMaxAgeMs: 0` to disable caching entirely (every RSC render hits the backend).
+Tradeoffs:
+- The payload is signed, not encrypted. The user object is readable by whoever holds the cookie (it is `HttpOnly`, so page JavaScript cannot read it). Keep large or sensitive fields out of `mapUser`.
+- Stale user data for up to `cookieCacheMaxAgeMs`. Not suitable for permission checks that need real-time accuracy: set `cookieCacheMaxAgeMs: 0` for those, or check on the backend.
+- Rotating `secret` invalidates all cache cookies. Users only pay one backend call.
 
-Better-auth uses the same approach: a `session_data` cookie with configurable `maxAge` avoiding DB round-trips. Their v1 uses compact base64url+HMAC, JWT, or JWE encoding. We start with plain JSON for simplicity.
+## Upgrading from 0.2.0 (breaking)
+
+0.2.0 and earlier have a **session forgery vulnerability**: the cache cookie was unsigned JSON and `getServerSession` returned it without checking a session token with the backend. Anyone could hand-write the cookie and become any user or role. Upgrade now.
+
+1. Generate a secret: `openssl rand -base64 48`, store it as a server-only environment variable.
+2. Pass it: `createAuthConfig({ secret: process.env.THEAUTH_SESSION_SECRET!, ... })`.
+3. Cookies are now `Secure` by default. On plain-http localhost set `secure: false` in development only.
+4. Existing sessions need one refresh to get the signed marker and CSRF cookies; until then the middleware treats the token as absent. `setSessionCookies` is now async, takes no `csrfToken` and returns the signed one. `createSignOutHandler` requires the CSRF cookie value as its argument. Plain cookie names are ignored under `__Host-` unless `legacyCookieNames: true`.
+5. Old unsigned cache cookies are ignored automatically. Until you upgrade, set `cookieCacheMaxAgeMs: 0` as a workaround (the legacy code then never reads the cache).
+
+## Middleware is a gate, not authorization
+
+`withAuth` runs on the Edge without the backend. A token cookie only counts as "signed in" when it is accompanied by a signed marker cookie (`{prefix}-gate`, HMAC-SHA256 of the token under a key derived from `secret` with HKDF, verified with Web Crypto, no backend call). Setting an arbitrary token cookie no longer passes the `protectedPaths` gate, because forging the marker needs the secret. The marker is written by `setSessionCookies`, `refreshSession` and the middleware refresh. A token without a valid marker is treated as absent (the middleware tries the refresh token, otherwise redirects).
+
+The marker only proves this server issued the token. It does not prove the session is still alive (revoked, expired on the backend). Always call `getServerSession` (or the backend) in pages, layouts, route handlers and server actions before returning protected data.
+
+Use `safeRedirectPath(next, fallback)` (exported from both entry points) on the `?next=` value in your sign-in page before redirecting, so only same-origin paths are followed. `withAuth` rejects a `signInPath` that is not a same-origin path.
 
 ## CSRF protection
 
-Uses the double-submit cookie pattern:
-1. On login, the server sets a CSRF token in a **non-httpOnly** cookie so JS can read it.
-2. On mutating requests, the client echoes it as `X-CSRF-Token`.
-3. The backend compares header value vs. cookie value; they must match.
-4. An attacker on a different origin cannot read the cookie → cannot forge the header.
+Signed double submit:
+1. On login and refresh the server sets a CSRF token in a **non-httpOnly** cookie. The token is `v1.<nonce>.<HMAC>`, signed with a key derived from `secret` and bound to the current session token.
+2. On mutating requests the client echoes it as `X-CSRF-Token` (or as the argument of a server action).
+3. `verifyCsrfRequest(config, submitted)` requires the submitted value to equal the cookie (constant time) and the signature to verify against the current session token. Missing, mismatched, forged (including an attacker-injected matching cookie and header) and replayed-from-another-session tokens are rejected.
 
-`buildAuthHeaders` includes both `X-CSRF-Token` and a `Cookie` echo of the plain (non-`__Host-`) CSRF cookie name, matching theAuth Spring backends that use a `CsrfDoubleSubmitFilter`.
+Applied to every state changing handler the package exposes: `createSignOutHandler` (pass the CSRF cookie value as the argument, otherwise `{ success: false }`) and `createSignOutRouteHandler` (`X-CSRF-Token` header, 403 otherwise). Use `verifyCsrfRequest` in your own route handlers and actions.
+
+`buildAuthHeaders` still forwards the cookie value as both `X-CSRF-Token` and a `Cookie` echo for backends with a `CsrfDoubleSubmitFilter`. That echo is only for the backend's own check; the adapter's check is `verifyCsrfRequest`. `generateCsrfToken` is deprecated (unsigned); use `createCsrfToken(secret, sessionToken)`.
+
+## Plain cookie names and `legacyCookieNames`
+
+Once the `__Host-` names are in use, the plain `{prefix}-token`, `{prefix}-csrf` and `{prefix}-gate` cookies are ignored everywhere (server and middleware), because a subdomain can set a plain cookie but never a `__Host-` one. To roll existing users over, set `legacyCookieNames: true` temporarily: the plain name is then accepted only when the `__Host-` cookie is absent. Default is `false`. Remove the option after the migration window.
 
 ## Cookie prefix policy
 
 - **Production (HTTPS)**: `__Host-{prefix}-token`, `__Host-{prefix}-csrf`
-  - `__Host-` requires `Secure`, no `Domain`, `Path=/` — maximally restrictive
+  - `__Host-` requires `Secure`, no `Domain`, `Path=/`, maximally restrictive
 - **Development (HTTP)**: `{prefix}-token`, `{prefix}-csrf`
   - Browsers reject `__Host-` without `Secure`; plain names are used instead
 - **Refresh token**: never `__Host-` prefixed (longer-lived, `sameSite=lax`)
-- Auto-detected from `isProd` / `NODE_ENV`
+- Name prefix auto-detected from `isProd` / `NODE_ENV`; the `Secure` flag is on by default and independent of it
 
 <!-- theauth:links -->
 ## Learn more

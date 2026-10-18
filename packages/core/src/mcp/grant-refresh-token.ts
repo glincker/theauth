@@ -1,5 +1,6 @@
 import type { GrantClientAuth } from "./grant-common.js";
 import { resolveAuthenticatedClient } from "./grant-common.js";
+import { checkGrantLive } from "./grant-liveness.js";
 import { canonicalizeResource, supportedScopes } from "./lenient.js";
 import { revokeFamilyAndTokens, revokeStoredAccessToken } from "./revocation.js";
 import { issueAccessTokenJwt, issueRefreshToken } from "./token-issue.js";
@@ -52,6 +53,30 @@ export async function handleRefreshTokenGrant(
 		};
 	}
 	const dpopJkt = existingToken?.dpopJkt ?? presentedJkt;
+
+	// Revocation check, always LIVE: the token endpoint is the choke point, whatever freshness mode
+	// resource servers run. Fails closed on a store error. Runs before rotation so a revoked grant
+	// is never rotated, and the family is killed so it cannot be retried.
+	if (existingToken) {
+		const live = await checkGrantLive(ctx, {
+			jti: existingToken.jti ?? existingToken.accessToken,
+			sub: existingToken.userId,
+			clientId: data.client_id,
+			// A refresh token minted before a sub or client watermark is dead; one minted after is fine.
+			grantedAt: existingToken.createdAt,
+			agentId: resolved.data.agentId ?? undefined,
+		});
+		if (!live.success) return live;
+		if (live.data.revoked) {
+			if (existingToken.familyId) {
+				await revokeFamilyAndTokens(ctx, existingToken.familyId, null).catch(() => undefined);
+			}
+			return {
+				success: false,
+				error: { code: "INVALID_GRANT", message: "The grant has been revoked" },
+			};
+		}
+	}
 
 	// Rotation and reuse detection (RFC 9700 section 4.14)
 	const families = ctx.tokenFamilies;
@@ -151,10 +176,9 @@ export async function handleRefreshTokenGrant(
 	}
 	const resource = originalResource;
 
-	// Revoke the old access token
-	await revokeStoredAccessToken(ctx, existingToken);
-
-	const { jwt, jti, expiresAt } = await issueAccessTokenJwt(
+	// Mint first: a refused mint (agent revoked or expired) must not also revoke the old token
+	// state half way. The refresh token is already rotated, and that refusal is permanent.
+	const { jwt, jti, expiresAt, ttlSeconds } = await issueAccessTokenJwt(
 		ctx,
 		existingToken.userId,
 		data.client_id,
@@ -162,6 +186,9 @@ export async function handleRefreshTokenGrant(
 		resource,
 		dpopJkt,
 	);
+
+	// Revoke the old access token
+	await revokeStoredAccessToken(ctx, existingToken);
 
 	const rotated = await issueRefreshToken(ctx, existingToken.userId, familyId);
 	const newRefreshToken = rotated.rawToken;
@@ -173,7 +200,7 @@ export async function handleRefreshTokenGrant(
 		...(rotated.familyId ? { familyId: rotated.familyId } : {}),
 		tokenType: dpopJkt ? "DPoP" : "Bearer",
 		...(dpopJkt ? { dpopJkt } : {}),
-		expiresIn: ctx.config.accessTokenTtl,
+		expiresIn: ttlSeconds,
 		scope: scopes,
 		clientId: data.client_id,
 		userId: existingToken.userId,
@@ -187,7 +214,7 @@ export async function handleRefreshTokenGrant(
 	const response: McpTokenResponse = {
 		access_token: jwt,
 		token_type: dpopJkt ? "DPoP" : "Bearer",
-		expires_in: ctx.config.accessTokenTtl,
+		expires_in: ttlSeconds,
 		refresh_token: newRefreshToken,
 		scope: scopes.join(" "),
 	};

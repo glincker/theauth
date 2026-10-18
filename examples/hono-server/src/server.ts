@@ -167,7 +167,7 @@ function homepageHtml(): string {
 <body>
   <div class="container">
     <h1>TheAuth</h1>
-    <p class="subtitle">Auth OS for AI agents — agent identity, permissions, delegation, audit</p>
+    <p class="subtitle">Auth OS for AI agents: agent identity, permissions, delegation, audit</p>
 
     <div class="status">
       <span class="dot"></span>
@@ -292,7 +292,7 @@ curl http://localhost:${PORT}/api/audit</code>
 
 async function main(): Promise<void> {
 	const auth = await createTheAuth({
-		database: { provider: "sqlite", url: "theauth.db" },
+		database: { provider: "sqlite-native", url: "theauth.db" },
 		agents: {
 			enabled: true,
 			maxPerUser: 50,

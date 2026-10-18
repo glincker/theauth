@@ -1,9 +1,10 @@
 import { createDatabase } from "./db/database.js";
+import type { PermissionCatalog, TypedTheAuth } from "./permission/typed.js";
 import type { TheAuth } from "./theauth-core.js";
 import { createTheAuthWith } from "./theauth-core.js";
 import type { TheAuthConfig } from "./types.js";
 
-export type { TheAuth };
+export type { TheAuth, TypedTheAuth };
 
 /**
  * Create a TheAuth instance.
@@ -20,6 +21,10 @@ export type { TheAuth };
  *
  * For a browser or other driver-free runtime use `@glinr/theauth/browser`.
  */
+export async function createTheAuth<const C extends PermissionCatalog>(
+	config: TheAuthConfig & { permissions: C },
+): Promise<TypedTheAuth<C>>;
+export async function createTheAuth(config: TheAuthConfig): Promise<TheAuth>;
 export async function createTheAuth(config: TheAuthConfig): Promise<TheAuth> {
 	return createTheAuthWith(config, createDatabase);
 }

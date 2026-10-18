@@ -335,6 +335,7 @@
             "pages": [
               "permissions",
               "policy-engine",
+              "policy-testing",
               "rebac",
               "policies/templates"
             ]
@@ -347,7 +348,9 @@
               "accountability-raci-template",
               "audit",
               "audit-trail",
+              "audit-receipts",
               "audit-checkpoints",
+              "observability",
               "policy-shrink",
               "analyzer",
               "trust",
@@ -361,11 +364,13 @@
               "approval",
               "agent-tools",
               "taint-guard",
+              "guards",
               "playground",
               "vercel-ai-sdk",
               "openai-agents-sdk",
               "agent-frameworks",
               "simulator",
+              "explain",
               "rate-limiting",
               "cli-auth",
               "cli-tools",
@@ -379,8 +384,10 @@
             "icon": "graduation-cap",
             "pages": [
               "tutorials/prompt-injection-tool-guard",
+              "tutorials/agent-delegation-e2e",
               "tutorials/remove-unused-agent-permissions",
-              "tutorials/verifiable-agent-receipts"
+              "tutorials/verifiable-agent-receipts",
+              "tutorials/live-revocation"
             ]
           }
         ]
@@ -395,7 +402,9 @@
             "pages": [
               "mcp",
               "mcp-grants",
+              "mcp-revocation",
               "mcp-client-compat",
+              "mcp-client-id-metadata",
               "conformance",
               "admin-mcp",
               "dpop",
@@ -408,6 +417,7 @@
             "icon": "puzzle-piece",
             "pages": [
               "adapters/index",
+              "adapters/routes",
               {
                 "group": "Server frameworks",
                 "icon": "server",
@@ -446,6 +456,7 @@
               "electron",
               "browser-extension",
               "ui-components",
+              "ui-headless",
               "publishing",
               "dashboard"
             ]
@@ -492,6 +503,8 @@
             "icon": "arrows-spin",
             "pages": [
               "hooks",
+              "community-integrations",
+              "require-scope",
               "webhooks",
               "event-streaming",
               "custom-session",
@@ -529,6 +542,7 @@
             "icon": "arrow-right-arrow-left",
             "pages": [
               "migrate/index",
+              "upgrading-to-2",
               "migrate/choose-a-path",
               "migrate/run-both-and-migrate",
               "migrate/import-users",

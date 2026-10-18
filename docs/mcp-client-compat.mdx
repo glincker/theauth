@@ -87,6 +87,8 @@ The Go library has the same five switches as `ClientCompat` (`OptionalResource`,
 - **jwt-bearer.** Go compares the raw `resource` of an ID-JAG assertion and does not accept sub-paths there. TypeScript canonicalizes both the claim and the request value.
 - **No PAR.** The TypeScript server has no pushed authorization requests, so `optionalResource` applies at authorize and token only.
 
+Clients that identify themselves with an `https://` client ID document are covered in [Client ID metadata documents](/mcp-client-id-metadata).
+
 ## Related
 
 <CardGroup cols={2}>

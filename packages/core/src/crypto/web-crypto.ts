@@ -153,13 +153,43 @@ export async function hmacSha1Raw(key: Uint8Array, data: Uint8Array): Promise<Ui
 	return new Uint8Array(signature);
 }
 
-const PBKDF2_ITERATIONS = 100_000; // CF Workers caps at 100K; OWASP recommends 600K for Node.js
+/** OWASP guidance for PBKDF2-HMAC-SHA256. Override with the `iterations` option or `THEAUTH_PBKDF2_ITERATIONS`. */
+export const DEFAULT_PBKDF2_ITERATIONS = 600_000;
+const MAX_PBKDF2_ITERATIONS = 10_000_000;
 const PBKDF2_KEY_LENGTH = 64; // bytes
 const PBKDF2_SALT_LENGTH = 32; // bytes
 
+function parseIterations(raw: unknown, source: string): number {
+	const n = typeof raw === "number" ? raw : Number(raw);
+	if (!Number.isInteger(n) || n < 1 || n > MAX_PBKDF2_ITERATIONS) {
+		throw new Error(`${source} must be an integer between 1 and ${MAX_PBKDF2_ITERATIONS}`);
+	}
+	return n;
+}
+
+/** Resolve the PBKDF2 iteration target: explicit config, then `THEAUTH_PBKDF2_ITERATIONS`, then 600000. Throws on an invalid value. */
+export function resolvePbkdf2Iterations(configured?: number): number {
+	if (configured !== undefined) return parseIterations(configured, "pbkdf2Iterations");
+	const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+	const fromEnv = proc?.env?.THEAUTH_PBKDF2_ITERATIONS;
+	if (fromEnv !== undefined && fromEnv !== "") {
+		return parseIterations(fromEnv, "THEAUTH_PBKDF2_ITERATIONS");
+	}
+	return DEFAULT_PBKDF2_ITERATIONS;
+}
+
+/** True when `stored` is not a current-format PBKDF2 hash or was made with fewer iterations than `targetIterations`. */
+export function pbkdf2NeedsRehash(stored: string, targetIterations?: number): boolean {
+	const target = resolvePbkdf2Iterations(targetIterations);
+	const parts = stored.split(":");
+	if (parts.length !== 4 || parts[0] !== "pbkdf2") return true;
+	const iterations = Number.parseInt(parts[1] as string, 10);
+	return Number.isNaN(iterations) || iterations < target;
+}
+
 /**
  * Hash a password using PBKDF2-SHA256.
- * Returns a string in the format: `pbkdf2:iterations:salt_hex:hash_hex` which is safe to store in the database.
+ * Returns a string in the format: `pbkdf2:iterations:salt_hex:hash_hex` which is safe to store in the database. The iteration count and algorithm travel with each hash, so verification always uses the stored parameters.
  */
 export async function pbkdf2Hash(
 	password: string,
@@ -167,7 +197,7 @@ export async function pbkdf2Hash(
 	iterations?: number,
 ): Promise<string> {
 	const actualSalt = salt ?? randomBytes(PBKDF2_SALT_LENGTH);
-	const actualIterations = iterations ?? PBKDF2_ITERATIONS;
+	const actualIterations = resolvePbkdf2Iterations(iterations);
 
 	const keyMaterial = await globalThis.crypto.subtle.importKey(
 		"raw",
@@ -206,7 +236,8 @@ export async function pbkdf2Verify(password: string, stored: string): Promise<bo
 	const salt = fromHex(parts[2] as string);
 	const storedHash = fromHex(parts[3] as string);
 
-	if (Number.isNaN(iterations)) return false;
+	if (Number.isNaN(iterations) || iterations < 1 || iterations > MAX_PBKDF2_ITERATIONS)
+		return false;
 
 	const keyMaterial = await globalThis.crypto.subtle.importKey(
 		"raw",

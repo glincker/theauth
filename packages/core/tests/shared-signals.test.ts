@@ -687,7 +687,7 @@ describe("plugin wiring", () => {
 	});
 
 	it("emission bridges map admin bans and session revokes to events", async () => {
-		const emit = vi.fn(async () => undefined);
+		const emit = vi.fn(async (_event: unknown) => undefined);
 		const bridge = createEmissionBridge({ emit, issuer: ISS });
 		await bridge.onAdminAction({
 			adminUserId: "a",

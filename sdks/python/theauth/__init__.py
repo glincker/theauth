@@ -13,7 +13,7 @@ Quickstart (async)::
     async def main():
         async with TheAuthClient(
             base_url="https://your-app.com/api/theauth",
-            token="kv_...",
+            token="ta_...",
         ) as client:
             agent = await client.agents.create(
                 CreateAgentInput(
@@ -35,7 +35,7 @@ Quickstart (sync)::
 
     with TheAuthSyncClient(
         base_url="https://your-app.com/api/theauth",
-        token="kv_...",
+        token="ta_...",
     ) as client:
         agent = client.agents.create(
             CreateAgentInput(

@@ -45,6 +45,9 @@ export interface PasswordResetConfig {
 	/** Sends the reset email. TheAuth builds the token and reset URL; you deliver the email. */
 	sendResetEmail: (email: string, token: string, resetUrl: string) => Promise<void>;
 
+	/** PBKDF2-SHA256 iteration target for the new hash (default: `THEAUTH_PBKDF2_ITERATIONS` or 600000). */
+	pbkdf2Iterations?: number;
+
 	/** Reset page URL. The token is appended as `?token=<token>`. */
 	resetUrl: string;
 
@@ -260,7 +263,7 @@ export function createPasswordResetModule(
 			};
 		}
 
-		const newHash = await pbkdf2Hash(newPassword);
+		const newHash = await pbkdf2Hash(newPassword, undefined, config.pbkdf2Iterations);
 		await db
 			.update(usernameAccounts)
 			.set({ passwordHash: newHash, updatedAt: new Date() })

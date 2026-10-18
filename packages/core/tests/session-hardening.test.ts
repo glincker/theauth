@@ -54,10 +54,10 @@ describe("token family reuse grace", () => {
 	});
 
 	it("still revokes the family when the window is zero for that call", async () => {
-		const { store, family, rawToken } = await setup(10_000);
+		const { store, rawToken } = await setup(10_000);
 		await store.consumeToken(rawToken);
 		expect((await store.consumeToken(rawToken, { graceMs: 0 })).status).toBe("reuse");
-		expect(await store.isFamilyActive(family.id)).toBe(false);
+		expect((await store.consumeToken(rawToken)).status).toBe("revoked");
 	});
 
 	it("caps the window", () => {

@@ -23,7 +23,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
 
 const theauth = createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 const handlers = theAuthNextjs(theauth, { authenticate });
@@ -58,6 +58,8 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 - `POST /mcp/register`
 - `GET /mcp/authorize`
 - `POST /mcp/token`
+- `POST /mcp/revoke`
+- `GET /mcp/jwks`
 
 ## Management routes and client IP
 
@@ -71,16 +73,21 @@ const handlers = theAuthNextjs(theauth, { authenticate, trustedProxy: { trustedP
 
 On Cloudflare use `trustedHeader: "cf-connecting-ip"`. Only trust a header your edge overwrites.
 
-## API surface
+## Options and routes
 
-`theAuthNextjs(theauth, options?)` returns an object with `GET`, `POST`, `PATCH`, `DELETE`, and `OPTIONS` handlers for the Next.js App Router.
+The adapter is a thin wrapper around `createTheAuthHandler` from `@glinr/theauth/http`, so it serves the same routes with the same status codes as every other adapter. See the [route reference](https://docs.theauth.dev/adapters/routes).
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
-| `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/theauth` |
+| Option | Description |
+|--------|-------------|
+| `mcp` | `McpAuthModule`. Enables the MCP OAuth 2.1 endpoints (register, authorize, token, revoke, jwks, and the two well-known documents) |
+| `basePath` | URL prefix the handler is mounted under. Defaults to `/api/theauth`. |
+| `routes` | Turn route groups off: `management`, `mcp`, `plugins`, `explain` |
+| `maxBodyBytes` | Largest accepted body. Default 1 MiB, larger gets 413 |
+| `authenticate`, `allowUnauthenticated`, `trustedProxy`, `rateLimit`, `trustedOrigins`, `csrf` | Shared security options |
 
-For full docs on agent identity, permissions, delegation, and audit, see the main [@glinr/theauth](https://www.npmjs.com/package/@glinr/theauth) package.
+### Upgrading to 2.0
+
+Options are the core handler options, and the deprecated aliases are gone. See the changeset notes in the changelog.
 
 ## Links
 
@@ -92,6 +99,18 @@ For full docs on agent identity, permissions, delegation, and audit, see the mai
 MIT
 
 <!-- theauth:links -->
+## Protect a route for agents
+
+```ts
+import { requireScope } from "@glinr/theauth-nextjs";
+
+export const GET = requireScope(theauth, { action: "read", resource: "invoices" })(
+  async (_req, agent) => Response.json({ agentId: agent.id }),
+);
+```
+
+Missing or invalid bearer token returns 401, a denied scope returns 403. The body is `{ "error": { "code", "message" } }` where `code` is the decision code (for example `no_permission`). See the [requireScope guide](https://docs.theauth.dev/require-scope).
+
 ## Learn more
 
 - [Next.js adapter guide](https://docs.theauth.dev/adapters/nextjs)

@@ -15,7 +15,7 @@ A migration guide from better-auth is available: [Migrate from better-auth](/mig
 | Capability | theAuth | better-auth |
 |---|---|---|
 | Language | TypeScript, MIT | TypeScript, MIT |
-| Named OAuth providers | 24 | 37 |
+| Named OAuth providers | 48 (22 first class, 26 presets) | 37 |
 | MCP OAuth 2.1 server | Built in with agent identity, delegation, and ephemeral sessions | Thin OIDC wrapper plugin |
 | Agent identity | First-class `AgentIdentity` entity next to `User` | Treated as an OAuth client |
 | A2A protocol | Server + client + Agent Cards with JWS signing | Not shipped |
@@ -39,7 +39,7 @@ A migration guide from better-auth is available: [Migrate from better-auth](/mig
 ## Pick better-auth if
 
 - You're building a human-facing web app with no agent workloads.
-- You need one of the 13 additional OAuth providers it ships that theAuth doesn't yet cover.
+- You need an OAuth provider it ships that theAuth does not cover. Check both provider lists first.
 - You want a Mongo or Redis adapter and Prisma first-class support right now.
 
 Both are MIT, both are TypeScript. The question is whether agents are part of your architecture.

@@ -1,9 +1,12 @@
 import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
 import { insertAuditRow } from "../audit/chain.js";
+import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { evaluateConstraints, findMatchingPermission, inspectConstraints } from "../policy/abac.js";
 import type { AgentIdentity, AuthorizeRequest, AuthorizeResult } from "../types.js";
+import type { DecisionCode } from "./codes.js";
+import { DECISION_CODES } from "./codes.js";
 
 interface PermissionEngineConfig {
 	db: Database;
@@ -36,9 +39,19 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 				allowed: false,
 				reason: `No permission grants agent "${agent.name}" access to "${request.action}" on "${request.resource}"`,
 				auditId,
+				code: DECISION_CODES.NO_PERMISSION,
 			};
 			if (auditDenials) {
-				await writeAuditLog(db, agent, request, result, startTime, auditId);
+				await writeAuditLog(
+					db,
+					agent,
+					request,
+					result,
+					startTime,
+					auditId,
+					undefined,
+					options?.auditParameters,
+				);
 			}
 			return result;
 		}
@@ -76,15 +89,20 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 						agentId: agent.id,
 						action: request.action,
 						resource: request.resource,
+						arguments: request.arguments,
 					});
 					if (spent.ok) {
 						consumed = { approvalId: spent.approvalId, approverId: spent.approverId };
 						constraintResult = { allowed: true };
 					} else {
-						constraintResult = { allowed: false, reason: spent.code };
+						constraintResult = {
+							allowed: false,
+							reason: spent.code,
+							code: DECISION_CODES.APPROVAL_INVALID,
+						};
 					}
 				} else {
-					constraintResult = { allowed: false, reason: rest.reason };
+					constraintResult = { allowed: false, reason: rest.reason, code: rest.code };
 				}
 			}
 			if (!constraintResult.allowed) {
@@ -92,19 +110,43 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 					allowed: false,
 					reason: constraintResult.reason,
 					auditId,
+					code: constraintResult.code ?? DECISION_CODES.NO_PERMISSION,
 				};
 				if (auditDenials) {
-					await writeAuditLog(db, agent, request, result, startTime, auditId);
+					await writeAuditLog(
+						db,
+						agent,
+						request,
+						result,
+						startTime,
+						auditId,
+						undefined,
+						options?.auditParameters,
+					);
 				}
 				return result;
 			}
 		}
 
 		const result: AuthorizeResult = consumed
-			? { allowed: true, reason: APPROVAL_CODES.CONSUMED, auditId }
-			: { allowed: true, auditId };
+			? {
+					allowed: true,
+					reason: APPROVAL_CODES.CONSUMED,
+					auditId,
+					code: DECISION_CODES.APPROVAL_CONSUMED,
+				}
+			: { allowed: true, auditId, code: DECISION_CODES.ALLOWED };
 		if (auditAll) {
-			await writeAuditLog(db, agent, request, result, startTime, auditId, consumed);
+			await writeAuditLog(
+				db,
+				agent,
+				request,
+				result,
+				startTime,
+				auditId,
+				consumed,
+				options?.auditParameters,
+			);
 		}
 		return result;
 	}
@@ -116,7 +158,8 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 	async function recordDenial(
 		target: { agentId: string; ownerId: string },
 		request: AuthorizeRequest,
-		reasonCode: DenialReasonCode,
+		code: DecisionCode,
+		extra?: DenialExtra,
 	): Promise<string> {
 		if (!auditAll) return "";
 		const auditId = generateId();
@@ -126,12 +169,17 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 				agentId: target.agentId,
 				userId: target.ownerId,
 				action: request.action,
+				event: "authorize",
 				resource: request.resource,
-				parameters: request.arguments ?? {},
-				result: "denied",
-				reason: reasonCode,
-				durationMs: 0,
+				parameters: extra?.parameters ?? stripReservedAuditKeys(request.arguments) ?? {},
+				result: extra?.result ?? "denied",
+				reason: extra?.reason ?? code,
+				decisionCode: code,
+				durationMs: extra?.durationMs ?? 0,
 				timestamp: new Date(),
+				subjectId: extra?.subjectId ?? null,
+				actorId: extra?.actorId ?? null,
+				delegationChain: extra?.delegationChain ?? null,
 				ip: request.context?.ip ?? request.ip ?? null,
 				userAgent: request.context?.userAgent ?? null,
 			});
@@ -148,9 +196,19 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 		agent: AgentIdentity,
 		request: AuthorizeRequest,
 		result: AuthorizeResult,
+		auditParameters?: Record<string, unknown>,
 	): Promise<void> {
 		if (!auditAll || result.allowed || !result.auditId) return;
-		await writeAuditLog(db, agent, request, result, performance.now(), result.auditId);
+		await writeAuditLog(
+			db,
+			agent,
+			request,
+			result,
+			performance.now(),
+			result.auditId,
+			undefined,
+			auditParameters,
+		);
 	}
 
 	return { authorize, recordDenial, auditDenial };
@@ -159,9 +217,22 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 export interface AuthorizeOptions {
 	/** Skip the audit row for a denial; the caller writes it with `auditDenial`. */
 	deferDenialAudit?: boolean;
+	/** Extra keys merged into the `parameters` of the audit row this call writes (for example `theauthHook`). */
+	auditParameters?: Record<string, unknown>;
 }
 
-/** Stable reason codes stored on audit rows for denials made before permission evaluation. */
+/** Optional overrides for a denial row written by `recordDenial`. */
+export interface DenialExtra {
+	parameters?: Record<string, unknown>;
+	durationMs?: number;
+	subjectId?: string;
+	actorId?: string;
+	delegationChain?: string[];
+	result?: "denied" | "escalated";
+	reason?: string;
+}
+
+/** @deprecated Use `DecisionCode`. Kept as the two agent codes this type used to name. */
 export type DenialReasonCode = "agent_revoked" | "agent_expired";
 
 async function writeAuditLog(
@@ -172,6 +243,7 @@ async function writeAuditLog(
 	startTime: number,
 	auditId: string,
 	consumed?: { approvalId: string; approverId?: string },
+	auditParameters?: Record<string, unknown>,
 ): Promise<void> {
 	const durationMs = Math.round(performance.now() - startTime);
 
@@ -183,12 +255,16 @@ async function writeAuditLog(
 			agentId: agent.id,
 			userId: agent.ownerId,
 			action: request.action,
+			event: "authorize",
 			resource: request.resource,
-			parameters: consumed
-				? { ...(request.arguments ?? {}), approvalId: consumed.approvalId }
-				: (request.arguments ?? {}),
+			parameters: {
+				...(stripReservedAuditKeys(request.arguments) ?? {}),
+				...(consumed ? { approvalId: consumed.approvalId } : {}),
+				...(auditParameters ?? {}),
+			},
 			result: result.allowed ? "allowed" : "denied",
 			reason: result.reason ?? null,
+			decisionCode: result.code ?? null,
 			approverId: consumed?.approverId ?? null,
 			durationMs,
 			timestamp: new Date(),

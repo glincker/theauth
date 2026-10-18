@@ -28,7 +28,7 @@ async function runHook(
 
 // rateLimit() plugin, basic allow / deny
 
-describe("rateLimit() plugin — allow and deny", () => {
+describe("rateLimit() plugin: allow and deny", () => {
 	it("returns undefined (pass-through) for paths outside /auth/", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 2 } });
 		const result = await runHook(plugin, makeRequest("/api/data", "1.1.1.1"));
@@ -38,7 +38,7 @@ describe("rateLimit() plugin — allow and deny", () => {
 	it("returns undefined when no limit is configured for the path", async () => {
 		// No default configured, no specific path configured
 		const plugin = rateLimit({});
-		const result = await runHook(plugin, makeRequest("/auth/sign-in", "1.1.1.1"));
+		const result = await runHook(plugin, makeRequest("/auth/session", "1.1.1.1"));
 		expect(result).toBeUndefined();
 	});
 
@@ -46,7 +46,7 @@ describe("rateLimit() plugin — allow and deny", () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 3 } });
 
 		for (let i = 0; i < 3; i++) {
-			const result = await runHook(plugin, makeRequest("/auth/sign-in", "2.2.2.2"));
+			const result = await runHook(plugin, makeRequest("/auth/session", "2.2.2.2"));
 			expect(result).toBeUndefined();
 		}
 	});
@@ -54,10 +54,10 @@ describe("rateLimit() plugin — allow and deny", () => {
 	it("blocks the request that exceeds max with a Response", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 2 } });
 
-		await runHook(plugin, makeRequest("/auth/sign-in", "3.3.3.3"));
-		await runHook(plugin, makeRequest("/auth/sign-in", "3.3.3.3"));
+		await runHook(plugin, makeRequest("/auth/session", "3.3.3.3"));
+		await runHook(plugin, makeRequest("/auth/session", "3.3.3.3"));
 
-		const result = await runHook(plugin, makeRequest("/auth/sign-in", "3.3.3.3"));
+		const result = await runHook(plugin, makeRequest("/auth/session", "3.3.3.3"));
 		expect(result).toBeInstanceOf(Response);
 		expect((result as Response).status).toBe(429);
 	});
@@ -65,8 +65,8 @@ describe("rateLimit() plugin — allow and deny", () => {
 	it("429 response includes Retry-After header", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 1 } });
 
-		await runHook(plugin, makeRequest("/auth/sign-in", "4.4.4.4"));
-		const result = (await runHook(plugin, makeRequest("/auth/sign-in", "4.4.4.4"))) as Response;
+		await runHook(plugin, makeRequest("/auth/session", "4.4.4.4"));
+		const result = (await runHook(plugin, makeRequest("/auth/session", "4.4.4.4"))) as Response;
 
 		const retryAfter = result.headers.get("Retry-After");
 		expect(retryAfter).not.toBeNull();
@@ -76,8 +76,8 @@ describe("rateLimit() plugin — allow and deny", () => {
 	it("429 response includes X-RateLimit-Limit header", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 1 } });
 
-		await runHook(plugin, makeRequest("/auth/sign-in", "5.5.5.5"));
-		const result = (await runHook(plugin, makeRequest("/auth/sign-in", "5.5.5.5"))) as Response;
+		await runHook(plugin, makeRequest("/auth/session", "5.5.5.5"));
+		const result = (await runHook(plugin, makeRequest("/auth/session", "5.5.5.5"))) as Response;
 
 		expect(result.headers.get("X-RateLimit-Limit")).toBe("1");
 	});
@@ -85,8 +85,8 @@ describe("rateLimit() plugin — allow and deny", () => {
 	it("429 response includes X-RateLimit-Remaining: 0", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 1 } });
 
-		await runHook(plugin, makeRequest("/auth/sign-in", "6.6.6.6"));
-		const result = (await runHook(plugin, makeRequest("/auth/sign-in", "6.6.6.6"))) as Response;
+		await runHook(plugin, makeRequest("/auth/session", "6.6.6.6"));
+		const result = (await runHook(plugin, makeRequest("/auth/session", "6.6.6.6"))) as Response;
 
 		expect(result.headers.get("X-RateLimit-Remaining")).toBe("0");
 	});
@@ -94,9 +94,9 @@ describe("rateLimit() plugin — allow and deny", () => {
 	it("429 response includes X-RateLimit-Reset header (unix seconds)", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 1 } });
 
-		await runHook(plugin, makeRequest("/auth/sign-in", "7.7.7.7"));
+		await runHook(plugin, makeRequest("/auth/session", "7.7.7.7"));
 		const before = Math.floor(Date.now() / 1000);
-		const result = (await runHook(plugin, makeRequest("/auth/sign-in", "7.7.7.7"))) as Response;
+		const result = (await runHook(plugin, makeRequest("/auth/session", "7.7.7.7"))) as Response;
 
 		const resetHeader = Number(result.headers.get("X-RateLimit-Reset"));
 		expect(resetHeader).toBeGreaterThanOrEqual(before);
@@ -106,7 +106,7 @@ describe("rateLimit() plugin — allow and deny", () => {
 
 // rateLimit() plugin, per-endpoint config
 
-describe("rateLimit() plugin — per-endpoint config", () => {
+describe("rateLimit() plugin: per-endpoint config", () => {
 	it("uses signIn limit for /auth/sign-in", async () => {
 		const plugin = rateLimit({
 			signIn: { window: "15m", max: 2 },
@@ -188,15 +188,15 @@ describe("rateLimit() plugin — per-endpoint config", () => {
 
 // rateLimit() plugin, key extraction
 
-describe("rateLimit() plugin — key extraction", () => {
+describe("rateLimit() plugin: key extraction", () => {
 	it("isolates counters per IP", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 1 } });
 
 		// IP A uses its slot
-		await runHook(plugin, makeRequest("/auth/sign-in", "20.0.0.1"));
+		await runHook(plugin, makeRequest("/auth/session", "20.0.0.1"));
 
 		// IP B should still pass
-		const result = await runHook(plugin, makeRequest("/auth/sign-in", "20.0.0.2"));
+		const result = await runHook(plugin, makeRequest("/auth/session", "20.0.0.2"));
 		expect(result).toBeUndefined();
 	});
 
@@ -206,15 +206,15 @@ describe("rateLimit() plugin — key extraction", () => {
 			keyExtractor: (req) => req.headers.get("x-tenant-id") ?? "unknown",
 		});
 
-		const tenantA = makeRequest("/auth/sign-in", undefined, { "x-tenant-id": "tenant-a" });
-		const tenantB = makeRequest("/auth/sign-in", undefined, { "x-tenant-id": "tenant-b" });
+		const tenantA = makeRequest("/auth/session", undefined, { "x-tenant-id": "tenant-a" });
+		const tenantB = makeRequest("/auth/session", undefined, { "x-tenant-id": "tenant-b" });
 
 		await runHook(plugin, tenantA);
 
 		// Same tenant, should be blocked
 		const blockedA = await runHook(
 			plugin,
-			makeRequest("/auth/sign-in", undefined, { "x-tenant-id": "tenant-a" }),
+			makeRequest("/auth/session", undefined, { "x-tenant-id": "tenant-a" }),
 		);
 		expect((blockedA as Response).status).toBe(429);
 
@@ -226,7 +226,7 @@ describe("rateLimit() plugin — key extraction", () => {
 	it("falls back to 'unknown' key when no IP headers present", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 1 } });
 
-		const noIp = () => new Request("http://localhost/auth/sign-in", { method: "POST" });
+		const noIp = () => new Request("http://localhost/auth/session", { method: "POST" });
 
 		await runHook(plugin, noIp());
 		const blocked = await runHook(plugin, noIp());
@@ -236,7 +236,7 @@ describe("rateLimit() plugin — key extraction", () => {
 
 // rateLimit() plugin, custom onLimit
 
-describe("rateLimit() plugin — custom onLimit", () => {
+describe("rateLimit() plugin: custom onLimit", () => {
 	it("calls custom onLimit with retryAfter when limit exceeded", async () => {
 		const onLimit = vi.fn(
 			(_req: Request, retryAfter: number) =>
@@ -247,8 +247,8 @@ describe("rateLimit() plugin — custom onLimit", () => {
 			onLimit,
 		});
 
-		await runHook(plugin, makeRequest("/auth/sign-in", "30.0.0.1"));
-		const result = await runHook(plugin, makeRequest("/auth/sign-in", "30.0.0.1"));
+		await runHook(plugin, makeRequest("/auth/session", "30.0.0.1"));
+		const result = await runHook(plugin, makeRequest("/auth/session", "30.0.0.1"));
 
 		expect(onLimit).toHaveBeenCalledOnce();
 		expect(onLimit.mock.calls[0]?.[1]).toBeGreaterThan(0);
@@ -258,7 +258,7 @@ describe("rateLimit() plugin — custom onLimit", () => {
 
 // rateLimit() plugin, window parsing
 
-describe("rateLimit() plugin — window string parsing", () => {
+describe("rateLimit() plugin: window string parsing", () => {
 	it.each([
 		["30s", 30_000],
 		["1m", 60_000],
@@ -269,14 +269,14 @@ describe("rateLimit() plugin — window string parsing", () => {
 
 		const plugin = rateLimit({ default: { window, max: 1 } });
 
-		await runHook(plugin, makeRequest("/auth/sign-in", "40.0.0.1"));
-		const blocked = await runHook(plugin, makeRequest("/auth/sign-in", "40.0.0.1"));
+		await runHook(plugin, makeRequest("/auth/session", "40.0.0.1"));
+		const blocked = await runHook(plugin, makeRequest("/auth/session", "40.0.0.1"));
 		expect((blocked as Response).status).toBe(429);
 
 		vi.advanceTimersByTime(expectedMs + 100);
 
 		// Should be allowed again
-		const allowed = await runHook(plugin, makeRequest("/auth/sign-in", "40.0.0.1"));
+		const allowed = await runHook(plugin, makeRequest("/auth/session", "40.0.0.1"));
 		expect(allowed).toBeUndefined();
 
 		vi.useRealTimers();
@@ -293,12 +293,12 @@ describe("rateLimit() plugin — window string parsing", () => {
 
 // rateLimit() plugin, store option
 
-describe("rateLimit() plugin — pluggable store", () => {
+describe("rateLimit() plugin: pluggable store", () => {
 	it("accepts 'memory' string to use MemoryStore", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 1 }, store: "memory" });
 
-		await runHook(plugin, makeRequest("/auth/sign-in", "60.0.0.1"));
-		const blocked = await runHook(plugin, makeRequest("/auth/sign-in", "60.0.0.1"));
+		await runHook(plugin, makeRequest("/auth/session", "60.0.0.1"));
+		const blocked = await runHook(plugin, makeRequest("/auth/session", "60.0.0.1"));
 		expect((blocked as Response).status).toBe(429);
 	});
 
@@ -314,7 +314,7 @@ describe("rateLimit() plugin — pluggable store", () => {
 		};
 
 		const plugin = rateLimit({ default: { window: "1m", max: 5 }, store: customStore });
-		await runHook(plugin, makeRequest("/auth/sign-in", "70.0.0.1"));
+		await runHook(plugin, makeRequest("/auth/session", "70.0.0.1"));
 
 		expect(calls.length).toBe(1);
 		expect(calls[0]?.windowMs).toBe(60_000);
@@ -505,7 +505,7 @@ describe("concurrent requests", () => {
 
 		// 5 concurrent requests for the same IP, first 2 pass, rest get 429
 		const results = await Promise.all(
-			Array.from({ length: 5 }, () => runHook(plugin, makeRequest("/auth/sign-in", "99.0.0.1"))),
+			Array.from({ length: 5 }, () => runHook(plugin, makeRequest("/auth/session", "99.0.0.1"))),
 		);
 
 		const statuses = results.map((r) => (r instanceof Response ? r.status : 200));

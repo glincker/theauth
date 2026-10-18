@@ -22,24 +22,33 @@ Works in Node.js, Cloudflare Workers, Deno, and the browser.
 import { createTheAuthClient, TheAuthApiError } from '@glinr/theauth-client';
 
 const theauth = createTheAuthClient({
-  apiUrl: 'https://auth.yourapp.com',
-  tenantId: 'your-tenant-id',
-  apiKey: process.env.THEAUTH_API_KEY,
+  baseUrl: 'https://auth.yourapp.com',
+  token: process.env.THEAUTH_API_KEY,
 });
 
-// Authorize a token
-const result = await theauth.authorize({ token: incomingToken, requiredPermissions: ['read:data'] });
+// Authorize an action with the agent's bearer token
+const result = await theauth.authorizeByToken(incomingToken, { action: 'read', resource: 'data' });
 
-if (!result.ok) {
-  throw new Error('Unauthorized');
+if (!result.allowed) {
+  throw new Error(result.reason ?? 'Unauthorized');
 }
 
-// Manage agents
-const agent = await theauth.createAgent({ name: 'my-bot', permissions: ['read:data'] });
-const agents = await theauth.listAgents();
+// Manage agents (ownerId is the user who owns the agent)
+const agent = await theauth.agents.create({
+  ownerId: 'user_123',
+  name: 'my-bot',
+  type: 'service',
+  permissions: [{ resource: 'data', actions: ['read'] }],
+});
+const agents = await theauth.agents.list();
 
-// Delegate permissions
-await theauth.delegate({ agentId: agent.id, permissions: ['read:data'], expiresIn: '1h' });
+// Delegate a subset of permissions from one agent to another
+await theauth.delegations.create({
+  fromAgent: agent.id,
+  toAgent: otherAgentId,
+  permissions: [{ resource: 'data', actions: ['read'] }],
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+});
 ```
 
 ## DPoP (RFC 9449)
@@ -123,10 +132,10 @@ await auth.apiTokens.revokeCurrent();
 
 ```ts
 try {
-  await theauth.authorize({ token });
+  await theauth.authorizeByToken(token, { action: 'read', resource: 'data' });
 } catch (err) {
   if (err instanceof TheAuthApiError) {
-    console.error(err.status, err.body.code);
+    console.error(err.status, err.code);
   }
 }
 ```

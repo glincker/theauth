@@ -6,7 +6,7 @@
  * ```typescript
  * const passkey = createPasskeyModule({ rpName: "App", rpId: "example.com", origin }, db);
  * const theauth = await createTheAuth({
- *   database: { provider: "sqlite", url: "theauth.db" },
+ *   database: { provider: "sqlite-native", url: "theauth.db" },
  *   auth: { session: { secret: process.env.SESSION_SECRET } },
  *   signInGate: {
  *     require2faFor: ["password", "social", "magic_link", "phone"],

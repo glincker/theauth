@@ -1,4 +1,4 @@
-import { json, parseBody } from "../plugin/helpers.js";
+import { json, parseBody, parseRememberMe } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { MagicLinkConfig } from "./magic-link.js";
 import { createMagicLinkModule } from "./magic-link.js";
@@ -77,7 +77,11 @@ export function magicLink(config: MagicLinkConfig): TheAuthPlugin {
 
 					let result: Awaited<ReturnType<typeof module.verify>>;
 					try {
-						result = await module.verify(token, { request });
+						const rememberMe = parseRememberMe(url.searchParams.get("rememberMe"));
+						result = await module.verify(token, {
+							request,
+							...(rememberMe !== undefined && { rememberMe }),
+						});
 					} catch (err) {
 						if (err instanceof SignInGateError) return signInGateResponse(err);
 						throw err;

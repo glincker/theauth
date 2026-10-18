@@ -134,12 +134,14 @@ describe("audit chain and erasure", () => {
 		const pre = await verifyAuditChain(db, {}, KEY);
 		expect(pre.success && pre.data.ok).toBe(true);
 
+		// Erasure appends its signed record to the chain, so the chain is on as in production.
+		enableAuditChain(db, { hmacKey: KEY });
 		await createGdprModule(db).deleteUser("u1", { keepAuditLogs: true });
 
 		const result = await verifyAuditChain(db, {}, KEY);
 		expect(result.success && result.data.ok).toBe(true);
 		expect(result.success && result.data.erased).toBe(3);
-		// the erasure record is a side record, not an unchained row
+		// the erasure record is a chained row, not an unchained one
 		expect(result.success && result.data.unchained).toBe(0);
 		const records = await db.select().from(auditLogs).where(eq(auditLogs.action, ERASURE_ACTION));
 		expect(records).toHaveLength(1);
@@ -156,6 +158,7 @@ describe("audit chain and erasure", () => {
 	it("does not let an erasure record excuse a changed version 1 row", async () => {
 		const h1 = await insertV1("v1", 1, null);
 		await insertV1("v2", 2, h1);
+		enableAuditChain(db, { hmacKey: KEY });
 		await createGdprModule(db).deleteUser("u1", { keepAuditLogs: true });
 		// tamper with a row after it was erased: the stored hash no longer matches the record
 		await db

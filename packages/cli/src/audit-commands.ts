@@ -14,6 +14,7 @@ theauth audit
 Usage:
   theauth audit verify [--agent <id>] [--from <iso>] [--to <iso>] [--json]
   theauth audit replay --agent <id> [--since <iso>] [--until <iso>] [--user <id>] [--json]
+  theauth audit verify-go <export.json|export.ndjson> [--secret-hex <hex>] [--partial] [--json]
 
 Options:
   --db <url>     Database URL (default: DATABASE_URL). postgres://, mysql://,
@@ -27,12 +28,16 @@ Environment:
 verify walks each agent's hash chain and prints the first broken link with the
 row ids involved. It exits 1 when the chain is broken. replay prints one
 agent's timeline (actions, decisions, delegations, approvals, token events)
-and the chain verification status for that window.
+and the chain verification status for that window. verify-go checks a chain
+exported by theauth-go from a file (no database needed, see docs/audit-receipts).
 `;
 
 export interface AuditArgs {
 	help: boolean;
-	subcommand: "verify" | "replay" | null;
+	subcommand: "verify" | "replay" | "verify-go" | null;
+	file: string | null;
+	secretHex: string | null;
+	partial: boolean;
 	agent: string | null;
 	user: string | null;
 	from: Date | null;
@@ -54,6 +59,9 @@ export function parseAuditArgs(args: string[]): AuditArgs {
 	const out: AuditArgs = {
 		help: false,
 		subcommand: null,
+		file: null,
+		secretHex: null,
+		partial: false,
 		agent: null,
 		user: null,
 		from: null,
@@ -67,7 +75,7 @@ export function parseAuditArgs(args: string[]): AuditArgs {
 		out.help = true;
 		return out;
 	}
-	if (sub !== "verify" && sub !== "replay") {
+	if (sub !== "verify" && sub !== "replay" && sub !== "verify-go") {
 		out.error = `Unknown audit command: ${sub}`;
 		return out;
 	}
@@ -90,6 +98,12 @@ export function parseAuditArgs(args: string[]): AuditArgs {
 				break;
 			case "--json":
 				out.json = true;
+				break;
+			case "--secret-hex":
+				out.secretHex = value() ?? null;
+				break;
+			case "--partial":
+				out.partial = true;
 				break;
 			case "--agent":
 				out.agent = value() ?? null;
@@ -115,10 +129,12 @@ export function parseAuditArgs(args: string[]): AuditArgs {
 				break;
 			}
 			default:
-				out.error = `Unknown option: ${arg}`;
+				if (sub === "verify-go" && !arg.startsWith("-") && out.file === null) out.file = arg;
+				else out.error = `Unknown option: ${arg}`;
 		}
 		if (out.error) return out;
 	}
+	if (sub === "verify-go" && !out.file) out.error = "verify-go needs a file path";
 	if (sub === "replay" && !out.agent) out.error = "replay needs --agent <id>";
 	return out;
 }

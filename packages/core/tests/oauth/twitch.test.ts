@@ -54,7 +54,7 @@ describe("createTwitchProvider", () => {
 	});
 });
 
-describe("createTwitchProvider — getAuthorizationUrl", () => {
+describe("createTwitchProvider: getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and PKCE S256", async () => {
 		const provider = createTwitchProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
 		const url = await provider.getAuthorizationUrl("state-abc", CODE_VERIFIER, REDIRECT_URI);

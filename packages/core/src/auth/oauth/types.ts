@@ -74,6 +74,10 @@ export interface OAuthModuleConfig {
 	hasOtherSignInMethod?: (userId: string) => Promise<boolean>;
 	/** Refresh when the access token expires within this many seconds. Default 60. */
 	expirySkewSeconds?: number;
+	/**
+	 * Exact `redirectUri` values this module will accept, e.g. `["https://app.example.com/auth/oauth/callback/google"]`. A value outside the list (or one with userinfo, a fragment, a backslash or a non-http(s) scheme) throws before state is stored and again on callback. Off when omitted, so a caller that builds `redirectUri` from request data should set it.
+	 */
+	allowedRedirectUris?: string[];
 	/** Injectable clock for tests (milliseconds). */
 	now?: () => number;
 }

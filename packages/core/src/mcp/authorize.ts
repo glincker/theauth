@@ -1,8 +1,24 @@
+import { looksLikeCimdClientId } from "./cimd-url.js";
 import { resolveClient } from "./client-metadata.js";
 import { filterRequestedScopes, redirectUriAllowed, resolveResource } from "./lenient.js";
 import type { McpAuthContext, McpAuthorizationCode, McpAuthorizeResult, Result } from "./types.js";
 import { McpAuthorizeRequestSchema } from "./types.js";
 import { generateAuthorizationCode } from "./utils.js";
+
+function loginRequired(ctx: McpAuthContext, request: Request): Result<McpAuthorizeResult> {
+	return {
+		success: false,
+		error: {
+			code: "LOGIN_REQUIRED",
+			message: "User must be authenticated before authorization",
+			details: {
+				loginPage: ctx.config.loginPage,
+				// Pass all original query params so the login page can redirect back
+				returnTo: request.url,
+			},
+		},
+	};
+}
 
 /**
  * Handle the OAuth 2.1 authorization endpoint.
@@ -47,6 +63,15 @@ export async function handleAuthorize(
 		resource: requestedResource,
 	} = parsed.data;
 
+	// An anonymous request never makes the server fetch or store a client document: that would
+	// let anyone drive outbound requests and storage growth. A CIMD client is resolved only
+	// once the user is logged in (the login page sends them back here).
+	let userId: string | null | undefined;
+	if (ctx.config.clientIdMetadataDocuments?.enabled === true && looksLikeCimdClientId(clientId)) {
+		userId = await ctx.resolveUserId(request);
+		if (!userId) return loginRequired(ctx, request);
+	}
+
 	const client = await resolveClient(ctx, clientId);
 	if (!client) {
 		return {
@@ -64,6 +89,19 @@ export async function handleAuthorize(
 			error: {
 				code: "INVALID_CLIENT",
 				message: "Client is disabled",
+			},
+		};
+	}
+
+	// A Client ID Metadata Document client is self-asserted by whoever controls its URL. Never
+	// issue it a code without the user's explicit approval, whatever the config says now.
+	if (client.source === "cimd" && !ctx.config.consentPage) {
+		return {
+			success: false,
+			error: {
+				code: "CONSENT_REQUIRED",
+				message:
+					"This client is identified by a Client ID Metadata Document and needs user consent, but no consentPage is configured",
 			},
 		};
 	}
@@ -100,21 +138,8 @@ export async function handleAuthorize(
 	if (!filtered.success) return filtered;
 	const effectiveScopes = filtered.data.length > 0 ? filtered.data : ["openid"];
 
-	const userId = await ctx.resolveUserId(request);
-	if (!userId) {
-		return {
-			success: false,
-			error: {
-				code: "LOGIN_REQUIRED",
-				message: "User must be authenticated before authorization",
-				details: {
-					loginPage: ctx.config.loginPage,
-					// Pass all original query params so the login page can redirect back
-					returnTo: request.url,
-				},
-			},
-		};
-	}
+	userId ??= await ctx.resolveUserId(request);
+	if (!userId) return loginRequired(ctx, request);
 
 	// Consent page redirect
 	// When a consent page is configured, redirect the user to it instead

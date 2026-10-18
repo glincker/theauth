@@ -292,7 +292,7 @@ describe("additionalFields plugin endpoints", () => {
 		expect(body.fields.plan).toBe("free");
 	});
 
-	it("GET /auth/users/fields returns 400 when userId is missing", async () => {
+	it("GET /auth/users/fields defaults to the session user when userId is missing", async () => {
 		const { createTheAuth } = await import("../src/theauth.js");
 
 		const theauth = await createTheAuth({
@@ -319,7 +319,7 @@ describe("additionalFields plugin endpoints", () => {
 				headers: { Authorization: `Bearer ${token}` },
 			}),
 		);
-		expect(response?.status).toBe(400);
+		expect(response?.status).toBe(200);
 	});
 
 	it("PUT /auth/users/fields writes fields and returns updated: true", async () => {

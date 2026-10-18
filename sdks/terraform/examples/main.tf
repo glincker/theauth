@@ -13,7 +13,7 @@ terraform {
 # ---------------------------------------------------------------------------
 # Pass credentials via environment variables in CI:
 #   export THEAUTH_BASE_URL=https://your-app.com/api/theauth
-#   export THEAUTH_TOKEN=kv_live_...
+#   export THEAUTH_TOKEN=ta_live_...
 #
 # Or explicitly (use variables rather than hardcoding):
 provider "theauth" {

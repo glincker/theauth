@@ -51,6 +51,13 @@ describe("EmailVerificationModule", () => {
 			},
 			db,
 			tokenModule,
+			{
+				// The test resolver treats an x-user header as the signed-in user.
+				resolveUser: async (r) => {
+					const id = r.headers.get("x-user");
+					return id ? { id } : null;
+				},
+			},
 		);
 	});
 
@@ -251,8 +258,8 @@ describe("EmailVerificationModule", () => {
 
 			const request = new Request("http://localhost/auth/verify-email/send", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId, email: "alice@example.com" }),
+				headers: { "Content-Type": "application/json", "x-user": userId },
+				body: JSON.stringify({ email: "alice@example.com" }),
 			});
 
 			const response = await verificationModule.handleRequest(request);
@@ -261,11 +268,24 @@ describe("EmailVerificationModule", () => {
 			expect(sendVerificationEmail).toHaveBeenCalledOnce();
 		});
 
-		it("POST /auth/verify-email/send returns 404 for missing user", async () => {
+		it("POST /auth/verify-email/send returns 401 with no signed-in user, even with a body userId", async () => {
+			const { userId } = await insertUser(db, "alice@example.com");
 			const request = new Request("http://localhost/auth/verify-email/send", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: "nonexistent", email: "nobody@example.com" }),
+				body: JSON.stringify({ userId, email: "attacker@example.com" }),
+			});
+
+			const response = await verificationModule.handleRequest(request);
+			expect(response!.status).toBe(401);
+			expect(sendVerificationEmail).not.toHaveBeenCalled();
+		});
+
+		it("POST /auth/verify-email/send returns 404 for missing user", async () => {
+			const request = new Request("http://localhost/auth/verify-email/send", {
+				method: "POST",
+				headers: { "Content-Type": "application/json", "x-user": "nonexistent" },
+				body: JSON.stringify({ email: "nobody@example.com" }),
 			});
 
 			const response = await verificationModule.handleRequest(request);
@@ -276,8 +296,8 @@ describe("EmailVerificationModule", () => {
 		it("POST /auth/verify-email/send returns 400 on missing fields", async () => {
 			const request = new Request("http://localhost/auth/verify-email/send", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ email: "alice@example.com" }),
+				headers: { "Content-Type": "application/json", "x-user": "someone" },
+				body: JSON.stringify({}),
 			});
 
 			const response = await verificationModule.handleRequest(request);

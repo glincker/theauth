@@ -1,0 +1,5 @@
+---
+"@glinr/theauth": minor
+---
+
+`gdpr.deleteUser` now revokes every delegation link the user's agents give or receive (cascading to links further down, with `delegation.revoke` audit rows and revocation pushes) and keeps the revoked rows instead of deleting them, so downstream grants stop working. Delegation liveness also treats an agent whose inbound links are all revoked or expired as no longer self-standing: it lends only what its own permissions cover. Anonymized ids are now an HMAC-SHA256 (128 bits) under a per-instance secret (`hmacKey`, else the stored audit secret) instead of an unsalted SHA-256 prefix. Delete mode also clears `subjectId`, `actorId` and `approverId` on other users' audit rows that name the deleted user. `admin.deleteUser` no longer fails with a foreign key error when the user has agents: it goes through the same ordered erasure and keeps audit logs. User ids starting with `[deleted-` are reserved and rejected by `user.create`. Session creation refuses banned users (ban expiry honored) with a generic `UserBannedError` and a denied `sign_in` audit row, which covers password, username, magic link, passkey, OAuth, SAML and SSO sign-ins.

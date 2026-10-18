@@ -574,7 +574,7 @@ describe("handleWebhook event dispatch", () => {
 
 // Plugin: unauthenticated requests
 
-describe("stripe plugin — unauthenticated endpoint access", () => {
+describe("stripe plugin: unauthenticated endpoint access", () => {
 	let db: Database;
 	let plugin: TheAuthPlugin;
 

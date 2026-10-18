@@ -1,3 +1,5 @@
+export type { RedirectAllowlistOptions } from "./allowlist.js";
+export { resolveRedirectTarget, safeRedirectTarget } from "./allowlist.js";
 export type {
 	RedirectChainManager,
 	RedirectChainState,

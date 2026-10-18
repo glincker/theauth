@@ -20,6 +20,8 @@ Three places differ on purpose:
 - Budget is checked only by the simulator, and only when it can tell the action would not fit: a `cost` is supplied and it is larger than what is left. `authorize()` does not look at budgets.
 - An agent whose `expiresAt` has passed but whose status is still `active` gets a warning step. `authorize()` by agent id looks at status only, so the simulator matches that and flags it instead.
 
+Delegated rules keep their `constraints` in the simulator. Earlier versions dropped them when loading stored delegation chains, so a delegated rate limit or IP allowlist could show `allow` here while `authorize()` denied. That is fixed, and the simulator now shares its evaluation walk with [`explain()`](/explain).
+
 ## Run it
 
 ```ts
@@ -143,6 +145,10 @@ theauth permissions agent_123
 ```
 
 `simulate` exits 0 on `allow` and 2 on anything else, so you can use it in scripts. `permissions` prints a table of resource, action, source (`own` or `delegation:<chain>`) and decision.
+
+## Explain a live decision
+
+To see why one real call would be allowed or denied, with the matched rule, the delegation link and the hook outcome, use [`theauth.explain()`](/explain). The simulator is for what-if analysis and matrices; `explain()` is for the agent as it is now.
 
 ## Limits
 

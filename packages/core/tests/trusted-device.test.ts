@@ -125,7 +125,7 @@ describe("createTrustedDeviceModule", () => {
 			expect(await mod.isTrusted(USER_A, fp)).toBe(false);
 		});
 
-		it("trust is user-scoped — USER_B cannot use USER_A's fingerprint", async () => {
+		it("trust is user-scoped: USER_B cannot use USER_A's fingerprint", async () => {
 			const fp = await mod.generateFingerprint(makeRequest());
 			await mod.trustDevice(USER_A, fp);
 			expect(await mod.isTrusted(USER_B, fp)).toBe(false);

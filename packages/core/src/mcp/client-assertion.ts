@@ -1,9 +1,8 @@
-import { createLocalJWKSet, decodeJwt, jwtVerify } from "jose";
+import { createLocalJWKSet, decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
 import { sha256Raw, toBase64Url } from "../crypto/web-crypto.js";
-import { resolveClient } from "./client-metadata.js";
+import { cimdFetchOptions, resolveClient } from "./client-metadata.js";
 import { CLIENT_ASSERTION_TYPE_JWT_BEARER } from "./grant-types.js";
 import { getAssertionStorage, loadRemoteJwks } from "./jwks-fetch.js";
-import type { SafeFetchOptions } from "./safe-fetch.js";
 import type { McpAuthContext, McpClient, Result } from "./types.js";
 
 /**
@@ -19,12 +18,36 @@ function invalid(message: string): Result<never> {
 	return { success: false, error: { code: "INVALID_CLIENT", message } };
 }
 
-function fetchOptionsFor(ctx: McpAuthContext): SafeFetchOptions {
-	const opts = ctx.config.clientIdMetadataDocuments;
-	return {
-		...(opts?.resolver ? { resolver: opts.resolver } : {}),
-		...(opts?.fetchImpl ? { fetchImpl: opts.fetchImpl } : {}),
-	};
+/** Everything that can be judged without a key or the network. A request that fails here never triggers a document or JWKS fetch. */
+function cheapPreconditions(
+	input: { assertion: string; tokenEndpointUrl: string },
+	claims: ReturnType<typeof decodeJwt>,
+	issuer: string,
+): string | null {
+	const parts = input.assertion.split(".");
+	if (parts.length !== 3 || !parts[2]) return "client_assertion is not signed";
+	let alg: string | undefined;
+	try {
+		alg = decodeProtectedHeader(input.assertion).alg;
+	} catch {
+		return "client_assertion is not a valid JWT";
+	}
+	if (!alg || !CLIENT_ASSERTION_ALGS.includes(alg)) return "client_assertion verification failed";
+	const aud = Array.isArray(claims.aud) ? claims.aud : claims.aud === undefined ? [] : [claims.aud];
+	if (!aud.some((a) => a === input.tokenEndpointUrl || a === issuer)) {
+		return "client_assertion verification failed";
+	}
+	const now = Math.floor(Date.now() / 1000);
+	if (typeof claims.exp !== "number" || claims.exp + SKEW_SECONDS < now) {
+		return "client_assertion verification failed";
+	}
+	if (claims.exp - now > MAX_LIFETIME_SECONDS + SKEW_SECONDS) {
+		return "client_assertion lifetime is too long";
+	}
+	if (typeof claims.jti !== "string" || claims.jti.length === 0) {
+		return "client_assertion verification failed";
+	}
+	return null;
 }
 
 /** Verify a `client_assertion`. On success returns the authenticated client. `expectedClientId`, when the request also names a client_id, must match. */
@@ -55,6 +78,9 @@ export async function verifyClientAssertion(
 		return invalid("client_assertion does not match client_id");
 	}
 
+	const early = cheapPreconditions(input, claims, ctx.config.issuer);
+	if (early) return invalid(early);
+
 	const client = await resolveClient(ctx, clientId);
 	if (!client || client.disabled) return invalid("Unknown client_id");
 	if (client.tokenEndpointAuthMethod !== "private_key_jwt") {
@@ -64,8 +90,8 @@ export async function verifyClientAssertion(
 	const keys = client.jwks?.keys ?? [];
 	let resolved = keys;
 	if (resolved.length === 0 && client.jwksUri) {
-		const remote = await loadRemoteJwks(ctx, client.jwksUri, fetchOptionsFor(ctx));
-		if (!remote.ok) return invalid(remote.message);
+		const remote = await loadRemoteJwks(ctx, client.jwksUri, cimdFetchOptions(ctx));
+		if (!remote.ok) return invalid("client_assertion verification failed");
 		resolved = remote.keys;
 	}
 	if (resolved.length === 0) return invalid("Client has no registered keys");

@@ -2,7 +2,7 @@
  * MCP OAuth 2.1 End-to-End Integration Tests
  * Exercises the full OAuth 2.1 authorization code flow using in-memory storage, no database required. Each test group builds on real module instances returned by createMcpModule(), so the tests cover the full stack from HTTP Request objects down through JWT signing/verification.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMcpModule } from "../src/mcp/server.js";
 import type {
 	McpAccessToken,
@@ -494,7 +494,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 		});
 
 		it("rejects an expired token", async () => {
-			// Create a module with 0-second token TTL so it expires instantly
+			// A 1 second TTL (the issuer refuses to mint under one second); the clock is moved past it below.
 			const shortStore = createInMemoryStore();
 			const shortMcp = createMcpModule({
 				config: {
@@ -503,7 +503,7 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 					baseUrl: BASE_URL,
 					signingSecret: SIGNING_SECRET,
 					resource: RESOURCE,
-					accessTokenTtl: 0, // expires immediately
+					accessTokenTtl: 1,
 					refreshTokenTtl: 604800,
 					codeTtl: 600,
 				},
@@ -569,10 +569,12 @@ describe("MCP OAuth 2.1 end-to-end flow", () => {
 			expect(tokenResult.success).toBe(true);
 			if (!tokenResult.success) return;
 
-			// Wait a tick to ensure the 0-second TTL has elapsed
-			await new Promise<void>((resolve) => setTimeout(resolve, 10));
+			// Move the clock (Date only, so store promises still run) past the 1 second lifetime.
+			vi.useFakeTimers({ toFake: ["Date"] });
+			vi.setSystemTime(Date.now() + 5000);
 
 			const validation = await shortMcp.validateToken(tokenResult.data.access_token);
+			vi.useRealTimers();
 			expect(validation.success).toBe(false);
 			if (validation.success) return;
 			expect(["TOKEN_EXPIRED", "INVALID_TOKEN"]).toContain(validation.error.code);

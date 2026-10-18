@@ -1,21 +1,60 @@
 /**
  * SSRF-safe JSON fetcher.
  * - accepts https URLs only, with no credentials and the default port;
- * - resolves the hostname and rejects loopback, private (RFC 1918), link-local, carrier-grade NAT, multicast, unique-local IPv6 and cloud metadata ranges;
+ * - resolves the hostname (node:dns only through a guarded dynamic import, so Workers, Deno and Bun never load it; fetch-only resolvers such as createDohResolver work everywhere) and rejects loopback, private (RFC 1918), link-local, carrier-grade NAT, multicast, unique-local IPv6 and cloud metadata ranges;
  * - never follows redirects (`redirect: "manual"`, any 3xx fails);
  * - enforces a small body cap while streaming;
  * - accepts `application/json` (or `+json`) responses only;
- * - times out;
- * - fails closed: every error becomes an `{ ok: false }` result. Residual risk: the platform `fetch` resolves the name again when it connects, so a DNS rebinding attacker with a very short TTL can still win the race between our check and the connection.
+ * - times out, with one budget that covers the headers and the body (slow-drip bodies are aborted);
+ * - sends `cache: "no-store"`, no credentials, no referrer, minimal headers;
+ * - returns generic errors; detail goes only to `onEvent`;
+ * - on Node and Bun (node:https through a guarded dynamic import, see safe-fetch-node.ts) the connection is pinned to the addresses that were vetted, so the name is never resolved a second time and DNS rebinding at connect is closed. Proxy environment variables are not used on that path;
+ * - fails closed: every error becomes an `{ ok: false }` result. Residual risk on runtimes without a controllable connection (Workers, Deno) and with a custom `fetchImpl`: the platform `fetch` resolves the name again when it connects, so a DNS rebinding attacker with a very short TTL can still win the race between our check and the connection.
  */
 
-export type DnsResolver = (hostname: string) => Promise<string[]>;
+/** `signal` aborts when the fetch budget ends; resolvers that can cancel should honor it. */
+export type DnsResolver = (hostname: string, signal?: AbortSignal) => Promise<string[]>;
+
+import { isPublicIp, screenHostname } from "./cimd-url.js";
+import { DeadlineError, defaultDnsResolver, loadNodeDns, withDeadline } from "./safe-fetch-dns.js";
+import {
+	loadNodeHttps,
+	PinnedConnectRefused,
+	pinnedHttpsGet,
+	publicVetter,
+} from "./safe-fetch-node.js";
+
+export { defaultDnsResolver, setNodeDnsForTests } from "./safe-fetch-dns.js";
+export { setNodeHttpsForTests } from "./safe-fetch-node.js";
+
+/** Resolver selection: a function, "auto" (node:dns when importable, otherwise fails closed), or "none" (names only). */
+export type SafeFetchResolver = DnsResolver | "auto" | "none";
+
+/** Detail for operators. Never returned to the requester. */
+export interface SafeFetchEvent {
+	type: "safe_fetch.failed" | "safe_fetch.resolver_unavailable";
+	reason?: SafeFetchFailure;
+	/** Internal detail, for logs only. */
+	detail: string;
+	/** Origin and path of the URL, without query. Absent for resolver_unavailable. */
+	url?: string;
+}
 
 export interface SafeFetchOptions {
-	/** Resolve a hostname to IP address strings. Defaults to Node's dns lookup. */
-	resolver?: DnsResolver;
-	/** Fetch implementation. Defaults to global fetch. */
+	/** "auto" (default): node:dns when this runtime has it, otherwise fails closed (see onResolverUnavailable) and reports once through onEvent. "none": hostname rules only. Or a resolver such as createDohResolver(). */
+	resolver?: SafeFetchResolver;
+	/** What "auto" does on a runtime with no DNS resolver. Default "fail" (every fetch fails closed). "names_only" skips the address check; use it only when the hosts are vetted another way, such as an allow list. */
+	onResolverUnavailable?: "fail" | "names_only";
+	/** Receives failure detail and runtime notices. Fire and forget, errors swallowed. */
+	onEvent?: (event: SafeFetchEvent) => void;
+	/** TEST ONLY. Lets http, any port and loopback hosts through so a local server can be used. Never set in production. */
+	allowLoopbackForTests?: boolean;
+	/** Fetch implementation. Defaults to global fetch. Setting it turns the pinned connect off (the supplied function owns the connection). */
 	fetchImpl?: typeof fetch;
+	/** "auto" (default): on Node and Bun connect through node:https pinned to the vetted addresses; elsewhere use fetch. "off": always use fetch. Pinned requests ignore HTTP_PROXY, HTTPS_PROXY and NO_PROXY on purpose, so an unvetted proxy can never carry the request. */
+	pinnedConnect?: "auto" | "off";
+	/** TEST ONLY. PEM CA added to the pinned connection's trust store so a local self signed server validates. */
+	caForTests?: string;
 	/** Maximum response body size in bytes. Default 5120. */
 	maxBytes?: number;
 	/** Timeout in milliseconds. Default 5000. */
@@ -159,16 +198,12 @@ export function isIpLiteral(host: string): boolean {
 	return parseIPv4(h) !== null || h.includes(":");
 }
 
-/** Default resolver: Node's `dns.lookup` with `all: true`. On runtimes without `node:dns` the import fails and the fetch is rejected (fail closed); pass a `resolver` there. */
-export const defaultDnsResolver: DnsResolver = async (hostname) => {
-	const dns = await import("node:dns/promises");
-	const records = await dns.lookup(hostname, { all: true, verbatim: true });
-	return records.map((r) => r.address);
-};
+const LOOPBACK_TEST_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 
 /** Check a URL's scheme, authority and host. Returns a failure or the parsed URL. */
 export function checkFetchableUrl(
 	raw: string,
+	opts: { allowLoopbackForTests?: boolean } = {},
 ): { ok: true; url: URL } | { ok: false; message: string } {
 	let url: URL;
 	try {
@@ -176,10 +211,13 @@ export function checkFetchableUrl(
 	} catch {
 		return { ok: false, message: "not a valid URL" };
 	}
+	const host = url.hostname.toLowerCase().replace(/\.$/, "");
+	if (opts.allowLoopbackForTests === true && LOOPBACK_TEST_HOSTS.has(host)) {
+		return { ok: true, url };
+	}
 	if (url.protocol !== "https:") return { ok: false, message: "only https URLs are allowed" };
 	if (url.username || url.password) return { ok: false, message: "credentials in URL" };
 	if (url.port && url.port !== "443") return { ok: false, message: "non-default port" };
-	const host = url.hostname.toLowerCase().replace(/\.$/, "");
 	if (!host) return { ok: false, message: "empty host" };
 	if (BLOCKED_HOSTNAMES.has(host) || BLOCKED_SUFFIXES.some((s) => host.endsWith(s))) {
 		return { ok: false, message: "host is not allowed" };
@@ -187,25 +225,51 @@ export function checkFetchableUrl(
 	return { ok: true, url };
 }
 
-async function readCapped(response: Response, maxBytes: number): Promise<string | null> {
+const GENERIC_MESSAGE: Record<SafeFetchFailure, string> = {
+	invalid_url: "url is not allowed",
+	blocked_host: "host is not allowed",
+	dns_failure: "host could not be verified",
+	redirect: "request could not be completed",
+	http_error: "request could not be completed",
+	bad_content_type: "response is not usable",
+	too_large: "response is not usable",
+	invalid_json: "response is not usable",
+	timeout: "request timed out",
+	network_error: "request could not be completed",
+};
+
+/** Reads the body up to `maxBytes` before `deadline`. Returns null when over the cap. Throws DeadlineError on a slow drip. */
+async function readCapped(
+	response: Response,
+	maxBytes: number,
+	deadline: number,
+): Promise<string | null> {
 	const declared = response.headers.get("content-length");
-	if (declared !== null && Number(declared) > maxBytes) return null;
+	if (declared !== null && Number(declared) > maxBytes) {
+		await response.body?.cancel().catch(() => undefined);
+		return null;
+	}
 	if (!response.body) {
-		const text = await response.text();
+		const text = await withDeadline(response.text(), deadline);
 		return new TextEncoder().encode(text).length > maxBytes ? null : text;
 	}
 	const reader = response.body.getReader();
 	const chunks: Uint8Array[] = [];
 	let total = 0;
-	for (;;) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		total += value.byteLength;
-		if (total > maxBytes) {
-			await reader.cancel().catch(() => undefined);
-			return null;
+	try {
+		for (;;) {
+			const { done, value } = await withDeadline(reader.read(), deadline);
+			if (done) break;
+			total += value.byteLength;
+			if (total > maxBytes) {
+				void reader.cancel().catch(() => undefined);
+				return null;
+			}
+			chunks.push(value);
 		}
-		chunks.push(value);
+	} catch (err) {
+		void reader.cancel().catch(() => undefined);
+		throw err;
 	}
 	const merged = new Uint8Array(total);
 	let offset = 0;
@@ -216,87 +280,218 @@ async function readCapped(response: Response, maxBytes: number): Promise<string 
 	return new TextDecoder().decode(merged);
 }
 
+const reportedUnavailable = new WeakSet<object>();
+
+function emit(onEvent: SafeFetchOptions["onEvent"], event: SafeFetchEvent): void {
+	if (!onEvent) return;
+	try {
+		onEvent(event);
+	} catch {
+		// Observers must never affect the fetch.
+	}
+}
+
 /** Fetch a JSON document from an untrusted https URL without exposing the server to SSRF. Never throws. */
 export async function safeFetchJson(
 	rawUrl: string,
 	options: SafeFetchOptions = {},
 ): Promise<SafeFetchResult> {
-	const fail = (reason: SafeFetchFailure, message: string): SafeFetchResult => ({
-		ok: false,
-		reason,
-		message,
-	});
-
-	const checked = checkFetchableUrl(rawUrl);
-	if (!checked.ok) return fail("invalid_url", checked.message);
-	const url = checked.url;
-	const host = url.hostname.toLowerCase().replace(/\.$/, "");
-
-	// Resolve and screen every address the name maps to.
-	let addresses: string[];
-	if (isIpLiteral(host)) {
-		addresses = [host];
-	} else {
-		try {
-			addresses = await (options.resolver ?? defaultDnsResolver)(host);
-		} catch {
-			return fail("dns_failure", "hostname could not be resolved");
-		}
-	}
-	if (addresses.length === 0) return fail("dns_failure", "hostname has no addresses");
-	if (addresses.some((a) => isBlockedIp(a))) {
-		return fail("blocked_host", "host resolves to a non-public address");
-	}
-
-	const fetchImpl = options.fetchImpl ?? fetch;
-	const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
-	let response: Response;
+	let eventUrl: string | undefined;
+	const fail = (reason: SafeFetchFailure, detail: string): SafeFetchResult => {
+		emit(options.onEvent, {
+			type: "safe_fetch.failed",
+			reason,
+			detail,
+			...(eventUrl ? { url: eventUrl } : {}),
+		});
+		return { ok: false, reason, message: GENERIC_MESSAGE[reason] };
+	};
 	try {
-		response = await fetchImpl(url.toString(), {
-			method: "GET",
-			headers: { Accept: "application/json" },
-			redirect: "manual",
-			credentials: "omit",
-			signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+		return await run(rawUrl, options, fail, (u) => {
+			eventUrl = u;
 		});
 	} catch (err) {
-		if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
-			return fail("timeout", "request timed out");
+		return fail("network_error", `unexpected: ${err instanceof Error ? err.message : "unknown"}`);
+	}
+}
+
+async function run(
+	rawUrl: string,
+	options: SafeFetchOptions,
+	fail: (reason: SafeFetchFailure, detail: string) => SafeFetchResult,
+	setEventUrl: (u: string) => void,
+): Promise<SafeFetchResult> {
+	const loopbackOk = options.allowLoopbackForTests === true;
+	const checked = checkFetchableUrl(rawUrl, { allowLoopbackForTests: loopbackOk });
+	if (!checked.ok) return fail("invalid_url", checked.message);
+	const url = checked.url;
+	setEventUrl(`${url.origin}${url.pathname}`);
+	const host = url.hostname.toLowerCase().replace(/\.$/, "");
+	const isTestLoopback = loopbackOk && LOOPBACK_TEST_HOSTS.has(host);
+	let pinAddresses: string[] | null = isTestLoopback
+		? [host === "localhost" ? "127.0.0.1" : host.replace(/^\[|\]$/g, "")]
+		: null;
+
+	const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+	const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+	// One budget for name resolution, headers and body.
+	const deadline = Date.now() + timeoutMs;
+
+	if (!isTestLoopback) {
+		const mode = options.resolver ?? "auto";
+		let addresses: string[] | null = null;
+		if (!isIpLiteral(host)) {
+			const screened = screenHostname(host);
+			if (!screened.ok) return fail("blocked_host", screened.reason);
 		}
-		return fail("network_error", "request failed");
+		if (isIpLiteral(host)) {
+			addresses = [host];
+		} else if (mode === "none") {
+			addresses = null;
+		} else {
+			let resolve: DnsResolver | null;
+			if (mode === "auto") {
+				const hasDns = await withDeadline(loadNodeDns(), deadline).catch(() => null);
+				resolve = hasDns ? defaultDnsResolver : null;
+				if (!resolve) {
+					if (options.onEvent && !reportedUnavailable.has(options.onEvent)) {
+						reportedUnavailable.add(options.onEvent);
+						emit(options.onEvent, {
+							type: "safe_fetch.resolver_unavailable",
+							detail:
+								"no DNS resolver on this runtime; set resolver to createDohResolver() or a custom resolver, or none for hostname rules only",
+						});
+					}
+					if (options.onResolverUnavailable !== "names_only") {
+						return fail("dns_failure", "no DNS resolver on this runtime");
+					}
+				}
+			} else {
+				resolve = mode;
+			}
+			if (resolve) {
+				const abort = new AbortController();
+				try {
+					addresses = await withDeadline(resolve(host, abort.signal), deadline);
+				} catch (err) {
+					abort.abort();
+					if (err instanceof DeadlineError) return fail("timeout", "dns lookup timed out");
+					return fail(
+						"dns_failure",
+						`resolver failed: ${err instanceof Error ? err.message : "unknown"}`,
+					);
+				}
+				if (!Array.isArray(addresses) || addresses.length === 0) {
+					return fail("dns_failure", "hostname has no addresses");
+				}
+			}
+		}
+		if (addresses?.some((a) => typeof a !== "string" || !isPublicIp(a))) {
+			return fail("blocked_host", "host resolves to a non-public address");
+		}
+		pinAddresses = addresses ?? null;
 	}
 
-	if (response.status >= 300 && response.status < 400) {
-		return fail("redirect", "redirects are not followed");
-	}
-	// Opaque redirect responses (type "opaqueredirect") report status 0.
-	if (response.type === "opaqueredirect") return fail("redirect", "redirects are not followed");
-	if (!response.ok) return fail("http_error", `unexpected status ${response.status}`);
+	// Pinned connect: only where the connection is ours to control and the addresses were vetted.
+	const pinnedHttps =
+		options.fetchImpl === undefined &&
+		options.pinnedConnect !== "off" &&
+		pinAddresses !== null &&
+		url.protocol === "https:"
+			? await withDeadline(loadNodeHttps(), deadline).catch(() => null)
+			: null;
 
-	const contentType = (response.headers.get("content-type") ?? "").split(";")[0]?.trim() ?? "";
-	if (
-		contentType.toLowerCase() !== "application/json" &&
-		!contentType.toLowerCase().endsWith("+json")
-	) {
-		return fail("bad_content_type", "response is not JSON");
-	}
-
-	let text: string | null;
+	const fetchImpl = options.fetchImpl ?? fetch;
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), Math.max(1, deadline - Date.now()));
 	try {
-		text = await readCapped(response, maxBytes);
-	} catch {
-		return fail("network_error", "failed to read response");
-	}
-	if (text === null) return fail("too_large", `response exceeds ${maxBytes} bytes`);
+		let response: Response;
+		try {
+			const headers = { Accept: "application/json", "User-Agent": "theauth-cimd/1" };
+			response = await withDeadline(
+				pinnedHttps && pinAddresses
+					? pinnedHttpsGet(pinnedHttps, {
+							url,
+							addresses: pinAddresses,
+							vet: publicVetter(isTestLoopback),
+							signal: controller.signal,
+							headers,
+							...(options.caForTests !== undefined ? { ca: options.caForTests } : {}),
+						})
+					: fetchImpl(url.toString(), {
+							method: "GET",
+							headers,
+							redirect: "manual",
+							credentials: "omit",
+							cache: "no-store",
+							referrer: "",
+							referrerPolicy: "no-referrer",
+							signal: controller.signal,
+						}),
+				deadline,
+			);
+		} catch (err) {
+			controller.abort();
+			if (err instanceof PinnedConnectRefused) {
+				return fail("blocked_host", `connection refused: ${err.message}`);
+			}
+			if (
+				err instanceof DeadlineError ||
+				(err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError"))
+			) {
+				return fail("timeout", "headers not received in time");
+			}
+			return fail(
+				"network_error",
+				`fetch failed: ${err instanceof Error ? err.message : "unknown"}`,
+			);
+		}
 
-	try {
-		const cacheControl = response.headers.get("cache-control");
-		return {
-			ok: true,
-			json: JSON.parse(text) as unknown,
-			...(cacheControl !== null ? { cacheControl } : {}),
-		};
-	} catch {
-		return fail("invalid_json", "response is not valid JSON");
+		if (response.status >= 300 && response.status < 400) {
+			void response.body?.cancel().catch(() => undefined);
+			return fail("redirect", `redirect status ${response.status}`);
+		}
+		// Opaque redirect responses (type "opaqueredirect") report status 0.
+		if (response.type === "opaqueredirect") return fail("redirect", "opaque redirect");
+		if (response.status !== 200) {
+			void response.body?.cancel().catch(() => undefined);
+			return fail("http_error", `unexpected status ${response.status}`);
+		}
+
+		const contentType =
+			(response.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
+		if (
+			contentType !== "application/json" &&
+			!/^application\/[a-z0-9.+-]+\+json$/.test(contentType)
+		) {
+			void response.body?.cancel().catch(() => undefined);
+			return fail("bad_content_type", `content type ${contentType || "missing"}`);
+		}
+
+		let text: string | null;
+		try {
+			text = await readCapped(response, maxBytes, deadline);
+		} catch (err) {
+			controller.abort();
+			if (err instanceof DeadlineError) return fail("timeout", "body not received in time");
+			if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+				return fail("timeout", "body aborted");
+			}
+			return fail("network_error", "failed to read response");
+		}
+		if (text === null) return fail("too_large", `response exceeds ${maxBytes} bytes`);
+
+		try {
+			const cacheControl = response.headers.get("cache-control");
+			return {
+				ok: true,
+				json: JSON.parse(text) as unknown,
+				...(cacheControl !== null ? { cacheControl } : {}),
+			};
+		} catch {
+			return fail("invalid_json", "response is not valid JSON");
+		}
+	} finally {
+		clearTimeout(timer);
 	}
 }

@@ -11,7 +11,7 @@ icon: gear
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 ```
 
@@ -23,7 +23,7 @@ A minimal config for local development with username and password sign-in, theAu
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: './theauth.db' },
+  database: { provider: 'sqlite-native', url: './theauth.db' },
   agents: { enabled: true },
   auth: {
     session: { secret: process.env.SESSION_SECRET! }, // at least 32 characters
@@ -39,6 +39,7 @@ const theauth = await createTheAuth({
 <ParamField path="auth" type={`{ adapter?: AuthAdapter; session?: SessionConfig }`}>Human auth adapter and session config.</ParamField>
 <ParamField path="approval" type="ApprovalConfig">CIBA async approval flow config. See [Approval flows](/approval).</ParamField>
 <ParamField path="hooks" type="TheAuthHooks">Lifecycle hooks for sandboxing and custom validation. See [Hooks](/hooks).</ParamField>
+<ParamField path="hookSafety" type="HookSafetyConfig">Timeout and failure policy for `beforeAuthorize` and `beforeAgentCreate`. Defaults: 2000 ms, deny on timeout or error for `beforeAuthorize`, throw for `beforeAgentCreate`. Environment variables `THEAUTH_HOOK_TIMEOUT_MS`, `THEAUTH_HOOK_ON_TIMEOUT` and `THEAUTH_HOOK_ON_ERROR` set the defaults. See [Hook safety](/hooks#hook-safety-timeout-and-fail-closed).</ParamField>
 <ParamField path="policy" type="PolicyEngineConfig">Unified policy engine cache, combine strategy, and audit sampling. See [Policy engine](/policy-engine).</ParamField>
 <ParamField path="did" type="{ web?: DidWebConfig }">did:web domain and path. See [DIDs](/did).</ParamField>
 <ParamField path="plugins" type="TheAuthPlugin[]">Plugin factories such as `gdpr()`, `rateLimit()`, `twoFactor()`. See [Plugins](#plugins).</ParamField>
@@ -77,7 +78,7 @@ const theauth = await createTheAuth({
 
 // SQLite (Node.js)
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: './theauth.db' },
+  database: { provider: 'sqlite-native', url: './theauth.db' },
 });
 
 // PostgreSQL
@@ -165,6 +166,10 @@ auth: {
 When `auth` is omitted, `theauth.auth.resolveUser()` always returns `null` (manual user management mode).
 
 Built-in adapters exported from `@glinr/theauth/auth` include `betterAuthAdapter`, `authJsAdapter`, `clerkAdapter`, `bearerAuth`, `cookieAuth`, `headerAuth`, `apiKeyAdapter`, and `customAuth`.
+
+## Secret rotation
+
+Secrets that sign or encrypt data accept a list so you can rotate without invalidating what is already issued: `secret: [current, ...previous]`. The first entry signs and encrypts, every entry verifies and decrypts. Add the new secret at the front and deploy, then remove the old one after the longest lifetime of anything it signed. Entries can also be `{ id, secret }`, and the id is emitted with the signature (`X-TheAuth-Key-Id` for webhooks, a cookie field for sessions) so verifiers try that key first. Entries must be at least 32 bytes, and empty or duplicate entries throw at startup. The list form is supported by webhook endpoint `secret` (see [Webhooks](/webhooks)), `createStatelessSessions` and `createSessionCookieCache` (see [Session hardening](/session-hardening)). `auth.session.secret` and `McpConfig.signingSecret` remain single strings.
 
 ## Session config
 
@@ -277,7 +282,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 export const theauth = await createTheAuth({
   database: isDev
-    ? { provider: 'sqlite', url: './theauth-dev.db' }
+    ? { provider: 'sqlite-native', url: './theauth-dev.db' }
     : { provider: 'postgres', url: process.env.DATABASE_URL! },
 
   baseUrl: process.env.THEAUTH_BASE_URL ?? 'http://localhost:3000',

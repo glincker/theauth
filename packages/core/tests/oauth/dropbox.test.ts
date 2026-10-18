@@ -56,7 +56,7 @@ describe("createDropboxProvider", () => {
 	});
 });
 
-describe("createDropboxProvider — getAuthorizationUrl", () => {
+describe("createDropboxProvider: getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code, PKCE S256, and token_access_type=offline", async () => {
 		const provider = createDropboxProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
 		const url = await provider.getAuthorizationUrl("state-abc", CODE_VERIFIER, REDIRECT_URI);

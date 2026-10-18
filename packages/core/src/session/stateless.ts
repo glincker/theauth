@@ -1,7 +1,7 @@
 /**
  * Stateless (database-less) sessions for apps that delegate identity to an external IdP.
  * After the IdP login completes, the verified identity goes into a signed cookie and the IdP tokens go into a separate AES-GCM encrypted cookie. `getAccessToken` refreshes an expired access token through your IdP and re-seals the cookie. Trade-offs, stated plainly:
- * - A session cannot be revoked server side. Keep `maxAge` short, rotate the secret to kill everything, or plug `isRevoked` into a store you already have (a KV denylist fed by back-channel logout works well).
+ * - A session cannot be revoked server side. Keep `maxAge` short, rotate the secret (drop the old entry from the `secret` list) to kill everything, or plug `isRevoked` into a store you already have (a KV denylist fed by back-channel logout works well).
  * - The identity cookie is signed, not encrypted. Do not put secrets in it.
  * - Refresh tokens live in the browser, encrypted. Parallel `getAccessToken` calls for the same refresh token share one `refreshAccessToken` call within a process, so a rotating IdP sees a single use. Separate server instances (or separate browser tabs hitting different instances) can still race.
  *
@@ -19,13 +19,9 @@
  */
 
 import type { SignInGate, SignInMethod } from "../auth/sign-in-gate-types.js";
-import {
-	constantTimeEqual,
-	fromBase64Url,
-	hmacSha256Raw,
-	randomBytes,
-	toBase64Url,
-} from "../crypto/web-crypto.js";
+import type { SecretRingConfig } from "../crypto/secrets.js";
+import { SecretRing } from "../crypto/secrets.js";
+import { fromBase64Url, hmacSha256Raw, randomBytes, toBase64Url } from "../crypto/web-crypto.js";
 import type { Result } from "../mcp/types.js";
 import type { CookieOptions } from "./cookie.js";
 import { parseCookies } from "./cookie.js";
@@ -63,8 +59,8 @@ export interface StatelessSession {
 }
 
 export interface StatelessSessionsConfig {
-	/** Secret for signing and encryption, at least 32 characters. */
-	secret: string;
+	/** Secret for signing and encryption, at least 32 bytes. A string, or `[current, ...previous]` for rotation: the first signs and encrypts, every entry verifies and decrypts. Entries may be `{ id, secret }`, the id is written into the identity cookie so verification tries that key first. */
+	secret: SecretRingConfig | SecretRing;
 	/** Identity cookie name. Default `theauth_stateless`. */
 	name?: string;
 	/** Encrypted token cookie name. Default `theauth_stateless_tokens`. */
@@ -130,9 +126,7 @@ function fail<T>(code: string, message: string): Result<T> {
 }
 
 export function createStatelessSessions(config: StatelessSessionsConfig): StatelessSessions {
-	if (!config.secret || config.secret.length < 32) {
-		throw new Error("StatelessSessions: secret must be at least 32 characters.");
-	}
+	const ring = SecretRing.from(config.secret, { label: "StatelessSessions" });
 	const name = config.name ?? "theauth_stateless";
 	const tokensName = config.tokensName ?? "theauth_stateless_tokens";
 	const maxAge = config.maxAge ?? DEFAULT_MAX_AGE;
@@ -151,28 +145,36 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 	/** In-flight refreshes by refresh token, so concurrent callers share one IdP call. */
 	const refreshing = new Map<string, Promise<Result<StatelessTokens>>>();
 
-	let encKey: Promise<CryptoKey> | null = null;
-	function getEncKey(): Promise<CryptoKey> {
-		encKey ??= hmacSha256Raw(config.secret, ENC_CONTEXT).then((raw) =>
-			crypto.subtle.importKey("raw", raw as BufferSource, "AES-GCM", false, ["encrypt", "decrypt"]),
-		);
-		return encKey;
+	/** AES keys derived per secret, so rotated-out secrets are derived once. */
+	const encKeys = new Map<string, Promise<CryptoKey>>();
+	function getEncKey(secret: string): Promise<CryptoKey> {
+		let key = encKeys.get(secret);
+		if (!key) {
+			key = hmacSha256Raw(secret, ENC_CONTEXT).then((raw) =>
+				crypto.subtle.importKey("raw", raw as BufferSource, "AES-GCM", false, [
+					"encrypt",
+					"decrypt",
+				]),
+			);
+			encKeys.set(secret, key);
+		}
+		return key;
 	}
 
 	async function seal(payload: unknown): Promise<string> {
 		const body = toBase64Url(encoder.encode(JSON.stringify(payload)));
-		const sig = toBase64Url(await hmacSha256Raw(config.secret, `${SIGN_CONTEXT}.${body}`));
-		return `${body}.${sig}`;
+		const { signature, kid } = await ring.sign(`${SIGN_CONTEXT}.${body}`);
+		const sig = toBase64Url(signature);
+		return kid === undefined ? `${body}.${sig}` : `${body}.${sig}.${kid}`;
 	}
 
 	async function unseal<T>(value: string | undefined): Promise<T | null> {
 		if (!value) return null;
 		const parts = value.split(".");
-		if (parts.length !== 2) return null;
-		const [body, sig] = parts as [string, string];
+		if (parts.length !== 2 && parts.length !== 3) return null;
+		const [body, sig, kid] = parts as [string, string, string | undefined];
 		try {
-			const expected = toBase64Url(await hmacSha256Raw(config.secret, `${SIGN_CONTEXT}.${body}`));
-			if (!constantTimeEqual(encoder.encode(expected), encoder.encode(sig))) return null;
+			if (!(await ring.verify(`${SIGN_CONTEXT}.${body}`, fromBase64Url(sig), kid))) return null;
 			return JSON.parse(decoder.decode(fromBase64Url(body))) as T;
 		} catch {
 			return null;
@@ -190,7 +192,7 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		const iv = randomBytes(12);
 		const ct = await crypto.subtle.encrypt(
 			{ name: "AES-GCM", iv: iv as BufferSource, additionalData: tokenAad(session) },
-			await getEncKey(),
+			await getEncKey(ring.current),
 			encoder.encode(JSON.stringify(payload)),
 		);
 		return `${TOKEN_FORMAT_V2}${toBase64Url(iv)}.${toBase64Url(new Uint8Array(ct))}`;
@@ -205,20 +207,24 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		if (legacy && config.acceptLegacyTokenCookies !== true) return null;
 		const parts = (legacy ? value : value.slice(TOKEN_FORMAT_V2.length)).split(".");
 		if (parts.length !== 2) return null;
-		try {
-			const pt = await crypto.subtle.decrypt(
-				{
-					name: "AES-GCM",
-					iv: fromBase64Url(parts[0] as string) as BufferSource,
-					...(legacy ? {} : { additionalData: tokenAad(session) }),
-				},
-				await getEncKey(),
-				fromBase64Url(parts[1] as string) as BufferSource,
-			);
-			return { value: JSON.parse(decoder.decode(pt)) as T, legacy };
-		} catch {
-			return null;
+		// AES-GCM authenticates, so a wrong key fails cleanly: try current first, then previous keys.
+		for (const secret of ring.candidates()) {
+			try {
+				const pt = await crypto.subtle.decrypt(
+					{
+						name: "AES-GCM",
+						iv: fromBase64Url(parts[0] as string) as BufferSource,
+						...(legacy ? {} : { additionalData: tokenAad(session) }),
+					},
+					await getEncKey(secret),
+					fromBase64Url(parts[1] as string) as BufferSource,
+				);
+				return { value: JSON.parse(decoder.decode(pt)) as T, legacy };
+			} catch {
+				// try the next key
+			}
 		}
+		return null;
 	}
 
 	async function createSession(

@@ -5,11 +5,16 @@ import { eq } from "drizzle-orm";
 import type { ApprovalModule } from "../approval/approval.js";
 import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
 import { recordAuditEvent } from "../audit/record.js";
+import { stripReservedAuditKeys } from "../audit/reserved.js";
+import { withHookDetail } from "../authorize/hook-outcome.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
-import { agents, permissions as permissionsTable } from "../db/schema.js";
-import { getDelegatedPermissions } from "../delegation/delegation.js";
+import { agents } from "../db/schema.js";
 import { resolveLineage } from "../delegation/lineage.js";
+import type { BeforeAuthorizeRunner } from "../hooks/run.js";
+import { depthOfPath, hookFieldsOf } from "../observability/events.js";
+import type { Observability } from "../observability/index.js";
+import type { DenialCode } from "../permission/codes.js";
 import type { Permission } from "../types.js";
 import { evaluateConstraints, isCacheUnsafe, matchAction, matchResource } from "./abac.js";
 import type { PolicyCache } from "./cache.js";
@@ -17,6 +22,17 @@ import { createPolicyCache } from "./cache.js";
 import type { PartialDecision } from "./combiner.js";
 import { combine } from "./combiner.js";
 import { makeDecision, withEffect } from "./decision.js";
+import {
+	buildCacheKey,
+	clampSampleRate,
+	finalize,
+	noop,
+	provenanceRecord,
+	resolveEffectivePermissions,
+	validateInput,
+} from "./engine-support.js";
+import type { AgentRow, ConsumedApproval, HookTrace } from "./hook-gate.js";
+import { runPolicyHook } from "./hook-gate.js";
 import { createRbacResolver } from "./rbac.js";
 import { createRebacBridge } from "./rebac-bridge.js";
 import { applyRisk } from "./risk.js";
@@ -38,15 +54,14 @@ export interface PolicyEngineDeps {
 	config?: PolicyEngineConfig;
 	/** Used to open approval requests when evaluate() runs with openApproval. */
 	approval?: ApprovalModule;
-}
-
-interface ConsumedApproval {
-	approvalId: string;
-	approverId?: string;
+	/** Set only when a beforeAuthorize hook is configured. Runs for agent subjects, ahead of the cache; its verdict is never cached. */
+	runBeforeAuthorize?: BeforeAuthorizeRunner;
+	/** Receives one decision event per evaluate(). Omitted, nothing is emitted. */
+	observability?: Observability;
 }
 
 export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
-	const { db, config = {}, approval } = deps;
+	const { db, config = {}, approval, runBeforeAuthorize, observability } = deps;
 	const cache: PolicyCache = createPolicyCache(config.cache ?? {});
 	const rbac = createRbacResolver({ db });
 	const rebac = createRebacBridge({ db });
@@ -59,7 +74,9 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		input: EvaluateInput,
 		options: EvaluateOptions = {},
 	): Promise<PolicyDecision> {
-		const base = await evaluateBase(input);
+		const startedAt = performance.now();
+		const trace: HookTrace = {};
+		const base = await evaluateBase(input, trace);
 		// Risk is applied after the cache so it never poisons cached decisions.
 		const risked = applyRisk(base, config.risk, input.context?.risk);
 		// Taint is applied before an approval is spent, so an approved retry still passes through it.
@@ -69,13 +86,45 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			action: input.action,
 			provenance,
 		});
-		const { decision, consumed } = await applyApproval(tainted, input);
+		// A hook escalate already spent input.approvalId; do not let it be spent twice.
+		const applied = await applyApproval(
+			tainted,
+			trace.consumed ? { ...input, approvalId: undefined } : input,
+		);
+		const decision = applied.decision;
+		const consumed = applied.consumed ?? trace.consumed;
 		// Audit the final decision (after risk), so an escalate is never logged as an allow.
 		const auditId = decision.auditId ?? (consumed && auditEnabled ? generateId() : undefined);
 		const finalDecision = auditId === decision.auditId ? decision : { ...decision, auditId };
-		emitAudit(finalDecision, input, auditId, consumed).catch(noop);
+		emitAudit(finalDecision, input, auditId, consumed, trace.detail).catch(noop);
+		if (observability?.enabled) emitDecisionEvent(finalDecision, input, trace, startedAt);
 		if (finalDecision.decision !== "escalate" || !options.openApproval) return finalDecision;
 		return openApprovalFor(finalDecision, input);
+	}
+
+	function emitDecisionEvent(
+		decision: PolicyDecision,
+		input: EvaluateInput,
+		trace: HookTrace,
+		startedAt: number,
+	): void {
+		const durationMs = performance.now() - startedAt;
+		observability?.emit(() => ({
+			source: "policy.evaluate",
+			agentId: input.subject.agentId,
+			ownerId: trace.ownerId ?? input.subject.ownerId ?? decision.principal?.subjectId,
+			action: input.action,
+			resource: input.resource,
+			allowed: decision.allowed,
+			decision: decision.decision,
+			code: decision.code,
+			durationMs,
+			cacheHit: decision.cacheHit,
+			delegationDepth: depthOfPath(decision.principal?.delegationChain),
+			...hookFieldsOf(trace.outcome),
+			auditId: decision.auditId ?? "",
+			at: new Date(),
+		}));
 	}
 
 	/** Spend input.approvalId when the decision escalates for approval. */
@@ -97,13 +146,16 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			agentId,
 			action: input.action,
 			resource: input.resource,
+			arguments: input.context?.arguments,
 		});
 		if (!spent.ok) {
-			return { decision: { ...withEffect(decision, "deny"), reason: spent.code } };
+			return {
+				decision: { ...withEffect(decision, "deny", "approval_invalid"), reason: spent.code },
+			};
 		}
 		return {
 			decision: {
-				...withEffect(decision, "permit"),
+				...withEffect(decision, "permit", "approval_consumed"),
 				reason: APPROVAL_CODES.CONSUMED,
 				escalation: undefined,
 			},
@@ -147,7 +199,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		}
 	}
 
-	async function evaluateBase(input: EvaluateInput): Promise<PolicyDecision> {
+	async function evaluateBase(input: EvaluateInput, trace: HookTrace): Promise<PolicyDecision> {
 		const start = performance.now();
 
 		const validation = validateInput(input);
@@ -164,13 +216,41 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		}
 
 		// Agent gate, ahead of the cache so revocation and owner binding hold at once.
+		let agentRow: AgentRow | undefined;
 		if (input.subject.agentId) {
 			const gate = await checkAgent(input.subject.agentId, input.subject.ownerId);
-			if (gate) {
+			if (gate.deny) {
 				return finalize(
 					makeDecision({
 						effect: "deny",
-						reason: gate,
+						reason: gate.deny.reason,
+						code: gate.deny.code,
+						auditId: willEmitAudit(input) ? generateId() : undefined,
+						cacheHit: false,
+						durationMs: 0,
+					}),
+					start,
+				);
+			}
+			agentRow = gate.row;
+			trace.ownerId = gate.row?.ownerId;
+		}
+
+		// beforeAuthorize runs after the agent gate and before the cache, every time: a hook
+		// verdict is never cached, and a cached permit still asks the hook.
+		let hookPrincipal: DecisionPrincipal | undefined;
+		if (agentRow && runBeforeAuthorize) {
+			const hook = await runPolicyHook(db, runBeforeAuthorize, input, agentRow);
+			Object.assign(trace, hook.trace);
+			hookPrincipal = hook.principal;
+			if (hook.kind === "blocked") {
+				return finalize(
+					makeDecision({
+						effect: hook.effect,
+						reason: hook.reason,
+						code: hook.code,
+						escalation: hook.escalation,
+						principal: hook.principal,
 						auditId: willEmitAudit(input) ? generateId() : undefined,
 						cacheHit: false,
 						durationMs: 0,
@@ -256,6 +336,9 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 					partials.push({
 						effect: constraintResult.needsApproval ? "escalate" : "deny",
 						reason: constraintResult.reason ?? POLICY_ERROR_CODES.CONSTRAINT_FAILED,
+						code:
+							constraintResult.code ??
+							(constraintResult.needsApproval ? "approval_required" : "no_permission"),
 						matchedRelation: perm.relation,
 					});
 					continue;
@@ -265,6 +348,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			partials.push({
 				effect: "permit",
 				reason: "matched",
+				code: "allowed",
 				matchedRelation: perm.relation,
 			});
 		}
@@ -273,7 +357,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		const auditIdForMiss = willEmitAudit(input) ? generateId() : undefined;
 		const decision: PolicyDecision = {
 			...combined,
-			principal: await resolvePrincipal(input),
+			principal: hookPrincipal ?? (await resolvePrincipal(input)),
 			escalation:
 				combined.decision === "escalate"
 					? { tier: "constraint", requirement: "approval", reason: combined.reason }
@@ -290,23 +374,39 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		return decision;
 	}
 
-	/** Returns a deny reason when the agent may not act, else undefined. */
-	async function checkAgent(agentId: string, ownerId?: string): Promise<string | undefined> {
-		const rows = await db
-			.select({ ownerId: agents.ownerId, status: agents.status, expiresAt: agents.expiresAt })
-			.from(agents)
-			.where(eq(agents.id, agentId))
-			.limit(1);
+	/** Returns the deny reason and code when the agent may not act, else the agent row. */
+	async function checkAgent(
+		agentId: string,
+		ownerId?: string,
+	): Promise<
+		| { deny: { reason: string; code: DenialCode }; row?: undefined }
+		| { deny?: undefined; row: AgentRow }
+	> {
+		const rows = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1);
 		const row = rows[0];
 		if (!row) {
-			return ownerId !== undefined
-				? POLICY_ERROR_CODES.OWNER_MISMATCH
-				: POLICY_ERROR_CODES.AGENT_NOT_FOUND;
+			return {
+				deny:
+					ownerId !== undefined
+						? { reason: POLICY_ERROR_CODES.OWNER_MISMATCH, code: "owner_mismatch" }
+						: { reason: POLICY_ERROR_CODES.AGENT_NOT_FOUND, code: "agent_not_found" },
+			};
 		}
-		if (row.status !== "active") return POLICY_ERROR_CODES.AGENT_INACTIVE;
-		if (row.expiresAt && row.expiresAt <= new Date()) return POLICY_ERROR_CODES.AGENT_INACTIVE;
-		if (ownerId !== undefined && row.ownerId !== ownerId) return POLICY_ERROR_CODES.OWNER_MISMATCH;
-		return undefined;
+		if (row.status !== "active") {
+			return {
+				deny: {
+					reason: POLICY_ERROR_CODES.AGENT_INACTIVE,
+					code: row.status === "expired" ? "agent_expired" : "agent_revoked",
+				},
+			};
+		}
+		if (row.expiresAt && row.expiresAt <= new Date()) {
+			return { deny: { reason: POLICY_ERROR_CODES.AGENT_INACTIVE, code: "agent_expired" } };
+		}
+		if (ownerId !== undefined && row.ownerId !== ownerId) {
+			return { deny: { reason: POLICY_ERROR_CODES.OWNER_MISMATCH, code: "owner_mismatch" } };
+		}
+		return { row };
 	}
 
 	async function resolvePrincipal(input: EvaluateInput): Promise<DecisionPrincipal | undefined> {
@@ -344,6 +444,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		input: EvaluateInput,
 		auditId: string | undefined,
 		consumed?: ConsumedApproval,
+		hookDetail?: Record<string, unknown>,
 	): Promise<void> {
 		// auditId being undefined is the explicit signal that no row should be
 		// written. The gate (audit enabled, agentId present, sampling) was
@@ -359,13 +460,21 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			agentId: input.subject.agentId,
 			userId: input.subject.userId,
 			action: input.action,
+			event: "policy.evaluate",
 			resource: input.resource,
-			parameters: consumed
-				? { ...(input.context?.arguments ?? {}), approvalId: consumed.approvalId }
-				: (input.context?.arguments ?? {}),
+			parameters: withHookDetail(
+				consumed
+					? {
+							...(stripReservedAuditKeys(input.context?.arguments) ?? {}),
+							approvalId: consumed.approvalId,
+						}
+					: stripReservedAuditKeys(input.context?.arguments),
+				hookDetail,
+			),
 			approverId: consumed?.approverId,
 			result: decision.allowed ? "allowed" : escalated ? "escalated" : "denied",
 			reason: decision.reason,
+			decisionCode: decision.code,
 			durationMs: decision.durationMs,
 			ip: input.context?.ip,
 			userAgent: typeof input.context?.userAgent === "string" ? input.context.userAgent : undefined,
@@ -380,88 +489,3 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 
 	return { evaluate, invalidate, stats };
 }
-
-/** The input_provenance value for the audit row: labels and the taint verdict, or undefined. */
-function provenanceRecord(
-	input: EvaluateInput,
-	decision: PolicyDecision,
-): Record<string, unknown> | undefined {
-	const labels = normalizeProvenance(input.context?.provenance);
-	if (!labels && !decision.taint) return undefined;
-	return {
-		labels: labels ?? {},
-		...(decision.taint
-			? { taint: { verdict: decision.taint.verdict, matches: decision.taint.matches } }
-			: {}),
-	};
-}
-
-function buildCacheKey(input: EvaluateInput): string {
-	// orgId scopes RBAC role lookup, so two requests from the same user against
-	// different orgs MUST get different keys. Use an explicit sentinel when
-	// orgId is omitted so { user: u, orgId: undefined } cannot collide with
-	// { user: u, orgId: "" } or any other unscoped form.
-	const subjectKey = input.subject.agentId ?? input.subject.userId ?? "";
-	const orgKey = input.subject.orgId ?? "__noorg__";
-	const ipKey = input.context?.ip ?? "";
-	return `${subjectKey}|${orgKey}|${input.action}|${input.resource}|${ipKey}`;
-}
-
-function validateInput(input: EvaluateInput): { ok: true } | { ok: false; reason: string } {
-	if (!input?.subject || !input.action || !input.resource) {
-		return { ok: false, reason: POLICY_ERROR_CODES.INVALID_INPUT };
-	}
-	if (!input.subject.agentId && !input.subject.userId) {
-		return { ok: false, reason: POLICY_ERROR_CODES.INVALID_INPUT };
-	}
-	return { ok: true };
-}
-
-function clampSampleRate(rate: number | undefined): number {
-	if (typeof rate !== "number" || Number.isNaN(rate)) return 1;
-	if (rate < 0) return 0;
-	if (rate > 1) return 1;
-	return rate;
-}
-
-function finalize(decision: PolicyDecision, start: number): PolicyDecision {
-	return {
-		...decision,
-		durationMs: Math.round(performance.now() - start),
-	};
-}
-
-async function resolveEffectivePermissions(
-	db: Database,
-	rbac: ReturnType<typeof createRbacResolver>,
-	input: EvaluateInput,
-): Promise<Permission[]> {
-	const direct = input.subject.agentId
-		? await fetchDirectPermissions(db, input.subject.agentId)
-		: [];
-	const delegated = input.subject.agentId
-		? await getDelegatedPermissions(db, input.subject.agentId)
-		: [];
-	const roles = input.subject.userId
-		? await rbac.resolveRolePermissions({
-				userId: input.subject.userId,
-				orgId: input.subject.orgId,
-			})
-		: [];
-	return [...direct, ...delegated, ...roles];
-}
-
-async function fetchDirectPermissions(db: Database, agentId: string): Promise<Permission[]> {
-	const rows = await db
-		.select()
-		.from(permissionsTable)
-		.where(eq(permissionsTable.agentId, agentId));
-	return rows.map((r) => ({
-		resource: r.resource,
-		actions: r.actions,
-		constraints: r.constraints ?? undefined,
-		relation: r.relation ?? undefined,
-	}));
-}
-
-function noop(): void {}

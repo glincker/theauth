@@ -71,7 +71,7 @@ describe("nextjs-app example", () => {
 			data: { id: string; token: string; name: string };
 		};
 		expect(created.data.name).toBe("next-app-agent");
-		expect(created.data.token).toMatch(/^kv_/);
+		expect(created.data.token).toMatch(/^ta_/);
 
 		const statsRes = await route.GET(new Request("http://localhost/api/theauth/dashboard/stats"));
 		expect(statsRes.status).toBe(200);

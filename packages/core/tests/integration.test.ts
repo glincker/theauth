@@ -100,7 +100,7 @@ describe("Integration: full auth + agent flow", () => {
 		expect(agent.id).toBeTruthy();
 		expect(agent.name).toBe("data-reader");
 		expect(agent.status).toBe("active");
-		expect(agent.token).toMatch(/^kv_/);
+		expect(agent.token).toMatch(/^ta_/);
 		expect(agent.permissions).toHaveLength(2);
 
 		// Step 6: authorize an allowed action

@@ -60,7 +60,7 @@ describe("createNotionProvider", () => {
 	});
 });
 
-describe("createNotionProvider — getAuthorizationUrl", () => {
+describe("createNotionProvider: getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code, state, and owner=user", async () => {
 		const provider = createNotionProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
 		const url = await provider.getAuthorizationUrl("state-abc", CODE_VERIFIER, REDIRECT_URI);

@@ -34,7 +34,7 @@ export type ConsumeTokenStatus =
 	| "ok" /** Token valid, successfully consumed. */
 	| "expired" /** Token has passed its TTL. */
 	| "revoked" /** Entire family has been revoked (stolen token detected). */
-	| "reuse" /** Token was already used — family has now been revoked. */
+	| "reuse" /** Token was already used. Family has now been revoked. */
 	| "not_found"; /** Token does not exist in the database. */
 
 export interface ConsumeTokenResult {

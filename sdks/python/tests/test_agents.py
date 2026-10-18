@@ -43,7 +43,7 @@ class TestAsyncAgentCreate:
         assert agent.name == "github-reader"
         assert agent.type == "autonomous"
         assert agent.status == "active"
-        assert agent.token == "kv_agent_xyz"
+        assert agent.token == "ta_agent_xyz"
         assert len(agent.permissions) == 1
         assert agent.permissions[0].resource == "mcp:github:*"
 
@@ -86,7 +86,21 @@ class TestAsyncAgentCreate:
             )
 
         request = route.calls.last.request
-        assert request.headers["Authorization"] == "Bearer kv_test_token"
+        assert request.headers["Authorization"] == "Bearer ta_test_token"
+
+    @pytest.mark.asyncio
+    async def test_legacy_kv_token_is_sent_unchanged(self) -> None:
+        """Tokens issued before the ta_ prefix still start with kv_ and must work."""
+        legacy = TheAuthClient(base_url=BASE_URL, token="kv_legacy_token")
+        with respx.mock:
+            route = respx.post(f"{BASE_URL}/agents").mock(
+                return_value=httpx.Response(200, json=AGENT_FIXTURE)
+            )
+            await legacy.agents.create(
+                CreateAgentInput(owner_id="user-123", name="t", type="service", permissions=[])
+            )
+        assert route.calls.last.request.headers["Authorization"] == "Bearer kv_legacy_token"
+        await legacy.close()
 
 
 class TestAsyncAgentList:
@@ -221,14 +235,14 @@ class TestAsyncAgentRevoke:
 class TestAsyncAgentRotate:
     @pytest.mark.asyncio
     async def test_rotate_returns_new_token(self, async_client: TheAuthClient) -> None:
-        rotated = {**AGENT_FIXTURE, "token": "kv_new_token"}
+        rotated = {**AGENT_FIXTURE, "token": "ta_new_token"}
         with respx.mock:
             respx.post(f"{BASE_URL}/agents/agent-abc123/rotate").mock(
                 return_value=httpx.Response(200, json=rotated)
             )
             agent = await async_client.agents.rotate("agent-abc123")
 
-        assert agent.token == "kv_new_token"
+        assert agent.token == "ta_new_token"
 
 
 class TestAsyncAgentAuthorize:
@@ -318,14 +332,14 @@ class TestSyncAgents:
         assert result is None
 
     def test_rotate(self, sync_client: TheAuthSyncClient) -> None:
-        rotated = {**AGENT_FIXTURE, "token": "kv_new_token"}
+        rotated = {**AGENT_FIXTURE, "token": "ta_new_token"}
         with respx.mock:
             respx.post(f"{BASE_URL}/agents/agent-abc123/rotate").mock(
                 return_value=httpx.Response(200, json=rotated)
             )
             agent = sync_client.agents.rotate("agent-abc123")
 
-        assert agent.token == "kv_new_token"
+        assert agent.token == "ta_new_token"
 
     def test_get_returns_none_on_404(self, sync_client: TheAuthSyncClient) -> None:
         with respx.mock:

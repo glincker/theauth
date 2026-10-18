@@ -33,7 +33,7 @@ from theauth.permissions import read, with_approval, execute
 async def main():
     async with TheAuthClient(
         base_url="https://your-app.com/api/theauth",
-        token="kv_...",
+        token="ta_...",
     ) as client:
         # Create an agent
         agent = await client.agents.create(
@@ -67,7 +67,7 @@ from theauth.permissions import read
 
 with TheAuthSyncClient(
     base_url="https://your-app.com/api/theauth",
-    token="kv_...",
+    token="ta_...",
 ) as client:
     agent = client.agents.create(
         CreateAgentInput(
@@ -131,7 +131,7 @@ agent = await client.agents.update(
 
 # Rotate the token (old token is immediately invalidated)
 agent = await client.agents.rotate("agent-abc123")
-print(agent.token)  # kv_new_...
+print(agent.token)  # ta_new_...
 
 # Revoke (delete) an agent
 await client.agents.revoke("agent-abc123")
@@ -158,7 +158,7 @@ print(result.audit_id)  # "aud_..."
 
 # Authorize using the agent's own bearer token (no admin token needed)
 result = await client.auth.authorize_by_token(
-    agent_token="kv_agent_xyz",
+    agent_token="ta_agent_xyz",
     request=AuthorizeRequest(action="read", resource="mcp:github:repos"),
 )
 ```
@@ -365,7 +365,7 @@ except TheAuthError as e:
 ```python
 TheAuthClient(
     base_url="https://your-app.com/api/theauth",  # required
-    token="kv_...",                               # optional bearer token
+    token="ta_...",                               # optional bearer token
     headers={"X-Tenant": "acme"},                # extra headers on every request
     timeout=30.0,                                 # seconds (default 30)
     auth=None,                                    # optional httpx.Auth, e.g. DPoPAuth()

@@ -4,6 +4,8 @@ import { generateId, randomBytes, sha256, toBase64Url } from "../crypto/web-cryp
 import type { Database } from "../db/database.js";
 import { agents, permissions } from "../db/schema.js";
 import { createDelegationModule } from "../delegation/delegation.js";
+import { revocationRowExpiry } from "../mcp/revocation-bus.js";
+import type { McpRevocationBus } from "../mcp/revocation-types.js";
 import type {
 	AgentFilter,
 	AgentIdentity,
@@ -11,25 +13,29 @@ import type {
 	Permission,
 	UpdateAgentInput,
 } from "../types.js";
+import { assertValidExpiry } from "../validation.js";
+import { AGENT_TOKEN_PREFIX, agentTokenLookupPrefix, isAgentToken } from "./token-format.js";
 
 interface AgentModuleConfig {
 	db: Database;
 	maxPerUser: number;
 	defaultPermissions: string[];
 	tokenExpiry: string;
+	/** Receives agent and cascaded delegation revocations for the shared MCP denylist. Optional. */
+	revocations?: McpRevocationBus;
 }
 
 /**
  * Generate a secure agent token. Returns { token, hash, prefix } where:
  * - token: the full token (given to the agent, never stored)
  * - hash: SHA-256 hash (stored in DB)
- * - prefix: first 8 chars (for identification in logs/UI)
+ * - prefix: prefix plus first 8 chars (for identification in logs/UI)
  */
 async function generateAgentToken(): Promise<{ token: string; hash: string; prefix: string }> {
 	const tokenBytes = randomBytes(32);
-	const token = `kv_${toBase64Url(tokenBytes)}`;
+	const token = `${AGENT_TOKEN_PREFIX}${toBase64Url(tokenBytes)}`;
 	const hash = await sha256(token);
-	const prefix = token.slice(0, 11); // "kv_" + 8 chars
+	const prefix = agentTokenLookupPrefix(token); // "ta_" + 8 chars
 	return { token, hash, prefix };
 }
 
@@ -52,10 +58,11 @@ function parseTokenExpiry(expiry: string): Date {
 
 /** Create the agent identity module. Handles CRUD operations for AI agent identities. */
 export function createAgentModule(config: AgentModuleConfig) {
-	const { db, maxPerUser, tokenExpiry } = config;
-	const delegation = createDelegationModule({ db });
+	const { db, maxPerUser, tokenExpiry, revocations } = config;
+	const delegation = createDelegationModule({ db, revocations });
 
 	async function create(input: CreateAgentInput): Promise<AgentIdentity & { token: string }> {
+		assertValidExpiry(input.expiresAt);
 		// Check max agents per user
 		const existing = await db
 			.select()
@@ -177,6 +184,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 	}
 
 	async function update(agentId: string, input: UpdateAgentInput): Promise<AgentIdentity> {
+		assertValidExpiry(input.expiresAt);
 		const existing = await get(agentId);
 		if (!existing) throw new Error(`Agent ${agentId} not found.`);
 
@@ -226,6 +234,34 @@ export function createAgentModule(config: AgentModuleConfig) {
 			.set({ status: "revoked", updatedAt: new Date() })
 			.where(eq(agents.id, agentId));
 
+		// Tokens bound to this agent die now; the bound delegations are pushed by the delegation module.
+		if (revocations) {
+			const now = new Date();
+			try {
+				await revocations.publish(
+					{
+						kind: "agent",
+						ids: [agentId],
+						revokedAt: now,
+						reason: "agent.revoke",
+						userId: existing.ownerId,
+						sourceId: agentId,
+					},
+					[
+						{
+							kind: "agent",
+							id: agentId,
+							expiresAt: revocationRowExpiry(existing.expiresAt, now),
+							reason: "agent.revoke",
+							sourceId: agentId,
+						},
+					],
+				);
+			} catch {
+				// The bus reports its own failures; the agent row is already revoked.
+			}
+		}
+
 		const revokedDelegations = await delegation.revokeAllForAgent(agentId);
 		if (revokedDelegations.length > 0) {
 			await recordAuditEvent(db, {
@@ -265,6 +301,8 @@ export function createAgentModule(config: AgentModuleConfig) {
 		agent: AgentIdentity | null;
 		rejected?: { agentId: string; ownerId: string; reason: "revoked" | "expired" };
 	}> {
+		// Unknown prefix: cannot be one of ours, skip the hash and the DB lookup.
+		if (!isAgentToken(token)) return { agent: null };
 		const hash = await sha256(token);
 		const rows = await db.select().from(agents).where(eq(agents.tokenHash, hash)).limit(1);
 		const agent = rows[0];

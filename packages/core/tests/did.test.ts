@@ -12,7 +12,7 @@ import { createTestTheAuth } from "./helpers.js";
 
 // did:key
 
-describe("did:key – key generation", () => {
+describe("did:key: key generation", () => {
 	it("generates a DID starting with did:key:z", async () => {
 		const keyPair = await generateDidKey();
 		expect(keyPair.did).toMatch(/^did:key:z/);
@@ -69,7 +69,7 @@ describe("did:key – key generation", () => {
 	});
 });
 
-describe("did:key – resolution", () => {
+describe("did:key: resolution", () => {
 	it("resolves a did:key to a DID document", async () => {
 		const { did } = await generateDidKey();
 		const doc = resolveDidKey(did);
@@ -94,7 +94,7 @@ describe("buildDidDocument", () => {
 
 // did:web
 
-describe("did:web – generation and URL construction", () => {
+describe("did:web: generation and URL construction", () => {
 	it("generates a DID starting with did:web:", async () => {
 		const keyPair = await generateDidWeb({ domain: "auth.example.com" }, "agent-42");
 		expect(keyPair.did).toMatch(/^did:web:/);
@@ -114,17 +114,17 @@ describe("did:web – generation and URL construction", () => {
 		expect(keyPair.did).toBe("did:web:auth.example.com:agents:agent-42");
 	});
 
-	it("getDidWebUrl – root DID maps to /.well-known/did.json", () => {
+	it("getDidWebUrl: root DID maps to /.well-known/did.json", () => {
 		const url = getDidWebUrl("did:web:example.com");
 		expect(url).toBe("https://example.com/.well-known/did.json");
 	});
 
-	it("getDidWebUrl – path-based DID maps to /path/did.json", () => {
+	it("getDidWebUrl: path-based DID maps to /path/did.json", () => {
 		const url = getDidWebUrl("did:web:example.com:agents:agent-42");
 		expect(url).toBe("https://example.com/agents/agent-42/did.json");
 	});
 
-	it("getDidWebUrl – throws for non-did:web identifier", () => {
+	it("getDidWebUrl: throws for non-did:web identifier", () => {
 		expect(() => getDidWebUrl("did:key:z6Mk123")).toThrow();
 	});
 
@@ -254,7 +254,7 @@ describe("createPresentation / verifyPresentation", () => {
 	});
 });
 
-describe("DID module – database storage", () => {
+describe("DID module: database storage", () => {
 	let theauth: TheAuth;
 	let agentId: string;
 

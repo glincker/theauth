@@ -1,0 +1,177 @@
+---
+title: Client ID metadata documents
+description: How theAuth fetches an https client_id as a metadata document, how to configure it, what the consent screen must show, and what the fetcher does and does not protect against.
+icon: id-card
+---
+
+A client ID metadata document lets an MCP client identify itself with a URL instead of a pre-registered ID or a dynamic registration call. The client's `client_id` is an `https://` URL that points at a JSON document. theAuth fetches that document when the client first asks for authorization and reads the client's settings from it.
+
+This page covers how that works, how to turn it on, and what your application has to do to use it safely.
+
+## How it works
+
+The `client_id` is an `https` URL with a path, for example `https://app.example.com/oauth/client.json`. It has no query, no fragment, no credentials and no port.
+
+When an authorization request names a client ID that is not already stored, theAuth fetches the URL. The response must be a `200` JSON document, and the document must name itself: its `client_id` field must equal the URL it was fetched from. A document that names a different URL, or that leaves the field out, is rejected.
+
+The document can set the client's redirect URIs, whether the client is public or uses `private_key_jwt`, the grant types and scopes it may request, and display fields. It cannot set a shared secret, and it cannot name an agent. Any field that breaks a rule rejects the whole document. Unknown `theauth_*` fields are rejected as well.
+
+After a successful fetch, theAuth stores the client and reuses the stored copy until the cache expires. See [Caching and refresh](#caching-and-refresh).
+
+## Enabling it
+
+Turn the feature on in the MCP module config. `consentPage` is required. Without it, `createMcpModule` throws at startup, because any host can publish a client document, so every authorization has to be approved by a user.
+
+```ts
+import { createMcpModule } from "@glinr/theauth/mcp";
+
+const mcp = createMcpModule({
+  config: {
+    // ...issuer, baseUrl, signingSecret, resource
+    consentPage: "https://app.example.com/consent",
+    clientIdMetadataDocuments: {
+      enabled: true,
+      resolver: "auto",
+      // Optional. Exact hosts or "*.example.com" (subdomains only).
+      // When set, nothing outside this list is fetched.
+      allowedHosts: ["*.example.com"],
+      // Optional. Same syntax, checked before allowedHosts.
+      deniedHosts: ["bad.example.com"],
+    },
+  },
+  // ...your storage callbacks
+});
+```
+
+Choose `resolver` by runtime:
+
+| Runtime | Value | Notes |
+| --- | --- | --- |
+| Node | `"auto"` | Uses `node:dns` to check the addresses a name resolves to. |
+| Bun | `"auto"` | Same as Node. |
+| Deno | `"auto"` | Same as Node. |
+| Cloudflare Workers | `createDohResolver()` | Resolves names over DNS over HTTPS, because `node:dns` is not available. |
+| Cloudflare Workers | `"none"` | Checks host names only, with no address check. Pair it with `allowedHosts`. |
+
+On a runtime without `node:dns`, `"auto"` fails every fetch closed (no address check means no fetch), so set the resolver explicitly. The one exception is a configured `allowedHosts` list: the hosts are then vetted by name, fetches go ahead, and theAuth logs a warning once through the module logger that no address check is running.
+
+### Options
+
+Every option except `enabled` is optional. Numbers outside the range are clamped, not rejected.
+
+| Option | Default | Range or note |
+| --- | --- | --- |
+| `resolver` | `"auto"` | `"auto"`, `"none"`, or a resolver such as `createDohResolver()`. |
+| `fetchImpl` | global `fetch` | Override, for example to pin the connection to the resolved address. |
+| `allowedHosts`, `deniedHosts` | none | Exact hosts or `*.example.com`. Denied is checked first. |
+| `maxBytes` | 5120 | 1024 to 16384. |
+| `timeoutMs` | 5000 | 500 to 10000. Covers headers and body. |
+| `minCacheSeconds` | 60 | Floor 30. |
+| `maxCacheSeconds` | 86400 | Ceiling 604800. |
+| `defaultCacheSeconds` | 3600 | Used when the response has no `max-age`. |
+| `negativeCacheSeconds` | 30 | 0 to 300. 0 turns the failed-fetch memory off. |
+| `onBoundClientChange` | `"disable"` | `"disable"` or `"allow"`. |
+| `maxFetchesPerHostPerMinute` | 30 | 1 to 100000. Admin `refresh` is excluded. |
+| `maxUnconsentedClients` | 1000 | Needs a store that implements `countUnconsentedCimdClients`. |
+| `unconsentedRetentionSeconds` | 86400 | How long an unconsented row is kept before a sweep may delete it. |
+| `onEvent` | none | Receives `cimd.fetched`, `cimd.rejected`, `cimd.changed` and `cimd.blocked`. |
+
+## Turning off dynamic registration
+
+Clients that use a metadata document do not need dynamic registration. If you only serve metadata document clients and pre-registered clients, turn registration off:
+
+```ts
+registration: { enabled: false }
+```
+
+With this set, `POST /mcp/register` answers 404, `registration_endpoint` is left out of the metadata document, and `registerClient` returns `REGISTRATION_DISABLED`. Clients that were registered earlier keep working.
+
+## Building the consent screen
+
+theAuth does not render the consent screen. Your consent page does, and it gets the facts from `mcp.describeClient(clientId, redirectUri?, { firstUse? })`. Without `redirectUri` it describes the client's first registered redirect URI. A URI the client did not register fails with `INVALID_REDIRECT_URI`, and a blocked, disabled or unknown client fails with `INVALID_CLIENT`. Control and bidirectional override characters are stripped from `clientName`, and a `logoUri` that is not http or https is dropped. The result is a `Result`, and its data includes these fields:
+
+- `verifiedHost`: the host name of the `client_id`. Show this as the headline, for example "app.example.com wants access".
+- `clientName`: the name the client wrote in its document. Show it under the host with the wording "calls itself ...". Never show it alone, and never use it to decide who the client is.
+- `logoUri`: the logo the client wrote. The browser loads it, and theAuth does not fetch it.
+- `redirectUri` and `redirectHost`: where the approval sends the user. Always show the redirect host.
+- `source`: `"cimd"`, `"dcr"` or `"preregistered"`. `verifiedHost` is `null` unless the source is `cimd`.
+- `agentId`: the agent an admin bound the client to, or `null`.
+- `warnings`: a list of codes. Render every one of them.
+
+The warning codes:
+
+| Code | Meaning | What to show |
+| --- | --- | --- |
+| `redirect_host_differs` | The redirect host is not the client host or a subdomain of it. | A visible caution that approval sends the user to a different site. |
+| `localhost_redirect` | The redirect URI is on loopback. Any program on the user's machine can listen there and receive the code. | A visible caution that a local program may be the one asking. |
+| `idn_host` | The host contains an `xn--` label. | The name in its ASCII form, and a note that it may look like another name. |
+| `name_mentions_other_host` | `clientName` contains a domain name that is not the client host. | A note that the name points at another site. |
+| `client_uri_host_differs` | The client's home page is on a different host. | A note with both hosts. |
+| `http_redirect` | The redirect URI uses plain http. | A caution that the code travels unencrypted. |
+| `bound_to_agent` | An admin bound this client to an agent. | Say that approving lets the client act as that agent. |
+| `recently_changed` | The stored document was re-read and updated in the last 24 hours. | A note that the client's settings changed lately. |
+| `first_use` | The user has not approved this client before. Your app sets this flag by passing `{ firstUse: true }`. | Extra text on the first approval. |
+
+Show the host first. The client's own name, logo and description are the client author's words, and the author can write anything in them.
+
+## Binding a client to an agent
+
+A client can be bound to an agent so its tokens act as that agent. Only an admin can do this, through the module API:
+
+```ts
+await mcp.clients.bindAgent(clientId, agentId);
+```
+
+`bindAgent` fetches and stores a client that was never used before it writes the binding, and it throws when the document cannot be fetched, is invalid or is blocked. The document cannot name an agent. A document with an `agent_id` field or a `theauth_*` field is rejected.
+
+After a client is bound, its document can still change. If its `redirect_uris` or `token_endpoint_auth_method` change, the default `onBoundClientChange: "disable"` turns the client off with the reason `cimd_changed_while_bound`. An admin turns it back on with `mcp.cimd.enable(clientId)`. Changes to the keys (`jwks` or `jwks_uri`) do not disable the client. The purpose of this rule is that a takeover of the client's domain does not silently keep the agent's identity.
+
+## Blocking a client
+
+Block a single client by its URL, or every client on a host:
+
+```ts
+await mcp.cimd.block({ kind: "url", value: "https://app.example.com/oauth/client.json", reason: "abuse report" });
+await mcp.cimd.block({ kind: "host", value: "example.net", reason: "domain sold" });
+```
+
+A URL block must be the canonical `client_id`. A host block takes a bare host name (a leading `*.` is accepted and means the same thing) and covers subdomains.
+
+The two kinds behave differently. A URL block stops new authorizations, deletes the client's stored tokens so refresh stops, adds its access token ids to `jtiDenylist` when one is set, writes a `client` row to the shared revocation store (so every token the client holds is refused at once in live mode, and in cached mode within `maxStalenessMs`), and marks the stored client as disabled (reason `blocked`). A host block is checked on every authorize and token call, so clients on that host stop working at once. It does not disable their stored rows. When the store can list CIMD clients it also deletes their tokens and writes a `client` revocation row for each, so unblocking the host later does not bring old tokens back. Unblocking never turns a disabled client back on: run `mcp.cimd.enable(clientId)` for that. Remove a block with `mcp.cimd.unblock(id)`, list blocks with `mcp.cimd.listBlocks()`, and read a stored client with its document snapshot through `mcp.cimd.inspect(clientId)`.
+
+Blocking needs a block store. Pass `auth` to `createMcpModule`, or a `blocks` store, or `block` throws.
+
+Blocks are stored in the `theauth_mcp_client_blocks` table on database stores. The in-memory store keeps them only for the life of the process.
+
+## Caching and refresh
+
+The cache lifetime comes from the `Cache-Control: max-age` header on the document:
+
+- A `max-age` value is used, clamped to between 60 seconds and 24 hours.
+- `no-store`, `no-cache` and `max-age=0` give the 60 second minimum.
+- A response without `max-age` gets the default of 1 hour.
+- Failed fetches and invalid documents are never stored. A failed URL is remembered for `negativeCacheSeconds` (30 by default), so an unreachable host does not get a request on every authorization.
+
+The expiry is stored with the client, so every instance agrees on when to fetch again. When the cache expires, the next authorization or token refresh fetches the document again. If the document has been deleted or no longer names itself correctly, the fetch fails and refresh stops working for that client. Deleting the document is the way a client owner revokes it. A timeout, network error or DNS failure is treated as transient instead: the stored copy keeps serving until `maxCacheSeconds` after it was fetched, then the client fails closed.
+
+To fetch right away, for example after you change a document, run `mcp.cimd.refresh(clientId)`. It ignores the stored expiry and the retry delay.
+
+A few limits keep anonymous traffic from costing you anything. An unauthenticated `/authorize` request for a metadata document client is answered with a login redirect and neither fetches nor stores anything; the document is fetched once the user is logged in. Fetches are rate limited per registrable domain, taken as the last two labels of the host so random subdomains share one budget (`maxFetchesPerHostPerMinute`, default 30). Over the limit, a client with a stored copy keeps using it for transient cases and a new client is refused (`cimd.rejected` with reason `rate_limited`). When the store can report it, the number of stored clients nobody has consented to is capped (`maxUnconsentedClients`, default 1000; a new client over the cap is refused with reason `capacity`) and stale ones are swept (`unconsentedRetentionSeconds`, default one day). DNS lookups, the JWKS cache (256 entries, 20 keys, 16 KB each) and the failed-fetch memory are all bounded. `onEvent` runs in a microtask and its errors, including a rejected promise from an async hook, are swallowed.
+
+Setting `enabled: false` is a kill switch: stored metadata document clients stop resolving too, so their refresh tokens stop working.
+
+The cache limits are the four `*CacheSeconds` options in the table above.
+
+## What is and is not protected
+
+**What theAuth checks.** A client_id must be a canonical https URL on port 443 with a path, no query, no fragment and no credentials. Before fetching, theAuth refuses IP addresses, single label names, local and internal suffixes, and wildcard DNS services such as nip.io and sslip.io. With a resolver it also refuses names that resolve to loopback, private, link-local, carrier-grade NAT, unique-local or cloud metadata addresses. It never follows redirects, reads at most 5 KB, requires a 200 JSON response, gives up after 5 seconds, and fails closed. The document must repeat its own URL as client_id, cannot use shared secrets, and cannot name an agent. Redirect URIs are matched exactly.
+
+**What is closed on Node and Bun.** When the runtime lets theAuth control the connection, the request goes through `node:https` instead of `fetch`, pinned to the addresses it just vetted. The connection's `lookup` never asks DNS again: it hands back only those addresses, checks each one again at connect, and refuses the whole answer if any is loopback, private, link-local, carrier-grade NAT, unique-local, multicast or a cloud metadata address (IPv4-mapped IPv6 included). A multi-address answer is checked in full, none skipped. A rebinding DNS server therefore cannot steer the connection, because there is no second lookup to win. TLS still validates the certificate against the original hostname, keep-alive is off, a fresh agent is used per request, and one deadline covers DNS, connect, headers and body. Same rules as before: exact 200, no redirects, 5 KB cap. Pinned requests ignore `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` on purpose, so an unvetted proxy cannot carry the request. If you need an egress proxy, enforce it at the network level. The Node and Bun path is on by default and is skipped when you pass your own `fetchImpl` or set `pinnedConnect: "off"`.
+
+**What theAuth cannot check.** On Cloudflare Workers and Deno, and whenever you pass `fetchImpl`, `pinnedConnect: "off"` or `resolver: "none"`, theAuth checks a hostname and then lets the runtime's fetch connect, and the runtime resolves the name again. A DNS server built to answer differently each time (DNS rebinding) can make that second lookup point at a private address. With `resolver: "none"` there is no address check at all, only the name rules. DNS over HTTPS answers from public DNS, which can differ from what a server inside your network sees.
+
+**What to do about it.** If you know your clients, set `allowedHosts`: that is the only setting that fully closes the gap on every runtime. It also covers a document's `jwks_uri`, which must be on an allowed host. On Deno, block private address ranges for outbound traffic from the auth server at the network level. On Cloudflare Workers outbound requests leave from Cloudflare's network, not yours, so a rebinding attack cannot reach your private network from there.
+
+**About names and logos.** client_name and logo_uri are whatever the client's author wrote. Show the client_id hostname as the identity. A redirect URI on localhost means any program on the user's machine can complete the flow as that client, so show the warning theAuth gives you.
+
+**Revocation.** Blocking a client stops new authorizations and refresh tokens at once. Access tokens it already holds stay valid until they expire unless a shared revocation store is configured, which then refuses them through the `client` row (with `auth`, the shared revocation store is the default; see [MCP token revocation](/mcp-revocation)).

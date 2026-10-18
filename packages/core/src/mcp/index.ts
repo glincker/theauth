@@ -13,15 +13,26 @@
 // - Optional ES256/EdDSA signing with JWKS and key rotation
 
 export { handleAuthorize } from "./authorize.js";
+export { createCimdAdmin } from "./cimd-admin.js";
+export {
+	type ClientIdUrlCheck,
+	checkClientIdUrl,
+	looksLikeCimdClientId,
+	matchesHostPattern,
+	screenHostname,
+} from "./cimd-url.js";
 export { CLIENT_ASSERTION_ALGS, verifyClientAssertion } from "./client-assertion.js";
 // Client ID Metadata Documents and SSRF-safe fetching
 export {
 	cimdCacheSeconds,
 	fetchClientMetadataDocument,
+	refreshCimdClient,
 	resolveClient,
 } from "./client-metadata.js";
 export { approveConsent } from "./consent.js";
+export { describeClientForConsent } from "./consent-view.js";
 export { createDbDelegationStore } from "./delegation-check.js";
+export { createDohResolver, type DohResolverOptions } from "./doh-resolver.js";
 // DPoP (RFC 9449)
 export {
 	computeAth,
@@ -52,15 +63,30 @@ export {
 	TOKEN_TYPE_ACCESS_TOKEN,
 } from "./grant-types.js";
 export {
+	handleIntrospection,
+	type McpIntrospectionAuditEvent,
+	type McpIntrospectionHooks,
+} from "./introspect.js";
+export {
 	generateMcpSigningKey,
 	getJwks,
 	type McpSigningKeyPair,
 	toPublicJwk,
 } from "./keys.js";
-export { createInMemoryJtiDenylist, createInMemoryTokenFamilyStore } from "./memory-stores.js";
 export {
+	createInMemoryBlockStore,
+	createInMemoryJtiDenylist,
+	createInMemoryRevocationStore,
+	createInMemoryTokenFamilyStore,
+} from "./memory-stores.js";
+export {
+	ALL_MCP_ROUTES,
+	applyMountedToResourceMetadata,
+	applyMountedToServerMetadata,
 	getAuthorizationServerMetadata,
 	getProtectedResourceMetadata,
+	type McpMountedRoutes,
+	type McpMountedServerMetadata,
 } from "./metadata.js";
 export { registerClient } from "./registration.js";
 export {
@@ -72,6 +98,16 @@ export {
 export { requireScopes } from "./require-scopes.js";
 // Token revocation (RFC 7009)
 export { handleRevocation } from "./revocation.js";
+export type * from "./revocation-types.js";
+// Runtime values must be named: `export type *` does not export them.
+export {
+	MCP_DEFAULT_FRESHNESS_MODE_WITH_DB,
+	MCP_DEFAULT_FRESHNESS_MODE_WITHOUT_DB,
+	MCP_DELEGATION_BINDING_VERSION,
+	MCP_DELEGATION_CLAIM,
+	MCP_FRESHNESS_MODES,
+	MCP_REVOCATION_DEFAULTS,
+} from "./revocation-types.js";
 export {
 	type DnsResolver,
 	isBlockedIp,
@@ -79,8 +115,16 @@ export {
 	type SafeFetchResult,
 	safeFetchJson,
 } from "./safe-fetch.js";
-export { createMcpModule, createMcpResponseHelpers } from "./server.js";
+export {
+	createMcpModule,
+	createMcpResponseHelpers,
+	type McpModuleAuth,
+	type McpModuleParams,
+} from "./server.js";
 export { buildStepUpResponse } from "./step-up.js";
+export { createMcpStores, type McpStores, type McpStoresOptions } from "./stores-db.js";
+export { createDbBindingStore } from "./stores-db-binding.js";
+export { createDbRevocationStore } from "./stores-db-revocation.js";
 export { handleTokenExchange } from "./token.js";
 export type {
 	ApproveConsentParams,
@@ -91,11 +135,13 @@ export type {
 	McpActorRef,
 	McpAsymmetricAlg,
 	McpAuthContext,
+	McpAuthErrorCode,
 	McpAuthModule,
 	McpAuthorizationCode,
 	McpAuthorizeRequest,
 	McpAuthorizeResult,
 	McpClient,
+	McpClientBindings,
 	McpClientRegistrationRequest,
 	McpClientRegistrationResponse,
 	McpConfig,
@@ -104,6 +150,8 @@ export type {
 	McpDelegationStore,
 	McpJtiDenylist,
 	McpProtectedResourceMetadata,
+	McpRegistrationConfig,
+	McpRejectedToken,
 	McpServerMetadata,
 	McpSession,
 	McpSigningConfig,
@@ -112,6 +160,7 @@ export type {
 	McpTokenRequest,
 	McpTokenRequestParsed,
 	McpTokenResponse,
+	RequireScopesResult,
 	Result,
 	TheAuthError,
 } from "./types.js";
@@ -120,6 +169,12 @@ export {
 	McpClientRegistrationSchema,
 	McpTokenRequestSchema,
 } from "./types.js";
+export type * from "./types-cimd.js";
+// Runtime values must be named: `export type *` does not export them.
+export {
+	CIMD_DISABLED_REASON_BLOCKED,
+	CIMD_DISABLED_REASON_CHANGED_WHILE_BOUND,
+} from "./types-cimd.js";
 export {
 	computeS256Challenge,
 	extractBasicAuth,

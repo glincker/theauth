@@ -59,6 +59,30 @@ function next(request: Request): Response {
 
 If the captured page is in `excludePaths`, the chain falls back to `defaultPath`, so users never bounce back to the sign-in page.
 
+## Return URL allow list
+
+Any `redirectTo`, `returnTo` or `callbackURL` value that comes from a request is untrusted. Pass it through `redirects.sanitize()` (or `resolveRedirectTarget`) before you redirect after sign-in, sign-out or email verification:
+
+```ts
+const redirects = createRedirectChain({
+  defaultPath: '/dashboard',
+  allowedOrigins: ['https://app.example.com'],
+});
+
+const next = redirects.sanitize(url.searchParams.get('returnTo')); // safe path, allowed URL, or '/dashboard'
+```
+
+A target passes only if it is a same-origin path (one leading `/`) or an absolute http(s) URL whose origin exactly matches `allowedOrigins`. These are refused and replaced by `defaultPath`:
+
+- protocol-relative `//host` and `///host`, and `/.//host`
+- backslashes (`/\host`), control characters, tabs, newlines and Unicode whitespace
+- percent-encoded forms of the above, decoded up to three times (`/%2F%2Fhost`, `/%5Chost`, `/%252F%252Fhost`)
+- `javascript:`, `data:`, `vbscript:`, `file:`, `blob:` and every other scheme
+- userinfo tricks (`https://app.example.com@evil.com`) and scheme forms without `//` (`https:evil.com`)
+- bare words (`evil.com`, `dashboard`) and anything over 2048 characters
+
+The chain applies the same check when it builds a URL, so a forged or tampered `theauth_redirect` cookie, or a request path that starts with `//`, cannot send a user off site. The OAuth module takes an `allowedRedirectUris` list for the `redirectUri` it sends to providers: a value that is not an exact entry throws before state is stored and again on callback.
+
 ## Security notes
 
 Entries created from a URL keep only its path, query and hash, never the origin. The cookie itself is base64url JSON and is **not signed**, so a user can edit it. Before you redirect to the `url` that `pop` or `peek` returns, check that it starts with a single `/` (and not `//` or `/\`), and validate any `redirectTo` value you accept from users before passing it to `createEntry` or `push`.

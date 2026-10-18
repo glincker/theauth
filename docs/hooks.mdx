@@ -10,33 +10,134 @@ icon: plug
 Hooks are async callbacks you register at startup. theAuth calls them at specific points in the authorization and agent lifecycle. They let you add custom logic without patching the SDK: log denials to Slack, block agents from running in unsandboxed environments, fire webhooks, or update your own database.
 
 <Warning>
-  Hooks are async. `beforeAuthorize` and `beforeAgentCreate` are awaited and can block requests by returning `{ allow: false }`; an exception thrown inside them propagates to the caller. All other hooks (`afterAuthorize`, `afterAgentCreate`, `onAgentRevoke`, `onViolation`) are fire-and-forget: theAuth does not await them and does not catch their errors, so a throw becomes an unhandled promise rejection (which can terminate a Node.js process). Wrap their bodies in `try/catch`.
+  Hooks are async. `beforeAuthorize` and `beforeAgentCreate` are awaited, run under a timeout, and can block requests by returning `{ allow: false }`. A timeout, a throw or a malformed verdict in `beforeAuthorize` denies the call by default (see [Hook safety](#hook-safety-timeout-and-fail-closed)). All other hooks (`afterAuthorize`, `afterAgentCreate`, `onAgentRevoke`, `onViolation`) are fire-and-forget: theAuth does not await them and does not catch their errors, so a throw becomes an unhandled promise rejection (which can terminate a Node.js process). Wrap their bodies in `try/catch`.
 </Warning>
 
-Authorization hooks run only for calls to `theauth.authorize()`. They do not run for `theauth.authorizeByToken()` or `theauth.policy.evaluate()`.
+`beforeAuthorize` runs for `theauth.authorize()`, `theauth.authorizeByToken()` and `theauth.policy.evaluate()` when the subject is an agent. It runs after the agent is resolved and known to be active, and before any permission is evaluated. It does not run for an unknown agent id, an invalid token, or a revoked or expired agent: those deny first. A `policy.evaluate()` call for a user-only subject (no `agentId`) has no agent, no delegation chain and no audit row, so the hook does not run. `afterAuthorize` and `onViolation` fire for `authorize()` and `authorizeByToken()`, and receive a `source` field naming the entry point.
 
 ## Available hooks
 
-<ParamField path="beforeAuthorize" type={`(context: { agentId, action, resource, arguments? }) => Promise<{ allow: boolean; reason?: string } | void>`}>Fires before every `theauth.authorize()` call. Return `{ allow: false, reason }` to block: the call returns `{ allowed: false, reason, auditId: "" }` without touching the database, so no audit row is written. Return nothing or `{ allow: true }` to proceed.</ParamField>
-<ParamField path="afterAuthorize" type={`(context: { agentId, action, resource, result }) => Promise<void>`}>Fires after authorize() completes with the final result (`{ allowed, reason?, auditId }`). It does not fire when `beforeAuthorize` blocked the call or when the agent was not found or is not active.</ParamField>
-<ParamField path="beforeAgentCreate" type={`(input: CreateAgentInput) => Promise<{ allow: boolean; reason?: string } | void>`}>Fires before `theauth.agent.create()`. Return `{ allow: false }` to reject the creation; `create()` then throws an `Error` carrying your reason.</ParamField>
+<ParamField path="beforeAuthorize" type={`(context: BeforeAuthorizeContext) => Promise<{ allow: boolean; reason?: string } | { decision: "allow" | "deny" | "escalate"; reason?: string; guard?: string; ruleId?: string; metadata?: Record<string, string | number | boolean> } | void>`}>Fires before permission evaluation for an agent that can act. Return nothing or `{ allow: true }` to proceed. Return `{ allow: false, reason }` (or `{ decision: "deny" }`) to block with code `hook_denied`. Return `{ decision: "escalate" }` to require human approval: `authorize()` returns `allowed: false` with code `approval_required`, and `policy.evaluate()` returns `decision: "escalate"` with `escalation.tier` set to `"hook"`. A hook can only narrow access: an allow never overrides a denial from the agent's own permissions.</ParamField>
+<ParamField path="afterAuthorize" type={`(context: { agentId, action, resource, source, result }) => Promise<void>`}>Fires after authorize() or authorizeByToken() completes with the final result (`{ allowed, reason?, auditId, code? }`). It does not fire when `beforeAuthorize` blocked the call or when the agent was not found or is not active.</ParamField>
+<ParamField path="beforeAgentCreate" type={`(input: CreateAgentInput) => Promise<{ allow: boolean; reason?: string } | void>`}>Fires before `theauth.agent.create()`. Return `{ allow: false }` to reject the creation; `create()` then throws a `HookBlockedError` carrying your reason. It runs under the same timeout as `beforeAuthorize`, but a timeout or a throw makes `create()` throw by default, so creation never proceeds on a broken hook unless you set `onTimeout` or `onError` to `"allow"`.</ParamField>
 <ParamField path="afterAgentCreate" type={`(agent: AgentIdentity) => Promise<void>`}>Fires after an agent is successfully created.</ParamField>
 <ParamField path="onAgentRevoke" type={`(agentId: string) => Promise<void>`}>Fires after `theauth.agent.revoke()` succeeds.</ParamField>
-<ParamField path="onViolation" type={`(violation: { type, agentId, action, resource, reason }) => Promise<void>`}>Fires when `theauth.authorize()` returns a denial (including a `beforeAuthorize` block). Budget policies are not part of `authorize()`, so they do not trigger it.</ParamField>
+<ParamField path="onViolation" type={`(violation: { type, code, agentId, action, resource, reason, source }) => Promise<void>`}>Fires when `theauth.authorize()` or `theauth.authorizeByToken()` returns a denial (including a `beforeAuthorize` block). `code` is the machine-readable denial code and `type` is its coarse grouping. Budget policies are not part of `authorize()`, so they do not trigger it.</ParamField>
 
-### Violation types
+## The beforeAuthorize context
 
-The `onViolation` hook receives a typed `type` field so you can route each category to a different handler.
+The hook receives the old fields (`agentId`, `action`, `resource`, `arguments`) plus the resolved agent and the delegation chain behind it, so a guard can decide on who the call is really for.
 
-| Type | When it fires |
-|------|---------------|
-| `permission_denied` | Default when no other category matches (for example, no permission grants the agent the action) |
-| `rate_limited` | The denial reason contains "rate" |
-| `ip_blocked` | The denial reason contains "ip" or "allowlist" (the request IP is missing or not in the permission's `ipAllowlist`) |
-| `time_restricted` | The denial reason contains "time" or "window" (outside the permission's `timeWindow`) |
-| `approval_required` | The denial reason contains "approval" (the permission has `requireApproval`) |
+```typescript
+hooks: {
+  async beforeAuthorize({ agent, delegation, source, context, dryRun, signal, action, resource }) {
+    // agent: the resolved agent, token omitted (id, ownerId, tenantId, name, type, permissions, status)
+    // delegation.rootOwnerId: the human accountable for the root of the chain
+    // delegation.path: agent ids from the root agent down to this agent
+    // delegation.links: the grant between each pair on the path, with its permissions, constraints, depth and expiry
+    // delegation.inbound: every active grant into this agent (authorize merges all of them)
+    // source: "authorize" | "authorizeByToken" | "policy.evaluate" | "explain"
+    // context: { ip?, userAgent? } when the caller passed them
+    // dryRun: true when the call comes from explain(); do not cause side effects
+    // signal: aborted when the hook times out; pass it to fetch()
+    const res = await fetch(guardUrl, { method: 'POST', body: JSON.stringify({ action, resource, root: delegation.rootOwnerId }), signal });
+    if (!res.ok) throw new Error('guard unavailable'); // denies with code hook_error by default
+    const verdict = await res.json();
+    return verdict.ok ? undefined : { decision: 'deny', reason: 'Blocked by guard' };
+  },
+}
+```
 
-The type is derived by substring matching on the denial reason text, checked in the order above. A reason that happens to contain one of those substrings, for example an agent or resource name containing "rate" or "time", can be classified as that category.
+`delegation.path` has one element when the agent is not delegated. When an agent has several inbound grants, `path` and `links` follow the oldest one, and `inbound` lists all of them. Revoked and expired grants never appear. The chain is loaded only when a `beforeAuthorize` hook is configured, so integrations without one pay nothing. A hook verdict is never cached: `policy.evaluate()` asks the hook on every call, even when the permission decision itself comes from the cache.
+
+The `reason` you return is shown to the calling agent. Do not put secrets in it.
+
+## Hook safety: timeout and fail-closed
+
+A hook that hangs would hang every authorization, and a hook that throws should not silently open the door. `beforeAuthorize` therefore runs under a timeout and denies by default when it fails.
+
+```typescript
+const theauth = await createTheAuth({
+  database,
+  hooks: { beforeAuthorize },
+  hookSafety: {
+    timeoutMs: 1500,                       // default 2000, 0 disables, clamped to 60000
+    onTimeout: 'deny',                     // 'deny' | 'allow' | 'throw'
+    onError: 'deny',                       // thrown error or malformed verdict
+    beforeAgentCreate: { onTimeout: 'throw' },
+    onHookError: ({ hook, kind, error, elapsedMs, agentId }) => metrics.increment(`hook.${hook}.${kind}`),
+  },
+});
+```
+
+| Situation | Result | Code | Reason returned to the caller |
+|-----------|--------|------|-------------------------------|
+| Hook returns deny | Denied | `hook_denied` | Your reason, else `Blocked by beforeAuthorize hook` |
+| Hook returns escalate | Denied, needs approval | `approval_required` | Your reason, else `beforeAuthorize hook requires approval` |
+| Timeout, mode `deny` | Denied | `hook_timeout` | `beforeAuthorize hook timed out after <n>ms` |
+| Error or malformed verdict, mode `deny` | Denied | `hook_error` | `beforeAuthorize hook failed` (the error text is not returned) |
+| Timeout or error, mode `allow` | Evaluation continues | Final code of the evaluation | Final reason. The audit row carries `theauthHook.outcome: "fail_open"` |
+| Mode `throw` | The call rejects | | `HookTimeoutError` (code `HOOK_TIMEOUT`) or your original error |
+
+Each setting resolves from the per-hook option (`hookSafety.beforeAuthorize`), then the top-level `hookSafety` option, then an environment variable, then the built-in default. Invalid environment values are ignored.
+
+| Setting | Environment variable | Default |
+|---------|----------------------|---------|
+| `timeoutMs` | `THEAUTH_HOOK_TIMEOUT_MS` | `2000` |
+| `onTimeout` | `THEAUTH_HOOK_ON_TIMEOUT` | `deny` for `beforeAuthorize`, `throw` for `beforeAgentCreate` |
+| `onError` | `THEAUTH_HOOK_ON_ERROR` | `deny` for `beforeAuthorize`, `throw` for `beforeAgentCreate` |
+
+For `beforeAgentCreate`, `deny` and `throw` both make `create()` throw: `deny` throws a `HookBlockedError` with the code, `throw` rethrows the original error.
+
+`onHookError` is called on every timeout and error whatever the mode. It must not throw (a throw is swallowed) and cannot change the outcome. Setting a mode to `allow` is a deliberate fail-open: every such bypass is marked in the audit row and reported to `onHookError`, so it stays visible.
+
+On a timeout the `signal` passed to the hook is aborted, so a hook that forwards it to `fetch()` stops its request. A late result from an abandoned hook is ignored.
+
+## What a block leaves in the audit log
+
+A `beforeAuthorize` block has an agent and an owner, so it writes a normal audit row in the agent's hash chain and returns that row's id as `auditId` (an empty string when `agents.auditAll` is `false`). A call for an unknown agent id or unknown token still writes nothing.
+
+| Column | Value |
+|--------|-------|
+| `result` | `denied`, or `escalated` for an escalate verdict |
+| `decision_code` | `hook_denied`, `hook_timeout`, `hook_error` or `approval_required` |
+| `reason` | The reason returned to the caller |
+| `parameters` | The call arguments plus `theauthHook: { hook, outcome, guard?, ruleId?, metadata?, elapsedMs }` |
+| `duration_ms` | How long the hook ran |
+| `subject_id`, `actor_id`, `delegation_chain` | Root owner, the agent, and the path when delegated |
+
+`outcome` is `deny`, `escalate`, `timeout`, `error` or `fail_open`. The `theauthHook` key is set by theAuth and overrides a tool argument with the same name. `metadata` is capped at 16 scalar keys with values cut to 256 characters. Query these rows with `theauth.audit.query({ codes: ['hook_denied', 'hook_timeout', 'hook_error'] })`.
+
+### Violation codes and types
+
+Every denial carries a `code` from a closed set. `onViolation` receives it as `code`, `authorize()` and `authorizeByToken()` return it as `result.code`, and `policy.evaluate()` returns it as `decision.code`. Branch on `code`, not on the `reason` text.
+
+```typescript
+import { DECISION_CODES, violationTypeOf } from '@glinr/theauth';
+
+hooks: {
+  async onViolation({ code, agentId }) {
+    if (code === DECISION_CODES.RATE_LIMITED) await alerts.warn(agentId);
+    // violationTypeOf(code) gives the coarse type
+  },
+},
+```
+
+`type` stays available and keeps the same five values. It is derived from `code` with `violationTypeOf`:
+
+| Type | Codes that map to it |
+|------|----------------------|
+| `rate_limited` | `rate_limited` |
+| `ip_blocked` | `ip_not_allowed` (the request IP is missing or not in the permission's `ipAllowlist`) |
+| `time_restricted` | `time_restricted` (outside the permission's `timeWindow`) |
+| `approval_required` | `approval_required`, `approval_invalid` |
+| `permission_denied` | every other code |
+
+A `beforeAuthorize` deny reports code `hook_denied`, so its `type` is `permission_denied` whatever the reason text says. A timeout reports `hook_timeout` and an error `hook_error`, also `permission_denied`. An escalate verdict reports `approval_required`. See [Errors](/errors#decision-codes) for the full list of codes.
+
+<Note>
+  `classifyViolation(reason)` is still exported but deprecated. It matches substrings of the reason text, so a reason that merely contains "rate" or "time" is misclassified. Use `code` and `violationTypeOf` instead.
+</Note>
 
 ## Registering hooks
 
@@ -46,7 +147,7 @@ Pass a `hooks` object to `createTheAuth`:
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async beforeAuthorize({ agentId, action, resource }) {
       // Example: block calls outside business hours
@@ -73,7 +174,7 @@ const theauth = await createTheAuth({
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async afterAuthorize({ agentId, action, resource, result }) {
       if (!result.allowed) {
@@ -90,13 +191,13 @@ const theauth = await createTheAuth({
 });
 ```
 
-The `result.auditId` links this log line to the audit entry, so you can correlate your own logs with the theAuth audit trail. When `agents.auditAll` is `false`, the permission engine returns an `auditId` but does not write a row for it. Blocked-by-hook and unknown-agent denials return an empty `auditId`. Denials for a revoked or expired agent return the id of the row that was written.
+The `result.auditId` links this log line to the audit entry, so you can correlate your own logs with the theAuth audit trail. When `agents.auditAll` is `false`, the permission engine returns an `auditId` but does not write a row for it. Unknown-agent denials return an empty `auditId`. Denials for a revoked or expired agent, and calls blocked by a `beforeAuthorize` hook, return the id of the row that was written.
 
 ## Enforcing a sandbox check
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async beforeAgentCreate(input) {
       // Require sandbox metadata on all autonomous agents
@@ -111,15 +212,15 @@ const theauth = await createTheAuth({
 });
 ```
 
-Returning `{ allow: false }` from `beforeAgentCreate` causes the `theauth.agent.create()` call to throw an `Error` whose message is the reason you provided.
+Returning `{ allow: false }` from `beforeAgentCreate` causes the `theauth.agent.create()` call to throw a `HookBlockedError` (an `Error`) whose message is the reason you provided.
 
 ## Reacting to violations
 
-The `onViolation` hook fires for every denial returned by `theauth.authorize()`, classified as described above. Use it to send alerts or update your observability platform.
+The `onViolation` hook fires for every denial returned by `theauth.authorize()` or `theauth.authorizeByToken()`, with the `code` and `type` described above. Use it to send alerts or update your observability platform.
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async onViolation({ type, agentId, action, resource, reason }) {
       // Send to your alerting system
@@ -147,7 +248,7 @@ import { createDiscoveryModule } from '@glinr/theauth-plugin-discovery';
 let discovery: ReturnType<typeof createDiscoveryModule>;
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async onAgentRevoke(agentId) {
       // Remove the agent's discovery card. The discovery module is the separate
@@ -176,3 +277,54 @@ discovery = createDiscoveryModule(theauth.db);
   Query the record of authorization decisions.
 </Card>
 </CardGroup>
+
+## External guards
+
+An external guard is a policy service that decides whether an agent may act, for example HOL Guard. It plugs in through `beforeAuthorize`. `guardHook` adapts a guard to that hook, so the guard only implements `check`. Timeout, default deny and audit fields come from the hook runner.
+
+```ts
+import { createTheAuth, guardHook, type ExternalGuard } from "@glinr/theauth";
+
+const holGuard: ExternalGuard = {
+  name: "hol-guard",
+  version: "1.0.0",
+  async check(input, signal) {
+    const res = await fetch("https://guard.example.com/check", {
+      method: "POST",
+      body: JSON.stringify(input),
+      signal,
+    });
+    return res.json(); // { decision: "allow" | "deny" | "escalate", reason?, ruleId?, metadata? }
+  },
+};
+
+const theauth = await createTheAuth({
+  database,
+  hooks: { beforeAuthorize: guardHook(holGuard) },
+  hookSafety: { beforeAuthorize: { timeoutMs: 1500 } },
+});
+```
+
+For a vendor endpoint over HTTPS, use `httpGuard` instead of writing the `fetch` yourself. It signs the request, requires a signed response, validates the verdict strictly and refuses redirects. See [remote guards](/guards).
+
+### What the guard receives
+
+`check(input, signal)` gets the agent (id, owner, tenant, type, name, never the token), the request (`action`, `resource`, `arguments`), the full delegation chain from the root human (`rootOwnerId`, `path`, `links` with each grant's permissions, `inbound`), the entry point (`source`), the client `ip` when known, and `dryRun`. `dryRun` is true from `explain()`, so the guard should not count or log it as a real call. The `signal` aborts at the hook timeout, so pass it to `fetch`.
+
+### Verdicts
+
+The guard returns `{ decision: "allow" | "deny" | "escalate", reason?, guard?, ruleId?, metadata? }`. `guardHook` fills `guard` with `guard.name` when the guard leaves it empty. `reason` is returned to the calling agent, so keep secrets out of it. `guard`, `ruleId` and `metadata` are written to the audit row under `parameters.theauthHook`. A guard can only narrow access: an allow never overrides theAuth's own permission checks.
+
+### Default deny
+
+A throw, a rejected promise or a malformed verdict denies with code `hook_error`. No answer within `timeoutMs` (default 2000) aborts the signal and denies with code `hook_timeout`. Failing open is possible only by setting `onTimeout: "allow"` or `onError: "allow"` in `hookSafety`, and each fail-open is recorded on the audit row.
+
+### Composing guards
+
+`composeBeforeAuthorize` runs several hooks in order with deny-overrides. The first deny short-circuits, an escalate beats allow, and a throw from any hook propagates so the whole check denies.
+
+```ts
+import { composeBeforeAuthorize, guardHook } from "@glinr/theauth";
+
+hooks: { beforeAuthorize: composeBeforeAuthorize(guardHook(holGuard), guardHook(internalRules)) }
+```

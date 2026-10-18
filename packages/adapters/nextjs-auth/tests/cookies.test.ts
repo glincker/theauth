@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createAuthConfig } from "../src/config.js";
 
+const TEST_SECRET = "test-secret-test-secret-test-secret-0123456789";
+
 // Tests cookie name derivation and config resolution. next/headers and NextResponse are mocked out.
 
-describe("createAuthConfig — cookie name resolution", () => {
+describe("createAuthConfig: cookie name resolution", () => {
 	it("uses __Host- prefix when isProd=true", () => {
 		const config = createAuthConfig({
+			secret: TEST_SECRET,
 			backendUrl: "https://api.example.com",
 			appUrl: "https://example.com",
 			isProd: true,
@@ -16,6 +19,7 @@ describe("createAuthConfig — cookie name resolution", () => {
 
 	it("uses plain prefix when isProd=false", () => {
 		const config = createAuthConfig({
+			secret: TEST_SECRET,
 			backendUrl: "http://localhost:9100",
 			appUrl: "http://localhost:3000",
 			isProd: false,
@@ -26,6 +30,7 @@ describe("createAuthConfig — cookie name resolution", () => {
 
 	it("uses custom sessionPrefix for cookie names", () => {
 		const config = createAuthConfig({
+			secret: TEST_SECRET,
 			backendUrl: "https://api.example.com",
 			appUrl: "https://example.com",
 			isProd: true,
@@ -33,12 +38,33 @@ describe("createAuthConfig — cookie name resolution", () => {
 		});
 		expect(config.cookies.sessionName).toBe("__Host-myapp-token");
 		expect(config.cookies.csrfName).toBe("__Host-myapp-csrf");
-		expect(config.cookies.refresh).toBe("myapp-refresh-token");
-		expect(config.cookies.cacheName).toBe("myapp-session-cache");
+		expect(config.cookies.refresh).toBe("__Host-myapp-refresh-token");
+		expect(config.cookies.cacheName).toBe("__Host-myapp-session-cache");
+	});
+
+	it("uses the __Host- refresh cookie by default, even outside production", () => {
+		const config = createAuthConfig({
+			secret: TEST_SECRET,
+			backendUrl: "https://api.example.com",
+			appUrl: "https://example.com",
+			isProd: false,
+		});
+		expect(config.cookies.refresh).toBe("__Host-glinr-refresh-token");
+	});
+
+	it("drops the __Host- refresh prefix only when secure is false (plain http localhost)", () => {
+		const config = createAuthConfig({
+			secret: TEST_SECRET,
+			backendUrl: "http://localhost:3001",
+			appUrl: "http://localhost:3000",
+			secure: false,
+		});
+		expect(config.cookies.refresh).toBe("glinr-refresh-token");
 	});
 
 	it("allows custom refresh cookie name override", () => {
 		const config = createAuthConfig({
+			secret: TEST_SECRET,
 			backendUrl: "https://api.example.com",
 			appUrl: "https://example.com",
 			isProd: false,
@@ -49,6 +75,7 @@ describe("createAuthConfig — cookie name resolution", () => {
 
 	it("strips trailing slashes from backendUrl and appUrl", () => {
 		const config = createAuthConfig({
+			secret: TEST_SECRET,
 			backendUrl: "https://api.example.com/",
 			appUrl: "https://example.com/",
 			isProd: true,
@@ -59,6 +86,7 @@ describe("createAuthConfig — cookie name resolution", () => {
 
 	it("applies default endpoint paths", () => {
 		const config = createAuthConfig({
+			secret: TEST_SECRET,
 			backendUrl: "https://api.example.com",
 			appUrl: "https://example.com",
 		});
@@ -69,6 +97,7 @@ describe("createAuthConfig — cookie name resolution", () => {
 
 	it("respects endpoint overrides", () => {
 		const config = createAuthConfig({
+			secret: TEST_SECRET,
 			backendUrl: "https://api.example.com",
 			appUrl: "https://example.com",
 			endpoints: {
@@ -84,6 +113,7 @@ describe("createAuthConfig — cookie name resolution", () => {
 
 	it("applies default cookieCacheMaxAgeMs of 5 minutes", () => {
 		const config = createAuthConfig({
+			secret: TEST_SECRET,
 			backendUrl: "https://api.example.com",
 			appUrl: "https://example.com",
 		});
@@ -92,6 +122,7 @@ describe("createAuthConfig — cookie name resolution", () => {
 
 	it("applies default expiryRefreshBufferS of 60", () => {
 		const config = createAuthConfig({
+			secret: TEST_SECRET,
 			backendUrl: "https://api.example.com",
 			appUrl: "https://example.com",
 		});
@@ -104,6 +135,7 @@ describe("createAuthConfig — cookie name resolution", () => {
 			name: String((raw as Record<string, unknown>).name ?? ""),
 		});
 		const config = createAuthConfig({
+			secret: TEST_SECRET,
 			backendUrl: "https://api.example.com",
 			appUrl: "https://example.com",
 			mapUser,
@@ -113,11 +145,44 @@ describe("createAuthConfig — cookie name resolution", () => {
 
 	it("uses default mapUser that returns raw as TUser when none provided", () => {
 		const config = createAuthConfig({
+			secret: TEST_SECRET,
 			backendUrl: "https://api.example.com",
 			appUrl: "https://example.com",
 		});
 		const raw = { id: "123", email: "test@example.com" };
 		expect(config.mapUser(raw)).toEqual(raw);
 		expect(config.mapUser(null)).toBeNull();
+	});
+});
+
+describe("createAuthConfig: secret and secure", () => {
+	const base = { backendUrl: "https://api.example.com", appUrl: "https://example.com" };
+
+	it("throws when the secret is missing", () => {
+		// @ts-expect-error secret is required
+		expect(() => createAuthConfig({ ...base })).toThrow(/secret/);
+	});
+
+	it("throws when the secret is shorter than 32 bytes", () => {
+		expect(() => createAuthConfig({ ...base, secret: "short" })).toThrow(/32 bytes/);
+		expect(() => createAuthConfig({ ...base, secret: "a".repeat(31) })).toThrow(/32 bytes/);
+		expect(() => createAuthConfig({ ...base, secret: "a".repeat(32) })).not.toThrow();
+	});
+
+	it("is Secure by default whatever NODE_ENV says", () => {
+		expect(createAuthConfig({ ...base, secret: TEST_SECRET, isProd: false }).secure).toBe(true);
+		expect(createAuthConfig({ ...base, secret: TEST_SECRET }).secure).toBe(true);
+	});
+
+	it("allows an explicit secure:false and then never uses the __Host- prefix", () => {
+		const c = createAuthConfig({ ...base, secret: TEST_SECRET, secure: false, isProd: true });
+		expect(c.secure).toBe(false);
+		expect(c.cookies.sessionName).toBe("glinr-token");
+		expect(c.cookies.cacheName).toBe("glinr-session-cache");
+	});
+
+	it("does not expose the secret as an enumerable property", () => {
+		const c = createAuthConfig({ ...base, secret: TEST_SECRET });
+		expect(JSON.stringify(c)).not.toContain(TEST_SECRET);
 	});
 });

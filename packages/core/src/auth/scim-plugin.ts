@@ -31,7 +31,7 @@ export function scim(config: ScimConfig): TheAuthPlugin {
 		id: "theauth-scim",
 
 		async init(ctx): Promise<undefined> {
-			const module = createScimModule(config, ctx.db);
+			const module = createScimModule(config, ctx.db, ctx.revocations);
 
 			// We register a single catch-all GET handler per method and let the
 			// module's internal router do path matching. The plugin endpoint

@@ -293,7 +293,7 @@ export function createCostAttributionModule(
 			const rows = await db
 				.select({
 					agentId: costEvents.agentId,
-					totalMicros: sql<number>`sum(${costEvents.costMicros})`,
+					totalMicros: sql<number>`sum(${costEvents.costMicros})`.mapWith(Number),
 				})
 				.from(costEvents)
 				.where(and(gte(costEvents.recordedAt, p.start), lte(costEvents.recordedAt, p.end)))

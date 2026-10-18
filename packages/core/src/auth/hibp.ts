@@ -6,6 +6,7 @@
  */
 
 import { sha1 } from "../crypto/web-crypto.js";
+import type { TheAuthLogger } from "../observability/types.js";
 
 export interface HibpConfig {
 	/** Reject passwords seen in more than N breaches (default: 0, reject any). */
@@ -20,6 +21,10 @@ export interface HibpConfig {
 	 * - `'block'`, reject the password to be safe. Default: `'allow'`.
 	 */
 	onError?: "allow" | "block";
+	/** Shorthand for `onError: 'block'`: refuse the password when the HIBP API errors, with a `HibpApiError`. Wins over `onError`. Default false (fail open, so an HIBP outage never blocks sign-up). */
+	failClosed?: boolean;
+	/** Receives a startup warning while the check fails open, because an HIBP outage then lets known-breached passwords through sign-up and password change. */
+	logger?: Pick<TheAuthLogger, "warn">;
 }
 
 export interface HibpModule {
@@ -72,7 +77,13 @@ export function createHibpModule(config?: HibpConfig): HibpModule {
 	const threshold = config?.threshold ?? 0;
 	const apiUrl = (config?.apiUrl ?? "https://api.pwnedpasswords.com").replace(/\/$/, "");
 	const timeoutMs = config?.timeoutMs ?? 5000;
-	const onError = config?.onError ?? "allow";
+	const onError = config?.failClosed === true ? "block" : (config?.onError ?? "allow");
+	if (onError === "allow") {
+		config?.logger?.warn(
+			"hibp breached-password check fails open: when the HIBP API errors, sign-up and password changes accept the password unchecked. Set hibp.failClosed to refuse instead.",
+			{ failClosed: false },
+		);
+	}
 
 	async function check(password: string): Promise<number> {
 		const hash = await sha1Hex(password);

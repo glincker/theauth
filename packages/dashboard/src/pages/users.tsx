@@ -69,7 +69,7 @@ export function UsersPage({ client, onNavigate }: UsersPageProps) {
 									<span className="text-xs text-zinc-800 dark:text-zinc-200">{user.email}</span>
 								</Td>
 								<Td>
-									<span className="text-xs text-zinc-400">{user.name ?? "—"}</span>
+									<span className="text-xs text-zinc-400">{user.name ?? "-"}</span>
 								</Td>
 								<Td>
 									<button

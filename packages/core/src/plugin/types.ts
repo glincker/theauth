@@ -2,6 +2,7 @@ import type { TrustedProxyConfig } from "../auth/client-ip.js";
 import type { SignInGate } from "../auth/sign-in-gate.js";
 import type { ResolvedUser } from "../auth/types.js";
 import type { Database } from "../db/database.js";
+import type { RevocationBus } from "../mcp/revocation-bus.js";
 import type { Session, SessionManager } from "../session/session.js";
 import type { SecondaryStorageResolver } from "../storage/types.js";
 import type { AuthConfig } from "../types.js";
@@ -22,6 +23,8 @@ export interface PluginContext {
 	 * Central sign-in gate (forced password change, 2FA policy, trusted devices). Session-issuing plugins call `signInGate.evaluate(...)` before creating a session. Optional so hand-built contexts keep compiling.
 	 */
 	signInGate?: SignInGate;
+	/** The instance revocation bus. Plugins that end a user's access (ban, delete, deprovision) push `sub` and `agent` rows through it so MCP tokens die everywhere. Optional so hand-built contexts keep compiling; always set by createTheAuth. */
+	revocations?: RevocationBus;
 }
 
 /** An API endpoint registered by a plugin */

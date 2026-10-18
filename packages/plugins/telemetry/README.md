@@ -25,10 +25,25 @@ const telemetry = await createTelemetryModule({
 });
 ```
 
+### OpenTelemetry mapping for decision events
+
+```typescript
+import { metrics, trace } from "@opentelemetry/api";
+import { theauthOtel } from "@glinr/theauth-plugin-telemetry";
+
+const theauth = await createTheAuth({
+  // ...
+  ...theauthOtel({ tracer: trace.getTracer("theauth"), meter: metrics.getMeter("theauth") }),
+});
+```
+
+Emits the `theauth.decisions` counter and `theauth.decision.duration` histogram (ms), plus one span per decision with hook timeout events. No `@opentelemetry` dependency. See [observability](https://docs.theauth.dev/observability).
+
 ## Exports
 
 - `createTelemetryModule`: initialize telemetry
-- `TelemetryConfig`, `TelemetrySpan`: TypeScript types
+- `theauthOtel`, `OTEL_NAMES`: decision events to OpenTelemetry spans and metrics
+- `TelemetryConfig`, `TelemetrySpan`, `TheAuthOtelOptions`: TypeScript types
 
 ## Docs
 

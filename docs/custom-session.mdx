@@ -21,7 +21,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { customSession } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: {
     session: { secret: process.env.SESSION_SECRET! },
   },

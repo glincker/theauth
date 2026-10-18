@@ -178,7 +178,7 @@ export function createPrivilegeAnalyzer(db: Database) {
 						: `Permission \`${perm.resource}\` has wildcard action \`*\``,
 					permission: { resource: perm.resource, actions: perm.actions },
 				});
-				continue; // skip further checks for this permission — wildcard covers all
+				continue; // skip further checks for this permission, wildcard covers all
 			}
 
 			// unused_permission: resource never appears in audit logs

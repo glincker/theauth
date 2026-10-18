@@ -12,37 +12,58 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Changed
+### Security
 
-- **`createSignOutHandler`** replaces `createSignOutAction` as the primary export name. The previous implementation inlined a `"use server"` directive inside the returned function body, which caused a Next.js build error when the adapter was reachable from any client-component graph (`It is not allowed to define inline "use server" annotated Server Actions in Client Components`). The new implementation returns a plain `async function` with no inline directive. Consumers must wrap it in their own `"use server"` file — see README §4 Sign out.
-- `createSignOutAction` is retained as a **deprecated alias** for one release cycle and will be removed in v0.2.
+- **Fixed session forgery in 0.2.0 and earlier.** The session cache cookie was unsigned JSON that `getServerSession` trusted without a session token. It is now HMAC-SHA256 signed, bound to the session token and an expiry, and verified in constant time; anything else is ignored and the backend is asked. Unsigned legacy cookies are treated as no cache.
 
-## [0.1.0] — 2026-05-02
+- **Middleware gate verifies a signed marker.** The token cookie alone no longer counts as signed in: a `{prefix}-gate` cookie (HMAC of the token, derived key, Web Crypto only) must verify, so an arbitrary cookie cannot pass. Still a UX gate: use `getServerSession` for authorization.
+- **Signed CSRF double submit.** Tokens are HMAC signed and bound to the session token, verified in constant time by `verifyCsrfRequest`, enforced by `createSignOutHandler` and the new `createSignOutRouteHandler`. Missing, mismatched, forged and cross-session tokens are rejected.
+- **Plain cookie names ignored under `__Host-`.** Cookie shadowing and subdomain injection no longer work. Migration: `legacyCookieNames: true` (default false).
+
+### Breaking
+
+- `createAuthConfig` requires `secret` (at least 32 bytes) and throws otherwise.
+- Cookies are `Secure` by default regardless of `NODE_ENV`. Use `secure: false` for localhost development. `isProd` now only affects cookie name prefixes.
+- `setSessionCookies` is async, no longer takes `csrfToken`, and returns the signed CSRF token. `generateCsrfToken` is deprecated.
+- `createSignOutHandler` returns `(csrfToken?: string)` and refuses without a valid signed token. Sessions without the new marker cookie fail the middleware gate until refreshed.
+- Plain `{prefix}-token`/`-csrf` cookies are ignored when `__Host-` names are in use unless `legacyCookieNames: true`.
+- The cache cookie name gets the `__Host-` prefix when the prefix is in use.
 
 ### Added
 
-New package — initial release.
+- `safeRedirectPath` open-redirect guard; `withAuth` rejects a non same-origin `signInPath`.
+
+### Changed
+
+- **`createSignOutHandler`** replaces `createSignOutAction` as the primary export name. The previous implementation inlined a `"use server"` directive inside the returned function body, which caused a Next.js build error when the adapter was reachable from any client-component graph (`It is not allowed to define inline "use server" annotated Server Actions in Client Components`). The new implementation returns a plain `async function` with no inline directive. Consumers must wrap it in their own `"use server"` file. See README §4 Sign out.
+- `createSignOutAction` is retained as a **deprecated alias** for one release cycle and will be removed in v0.2.
+
+## [0.1.0] - 2026-05-02
+
+### Added
+
+New package: initial release.
 
 **What it is:** A focused Next.js (14/15/16) adapter for projects whose auth backend lives elsewhere (Spring, Rails, Hono, Go, etc.). Distinct from `@glinr/theauth-nextjs` which bundles the agent-management runtime; this package covers the "I already have a backend, just give me cookie + session + refresh on the FE" case.
 
 **Server-side API (from main import):**
 
-- `createAuthConfig<TUser>()` — typed factory. Pass `backendUrl`, `appUrl`, `endpoints`, `cookies.sessionPrefix`, and a `mapUser` function; get a fully typed config used by every other helper.
-- `getServerSession(config)` — React.cache memoized + cookie-cached (5 min default TTL, configurable, disable by setting `sessionCacheTtlMs: 0`). Reads from the cookie cache first; falls back to the `/me` endpoint.
-- `refreshSession(config)` — proactive token rotation. Calls the `/refresh` endpoint, writes the new token into cookies.
-- `fetchWithRefresh(config, url, init?)` — drop-in `fetch` wrapper that retries once on 401 after attempting `refreshSession`.
-- `graphqlWithRefresh(config, query, variables?)` — same retry logic wired for GraphQL.
-- `buildAuthHeaders(config)` — server-safe header builder (reads the access-token cookie on the server; does not touch `document.cookie`).
-- `buildClientHeaders()` — client-safe header builder (reads `document.cookie`; safe to call from Client Components).
-- `createSignOutAction(config)` — returns a Next.js Server Action factory that calls the backend `/logout` endpoint and clears all session cookies.
+- `createAuthConfig<TUser>()`: typed factory. Pass `backendUrl`, `appUrl`, `endpoints`, `cookies.sessionPrefix`, and a `mapUser` function; get a fully typed config used by every other helper.
+- `getServerSession(config)`: React.cache memoized + cookie-cached (5 min default TTL, configurable, disable by setting `sessionCacheTtlMs: 0`). Reads from the cookie cache first; falls back to the `/me` endpoint.
+- `refreshSession(config)`: proactive token rotation. Calls the `/refresh` endpoint, writes the new token into cookies.
+- `fetchWithRefresh(config, url, init?)`: drop-in `fetch` wrapper that retries once on 401 after attempting `refreshSession`.
+- `graphqlWithRefresh(config, query, variables?)`: same retry logic wired for GraphQL.
+- `buildAuthHeaders(config)`: server-safe header builder (reads the access-token cookie on the server; does not touch `document.cookie`).
+- `buildClientHeaders()`: client-safe header builder (reads `document.cookie`; safe to call from Client Components).
+- `createSignOutAction(config)`: returns a Next.js Server Action factory that calls the backend `/logout` endpoint and clears all session cookies.
 
 **Edge-runtime middleware (from `/middleware` sub-export):**
 
-- `withAuth(config, options?)` — wraps your Next.js middleware function. Checks for the session cookie and redirects to `signInUrl` if absent. Edge-runtime safe (no Node-only APIs).
+- `withAuth(config, options?)`: wraps your Next.js middleware function. Checks for the session cookie and redirects to `signInUrl` if absent. Edge-runtime safe (no Node-only APIs).
 
 **Cookie policy:**
 
-- Production: cookies are named `__Host-{prefix}-token` (Secure, SameSite=Lax, no Domain attribute — required by the `__Host-` prefix spec).
+- Production: cookies are named `__Host-{prefix}-token` (Secure, SameSite=Lax, no Domain attribute, required by the `__Host-` prefix spec).
 - Development: plain `{prefix}-token` names (browsers reject `__Host-` without Secure on HTTP localhost).
 
 **Test coverage:** 26 tests across three suites (jwt: 9, cookies: 11, refresh: 6).

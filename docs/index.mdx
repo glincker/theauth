@@ -1,10 +1,10 @@
 ---
 title: theAuth
-description: Open-source auth for AI agents and humans. Agent identity, permissions, delegation, audit and MCP OAuth, plus 14 human auth methods and 17 OAuth providers, in one TypeScript SDK.
+description: Open-source auth for AI agents and humans. Agent identity, permissions, delegation, audit and MCP OAuth, plus human sign in and 48 OAuth providers, in one TypeScript SDK.
 icon: book-open
 ---
 
-**Auth for AI agents and for the humans behind them.** theAuth gives every agent its own identity, checks permissions at call time and writes an audit row for every decision. It also ships human auth: 14 methods (email and password, magic link, passkeys, TOTP and more) and 17 OAuth providers. Use either half alone, or both. Runs on Node, edge, Workers, Deno and Bun.
+**Auth for AI agents and for the humans behind them.** theAuth gives every agent its own identity, checks permissions at call time and writes an audit row for every decision. It also ships human auth: email and password, magic link, passkeys, TOTP and more, plus 48 OAuth providers. Use either half alone, or both. Runs on Node, edge, Workers, Deno and Bun.
 
 <Note>Building in Go? See the [theAuth Go library docs](/go/getting-started/overview).</Note>
 
@@ -22,20 +22,18 @@ icon: book-open
 ### Agent auth in one screen
 
 ```ts
-import { createTheAuth, users } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' },
+  agents: { enabled: true },
 });
 
-// The owner must exist in theauth_users (human auth creates these for you).
-theauth.db.insert(users).values({
-  id: 'user-123', email: 'owner@example.com', name: 'Owner',
-  createdAt: new Date(), updatedAt: new Date(),
-}).run();
+// The owner must exist (human auth creates these for you).
+const owner = await theauth.user.create({ email: 'owner@example.com', name: 'Owner' });
 
 const agent = await theauth.agent.create({
-  ownerId: 'user-123',
+  ownerId: owner.id,
   name: 'code-reviewer',
   type: 'autonomous',
   permissions: [{ resource: 'mcp:github:*', actions: ['read'] }],
@@ -78,13 +76,13 @@ const res = await theauth.plugins.handleRequest(request);
 **Resource wildcards** with rate limits, time windows, and IP allowlists.
 </div>
 <div>
-**Delegation chains** with depth, expiry, and cascading revocation.
+**Delegation chains** with depth, expiry, and revocation that takes effect on the next call.
 </div>
 <div>
 **Audit log** of every decision, with JSON and CSV export.
 </div>
 <div>
-**MCP OAuth 2.1** authorization server, PKCE and DCR built in.
+**MCP OAuth 2.1** authorization server, PKCE, DCR and revocation-bound tokens.
 </div>
 <div>
 **Trust scoring** per agent from audit history, plus budget policies.
@@ -93,7 +91,7 @@ const res = await theauth.plugins.handleRequest(request);
 **Ten adapters** for Node, edge, Workers, Deno, Bun.
 </div>
 <div>
-**Four databases**: SQLite, Postgres, MySQL, Cloudflare D1.
+**Databases**: SQLite and Postgres, plus Cloudflare D1. MySQL is not supported. See [what is tested](/choose-storage#what-is-tested-per-database).
 </div>
 <div>
 **Web Crypto only** in core, no Node-specific APIs.
@@ -153,13 +151,13 @@ theAuth includes human auth, but you do not have to use it. If you already run C
 
 <CardGroup cols={2}>
   <Card title="Agent identity" icon="robot" href="/agents">
-    Bearer tokens (`kv_...`, a prefix kept from before the rename), rotation, expiry. SHA-256 hashed at rest.
+    Bearer tokens (`ta_...`, a prefix kept from before the rename), rotation, expiry. SHA-256 hashed at rest.
   </Card>
   <Card title="Permission engine" icon="shield-halved" href="/permissions">
     Resource wildcards, rate limits, time windows, IP allowlists, approval gates.
   </Card>
   <Card title="Delegation" icon="link" href="/delegation">
-    Orchestrator delegates a subset to a sub-agent with depth and expiry. Revocation cascades.
+    Orchestrator delegates a subset to a sub-agent with depth and expiry. A revoked delegator stops lending permissions.
   </Card>
   <Card title="Audit trail" icon="scroll" href="/audit">
     Every `authorize()` writes agent, user, resource, action, result, duration.
@@ -197,7 +195,7 @@ New releases land on [GitHub](https://github.com/glincker/theauth/releases) ever
     Spec-compliant authorization server for Model Context Protocol tool servers.
   </Card>
   <Card title="Database setup" href="/database" icon="database">
-    SQLite, Postgres, MySQL, and Cloudflare D1 configuration.
+    SQLite, Postgres, and Cloudflare D1 configuration. MySQL is not supported.
   </Card>
   <Card title="Standards alignment" href="/standards" icon="book-open">
     IETF draft claims theAuth tracks and emits on agent JWTs.

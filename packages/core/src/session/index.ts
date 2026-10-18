@@ -1,3 +1,5 @@
+export type { SessionActivityConfig } from "./activity.js";
+export { UserBannedError } from "./banned.js";
 export type { BaseUrlConfig, BaseUrlResolver } from "./base-url.js";
 export { createBaseUrlResolver } from "./base-url.js";
 export type { CookieOptions, SameSite } from "./cookie.js";
@@ -5,6 +7,7 @@ export {
 	getCookie,
 	parseCookies,
 	parseCookiesFromRequest,
+	resolveCookieSecure,
 	serializeCookie,
 	serializeCookieDeletion,
 } from "./cookie.js";
@@ -52,8 +55,15 @@ export type {
 	SessionRefresherConfig,
 } from "./refresh.js";
 export { createSessionRefresher, RefreshTokenError } from "./refresh.js";
-export type { Session, SessionConfig, SessionManager } from "./session.js";
+export type {
+	Session,
+	SessionConfig,
+	SessionInvalidReason,
+	SessionManager,
+	SessionValidation,
+} from "./session.js";
 export { createSessionManager } from "./session.js";
+export { buildSessionCookie } from "./session-cookie.js";
 export type {
 	StatelessCreateContext,
 	StatelessIdentity,

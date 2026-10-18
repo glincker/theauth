@@ -1,5 +1,6 @@
 import type { SignInGate } from "../auth/sign-in-gate.js";
 import type { Database, DatabaseConfig } from "../db/database.js";
+import type { RevocationBus } from "../mcp/revocation-bus.js";
 import type { SessionManager } from "../session/session.js";
 import type { SecondaryStorageResolver } from "../storage/types.js";
 import type { TheAuthConfig } from "../types.js";
@@ -88,6 +89,7 @@ export async function initializePlugins(
 	sessionManager: SessionManager | null,
 	secondaryStorage?: SecondaryStorageResolver,
 	signInGate?: SignInGate,
+	revocations?: RevocationBus,
 ): Promise<PluginRegistry> {
 	const registry: PluginRegistry = {
 		endpoints: [],
@@ -110,6 +112,7 @@ export async function initializePlugins(
 			sessionManager,
 			secondaryStorage,
 			...(signInGate && { signInGate }),
+			...(revocations && { revocations }),
 			addEndpoint(endpoint: PluginEndpoint): void {
 				registry.endpoints.push(endpoint);
 			},

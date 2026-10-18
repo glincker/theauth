@@ -34,11 +34,12 @@ import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { sessions as sessionsTable } from "../db/schema.js";
 import type { CookieOptions } from "./cookie.js";
-import { getCookie, serializeCookie, serializeCookieDeletion } from "./cookie.js";
+import { getCookie, serializeCookieDeletion } from "./cookie.js";
 import type { SessionCookieCacheConfig } from "./cookie-cache.js";
 import { createSessionCookieCache } from "./cookie-cache.js";
-import type { Session, SessionConfig, SessionManager } from "./session.js";
+import type { Session, SessionConfig, SessionInvalidReason, SessionManager } from "./session.js";
 import { createSessionManager } from "./session.js";
+import { buildSessionCookie } from "./session-cookie.js";
 
 export interface CookieSessionConfig extends SessionConfig {
 	/** Session cookie name. Default: `"theauth_session"`. */
@@ -50,7 +51,7 @@ export interface CookieSessionConfig extends SessionConfig {
 	/** Refresh the session expiry on every successful validation. Default: true. */
 	autoRefresh?: boolean;
 
-	/** Opt-in signed cookie cache. Revocation can lag by up to the cache `maxAge`. Off by default. */
+	/** Experimental, opt-in signed cookie cache. Not used by `createTheAuth`. A revoked or banned session keeps validating from the cache until its `maxAge` runs out. Off by default. */
 	cookieCache?: Omit<SessionCookieCacheConfig, "secret">;
 }
 
@@ -63,6 +64,8 @@ export interface CreateSessionResult {
 
 export interface ValidateSessionResult {
 	session: Session | null;
+	/** Why the session was refused (`invalid_token`, `not_found`, `expired`, `idle_timeout`). Unset on success and when no cookie was sent. */
+	reason?: SessionInvalidReason;
 	/** Refreshed `Set-Cookie` to forward when `autoRefresh` extended a valid session. Otherwise null. */
 	refreshCookieHeader: string | null;
 	/** Cache cookies to forward after a DB read reseeds the cache. Only set when `cookieCache` is configured. */
@@ -72,7 +75,11 @@ export interface ValidateSessionResult {
 
 export interface CookieSessionManager {
 	/** Creates a session and returns the record plus a ready-to-send `Set-Cookie` header. */
-	createSession(userId: string, metadata?: Record<string, unknown>): Promise<CreateSessionResult>;
+	createSession(
+		userId: string,
+		metadata?: Record<string, unknown>,
+		options?: { rememberMe?: boolean },
+	): Promise<CreateSessionResult>;
 
 	/** Parses the Cookie header and looks up the session. Extends expiry when `autoRefresh` is on. */
 	validateSession(cookieHeader: string): Promise<ValidateSessionResult>;
@@ -125,8 +132,13 @@ export function createCookieSessionManager(
 		maxAge: maxAgeSecs,
 	};
 
-	function buildSetCookie(token: string): string {
-		return serializeCookie(sessionName, token, baseCookieOpts);
+	function buildSetCookie(token: string, session: Session): string {
+		const { maxAge, ...rest } = baseCookieOpts;
+		return buildSessionCookie(sessionName, token, session, {
+			...rest,
+			defaultMaxAge: maxAge,
+			now: config.now?.(),
+		});
 	}
 
 	function buildDeleteCookie(): string {
@@ -137,12 +149,13 @@ export function createCookieSessionManager(
 	async function createSession(
 		userId: string,
 		metadata?: Record<string, unknown>,
+		options?: { rememberMe?: boolean },
 	): Promise<CreateSessionResult> {
-		const { session, token } = await raw.create(userId, metadata);
+		const { session, token } = await raw.create(userId, metadata, options);
 		const cacheCookieHeaders = await seedCache(session, token, "");
 		return {
 			session,
-			setCookieHeader: buildSetCookie(token),
+			setCookieHeader: buildSetCookie(token, session),
 			...(cacheCookieHeaders ? { cacheCookieHeaders } : {}),
 		};
 	}
@@ -158,9 +171,10 @@ export function createCookieSessionManager(
 			if (hit) return { session: hit.session, refreshCookieHeader: null, fromCache: true };
 		}
 
-		const session = await raw.validate(token);
+		const checked = await raw.validateDetailed(token);
+		const session = checked.session;
 		if (!session) {
-			return { session: null, refreshCookieHeader: null };
+			return { session: null, reason: checked.reason, refreshCookieHeader: null };
 		}
 
 		if (autoRefresh) {
@@ -246,7 +260,7 @@ export function createCookieSessionManager(
 		return {
 			session: newSession,
 			token: newToken,
-			setCookieHeader: buildSetCookie(newToken),
+			setCookieHeader: buildSetCookie(newToken, newSession),
 		};
 	}
 

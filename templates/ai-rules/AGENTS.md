@@ -6,7 +6,7 @@ Package `@glinr/theauth`. Docs: https://docs.theauth.dev (full text: https://doc
 import { createTheAuth } from "@glinr/theauth";
 
 export const theauth = await createTheAuth({ // once at startup, reuse
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
   agents: { enabled: true, auditAll: true },
 });
 // Mount the framework adapter (-hono, -express, -fastify, -nextjs)
@@ -28,7 +28,7 @@ export const theauth = await createTheAuth({ // once at startup, reuse
 ## Never
 
 - Log, print, return in errors or commit tokens, session cookies, bearer headers, DPoP proofs, signing secrets or `THEAUTH_SESSION_SECRET`. Redact `Authorization` in request logs.
-- Store an agent token (`kv_...`, shown once) anywhere but a secrets manager. Rotate with `theauth.agent.rotate`.
+- Store an agent token (`ta_...`, shown once; legacy `kv_...` tokens still work) anywhere but a secrets manager. Rotate with `theauth.agent.rotate`.
 - Turn a policy error into an allow, or add catch-all `*` permissions to pass a test.
 - Copy a parent's permissions wider when delegating.
 - Ship `allowUnauthenticated: true`. Management routes need `authenticate` or `auth.session`.

@@ -9,7 +9,8 @@ export type TraceStage =
 	| "constraint"
 	| "approval"
 	| "delegation"
-	| "budget";
+	| "budget"
+	| "hook";
 
 export interface TraceStep {
 	stage: TraceStage;

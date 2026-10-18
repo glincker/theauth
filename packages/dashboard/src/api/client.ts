@@ -9,6 +9,8 @@ import type {
 	CreatePermissionTemplateInput,
 	DashboardStats,
 	DelegationChain,
+	ExplainRequest,
+	ExplainResponse,
 	McpServerInfo,
 	PaginatedAuditLogs,
 	PendingApproval,
@@ -34,6 +36,9 @@ export interface TheAuthApiClient {
 		format: "json" | "csv",
 		filters?: AuditLogFilters,
 	) => Promise<ApiResult<string>>;
+
+	/** POST /explain on the TheAuth HTTP handler: read-only account of a decision, nothing is recorded. */
+	explainDecision: (input: ExplainRequest) => Promise<ApiResult<ExplainResponse>>;
 
 	getPendingApprovals: () => Promise<ApiResult<PendingApproval[]>>;
 	decideApproval: (
@@ -152,6 +157,7 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 				if (filters.agentId) params.set("agentId", filters.agentId);
 				if (filters.action) params.set("action", filters.action);
 				if (filters.result) params.set("result", filters.result);
+				if (filters.codes?.length) params.set("codes", filters.codes.join(","));
 				if (filters.from) params.set("from", filters.from);
 				if (filters.to) params.set("to", filters.to);
 				if (filters.limit !== undefined) params.set("limit", String(filters.limit));
@@ -168,6 +174,7 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 				if (filters.agentId) params.set("agentId", filters.agentId);
 				if (filters.action) params.set("action", filters.action);
 				if (filters.result) params.set("result", filters.result);
+				if (filters.codes?.length) params.set("codes", filters.codes.join(","));
 				if (filters.from) params.set("from", filters.from);
 				if (filters.to) params.set("to", filters.to);
 			}
@@ -175,6 +182,9 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 		},
 
 		// Approvals
+		explainDecision: (input: ExplainRequest) =>
+			fetch<ExplainResponse>("/api/explain", { method: "POST", body: JSON.stringify(input) }),
+
 		getPendingApprovals: () => fetch<PendingApproval[]>("/api/approvals?status=pending&limit=100"),
 
 		decideApproval: (id, decision) =>

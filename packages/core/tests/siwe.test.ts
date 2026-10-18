@@ -104,7 +104,7 @@ describe("buildMessage", () => {
 
 // verify, nonce lifecycle
 
-describe("verify — nonce lifecycle", () => {
+describe("verify: nonce lifecycle", () => {
 	it("succeeds with a valid nonce + message", async () => {
 		const mod = createSiweModule(BASE_CONFIG);
 		const nonce = await mod.generateNonce();
@@ -147,7 +147,7 @@ describe("verify — nonce lifecycle", () => {
 
 // verify, message format validation
 
-describe("verify — message format validation", () => {
+describe("verify: message format validation", () => {
 	it("rejects a completely malformed message", async () => {
 		const mod = createSiweModule(BASE_CONFIG);
 		const nonce = await mod.generateNonce();

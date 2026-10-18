@@ -15,25 +15,41 @@ The default for the second one is process memory, which is correct on a laptop a
 
 | You run | Database | Secondary storage |
 |---|---|---|
-| A laptop or CI job | `sqlite` with `:memory:` or a file | memory (default) |
+| A laptop or CI job | `sqlite` with `:memory:` | memory (default) |
 | One long-lived Node server, one process | `postgres`, or `sqlite-native` for a small app | memory is fine; `"database"` if you want counters to survive a restart |
-| Several instances behind a load balancer | `postgres` or `mysql` | `"database"` (no new infrastructure) or Redis (more throughput) |
-| Vercel or another serverless host | `postgres` or `mysql` through a pooled connection string | `"database"` or Redis over HTTP such as Upstash. Never memory. |
+| Several instances behind a load balancer | `postgres` | `"database"` (no new infrastructure) or Redis (more throughput) |
+| Vercel or another serverless host | `postgres` through a pooled connection string | `"database"` or Redis over HTTP such as Upstash. Never memory. |
 | Cloudflare Workers | `d1` | `"database"` on D1 for anything that must be exact, KV only for soft limits |
 
 ## The database, in one paragraph each
 
-**`sqlite` (sql.js).** SQLite compiled to WebAssembly. No native build, runs on Node, Bun, Deno and edge runtimes. The whole database lives in memory and the file is rewritten after each write. Good for development, tests and tiny single-process apps. Two processes on one file will overwrite each other, and a read-only or ephemeral filesystem loses the data.
+**`sqlite` (sql.js).** SQLite compiled to WebAssembly. No native build, runs on Node, Bun, Deno and edge runtimes. The whole database lives in memory and is never written to disk, so it only accepts `url: ":memory:"`. A file URL throws `THEAUTH_SQLITE_NOT_PERSISTENT` at startup instead of silently losing your data on restart. Good for tests, CI and throwaway demos. For a database file use `sqlite-native`.
 
 **`sqlite-native` (better-sqlite3).** Real SQLite on disk, fast, one process at a time in practice. Needs a native build (install `better-sqlite3` yourself). A good fit for a single VPS where you want zero database operations. Back up the file.
 
 **`postgres`.** The default recommendation for anything with more than one instance or any real traffic. Needs the `pg` package. Use a pooler on serverless.
 
-**`mysql`.** Choose it when MySQL is what your team already runs. Needs `mysql2`. Behavior is the same as Postgres for theAuth's purposes.
+**`mysql`.** Not supported in this release. `provider: "mysql"` throws `THEAUTH_MYSQL_UNSUPPORTED` unless you pass `experimental: true`. See [What is tested per database](#what-is-tested-per-database).
 
 **`d1`.** Cloudflare D1 through a Worker binding. Use it when the app lives on Workers. Pass the binding instead of a URL.
 
 Setup snippets for each are on [Database setup](/database).
+
+## What is tested per database
+
+All providers share one versioned schema (`theauth_schema_migrations`, see [Database setup](/database#schema-migrations)). What the repository tests on each:
+
+| Provider | Tested in CI | Tested by hand |
+|----------|--------------|----------------|
+| `sqlite`, `sqlite-native` | Every test file, on every change (fresh create, upgrade from the 1.2.0 schema, stamped baseline, rerun, checksum mismatch, `skipMigrations`) | n/a |
+| `postgres` | Not yet | The dialect suite runs the full instance (users, sessions, agents, delegation, audit chain, MCP OAuth stores, GDPR erasure) against Postgres 14 when `THEAUTH_TEST_PG_URL` is set |
+| `mysql` | No | Not supported in this release |
+| `d1` | Not yet | Not yet. The generated SQLite SQL (`theauth db sql --dialect sqlite`) is applied with `skipMigrations: true` |
+
+> Postgres works through the `pg` driver. We run the full test suite against Postgres 14 by hand before each release; it is not in CI yet. Timestamps are stored as integer epoch seconds, the same as SQLite, so use `to_timestamp(created_at)` when you query the tables yourself. Other Postgres drivers (postgres.js, Neon serverless, PGlite) are not supported yet.
+>
+> MySQL is not supported in this release. `provider: "mysql"` throws unless you pass `experimental: true`, and even then the baseline schema does not apply on a real server. We will turn it on once the same suite passes on MySQL 8.4.
+
 
 ## Secondary storage, in one paragraph each
 

@@ -199,7 +199,7 @@ describe("loadLeaf", () => {
 
 describe("resolveReceiptKey", () => {
 	it("uses the configured audit key when no key is passed", async () => {
-		const db = await setup(HMAC);
+		const db = await setup();
 		expect(await resolveReceiptKey(db)).toBe(HMAC);
 		expect(await resolveReceiptKey(db, "explicit")).toBe("explicit");
 	});
@@ -247,7 +247,7 @@ describe("loadLeafSet range and limit", () => {
 			// Clone one chained row into many more, spread over the timestamp order.
 			const source = await rowOf(db, "r1");
 			const extra = 2001;
-			const batch: LeafRow[] = [];
+			const batch: Array<LeafRow & { chainSeq: null; prevHash: null }> = [];
 			for (let i = 0; i < extra; i++) {
 				batch.push({
 					...source,

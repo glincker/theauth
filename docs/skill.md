@@ -29,7 +29,7 @@ pnpm add @glinr/theauth better-sqlite3
 import { createTheAuth } from "@glinr/theauth";
 
 export const theauth = await createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" }, // or { provider: "postgres", url: process.env.DATABASE_URL! }
+  database: { provider: "sqlite-native", url: "theauth.db" }, // or { provider: "postgres", url: process.env.DATABASE_URL! }
   agents: { enabled: true, maxPerUser: 10, auditAll: true, tokenExpiry: "24h" },
 });
 ```
@@ -67,7 +67,7 @@ const agent = await theauth.agent.create({
   type: "autonomous", // or "delegated" | "service"
   permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
 });
-// agent.token starts with "kv_" and is shown once. Store it in a secrets manager.
+// agent.token starts with "ta_" (legacy "kv_" tokens still work) and is shown once. Store it in a secrets manager.
 
 const decision = await theauth.authorize(agent.id, { action: "read", resource: "mcp:github:repos" });
 if (!decision.allowed) throw new Error(`Denied: ${decision.reason}`);
@@ -106,7 +106,7 @@ import { createTheAuth, passkey, twoFactor, organization } from "@glinr/theauth"
 import { emailPassword } from "@glinr/theauth-email"; // pnpm add @glinr/theauth-email
 
 const theauth = await createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
   auth: { session: { secret: process.env.THEAUTH_SESSION_SECRET! } },
   plugins: [
     emailPassword({

@@ -176,18 +176,35 @@ describe("query_audit", () => {
 	it("passes filters and redacts secret-looking fields", async () => {
 		const { client, calls } = await connect(() =>
 			json(200, {
-				data: [{ id: "e1", result: "denied", parameters: { path: "/x", apiKey: "sk-123" } }],
+				data: {
+					entries: [{ id: "e1", result: "denied", parameters: { path: "/x", apiKey: "sk-123" } }],
+					nextCursor: "c1.abc",
+				},
 			}),
 		);
 		const res = await client.callTool({
 			name: "query_audit",
-			arguments: { agentId: "a1", result: "denied", limit: 5 },
+			arguments: {
+				agentId: "a1",
+				result: "denied",
+				limit: 5,
+				order: "asc",
+				events: ["authorize", "policy.evaluate"],
+				resource: "mcp:github:*",
+				cursor: "c1.prev",
+			},
 		});
+		expect(JSON.parse(textOf(res)).nextCursor).toBe("c1.abc");
 		expect(textOf(res)).toContain("[redacted]");
 		expect(textOf(res)).not.toContain("sk-123");
 		expect(calls[0]?.url.pathname).toBe("/api/audit");
 		expect(calls[0]?.url.searchParams.get("limit")).toBe("5");
 		expect(calls[0]?.url.searchParams.get("result")).toBe("denied");
+		expect(calls[0]?.url.searchParams.get("order")).toBe("asc");
+		expect(calls[0]?.url.searchParams.get("events")).toBe("authorize,policy.evaluate");
+		expect(calls[0]?.url.searchParams.get("resource")).toBe("mcp:github:*");
+		expect(calls[0]?.url.searchParams.get("cursor")).toBe("c1.prev");
+		expect(calls[0]?.url.searchParams.get("paged")).toBe("true");
 	});
 	it("surfaces 401 and network failures without leaking the key", async () => {
 		const unauth = await connect(() =>

@@ -34,7 +34,7 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 
 ## Why theauth?
 
-Many auth libraries stop at human login. theAuth also covers **AI agent identity**: it gives every agent its own bearer token, scoped permissions, delegation chains, and an audit trail you can make tamper evident. Plus full human auth (14 methods, 17 OAuth providers, passkeys, SSO) so you don't need two auth systems.
+Many auth libraries stop at human login. theAuth also covers **AI agent identity**: it gives every agent its own bearer token, scoped permissions, delegation chains, and an audit trail you can make tamper evident. Plus full human auth (14 methods, 48 OAuth providers, passkeys, SSO) so you don't need two auth systems.
 
 ```
 npm install @glinr/theauth
@@ -83,7 +83,7 @@ const result = await theauth.authorize(agent.id, {
 <td width="50%">
 
 ### Agent identity
-- Cryptographic bearer tokens (`kv_...`)
+- Cryptographic bearer tokens (`ta_...`, legacy `kv_...` still accepted)
 - Wildcard permission matching (`mcp:github:*`)
 - Delegation chains with depth limits
 - Audit trail with an optional tamper evident hash chain
@@ -112,7 +112,7 @@ const result = await theauth.authorize(agent.id, {
 <tr>
 <td>
 
-### OAuth (17 providers)
+### OAuth (48 providers)
 Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom, plus a generic OIDC factory for anything else.
 
 </td>
@@ -191,7 +191,7 @@ Works with every major framework:
 
 ## Databases
 
-SQLite, PostgreSQL, MySQL, Cloudflare D1, libSQL (Turso). Tables are auto-created on first run.
+SQLite, PostgreSQL, Cloudflare D1, libSQL (Turso). MySQL support is in progress. Tables are auto-created on first run.
 
 ```typescript
 // Cloudflare Workers + D1
@@ -212,7 +212,7 @@ import {
 } from "@glinr/theauth/auth";
 
 createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
   plugins: [emailPassword(), magicLink({ sendMagicLink }), passkey(), totp()],
 });
 ```
@@ -256,3 +256,7 @@ Questions and help in the `#theauth` forum on the [GLINR Discord](https://discor
 - [All packages](https://github.com/glincker/theauth#packages)
 - [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
 - [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)
+
+## Type-checking tests
+
+`pnpm typecheck:tests` checks `tests/` with `tsconfig.test.json`, which the normal `typecheck` skips. Run `node ../../scripts/check-test-types.mjs` to fail only on errors above the per-file counts in `tests-typecheck-baseline.json`, and add `--update` after fixing errors to ratchet the baseline down.

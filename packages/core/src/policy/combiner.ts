@@ -5,6 +5,7 @@
  * - permit-overrides: any explicit PERMIT wins; else first DENY; else INDETERMINATE.
  */
 
+import type { DecisionCode } from "../permission/codes.js";
 import { makeDecision } from "./decision.js";
 import type { PolicyCombineStrategy, PolicyDecision } from "./types.js";
 import { POLICY_ERROR_CODES } from "./types.js";
@@ -12,6 +13,7 @@ import { POLICY_ERROR_CODES } from "./types.js";
 export interface PartialDecision {
 	effect: "permit" | "deny" | "escalate";
 	reason: string;
+	code?: DecisionCode;
 	matchedPermissionId?: string;
 	matchedRelation?: string;
 }
@@ -29,7 +31,7 @@ export function combine(
 	strategy: PolicyCombineStrategy = "deny-overrides",
 ): Pick<
 	PolicyDecision,
-	"allowed" | "decision" | "effect" | "reason" | "matchedPermissionId" | "matchedRelation"
+	"allowed" | "decision" | "effect" | "reason" | "code" | "matchedPermissionId" | "matchedRelation"
 > {
 	for (const effect of PRECEDENCE[strategy] ?? []) {
 		const hit = partials.find((p) => p.effect === effect);
@@ -37,12 +39,17 @@ export function combine(
 		return pick({
 			effect,
 			reason: hit.reason,
+			code: hit.code,
 			matchedPermissionId: hit.matchedPermissionId,
 			matchedRelation: hit.matchedRelation,
 		});
 	}
 
-	return pick({ effect: "indeterminate", reason: POLICY_ERROR_CODES.NO_MATCHING_PERMISSION });
+	return pick({
+		effect: "indeterminate",
+		reason: POLICY_ERROR_CODES.NO_MATCHING_PERMISSION,
+		code: "no_permission",
+	});
 }
 
 type Combined = ReturnType<typeof combine>;
@@ -54,6 +61,7 @@ function pick(fields: Pick<PolicyDecision, "effect" | "reason"> & Partial<Combin
 		decision: d.decision,
 		effect: d.effect,
 		reason: d.reason,
+		code: d.code,
 		matchedPermissionId: fields.matchedPermissionId,
 		matchedRelation: fields.matchedRelation,
 	};

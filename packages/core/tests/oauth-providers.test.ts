@@ -547,7 +547,7 @@ describe("all presets have required fields", () => {
 	];
 
 	for (const [id, provider] of providers) {
-		it(`${id} — id, name, authorizationUrl, tokenUrl, scopes are set`, () => {
+		it(`${id}: id, name, authorizationUrl, tokenUrl, scopes are set`, () => {
 			expect(provider.id).toBe(id);
 			expect(typeof provider.name).toBe("string");
 			expect(provider.name.length).toBeGreaterThan(0);

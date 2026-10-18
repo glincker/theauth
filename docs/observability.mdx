@@ -1,0 +1,127 @@
+---
+title: Observability
+description: Decision events, OpenTelemetry spans and metrics, and a logger for the SDK's own diagnostics.
+icon: activity
+---
+
+The audit table answers "what happened to this agent". Observability answers "how many denials per code in the last hour, and is a guard slow". theAuth emits one structured event per authorization decision and lets you forward it to the telemetry you already run.
+
+## Decision events
+
+Set `observability.onDecision` when you create the instance. It fires once per decision from `authorize`, `authorizeByToken` and `policy.evaluate`.
+
+```ts
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
+  observability: {
+    onDecision: (event) => {
+      metrics.increment("authz", { code: event.code, decision: event.decision });
+    },
+    // Optional: hide identifiers before they reach the listener.
+    redactResource: (resource) => resource.replace(/\/users\/[^/]+/, "/users/:id"),
+  },
+});
+```
+
+### Event fields
+
+| Field | Meaning |
+|---|---|
+| `source` | `authorize`, `authorizeByToken` or `policy.evaluate` |
+| `agentId`, `ownerId` | Who acted and who owns the agent. `agentId` is missing for user subjects and unknown tokens |
+| `action`, `resource` | What was asked. `resource` has been through `redactResource` |
+| `allowed`, `decision` | `allow`, `deny` or `escalate` |
+| `code` | The [decision code](/errors), for example `no_permission` or `hook_timeout` |
+| `durationMs` | Wall time of the whole decision, hook included |
+| `cacheHit` | True when `policy.evaluate` answered from its cache |
+| `delegationDepth` | Hops from the agent to the root owner. See the note below |
+| `hookOutcome`, `hookMs`, `guard` | How `beforeAuthorize` ended (`allow`, `deny`, `escalate`, `timeout`, `error`, `fail_open`), how long it took, and the guard that answered |
+| `auditId`, `at` | The audit row id (empty when none was written) and the decision time |
+
+The event never carries tokens or the raw `arguments` of the call. Tool arguments stay in the audit row, where your retention rules apply.
+
+<Note>
+`delegationDepth` costs a lineage lookup, so it is resolved only when a delegated grant took part in the decision or a hook already loaded the lineage. An agent allowed by its own permissions reports 0, even if it also holds delegations.
+</Note>
+
+### Delivery guarantees
+
+- The listener runs in a queued microtask after the decision is made. `authorize` never waits for it, and the decision cannot change because of it.
+- A throw, or a returned promise that rejects, is swallowed, counted, and logged at `warn`. It never reaches the caller.
+- A listener that runs longer than `slowListenerMs` (default 5, env `THEAUTH_OBSERVABILITY_SLOW_MS`) is counted as slow. The call itself is not interrupted, so keep the listener cheap: push the event onto a queue or a metrics client and return.
+- Events from different calls can arrive out of order. Sort on `at` if you need order.
+- Without a listener, nothing is built or queued. With one, the cost on the request path is a closure and a `queueMicrotask`. In a local micro benchmark (in-memory SQLite, 3000 sequential `authorize` calls) the difference was within noise, about 105 microseconds per call either way.
+
+Read the counters at runtime:
+
+```ts
+theauth.observability.stats(); // { emitted, errors, slow }
+```
+
+## Logger
+
+Pass a `logger` to receive the SDK's diagnostics. The default is a no-op, so the library never writes to your console on its own.
+
+```ts
+import pino from "pino";
+
+const log = pino();
+const theauth = await createTheAuth({
+  // ...
+  logger: {
+    debug: (msg, fields) => log.debug(fields, msg),
+    info: (msg, fields) => log.info(fields, msg),
+    warn: (msg, fields) => log.warn(fields, msg),
+    error: (msg, fields) => log.error(fields, msg),
+  },
+});
+```
+
+Today the SDK logs a warning when a `beforeAuthorize` hook times out or fails, and when an `onDecision` listener throws or runs slow. A logger that throws is ignored.
+
+## OpenTelemetry
+
+`@glinr/theauth-plugin-telemetry` maps decision events to spans and metrics. It uses structural types, so it adds no `@opentelemetry` dependency: pass the tracer and meter you already have.
+
+```ts
+import { metrics, trace } from "@opentelemetry/api";
+import { theauthOtel } from "@glinr/theauth-plugin-telemetry";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
+  ...theauthOtel({
+    tracer: trace.getTracer("theauth"),
+    meter: metrics.getMeter("theauth"),
+  }),
+});
+```
+
+There is no standard semantic convention for authorization decisions yet, so the names live under `theauth.`.
+
+**Metrics**
+
+| Name | Type | Attributes |
+|---|---|---|
+| `theauth.decisions` | Counter, unit `{decision}` | `theauth.decision`, `theauth.decision.code`, `theauth.source` |
+| `theauth.decision.duration` | Histogram, unit `ms` | same |
+
+Metric attributes stay low cardinality on purpose: no agent id, no resource, no action.
+
+**Spans**
+
+One span per decision, backdated to cover it: `theauth.authorize`, or `theauth.policy.evaluate` for `policy.evaluate`. Attributes: `theauth.decision`, `theauth.decision.code`, `theauth.agent.id`, `theauth.owner.id`, `theauth.delegation.depth`, `theauth.guard.name`, `theauth.source`, `theauth.action`, `theauth.resource`, `theauth.cache_hit`, `theauth.audit.id`, `theauth.hook.outcome`, `theauth.hook.duration` (ms). Set `includeResource: false` to drop the resource, or use `redactResource` in core.
+
+Span events `theauth.hook.timeout`, `theauth.hook.error` and `theauth.hook.fail_open` mark a hook that did not finish. Timeouts and errors also set the span status to ERROR. A plain deny does not: a denial is a correct answer, not a fault.
+
+Useful queries: denials by code (`sum by (theauth_decision_code) (rate(theauth_decisions[5m]))`), p99 of `theauth.decision.duration` split by `theauth.source`, and spans with a `theauth.hook.timeout` event to find a slow guard.
+
+## Dashboard
+
+The audit page has a Code column and a code filter. Each row has a "Why" button that opens a drawer calling `POST /explain` on the [HTTP handler](/dashboard) for that agent, action and resource at the row's time. It shows the code, the matched grant, each constraint, the hook outcome and the closest grants that missed. The explanation is a fresh read-only evaluation against today's rules, so it can differ from the recorded decision if permissions changed since.
+
+The code filter is sent as a `codes` query parameter and applied again to the loaded page, so it works even when your audit endpoint ignores `codes`.
+
+## Related
+
+- [Lifecycle hooks](/hooks) for `beforeAuthorize`, timeouts and the fail-closed policy that produce `hook_timeout` and `hook_error`.
+- [Audit trail](/audit) for the stored record behind each `auditId`.

@@ -126,14 +126,14 @@ export function SecurityPage({ client }: SecurityPageProps) {
 					<>
 						<StatCard
 							title="Rate limited (24h)"
-							value={rateLimitedResult?.success ? rateLimitedResult.data.total : "—"}
+							value={rateLimitedResult?.success ? rateLimitedResult.data.total : "-"}
 							subtitle="requests throttled in last 24h"
 							icon={Timer}
 							iconColor="bg-amber-600"
 						/>
 						<StatCard
 							title="Denied (24h)"
-							value={denialsResult?.success ? denialsResult.data.total : "—"}
+							value={denialsResult?.success ? denialsResult.data.total : "-"}
 							subtitle="access denied events in last 24h"
 							icon={XCircle}
 							iconColor="bg-red-600"

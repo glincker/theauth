@@ -5,7 +5,7 @@ icon: code
 ---
 
 <Frame caption="One core, a thin adapter per framework.">
-  <img src="/images/diagrams/theauth-adapters-one-core.jpg" alt="A single theAuth core connected to six framework adapters: Next.js, Express, Hono, Fastify, SvelteKit and Nuxt." />
+  <img src="/images/diagrams/theauth-adapters-one-core.jpg" alt="A single theAuth core connected to ten framework adapters: Next.js, Express, Hono, Fastify, SvelteKit and Nuxt, among others." />
 </Frame>
 
 ## How adapters work
@@ -22,7 +22,7 @@ import { createMcpModule } from '@glinr/theauth/mcp';
 import { mcpStore } from './mcp-store.js'; // storage callbacks, see the MCP page
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
 });
 
@@ -109,6 +109,10 @@ Earlier versions mounted these routes with no authentication. After upgrading, p
 | [`@glinr/theauth-nestjs`](/adapters/nestjs) | NestJS | `AuthModule.forRoot({ theauth, mcp })` |
 | [`@glinr/theauth-solidstart`](/adapters/solidstart) | SolidStart | catch-all route `src/routes/api/theauth/[...theauth].ts` |
 | [`@glinr/theauth-tanstack`](/adapters/tanstack) | TanStack Start | catch-all route `app/routes/api/theauth.$.ts` |
+
+## Headers and CORS
+
+Every response is `Cache-Control: no-store` by default. Security headers (`securityHeaders`) and an exact-origin CORS allowlist (`cors`) are opt-in. See [Routes](/adapters/routes#security-headers).
 
 ## Endpoints registered
 

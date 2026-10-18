@@ -179,14 +179,14 @@ class TestAsyncAuthorizeByToken:
                 return_value=httpx.Response(200, json=AUTHORIZE_RESULT_FIXTURE)
             )
             result = await async_client.auth.authorize_by_token(
-                agent_token="kv_agent_direct",
+                agent_token="ta_agent_direct",
                 request=AuthorizeRequest(action="read", resource="mcp:github:*"),
             )
 
         assert result.allowed is True
         # Token override should be used, not the client-level token
         request = route.calls.last.request
-        assert request.headers["Authorization"] == "Bearer kv_agent_direct"
+        assert request.headers["Authorization"] == "Bearer ta_agent_direct"
 
 
 class TestSyncAuth:

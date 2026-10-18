@@ -227,7 +227,7 @@ export default function Dashboard() {
             </div>
             <div>
               <div className="text-zinc-500 text-xs mb-1">Name</div>
-              <div className="text-zinc-300">{session.user.name || '—'}</div>
+              <div className="text-zinc-300">{session.user.name || '-'}</div>
             </div>
           </div>
         </section>
@@ -282,7 +282,7 @@ export default function Dashboard() {
 
             {lastCreatedToken && (
               <div className="mt-3 p-3 bg-zinc-800 rounded-lg">
-                <div className="text-xs text-zinc-400 mb-1">Token (copy now — shown once):</div>
+                <div className="text-xs text-zinc-400 mb-1">Token (copy now, shown once):</div>
                 <code className="text-xs text-amber-400 break-all font-mono">{lastCreatedToken}</code>
               </div>
             )}
@@ -399,7 +399,7 @@ export default function Dashboard() {
                   : 'bg-red-950/40 border border-red-900/50 text-red-400'
               }`}>
                 <span className="font-medium">{authResult.allowed ? 'Allowed' : 'Denied'}</span>
-                {authResult.reason && <span className="text-xs opacity-75">— {authResult.reason}</span>}
+                {authResult.reason && <span className="text-xs opacity-75">- {authResult.reason}</span>}
               </div>
             )}
           </div>

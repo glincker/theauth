@@ -254,7 +254,7 @@ export function createSessionRefresher(config: SessionRefresherConfig): SessionR
 					// Family is already revoked by consumeToken.
 					throw new RefreshTokenError(
 						"token_reuse",
-						"Refresh token reuse detected — session revoked.",
+						"Refresh token reuse detected. Session revoked.",
 					);
 				}
 				throw new RefreshTokenError("token_expired", "Refresh token has already been used.");

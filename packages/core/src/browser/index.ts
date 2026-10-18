@@ -5,17 +5,23 @@
 
 import type { SqlJsLoader } from "../db/database-browser.js";
 import { createBrowserDatabaseOpener } from "../db/database-browser.js";
+import type { PermissionCatalog, TypedTheAuth } from "../permission/typed.js";
 import type { TheAuth } from "../theauth-core.js";
 import { createTheAuthWith } from "../theauth-core.js";
 import type { TheAuthConfig } from "../types.js";
 
-export type { SqlJsLoader, TheAuth, TheAuthConfig };
+export { definePermissions } from "../permission/typed.js";
+export type { SqlJsLoader, TheAuth, TheAuthConfig, TypedTheAuth };
 
 export interface BrowserTheAuthConfig extends TheAuthConfig {
 	/** Loader for the sql.js WASM build. Required when `database.provider` is "sqlite". */
 	sqlJs?: SqlJsLoader;
 }
 
+export async function createTheAuth<const C extends PermissionCatalog>(
+	config: BrowserTheAuthConfig & { permissions: C },
+): Promise<TypedTheAuth<C>>;
+export async function createTheAuth(config: BrowserTheAuthConfig): Promise<TheAuth>;
 export async function createTheAuth(config: BrowserTheAuthConfig): Promise<TheAuth> {
 	const { sqlJs, ...rest } = config;
 	return createTheAuthWith(rest, createBrowserDatabaseOpener(sqlJs));

@@ -16,6 +16,9 @@ import { theAuthHono } from "@glinr/theauth-hono";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 
+/** Agent tokens start with ta_; tokens issued before the rename start with kv_ and stay valid. */
+const isAgentToken = (token: string): boolean => /^(ta|kv)_/.test(token);
+
 const PORT = 3001;
 const BASE_URL = `http://localhost:${PORT}`;
 const SIGNING_SECRET = "theauth-example-secret-key-at-least-32-chars-long";
@@ -142,12 +145,12 @@ function homepageHtml(): string {
 curl ${BASE_URL}/api/agents -X POST -H "Content-Type: application/json" \\
   -d '{"ownerId":"user-1","name":"mcp-agent","type":"autonomous","permissions":[{"resource":"mcp:*","actions":["read","execute"]}]}'
 
-# 2. Use the returned kv_ token to list tools
-curl ${BASE_URL}/tools/list -H "Authorization: Bearer kv_&lt;token&gt;"
+# 2. Use the returned ta_ token to list tools
+curl ${BASE_URL}/tools/list -H "Authorization: Bearer ta_&lt;token&gt;"
 
 # 3. Call a tool
 curl ${BASE_URL}/tools/call -X POST \\
-  -H "Authorization: Bearer kv_&lt;token&gt;" \\
+  -H "Authorization: Bearer ta_&lt;token&gt;" \\
   -H "Content-Type: application/json" \\
   -d '{"name":"list_files","arguments":{"path":"/tmp"}}'
 
@@ -160,7 +163,7 @@ curl ${BASE_URL}/api/audit</code>
 
 async function main(): Promise<void> {
 	const auth = await createTheAuth({
-		database: { provider: "sqlite", url: "mcp-server.db" },
+		database: { provider: "sqlite-native", url: "mcp-server.db" },
 		agents: {
 			enabled: true,
 			maxPerUser: 50,
@@ -229,7 +232,7 @@ async function main(): Promise<void> {
 
 	app.route("/api", api);
 
-	// Accepts either a kv_ agent token or an MCP JWT as the Bearer token.
+	// Accepts either an agent token (ta_, or legacy kv_) or an MCP JWT as the Bearer token.
 
 	app.get("/tools/list", async (c) => {
 		const authHeader = c.req.header("authorization");
@@ -239,7 +242,7 @@ async function main(): Promise<void> {
 			return c.json({ error: "Missing Authorization header" }, 401);
 		}
 
-		if (token.startsWith("kv_")) {
+		if (isAgentToken(token)) {
 			const result = await auth.authorizeByToken(token, {
 				action: "read",
 				resource: "mcp:tools:list",
@@ -282,7 +285,7 @@ async function main(): Promise<void> {
 			return c.json({ error: `Unknown tool: ${toolName}` }, 404);
 		}
 
-		if (token.startsWith("kv_")) {
+		if (isAgentToken(token)) {
 			const result = await auth.authorizeByToken(token, {
 				action: "execute",
 				resource: `mcp:tools:${toolName}`,

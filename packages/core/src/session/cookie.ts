@@ -1,12 +1,22 @@
-/** Cookie serialization and parsing utilities for TheAuth. */
+/**
+ * Cookie serialization and parsing utilities for TheAuth. Every `Set-Cookie` written by core goes through `serializeCookie`.
+ *
+ * `Secure` defaults to true on every runtime. It never depends on `NODE_ENV` (unset or different on Workers, Deno and Bun). Pass `request` to let the helper turn it off for plain http on localhost, or `secure: false` to opt out explicitly.
+ */
+
+import type { TrustedProxyConfig } from "../auth/client-ip.js";
 
 export type SameSite = "strict" | "lax" | "none";
 
 export interface CookieOptions {
 	/** Prevents JavaScript access to the cookie. Default: true. */
 	httpOnly?: boolean;
-	/** Restricts transmission to HTTPS. Default: true in production (when `NODE_ENV === 'production'`), false otherwise. */
+	/** Restricts transmission to HTTPS. Default: true. With `request` set, false only for http on localhost, 127.0.0.1 or [::1]. */
 	secure?: boolean;
+	/** Request used to resolve the `Secure` default (https URL, trusted proxy header, localhost development). Ignored when `secure` is set. */
+	request?: Request;
+	/** Trusted proxy configuration for `x-forwarded-proto`. `true` trusts the header, an object trusts it when a proxy count or header is configured. Default: not trusted. */
+	trustProxy?: boolean | TrustedProxyConfig;
 	/** Controls cross-site sending. Default: 'lax'. */
 	sameSite?: SameSite;
 	/** Cookie scope path. Default: '/'. */
@@ -21,33 +31,79 @@ export interface CookieOptions {
 	partitioned?: boolean;
 }
 
-// Defaults
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
-const IS_PRODUCTION = typeof process !== "undefined" && process.env.NODE_ENV === "production";
+function isLoopbackHost(hostname: string): boolean {
+	const host = hostname.toLowerCase();
+	return LOOPBACK_HOSTS.has(host) || host.endsWith(".localhost");
+}
 
-const DEFAULT_OPTIONS: Required<
-	Omit<CookieOptions, "domain" | "maxAge" | "expires" | "partitioned">
-> = {
-	httpOnly: true,
-	secure: IS_PRODUCTION,
-	sameSite: "lax",
-	path: "/",
-};
+function proxyTrusted(trust: CookieOptions["trustProxy"]): boolean {
+	if (!trust) return false;
+	if (trust === true) return true;
+	return Boolean(trust.trustedHeader) || (trust.trustedProxyCount ?? 0) > 0;
+}
+
+/**
+ * Decide the `Secure` attribute for a response to `request`.
+ * An explicit `secure` wins. Otherwise true when the URL is https or a trusted proxy reports https, false only for http on a loopback host, and true for everything else.
+ */
+export function resolveCookieSecure(
+	request: Request | undefined,
+	options: Pick<CookieOptions, "secure" | "trustProxy"> = {},
+): boolean {
+	if (options.secure !== undefined) return options.secure;
+	if (!request) return true;
+	let url: URL;
+	try {
+		url = new URL(request.url);
+	} catch {
+		return true;
+	}
+	let proto = url.protocol.replace(":", "");
+	if (proxyTrusted(options.trustProxy)) {
+		const fwd = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+		if (fwd === "https" || fwd === "http") proto = fwd;
+	}
+	if (proto === "https") return true;
+	return !(proto === "http" && isLoopbackHost(url.hostname));
+}
+
+/** Enforce `__Host-` and `__Secure-` prefix rules plus attribute combinations browsers reject. Throws on invalid combinations. */
+function validateAttributes(
+	name: string,
+	secure: boolean,
+	path: string,
+	options: CookieOptions | undefined,
+): void {
+	if (name.startsWith("__Host-")) {
+		if (!secure) throw new Error(`Cookie "${name}": a __Host- cookie must be Secure`);
+		if (path !== "/") throw new Error(`Cookie "${name}": a __Host- cookie must have Path=/`);
+		if (options?.domain) throw new Error(`Cookie "${name}": a __Host- cookie must not set Domain`);
+	} else if (name.startsWith("__Secure-") && !secure) {
+		throw new Error(`Cookie "${name}": a __Secure- cookie must be Secure`);
+	}
+	if (!secure && options?.partitioned) {
+		throw new Error(`Cookie "${name}": a Partitioned cookie must be Secure`);
+	}
+	if (!secure && options?.sameSite === "none") {
+		throw new Error(`Cookie "${name}": SameSite=None requires Secure`);
+	}
+}
 
 /** Serialize a cookie name/value pair into a `Set-Cookie` header string. */
 export function serializeCookie(name: string, value: string, options?: CookieOptions): string {
 	validateCookieName(name);
 
-	const opts = { ...DEFAULT_OPTIONS, ...options };
+	const secure = resolveCookieSecure(options?.request, options ?? {});
+	const path = options?.path ?? "/";
+	validateAttributes(name, secure, path, options);
+
 	const parts: string[] = [`${name}=${encodeURIComponent(value)}`];
 
-	if (opts.httpOnly) parts.push("HttpOnly");
-	if (opts.secure) parts.push("Secure");
-
-	const sameSite = opts.sameSite ?? "lax";
-	parts.push(`SameSite=${capitalize(sameSite)}`);
-
-	const path = opts.path ?? "/";
+	if (options?.httpOnly ?? true) parts.push("HttpOnly");
+	if (secure) parts.push("Secure");
+	parts.push(`SameSite=${capitalize(options?.sameSite ?? "lax")}`);
 	parts.push(`Path=${path}`);
 
 	if (options?.domain) parts.push(`Domain=${options.domain}`);

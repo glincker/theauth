@@ -1,6 +1,9 @@
 import { generateId } from "../crypto/web-crypto.js";
+import { serializeCookie } from "../session/cookie.js";
+import type { RedirectAllowlistOptions } from "./allowlist.js";
+import { normalizeAllowedOrigins, resolveRedirectTarget } from "./allowlist.js";
 
-export interface RedirectConfig {
+export interface RedirectConfig extends RedirectAllowlistOptions {
 	/** Cookie name for storing the redirect chain (default: "theauth_redirect") */
 	cookieName?: string;
 	/** Max age in seconds for the redirect cookie (default: 600 = 10 min) */
@@ -45,8 +48,16 @@ export interface RedirectChainManager {
 	/** Captures the current request's URL as the origin destination. Call it in your auth middleware. */
 	capture(request: Request): string;
 
-	/** Pushes an intermediate step onto the chain, e.g. onboarding or email verification after sign-up. */
-	push(path: string, options?: { label?: string; query?: Record<string, string> }): string;
+	/**
+	 * Pushes an intermediate step onto the chain carried by `request`'s cookie (a fresh chain when it has none),
+	 * e.g. onboarding or email verification after sign-up. State comes only from that request, never from a
+	 * previous caller, so concurrent users cannot see each other's chain. Returns the Set-Cookie value.
+	 */
+	push(
+		request: Request,
+		path: string,
+		options?: { label?: string; query?: Record<string, string> },
+	): string;
 
 	/** Pops the next destination from the chain. */
 	pop(request: Request): { url: string; done: boolean; clearCookie: string | null };
@@ -63,7 +74,11 @@ export interface RedirectChainManager {
 	/** Parse the chain state from a request's cookies. Returns null if no chain exists or if it's expired. */
 	parse(request: Request): RedirectChainState | null;
 
+	/** Builds the URL for an entry. A path that fails the allow list (`//host`, backslashes, encoded variants) comes back as `defaultPath`. */
 	buildUrl(entry: RedirectEntry): string;
+
+	/** Returns `target` when it is a same-origin path or an exact `allowedOrigins` match, else `defaultPath`. Use it on any `redirectTo`, `returnTo` or `callbackURL` value before redirecting after sign-in, sign-out or verification. */
+	sanitize(target: unknown): string;
 
 	createEntry(url: string | Request, label?: string): RedirectEntry;
 }
@@ -173,6 +188,7 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 	const preserveQuery = config?.preserveQuery ?? true;
 	const preserveHash = config?.preserveHash ?? true;
 	const maxDepth = config?.maxDepth ?? DEFAULT_MAX_DEPTH;
+	const allowedOrigins = normalizeAllowedOrigins(config?.allowedOrigins);
 	const cookieOpts = {
 		httpOnly: config?.cookie?.httpOnly ?? true,
 		secure: config?.cookie?.secure ?? true,
@@ -181,19 +197,15 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		domain: config?.cookie?.domain,
 	};
 
-	// Internal state held in memory for push() which doesn't take a request.
-	// Updated on every parse/capture/push/pop call.
-	let currentState: RedirectChainState | null = null;
-
 	function buildCookieHeader(value: string, age: number): string {
-		const parts = [`${cookieName}=${value}`, `Path=${cookieOpts.path}`, `Max-Age=${age}`];
-		if (cookieOpts.httpOnly) parts.push("HttpOnly");
-		if (cookieOpts.secure) parts.push("Secure");
-		parts.push(
-			`SameSite=${cookieOpts.sameSite.charAt(0).toUpperCase()}${cookieOpts.sameSite.slice(1)}`,
-		);
-		if (cookieOpts.domain) parts.push(`Domain=${cookieOpts.domain}`);
-		return parts.join("; ");
+		return serializeCookie(cookieName, value, {
+			path: cookieOpts.path,
+			maxAge: age,
+			httpOnly: cookieOpts.httpOnly,
+			secure: cookieOpts.secure,
+			sameSite: cookieOpts.sameSite,
+			...(cookieOpts.domain ? { domain: cookieOpts.domain } : {}),
+		});
 	}
 
 	function buildClearCookie(): string {
@@ -201,7 +213,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 	}
 
 	function serializeAndSetCookie(state: RedirectChainState): string {
-		currentState = state;
 		const encoded = encodeState(state);
 		return buildCookieHeader(encoded, maxAge);
 	}
@@ -216,7 +227,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		const elapsed = Date.now() - state.createdAt;
 		if (elapsed > maxAge * 1000) return null;
 
-		currentState = state;
 		return state;
 	}
 
@@ -224,8 +234,11 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		let parsed: URL;
 		if (typeof url === "string") {
 			if (url.startsWith("/")) {
-				parsed = new URL(url, "http://localhost");
+				// A relative target must pass the allow list; `//host` and friends become the default path.
+				const safe = resolveRedirectTarget(url, allowedOrigins) ?? defaultPath;
+				parsed = new URL(safe, "http://localhost");
 			} else {
+				// Only the path, query and hash of an absolute URL are kept, never its origin.
 				parsed = new URL(url);
 			}
 		} else {
@@ -262,7 +275,8 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		if (entry.hash) {
 			url += `#${entry.hash}`;
 		}
-		return url;
+		// The cookie is client-held and unsigned, and request paths can start with `//`, so check on the way out.
+		return resolveRedirectTarget(url, allowedOrigins) ?? defaultPath;
 	}
 
 	const manager: RedirectChainManager = {
@@ -289,36 +303,34 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 			return serializeAndSetCookie(state);
 		},
 
-		push(path: string, options?: { label?: string; query?: Record<string, string> }): string {
-			if (!currentState) {
-				currentState = {
-					origin: {
-						id: generateId(),
-						path: defaultPath,
-						query: {},
-						hash: "",
-						createdAt: Date.now(),
-					},
-					steps: [],
+		push(
+			request: Request,
+			path: string,
+			options?: { label?: string; query?: Record<string, string> },
+		): string {
+			const state: RedirectChainState = parseFromRequest(request) ?? {
+				origin: {
+					id: generateId(),
+					path: defaultPath,
+					query: {},
+					hash: "",
 					createdAt: Date.now(),
-				};
-			}
+				},
+				steps: [],
+				createdAt: Date.now(),
+			};
 
-			if (currentState.steps.length >= maxDepth) {
-				return serializeAndSetCookie(currentState);
-			}
+			if (state.steps.length >= maxDepth) return serializeAndSetCookie(state);
 
-			const entry: RedirectEntry = {
+			state.steps.push({
 				id: generateId(),
 				path,
 				query: options?.query ?? {},
 				hash: "",
 				createdAt: Date.now(),
 				label: options?.label,
-			};
-
-			currentState.steps.push(entry);
-			return serializeAndSetCookie(currentState);
+			});
+			return serializeAndSetCookie(state);
 		},
 
 		pop(request: Request): { url: string; done: boolean; clearCookie: string | null } {
@@ -331,15 +343,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 				const next = state.steps.shift() as RedirectEntry;
 				const url = buildUrlFromEntry(next);
 
-				if (state.steps.length === 0) {
-					currentState = state;
-					return {
-						url,
-						done: false,
-						clearCookie: null,
-					};
-				}
-
 				return {
 					url,
 					done: false,
@@ -348,7 +351,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 			}
 
 			const url = buildUrlFromEntry(state.origin);
-			currentState = null;
 			return {
 				url,
 				done: true,
@@ -381,7 +383,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		},
 
 		clear(): string {
-			currentState = null;
 			return buildClearCookie();
 		},
 
@@ -391,6 +392,10 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 
 		buildUrl(entry: RedirectEntry): string {
 			return buildUrlFromEntry(entry);
+		},
+
+		sanitize(target: unknown): string {
+			return resolveRedirectTarget(target, allowedOrigins) ?? defaultPath;
 		},
 
 		createEntry(url: string | Request, label?: string): RedirectEntry {

@@ -35,7 +35,7 @@ async function seedAgent(db: Database, id: string, ownerId: string): Promise<voi
 	});
 }
 
-describe("template 06 — ReBAC document sharing", () => {
+describe("template 06: ReBAC document sharing", () => {
 	let db: Database;
 
 	beforeEach(async () => {

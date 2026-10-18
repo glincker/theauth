@@ -24,7 +24,7 @@ export default function HomePage() {
 					TheAuth
 				</h1>
 				<p style={{ color: "#888", marginBottom: 40, fontSize: "0.95rem" }}>
-					Auth OS for AI agents — agent identity, permissions, delegation, audit.
+					Auth OS for AI agents: agent identity, permissions, delegation, audit.
 				</p>
 
 				<ul style={{ listStyle: "none", padding: 0 }}>
@@ -33,7 +33,7 @@ export default function HomePage() {
 							href="/admin"
 							style={{ color: "#C9A84C", textDecoration: "none", fontSize: "0.95rem" }}
 						>
-							/admin — TheAuth dashboard
+							/admin: TheAuth dashboard
 						</Link>
 						<span style={{ color: "#555", marginLeft: 12, fontSize: "0.82rem" }}>
 							embedded React UI

@@ -1,5 +1,6 @@
 import type { AgentConfig } from "./agent/types.js";
 import type { ApprovalConfig } from "./approval/approval.js";
+import type { ChainCheckpointOptions, ChainCheckpointResult } from "./audit/chain-anchor.js";
 import type {
 	AgentReplay,
 	AuditChainExportOptions,
@@ -27,7 +28,11 @@ import type { WebhookConfig } from "./auth/webhooks.js";
 import type { DatabaseConfig } from "./db/database.js";
 import type { DidWebConfig } from "./did/types.js";
 import type { TheAuthHooks } from "./hooks/lifecycle.js";
+import type { HookSafetyConfig } from "./hooks/safety.js";
 import type { McpConfig, Result } from "./mcp/types.js";
+import type { ObservabilityConfig, TheAuthLogger } from "./observability/types.js";
+import type { DecisionCode } from "./permission/codes.js";
+import type { PermissionCatalog } from "./permission/typed.js";
 import type { TheAuthPlugin } from "./plugin/types.js";
 import type { PolicyEngineConfig } from "./policy/types.js";
 import type { RedirectConfig } from "./redirect/chain.js";
@@ -58,6 +63,22 @@ export interface TheAuthConfig {
 
 	/** Lifecycle hooks for agent sandboxing, logging, and custom validation */
 	hooks?: TheAuthHooks;
+	/**
+	 * Optional permission catalog (see `definePermissions`). Declaring it narrows `resource` and `action` on the returned instance at the type level. Not enforced at runtime.
+	 */
+	permissions?: PermissionCatalog;
+	/**
+	 * Timeout and failure policy for `hooks.beforeAuthorize` and `hooks.beforeAgentCreate`. Sibling of `hooks` so the hooks object stays a plain map of functions. Defaults: 2000 ms timeout, deny on timeout or error for beforeAuthorize, throw for beforeAgentCreate. Env: THEAUTH_HOOK_TIMEOUT_MS, THEAUTH_HOOK_ON_TIMEOUT, THEAUTH_HOOK_ON_ERROR.
+	 */
+	hookSafety?: HookSafetyConfig;
+	/**
+	 * Structured logger for library diagnostics (hook timeouts, listener failures, startup warnings). Default: no-op, the SDK never writes to the console on its own.
+	 */
+	logger?: TheAuthLogger;
+	/**
+	 * Decision events for metrics and tracing: `onDecision(event)` fires once per authorize, authorizeByToken and policy.evaluate decision, off the request path. See `docs/observability.mdx`.
+	 */
+	observability?: ObservabilityConfig;
 
 	did?: {
 		/** did:web config, required for generating did:web identities. */
@@ -175,6 +196,8 @@ export interface AuditModule {
 	}) => Promise<{ deleted: number; checkpoints?: number }>;
 	/** Check the audit hash chain and report the first broken link. */
 	verifyAuditChain: (opts: VerifyAuditChainOptions) => Promise<Result<VerifyAuditChainResult>>;
+	/** Append a signed anchor for each chain's current first row; returns anchors and heads to pin outside the database. */
+	checkpoint: (opts?: ChainCheckpointOptions) => Promise<Result<ChainCheckpointResult>>;
 	/** Ordered timeline of one agent's activity with chain verification status. */
 	replayAgent: (agentId: string, opts?: ReplayOptions) => Promise<Result<AgentReplay>>;
 	/** JSONL export plus a signed manifest. */
@@ -246,6 +269,8 @@ export interface AuthorizeResult {
 	allowed: boolean;
 	reason?: string;
 	auditId: string;
+	/** Machine-readable outcome. Always set by core; optional on the type so hand-built results in user code still compile. */
+	code?: DecisionCode;
 }
 
 export type AuthorizeFn = (agentId: string, request: AuthorizeRequest) => Promise<AuthorizeResult>;
@@ -307,9 +332,42 @@ export interface AuditEntry {
 	parameters: Record<string, unknown>;
 	result: "allowed" | "denied" | "rate_limited" | "escalated";
 	reason?: string;
+	/** Machine-readable outcome. Undefined on rows written before `decision_code` existed. An index convenience, not part of the audit hash. */
+	code?: DecisionCode;
+	/** What happened (see AuditEvent). `action` is the domain verb. Null on rows from writers that do not set it. Not part of the audit hash. */
+	event: AuditEvent | null;
 	durationMs: number;
 	tokensCost?: number;
 	timestamp: Date;
+}
+
+/**
+ * The audit event vocabulary. `event` says what happened, `action` keeps the domain verb
+ * (`read`, `write`, or the tool name). The list is open: unknown writers may add their own.
+ */
+export type AuditEvent =
+	| "authorize"
+	| "authorize.token"
+	| "policy.evaluate"
+	| "mcp.tool.call"
+	| "delegation.create"
+	| "delegation.revoke"
+	| "agent.create"
+	| "agent.revoke"
+	| "agent.cascade.revoked"
+	| "approval.request"
+	| "approval.approve"
+	| "approval.deny"
+	| "vault.read"
+	| "audit.checkpoint"
+	| "audit.write_failed"
+	| "audit.erasure"
+	| (string & {});
+
+/** One page of audit entries. `nextCursor` is null on the last page. */
+export interface AuditPage {
+	entries: AuditEntry[];
+	nextCursor: string | null;
 }
 
 export interface AuditFilter {
@@ -319,7 +377,18 @@ export interface AuditFilter {
 	until?: Date;
 	actions?: string[];
 	result?: "allowed" | "denied" | "rate_limited" | "escalated";
+	/** Only rows whose `decision_code` is one of these. */
+	codes?: DecisionCode[];
+	/** Only rows with one of these events. */
+	events?: AuditEvent[];
+	/** Exact resource, or a prefix when it ends with `*` (for example `mcp:github:*`). */
+	resource?: string;
+	/** Write order. Default "desc" (newest first), unchanged from earlier versions. */
+	order?: "asc" | "desc";
+	/** Opaque cursor from `AuditPage.nextCursor`. Continue the same filter and order from where the last page ended. */
+	cursor?: string;
 	limit?: number;
+	/** Deprecated: use `cursor`. Skips rows and drifts when rows are written between pages. */
 	offset?: number;
 }
 

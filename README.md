@@ -4,8 +4,8 @@
 
 <h1 align="center">theAuth</h1>
 
-<p align="center"><strong>Open-source auth for AI agents and humans.</strong><br>
-Agent identity, delegation, an MCP OAuth 2.1 server, DPoP, passkeys, SSO and SCIM in one TypeScript library. Self-hosted, MIT licensed, with Go and Python SDKs.</p>
+<p align="center"><strong>Open-source auth where AI agents are first class.</strong><br>
+Agent identity, delegation with live revocation and an MCP OAuth 2.1 server, next to the usual human sign in. One TypeScript library, self-hosted, MIT licensed.</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@glinr/theauth"><img src="https://img.shields.io/npm/v/@glinr/theauth?style=flat&colorA=000000&colorB=000000&label=npm" alt="npm version" /></a>
@@ -36,140 +36,137 @@ Agent identity, delegation, an MCP OAuth 2.1 server, DPoP, passkeys, SSO and SCI
 
 ## What it is
 
-Most auth libraries stop at human sign-in. Once an AI agent needs its own identity, scoped permissions, delegation from a user, and an audit trail, you end up bolting a second system on. theAuth puts agents and humans in one library: sign-in methods, an OAuth 2.1 authorization server for MCP, and agent tokens with permissions you can check and audit.
+theAuth is auth for products where AI agents act on behalf of people. Each agent gets its own identity and a bearer token, scoped permissions, an owner, and an audit row for every decision. An agent can hand a subset of its permissions to another agent, and revoking any link in that chain takes effect on the next call. It includes an OAuth 2.1 authorization server for MCP, and the usual human sign in: email and password, magic links, passkeys, TOTP, 48 OAuth providers, SAML and OIDC SSO, SCIM.
 
-It runs on Node, Bun, Deno and Cloudflare Workers with three runtime dependencies (`drizzle-orm`, `jose`, `zod`). MIT licensed. No hosted service required.
+It runs on Node, Bun, Deno and Cloudflare Workers with four runtime dependencies (`drizzle-orm`, `jose`, `sql.js`, `zod`). No hosted service is required. The project was called kavachOS until 2026, see the [rename map](RENAME-MAP.md) if you have older code.
 
-theAuth implements OAuth 2.1 with PKCE, DPoP, MCP authorization and OpenID Connect, with about 3,900 test cases and CodeQL on every pull request. Versions below 1.0 can still change between minor releases, and the changelog lists every breaking change. The project was called kavachOS until 2026: see the [rename map](RENAME-MAP.md) if you have older code.
+## Quickstart
 
-## Works with
-
-<p align="center">
-  <a href="https://docs.theauth.dev/works-with" title="GitHub"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/github-dark.svg"><img src="docs/brand-icons/works-with/github.svg" alt="GitHub" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Google"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/google-dark.svg"><img src="docs/brand-icons/works-with/google.svg" alt="Google" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Apple"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/apple-dark.svg"><img src="docs/brand-icons/works-with/apple.svg" alt="Apple" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Microsoft"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/microsoft-dark.svg"><img src="docs/brand-icons/works-with/microsoft.svg" alt="Microsoft" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Discord"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/discord-dark.svg"><img src="docs/brand-icons/works-with/discord.svg" alt="Discord" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="GitLab"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/gitlab-dark.svg"><img src="docs/brand-icons/works-with/gitlab.svg" alt="GitLab" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Slack"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/slack-dark.svg"><img src="docs/brand-icons/works-with/slack.svg" alt="Slack" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="LinkedIn"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/linkedin-dark.svg"><img src="docs/brand-icons/works-with/linkedin.svg" alt="LinkedIn" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Auth0"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/auth0-dark.svg"><img src="docs/brand-icons/works-with/auth0.svg" alt="Auth0" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Okta"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/okta-dark.svg"><img src="docs/brand-icons/works-with/okta.svg" alt="Okta" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Keycloak"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/keycloak-dark.svg"><img src="docs/brand-icons/works-with/keycloak.svg" alt="Keycloak" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Next.js"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/nextjs-dark.svg"><img src="docs/brand-icons/works-with/nextjs.svg" alt="Next.js" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Hono"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/hono-dark.svg"><img src="docs/brand-icons/works-with/hono.svg" alt="Hono" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Express"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/express-dark.svg"><img src="docs/brand-icons/works-with/express.svg" alt="Express" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Fastify"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/fastify-dark.svg"><img src="docs/brand-icons/works-with/fastify.svg" alt="Fastify" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="NestJS"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/nestjs-dark.svg"><img src="docs/brand-icons/works-with/nestjs.svg" alt="NestJS" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Nuxt"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/nuxt-dark.svg"><img src="docs/brand-icons/works-with/nuxt.svg" alt="Nuxt" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="SvelteKit"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/sveltekit-dark.svg"><img src="docs/brand-icons/works-with/sveltekit.svg" alt="SvelteKit" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Astro"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/astro-dark.svg"><img src="docs/brand-icons/works-with/astro.svg" alt="Astro" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="React"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/react-dark.svg"><img src="docs/brand-icons/works-with/react.svg" alt="React" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Expo"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/expo-dark.svg"><img src="docs/brand-icons/works-with/expo.svg" alt="Expo" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Electron"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/electron-dark.svg"><img src="docs/brand-icons/works-with/electron.svg" alt="Electron" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="PostgreSQL"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/postgresql-dark.svg"><img src="docs/brand-icons/works-with/postgresql.svg" alt="PostgreSQL" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="MySQL"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/mysql-dark.svg"><img src="docs/brand-icons/works-with/mysql.svg" alt="MySQL" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="SQLite"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/sqlite-dark.svg"><img src="docs/brand-icons/works-with/sqlite.svg" alt="SQLite" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="MCP"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/modelcontextprotocol-dark.svg"><img src="docs/brand-icons/works-with/modelcontextprotocol.svg" alt="MCP" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Go"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/go-dark.svg"><img src="docs/brand-icons/works-with/go.svg" alt="Go" height="32" width="32"></picture></a>
-</p>
-
-<sub>Logos from <a href="https://thesvg.org">theSVG</a>. All trademarks belong to their respective owners; shown to identify compatibility, no affiliation implied.</sub>
-
-<p align="center"><a href="https://docs.theauth.dev/works-with">See everything theAuth works with</a>: 40 OAuth providers, ten framework adapters, four runtimes and the databases you already run.</p>
-
-> Names and logos belong to their owners and are shown only to indicate compatibility.
-
-## 30 second quickstart
-
-Runs as pasted with SQLite. Needs Node 20 or newer.
+Needs Node 20 or newer. This runs as pasted, with an in-memory SQLite database.
 
 ```bash
 npm install @glinr/theauth
 ```
 
 ```typescript
-import { createTheAuth, users } from "@glinr/theauth";
+import { createTheAuth } from "@glinr/theauth";
 
 const auth = await createTheAuth({
   database: { provider: "sqlite", url: ":memory:" },
-  agents: { enabled: true }, // creates the agent and audit tables
+  agents: { enabled: true },
 });
 
-// Agents need an owner row in theauth_users (human auth creates these for you).
-auth.db.insert(users).values({
-  id: "user-123", email: "owner@example.com", name: "Owner",
-  createdAt: new Date(), updatedAt: new Date(),
-}).run();
+// An agent needs an owner row. Human sign in creates these for you.
+const owner = await auth.user.create({ email: "owner@example.com", name: "Owner" });
 
 const agent = await auth.agent.create({
-  ownerId: "user-123",
+  ownerId: owner.id,
   name: "github-reader",
   type: "autonomous",
   permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
 });
-console.log(agent.token); // "kv_..." shown once
+console.log(agent.token); // starts with "ta_", shown once
 
-const { allowed } = await auth.authorize(agent.id, { action: "read", resource: "mcp:github:repos" });
-console.log(allowed); // true
+const read = await auth.authorize(agent.id, { action: "read", resource: "mcp:github:repos" });
+console.log(read.allowed, read.code);
+
+const write = await auth.authorize(agent.id, { action: "write", resource: "mcp:github:repos" });
+console.log(write.allowed, write.code);
 ```
 
-Agent tokens start with `kv_`. The prefix predates the rename from Kavach and stays so issued tokens keep working ([RENAME-MAP.md](RENAME-MAP.md)).
+Output from a real run (the token differs each time):
 
-To mount it over HTTP, pick an adapter such as `@glinr/theauth-hono` or `@glinr/theauth-nextjs` (framework snippets below). To add email and password, install `@glinr/theauth-email`. Full walkthrough: [docs.theauth.dev/quickstart](https://docs.theauth.dev/quickstart). Or scaffold an app: `npm create @glinr/theauth-app`.
+```text
+ta_2_wqD8Yoenc_LDoFMTdKkQ9YXQNuW-rWxHHyfmKJJOo
+true allowed
+false no_permission
+```
 
-## What is merged today
+Tokens from before the rename start with `kv_` and are still accepted. To serve this over HTTP, add a [framework adapter](#framework-adapters). For email and password, install `@glinr/theauth-email`. To scaffold an app, run `npm create @glinr/theauth-app`. Full walkthrough: [quickstart](https://docs.theauth.dev/quickstart).
 
-| Area | What you get | Docs |
+## What makes it different
+
+- **Delegation chains with live revocation.** An agent delegates part of what it holds to another agent, with depth limits and expiry. If a delegator is revoked, suspended or expired, the agents below it stop borrowing its permissions. See [delegation](https://docs.theauth.dev/delegation).
+- **MCP tokens bound to their authority.** Tokens from token exchange carry the agent path and delegation link ids. Revoking a link, an agent, a session or a single token fails the next MCP request on every instance that shares the database. Three freshness modes trade latency for staleness: [MCP revocation](https://docs.theauth.dev/mcp-revocation).
+- **Hooks that fail closed.** A `beforeAuthorize` hook that throws, times out (2000 ms by default) or returns a malformed verdict denies the call. You can plug in an external guard over HTTPS with signed requests and responses: [hooks](https://docs.theauth.dev/hooks), [remote guards](https://docs.theauth.dev/guards).
+- **Decision codes and explain.** `authorize()` returns a machine-readable `code` such as `no_permission` or `hook_denied`. `explain()` says which rule or delegation link carried a call, with no side effects: [explain](https://docs.theauth.dev/explain), [errors](https://docs.theauth.dev/errors).
+- **Tamper-evident audit.** Turn on the hash chain and an edited, deleted or reordered row shows up on the next verify. Signed checkpoints and receipts can be checked offline, including by the Go library: [audit trail](https://docs.theauth.dev/audit-trail), [receipts](https://docs.theauth.dev/audit-receipts).
+
+## Status
+
+Maturity follows the package version: stable is 1.0 or later, beta is 0.2 to 0.9, experimental is 0.1. The core package is at 1.3.0. The 2.0 changes are queued as changesets, so read [Upgrading to 2.0](https://docs.theauth.dev/upgrading-to-2) if you run 1.x.
+
+What you should know before relying on it:
+
+- **SAML is experimental.** The verifier is our own code, built on Web Crypto. It passes tests against xmllint and xml-crypto output and has had no independent audit. If you need an audit today, put an audited SAML library in front and pass the identity to your own session code.
+- **The cookie session cache is experimental and opt in.** It can lag a revocation by up to its `maxAge`. See [session hardening](https://docs.theauth.dev/session-hardening).
+- **MySQL is not supported.** `provider: "mysql"` throws unless you pass `experimental: true`, and the baseline schema does not apply on a real server yet.
+- **Postgres is tested by hand, not in CI.** The full suite runs against Postgres 14 before each release. Only the `pg` driver is supported.
+- **D1 is not tested in CI or by hand yet.** The generated SQLite SQL is applied with `skipMigrations: true`.
+- **Client ID metadata documents (CIMD) on Workers and Deno.** Deno uses `node:dns` like Node. Workers need `createDohResolver()`, or `"none"` with `allowedHosts`. DNS rebinding cannot be fully closed without `allowedHosts`. See [CIMD](https://docs.theauth.dev/mcp-client-id-metadata).
+
+### Supported databases
+
+| Provider | Use it for | Tested in CI |
 |---|---|---|
-| Agent identity | `kv_` bearer tokens, wildcard permissions, delegation chains with depth limits, budget policies, denial-based trust score, CIBA-style approvals, audit trail per action | [Agents](https://docs.theauth.dev/agents) |
-| Agent tool guard | `guardTool` in front of any tool, single use approvals, provenance labels for tool arguments, policy shrink, signed audit checkpoints and receipts | [Guard agent tools](https://docs.theauth.dev/agent-tools), [Taint guard](https://docs.theauth.dev/taint-guard), [Policy shrink](https://docs.theauth.dev/policy-shrink), [Audit checkpoints](https://docs.theauth.dev/audit-checkpoints) |
-| MCP OAuth 2.1 server | Authorization code with PKCE S256, dynamic client registration, resource indicators, metadata (RFC 7591, 8707, 8414, 9728) | [MCP](https://docs.theauth.dev/mcp) |
-| DPoP | Sender-constrained tokens for MCP resource servers | [DPoP](https://docs.theauth.dev/dpop) |
-| Token vault | Encrypted third-party OAuth tokens for agents, refresh with a shared lock, key rotation | [Token vault](https://docs.theauth.dev/token-vault) |
-| Human sign-in | Email and password (HIBP check), magic link, email OTP, phone OTP, passkeys, TOTP, anonymous, Google One Tap, SIWE, device flow, username, captcha | [Auth](https://docs.theauth.dev/auth) |
-| Providers and presets | 17 first-class OAuth providers, a generic OIDC factory, and ready-made presets for more | [Providers](https://docs.theauth.dev/auth/more-providers) |
-| Enterprise | Organizations with RBAC, SAML 2.0 and OIDC SSO, SCIM, admin controls, API keys, GDPR export and delete, compliance evidence export (not a certification) | [Docs](https://docs.theauth.dev) |
-| CLI | `theauth doctor` checks your setup for common mistakes (`--json` for CI) | [CLI tools](https://docs.theauth.dev/cli-tools) |
+| `sqlite` (sql.js) | Tests, CI, demos. In memory only. | Yes |
+| `sqlite-native` (better-sqlite3) | One process, a database file on disk. | Yes |
+| `postgres` (`pg`) | Several instances or real traffic. | No, run by hand |
+| `d1` | Cloudflare Workers. | No |
+| `mysql` | Not supported. | No |
 
-The token policy, RFC 9396 rich authorization requests and ID-JAG pieces live in the Go SDK, not here. See [theauth-go](https://github.com/glincker/theauth-go).
+The Prisma adapter reads and writes theAuth tables from code that already uses Prisma. Picking a store and a secondary store: [choose storage](https://docs.theauth.dev/choose-storage).
 
-17 providers: Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom.
+## Packages
 
-## Frameworks and adapters
+All packages live in this monorepo and publish under `@glinr/`. Versions come from each `package.json`.
 
-Hono, Next.js, SvelteKit, Nuxt, Express, Fastify, Astro, NestJS, SolidStart, TanStack Start, plus clients for React, Vue, Svelte, Expo and Electron. Databases: SQLite, PostgreSQL, MySQL, Cloudflare D1, and Prisma through `@glinr/theauth-prisma`.
+| Package | Version | Maturity | What it does |
+|---|---|---|---|
+| [`theauth`](packages/core) | 1.3.0 | Stable | Agent identity, delegation, MCP OAuth 2.1 server, DPoP, passkeys, audit |
+| [`theauth-email`](packages/auth/email) | 4.1.0 | Stable | Email and password sign in |
+| [`theauth-mcp`](packages/mcp) | 1.2.0 | Stable | Read-only MCP server to inspect agents, permissions and audit |
+| [`theauth-gateway`](packages/gateway) | 4.1.0 | Stable | Auth proxy in front of any API or MCP server |
+| [`theauth-cli`](packages/cli) | 1.2.0 | Stable | `init`, `doctor`, migrations, dashboard (also `npx theauth`) |
+| [`theauth-client`](packages/client) | 1.1.1 | Stable | TypeScript client for the REST API |
+| [`theauth-plugin-discovery`](packages/plugins/discovery) | 4.0.1 | Stable | A2A agent card discovery |
+| [`theauth-plugin-telemetry`](packages/plugins/telemetry) | 4.0.0 | Stable | OpenTelemetry spans from auth events |
+| [`theauth-react`](packages/react) | 0.7.1 | Beta | React hooks |
+| [`theauth-vue`](packages/vue) | 0.3.0 | Beta | Vue 3 composables |
+| [`theauth-svelte`](packages/svelte) | 0.3.0 | Beta | Svelte stores |
+| [`theauth-expo`](packages/expo) | 0.4.0 | Beta | React Native and Expo client |
+| [`theauth-electron`](packages/electron) | 0.3.0 | Beta | Electron client |
+| [`theauth-ui`](packages/ui) | 0.3.0 | Beta | Prebuilt auth components |
+| [`theauth-ui-headless`](packages/ui-headless) | 0.2.0 | Beta | Unstyled account components |
+| [`theauth-dashboard`](packages/dashboard) | 0.3.0 | Beta | Admin UI for agents, permissions and audit |
+| [`theauth-agent-frameworks`](packages/agent-frameworks) | 0.2.0 | Beta | Tool guard with human approval for LangChain.js, LangGraph and Mastra |
+| [`theauth-conformance`](packages/conformance) | 0.2.0 | Beta | Black-box conformance suite for OAuth 2.1 and MCP servers |
+| [`theauth-test-utils`](packages/test-utils) | 0.2.0 | Beta | Mock providers, factories and assertions |
+| [`create-theauth-app`](packages/create-theauth-app) | 0.5.0 | Beta | Scaffold an app |
+| [`theauth-extension`](packages/extension) | 0.1.0 | Experimental | OAuth 2.1 for Manifest V3 browser extensions |
 
-<details>
-<summary>Next.js (App Router)</summary>
+Other languages: [Go](https://github.com/glincker/theauth-go), [Python](https://pypi.org/project/theauth/) ([source](sdks/python)) and a [Terraform provider](https://registry.terraform.io/providers/glincker/theauth) ([source](sdks/terraform)).
 
-```bash
-npm install @glinr/theauth @glinr/theauth-nextjs
-```
+### Framework adapters
 
-```typescript
-// app/api/theauth/[...theauth]/route.ts
-import { createTheAuth } from "@glinr/theauth";
-import { theAuthNextjs } from "@glinr/theauth-nextjs";
+Every adapter wraps one core handler, so all of them serve the same routes with the same status codes ([route reference](https://docs.theauth.dev/adapters/routes)).
 
-const auth = await createTheAuth({
-  database: { provider: "postgres", url: process.env.DATABASE_URL! },
-});
+| Adapter | Version | Docs |
+|---|---|---|
+| [`theauth-hono`](packages/adapters/hono) | 5.1.0 | [Hono](https://docs.theauth.dev/adapters/hono) |
+| [`theauth-nextjs`](packages/adapters/nextjs) | 5.1.0 | [Next.js](https://docs.theauth.dev/adapters/nextjs) |
+| [`theauth-express`](packages/adapters/express) | 5.1.0 | [Express](https://docs.theauth.dev/adapters/express) |
+| [`theauth-fastify`](packages/adapters/fastify) | 5.1.0 | [Fastify](https://docs.theauth.dev/adapters/fastify) |
+| [`theauth-nestjs`](packages/adapters/nestjs) | 5.1.0 | [NestJS](https://docs.theauth.dev/adapters/nestjs) |
+| [`theauth-nuxt`](packages/adapters/nuxt) | 5.1.0 | [Nuxt](https://docs.theauth.dev/adapters/nuxt) |
+| [`theauth-sveltekit`](packages/adapters/sveltekit) | 5.1.0 | [SvelteKit](https://docs.theauth.dev/adapters/sveltekit) |
+| [`theauth-astro`](packages/adapters/astro) | 5.1.0 | [Astro](https://docs.theauth.dev/adapters/astro) |
+| [`theauth-solidstart`](packages/adapters/solidstart) | 5.1.0 | [SolidStart](https://docs.theauth.dev/adapters/solidstart) |
+| [`theauth-tanstack`](packages/adapters/tanstack) | 5.1.0 | [TanStack Start](https://docs.theauth.dev/adapters/tanstack) |
+| [`theauth-prisma`](packages/adapters/prisma) | 4.0.0 | [Prisma](https://docs.theauth.dev/prisma) |
+| [`theauth-nextjs-auth`](packages/adapters/nextjs-auth) | 0.2.0 (beta) | Next.js client for external auth backends |
 
-// `authenticate` resolves the caller from the request. See the adapter docs.
-export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(auth, { authenticate });
-```
-
-The adapter serves agent, authorization, delegation and audit routes under `/api/theauth`. Human sign-in is wired separately: see the docs for the methods you enable. Working example: [`examples/nextjs-app`](https://github.com/glincker/theauth/tree/main/examples/nextjs-app).
-
-</details>
-
-<details>
-<summary>Hono (Workers, Bun, Node)</summary>
-
-```bash
-npm install @glinr/theauth @glinr/theauth-hono
-```
+Mounting Hono, for example:
 
 ```typescript
 import { Hono } from "hono";
@@ -182,134 +179,35 @@ const auth = await createTheAuth({
 
 const app = new Hono();
 app.route("/api/theauth", theAuthHono(auth, { authenticate }));
-
-export default app;
 ```
 
-Examples: [`hono-server`](https://github.com/glincker/theauth/tree/main/examples/hono-server), [`cloudflare-workers`](https://github.com/glincker/theauth/tree/main/examples/cloudflare-workers).
+`authenticate` resolves the caller from the request, see the [Hono guide](https://docs.theauth.dev/adapters/hono). Working examples are in [`examples/`](examples).
 
-</details>
+## Docs
 
-Every adapter has the same shape. Per-framework docs: [docs.theauth.dev/adapters](https://docs.theauth.dev/adapters).
+- [Quickstart](https://docs.theauth.dev/quickstart) and [core concepts](https://docs.theauth.dev/concepts)
+- [MCP OAuth 2.1 server](https://docs.theauth.dev/mcp) and [MCP revocation](https://docs.theauth.dev/mcp-revocation)
+- [Delegation](https://docs.theauth.dev/delegation), [guards](https://docs.theauth.dev/guards) and [hooks](https://docs.theauth.dev/hooks)
+- [Observability](https://docs.theauth.dev/observability), [audit trail](https://docs.theauth.dev/audit-trail) and [audit receipts](https://docs.theauth.dev/audit-receipts)
+- [Upgrading to 2.0](https://docs.theauth.dev/upgrading-to-2) for people on 1.x
+- [Works with](https://docs.theauth.dev/works-with), [migrating from another library](https://docs.theauth.dev/migrate/choose-a-path) and the [API reference](https://docs.theauth.dev/api)
+- [Security policy](SECURITY.md)
 
-## Use cases
+## By the numbers
 
-### Authentication and authorization for AI agents
+Generated by `node scripts/stats.mjs` into [`docs/stats.json`](docs/stats.json).
 
-Give each agent its own identity, scoped permissions, a delegation chain back to the user who allowed it, budget limits and an audit trail. Start with the [agents guide](https://docs.theauth.dev/agents) and [delegation chains](https://docs.theauth.dev/delegation). To put the policy engine in front of the tools an agent calls, see [guarding agent tools](https://docs.theauth.dev/agent-tools), with walkthroughs for the [Vercel AI SDK](https://docs.theauth.dev/vercel-ai-sdk) ([example](examples/vercel-ai-sdk-guard)) and the [OpenAI Agents SDK](https://docs.theauth.dev/openai-agents-sdk) ([example](examples/openai-agents-guard)). Related pieces: a [taint aware guard](https://docs.theauth.dev/taint-guard) that holds calls whose arguments came from untrusted sources, [policy shrink](https://docs.theauth.dev/policy-shrink) to remove permissions an agent never used, and [signed audit checkpoints and receipts](https://docs.theauth.dev/audit-checkpoints) that others can verify offline. Single use approvals and a live delegation check for MCP tokens are covered in [approvals](https://docs.theauth.dev/approval) and [MCP](https://docs.theauth.dev/mcp). The [tutorials](https://docs.theauth.dev/tutorials/prompt-injection-tool-guard) walk through each, and [What's new](https://docs.theauth.dev/whats-new) lists the changes.
+- 48 OAuth providers: 22 first class and 26 presets
+- 10 framework adapters
+- 4 runtime dependencies in core
+- About 5,277 test cases in 410 test files (a textual count of `it(` and `test(` calls, so approximate)
 
-### OAuth 2.1 authorization server for MCP
+## Community and contributing
 
-Run the authorization side of the Model Context Protocol yourself: PKCE S256, dynamic client registration, resource indicators and protected resource metadata, with optional DPoP-bound tokens. See [MCP OAuth 2.1](https://docs.theauth.dev/mcp) and [DPoP](https://docs.theauth.dev/dpop).
-
-### Sign-in, SSO and provisioning for your product
-
-Email and password, magic links, passkeys, social sign-in, SAML 2.0 and OIDC SSO, SCIM, organizations with roles, and an OpenID Connect provider mode so your other apps can sign in with theAuth. Start with [human auth](https://docs.theauth.dev/auth) and [OIDC provider](https://docs.theauth.dev/auth/oidc-provider).
-
-### Every client surface
-
-Web frameworks, React Native with Expo, Electron, browser extensions and command line tools use the same server. Pick the guide that matches: [adapters](https://docs.theauth.dev/adapters), [Expo](https://docs.theauth.dev/expo), [browser extensions](https://docs.theauth.dev/browser-extension), [CLI sign-in](https://docs.theauth.dev/cli-auth).
-
-## Security and quality
-
-- CodeQL runs on every pull request, and the adapters apply per-client rate limits and cross-site request checks by default.
-- About 3,900 test cases across 267 test files cover the core, the adapters and the clients.
-- Sessions, passwords and tokens follow the usual hardening: HIBP password checks, DPoP-bound tokens, stateless session cookies bound to the user, one-time codes for native sign-in. Details in [session hardening](https://docs.theauth.dev/session-hardening).
-- Responsible disclosure goes to support@glinr.com. See [SECURITY.md](SECURITY.md).
-
-## Migrating from another auth system
-
-Guides with working code for [Auth0](https://docs.theauth.dev/migrate/from-auth0), [Clerk](https://docs.theauth.dev/migrate/from-clerk), [NextAuth and Auth.js](https://docs.theauth.dev/migrate/from-next-auth), [Better Auth](https://docs.theauth.dev/migrate/from-better-auth) and [Kavach](https://docs.theauth.dev/migrate/from-kavach). You can run both systems side by side and move users over lazily: [choose a path](https://docs.theauth.dev/migrate/choose-a-path).
-
-Looking at the differences with specific products? Read the [comparison pages](https://theauth.dev/compare/).
-
-## Packages
-
-All packages live in this monorepo and publish under `@glinr/`. The badge links to the package on npm.
-
-### Core
-
-| Package | npm | What it does |
-|---|---|---|
-| [`theauth`](packages/core) | [![npm](https://img.shields.io/npm/v/@glinr/theauth?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth) | Open-source auth for AI agents and humans: agent identity, delegation, MCP OAuth 2.1 server, DPoP, passkeys, and audit |
-| [`theauth-email`](packages/auth/email) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-email?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-email) | Email and password authentication for TheAuth |
-| [`theauth-mcp`](packages/mcp) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-mcp?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-mcp) | Read-only MCP server to inspect agent identity, permissions and audit in a theAuth deployment |
-| [`theauth-plugin-discovery`](packages/plugins/discovery) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-plugin-discovery?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-plugin-discovery) | A2A agent capability card discovery plugin for TheAuth |
-| [`theauth-plugin-telemetry`](packages/plugins/telemetry) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-plugin-telemetry?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-plugin-telemetry) | OpenTelemetry integration plugin for TheAuth, converts auth events into OTel spans |
-
-### Clients and UI
-
-| Package | npm | What it does |
-|---|---|---|
-| [`theauth-client`](packages/client) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-client?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-client) | TypeScript client for the TheAuth REST API |
-| [`theauth-react`](packages/react) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-react?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-react) | React hooks for TheAuth auth (with v0.5 session rotation) |
-| [`theauth-vue`](packages/vue) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-vue?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-vue) | Vue 3 composables for TheAuth auth |
-| [`theauth-svelte`](packages/svelte) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-svelte?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-svelte) | Svelte stores for TheAuth auth |
-| [`theauth-expo`](packages/expo) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-expo?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-expo) | React Native / Expo client for TheAuth auth |
-| [`theauth-electron`](packages/electron) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-electron?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-electron) | TheAuth auth client for Electron desktop apps |
-| [`theauth-extension`](packages/extension) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-extension?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-extension) | OAuth 2.1 authentication for Manifest V3 browser extensions (PKCE, refresh, optional DPoP) |
-| [`theauth-ui`](packages/ui) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-ui?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-ui) | Pre-built auth UI components for TheAuth |
-| [`theauth-ui-headless`](packages/ui-headless) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-ui-headless?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-ui-headless) | Unstyled, accessible account components for TheAuth: sessions, API and agent tokens, device approval, step-up |
-| [`theauth-dashboard`](packages/dashboard) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-dashboard?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-dashboard) | TheAuth admin dashboard - React UI for managing agents, permissions, and audit logs |
-
-### Framework adapters
-
-| Package | npm | What it does |
-|---|---|---|
-| [`theauth-astro`](packages/adapters/astro) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-astro?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-astro) | Astro adapter for TheAuth - exposes agent auth as HTTP REST endpoints |
-| [`theauth-express`](packages/adapters/express) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-express?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-express) | Express adapter for TheAuth - exposes agent auth as HTTP REST endpoints |
-| [`theauth-fastify`](packages/adapters/fastify) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-fastify?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-fastify) | Fastify adapter for TheAuth - exposes agent auth as HTTP REST endpoints |
-| [`theauth-hono`](packages/adapters/hono) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-hono?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-hono) | Hono adapter for TheAuth - exposes agent auth as HTTP REST endpoints |
-| [`theauth-nestjs`](packages/adapters/nestjs) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nestjs?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-nestjs) | NestJS adapter for TheAuth |
-| [`theauth-nextjs`](packages/adapters/nextjs) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nextjs?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-nextjs) | Next.js App Router adapter for TheAuth - exposes agent auth as HTTP REST endpoints |
-| [`theauth-nextjs-auth`](packages/adapters/nextjs-auth) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nextjs-auth?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-nextjs-auth) | Next.js adapter for TheAuth-style external auth backends, cookies, refresh, CSRF, getServerSession, middleware. |
-| [`theauth-nuxt`](packages/adapters/nuxt) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-nuxt?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-nuxt) | Nuxt adapter for TheAuth - exposes agent auth as HTTP REST endpoints via H3 |
-| [`theauth-solidstart`](packages/adapters/solidstart) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-solidstart?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-solidstart) | SolidStart adapter for TheAuth |
-| [`theauth-sveltekit`](packages/adapters/sveltekit) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-sveltekit?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-sveltekit) | SvelteKit adapter for TheAuth - exposes agent auth as HTTP REST endpoints |
-| [`theauth-tanstack`](packages/adapters/tanstack) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-tanstack?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-tanstack) | TanStack Start adapter for TheAuth |
-
-### Database
-
-| Package | npm | What it does |
-|---|---|---|
-| [`theauth-prisma`](packages/adapters/prisma) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-prisma?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-prisma) | Prisma database adapter for TheAuth - use PrismaClient as your TheAuth database backend |
-
-### Tooling
-
-| Package | npm | What it does |
-|---|---|---|
-| [`create-theauth-app`](packages/create-theauth-app) | [![npm](https://img.shields.io/npm/v/@glinr/create-theauth-app?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/create-theauth-app) | Scaffold a TheAuth-powered app in seconds |
-| [`theauth-cli`](packages/cli) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-cli?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-cli) | CLI for theAuth: set up agent identity and MCP OAuth 2.1, run migrations, launch the admin dashboard, codemod from Kavach. |
-| [`theauth-gateway`](packages/gateway) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-gateway?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-gateway) | Standalone auth proxy for TheAuth - enforces auth, authorization, and audit in front of any API or MCP server |
-| [`theauth-test-utils`](packages/test-utils) | [![npm](https://img.shields.io/npm/v/@glinr/theauth-test-utils?style=flat-square&label=)](https://www.npmjs.com/package/@glinr/theauth-test-utils) | Test utilities for TheAuth, mock providers, factories, and assertions for auth test suites |
-
-### Other languages
-
-[Go](https://github.com/glincker/theauth-go) ([pkg.go.dev](https://pkg.go.dev/github.com/glincker/theauth-go/v2)), [Python](https://pypi.org/project/theauth/) ([source](sdks/python)) and the [Terraform provider](https://registry.terraform.io/providers/glincker/theauth) ([source](sdks/terraform)).
-
-## Example apps
-
-[`nextjs-app`](examples/nextjs-app), [`nextjs-demo`](examples/nextjs-demo), [`hono-server`](examples/hono-server), [`cloudflare-workers`](examples/cloudflare-workers), [`mcp-server`](examples/mcp-server), [`scim-okta`](examples/scim-okta), [`basic-agent`](examples/basic-agent), [`migrate-from-auth0`](examples/migrate-from-auth0), [`migrate-from-better-auth-agent-plugin`](examples/migrate-from-better-auth-agent-plugin).
-
-## Docs and community
-
-- Docs: [docs.theauth.dev](https://docs.theauth.dev), with [agents](https://docs.theauth.dev/agents), [MCP](https://docs.theauth.dev/mcp), [permissions](https://docs.theauth.dev/permissions) and the [API reference](https://docs.theauth.dev/api).
-- Questions and ideas: [GitHub Discussions](https://github.com/glincker/theauth/discussions) or the `#theauth` forum channel in the [GLINR Discord](https://discord.gg/Ar5pcaZB99).
-- Hosted option: theAuth Cloud is in early access, see [theauth.dev/pricing](https://theauth.dev/pricing/).
-- Changes: [CHANGELOG.md](CHANGELOG.md).
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Issues labeled `good first issue` are a good start. By contributing you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
-
-## Security
+Questions and ideas go to [GitHub Discussions](https://github.com/glincker/theauth/discussions) or the `#theauth` channel in the [GLINR Discord](https://discord.gg/Ar5pcaZB99). Changes are listed in [CHANGELOG.md](CHANGELOG.md). To contribute, see [CONTRIBUTING.md](CONTRIBUTING.md); everyone is held to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Report vulnerabilities privately to support@glinr.com or through the GitHub advisory form. Do not open a public issue. Details in [SECURITY.md](SECURITY.md).
 
 ## License
 
-[MIT](LICENSE)
-
-## Made by GLINCKER
-
-theAuth is built in the open by [GLINCKER](https://glincker.com), a [GLINR STUDIOS](https://glinr.com) company. Founder: [thegdsks](https://thegdsks.com). Sibling projects: [LevelRail](https://levelrail.com), [theSVG](https://thesvg.org), [GLINUI](https://glinui.com).
+[MIT](LICENSE). Built in the open by [GLINCKER](https://glincker.com), a [GLINR STUDIOS](https://glinr.com) company.

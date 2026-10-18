@@ -42,6 +42,7 @@ export async function* readDecisionRows(
 				reason: auditLogs.reason,
 				timestamp: auditLogs.timestamp,
 				delegationChain: auditLogs.delegationChain,
+				event: auditLogs.event,
 			})
 			.from(auditLogs)
 			.where(and(...conds))

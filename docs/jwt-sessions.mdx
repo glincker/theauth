@@ -16,7 +16,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createJwtSessionModule } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 export const jwtSessions = createJwtSessionModule({

@@ -7,6 +7,8 @@ import { eq } from "drizzle-orm";
 import { hmacSha1Raw, randomBytes, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { totpRecords } from "../db/schema.js";
+import type { ModuleRequestDeps } from "./request-user.js";
+import { authenticationRequired, requestUserId } from "./request-user.js";
 
 export interface TotpConfig {
 	/** App name shown in authenticator apps (default: "TheAuth") */
@@ -196,7 +198,11 @@ async function parseBody(request: Request): Promise<Record<string, unknown>> {
 	}
 }
 
-export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
+export function createTotpModule(
+	config: TotpConfig,
+	db: Database,
+	deps: ModuleRequestDeps = {},
+): TotpModule {
 	const appName = config.appName ?? "TheAuth";
 	const period = config.period ?? 30;
 	const backupCodeCount = config.backupCodeCount ?? 10;
@@ -331,7 +337,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 	): Promise<{ backupCodes: string[] }> {
 		const result = await verify(userId, code);
 		if (!result.valid) {
-			throw new Error("Invalid TOTP code — cannot regenerate backup codes");
+			throw new Error("Invalid TOTP code, cannot regenerate backup codes");
 		}
 
 		const { plain, hashed } = await generateBackupCodes(backupCodeCount);
@@ -350,11 +356,11 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		const method = request.method.toUpperCase();
 
 		if (method !== "POST") return null;
+		// Every route acts on the signed-in user only. A body `userId` is ignored.
 
 		if (path === "/auth/2fa/setup") {
-			const body = await parseBody(request);
-			const userId = typeof body.userId === "string" ? body.userId : null;
-			if (!userId) return jsonResponse({ error: "userId required" }, 400);
+			const userId = await requestUserId(request, deps.resolveUser);
+			if (!userId) return authenticationRequired();
 
 			try {
 				const result = await setup(userId);
@@ -365,40 +371,44 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 		}
 
 		if (path === "/auth/2fa/enable") {
+			const userId = await requestUserId(request, deps.resolveUser);
+			if (!userId) return authenticationRequired();
 			const body = await parseBody(request);
-			const userId = typeof body.userId === "string" ? body.userId : null;
 			const code = typeof body.code === "string" ? body.code : null;
-			if (!userId || !code) return jsonResponse({ error: "userId and code required" }, 400);
+			if (!code) return jsonResponse({ error: "code required" }, 400);
 
 			const result = await enable(userId, code);
 			return jsonResponse(result);
 		}
 
 		if (path === "/auth/2fa/verify") {
+			const userId = await requestUserId(request, deps.resolveUser);
+			if (!userId) return authenticationRequired();
 			const body = await parseBody(request);
-			const userId = typeof body.userId === "string" ? body.userId : null;
 			const code = typeof body.code === "string" ? body.code : null;
-			if (!userId || !code) return jsonResponse({ error: "userId and code required" }, 400);
+			if (!code) return jsonResponse({ error: "code required" }, 400);
 
 			const result = await verify(userId, code);
 			return jsonResponse(result);
 		}
 
 		if (path === "/auth/2fa/disable") {
+			const userId = await requestUserId(request, deps.resolveUser);
+			if (!userId) return authenticationRequired();
 			const body = await parseBody(request);
-			const userId = typeof body.userId === "string" ? body.userId : null;
 			const code = typeof body.code === "string" ? body.code : null;
-			if (!userId || !code) return jsonResponse({ error: "userId and code required" }, 400);
+			if (!code) return jsonResponse({ error: "code required" }, 400);
 
 			const result = await disable(userId, code);
 			return jsonResponse(result);
 		}
 
 		if (path === "/auth/2fa/backup-codes") {
+			const userId = await requestUserId(request, deps.resolveUser);
+			if (!userId) return authenticationRequired();
 			const body = await parseBody(request);
-			const userId = typeof body.userId === "string" ? body.userId : null;
 			const code = typeof body.code === "string" ? body.code : null;
-			if (!userId || !code) return jsonResponse({ error: "userId and code required" }, 400);
+			if (!code) return jsonResponse({ error: "code required" }, 400);
 
 			try {
 				const result = await regenerateBackupCodes(userId, code);

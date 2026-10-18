@@ -137,9 +137,21 @@ describe("nextjs adapter owner scope with the default guard", () => {
 			...body,
 		});
 		expect(bad.status).toBe(404);
-		const good = await w.call(h, "u1", "POST", "/delegations", {
+		const own = await w.auth.agent.create({
+			ownerId: "u1",
+			name: "a3",
+			type: "autonomous",
+			permissions: READ_DOCS,
+		});
+		const foreignTarget = await w.call(h, "u1", "POST", "/delegations", {
 			fromAgent: w.a1,
 			toAgent: w.a2,
+			...body,
+		});
+		expect(foreignTarget.status).toBe(404);
+		const good = await w.call(h, "u1", "POST", "/delegations", {
+			fromAgent: w.a1,
+			toAgent: own.id,
 			...body,
 		});
 		expect(good.status).toBe(201);
@@ -171,7 +183,14 @@ describe("nextjs adapter owner scope with the default guard", () => {
 		const rows = JSON.parse(await exported.text()) as { userId: string }[];
 		expect(rows.length).toBeGreaterThan(0);
 		expect(rows.every((r) => r.userId === "u1")).toBe(true);
-		expect((await w.call(h, "u1", "GET", "/audit/export?userId=u2")).status).toBe(403);
+		// A foreign userId is refused, the caller's own userId and no userId both work.
+		const foreign = await w.call(h, "u1", "GET", "/audit/export?userId=u2&format=json");
+		expect(foreign.status).toBe(403);
+		const own = await w.call(h, "u1", "GET", "/audit/export?userId=u1&format=json");
+		expect(own.status).toBe(200);
+		const ownRows = JSON.parse(await own.text()) as { userId: string }[];
+		expect(ownRows.length).toBeGreaterThan(0);
+		expect(ownRows.every((r) => r.userId === "u1")).toBe(true);
 	});
 
 	it("dashboard routes are limited to the caller's own data", async () => {

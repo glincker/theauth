@@ -1,43 +1,13 @@
-import type { AdapterSecurityOptions, TheAuth } from "@glinr/theauth";
-import type { McpAuthModule } from "@glinr/theauth/mcp";
+import type { TheAuth } from "@glinr/theauth";
+import type { TheAuthHandlerOptions } from "@glinr/theauth/http";
 import type { DynamicModule, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { Inject, Module } from "@nestjs/common";
 import { theAuthMiddleware } from "./adapter.js";
 
 const AUTH_OPTIONS = Symbol("AUTH_OPTIONS");
 
-export interface TheAuthModuleOptions extends AdapterSecurityOptions {
+export interface TheAuthModuleOptions extends TheAuthHandlerOptions {
 	theauth: TheAuth;
-	mcp?: McpAuthModule;
-	/**
-	 * The path prefix where TheAuth routes will be mounted.
-	 * @default '/api/theauth'
-	 */
-	basePath?: string;
-}
-
-/** @deprecated Use `TheAuthModuleOptions` instead. Will be removed in a future major version. */
-export type AuthModuleOptions = TheAuthModuleOptions;
-
-/**
- * Every `AdapterSecurityOptions` key. Typed as a full record so adding a key to
- * the core interface fails the build here until it is listed.
- */
-const SECURITY_OPTION_KEYS: Record<keyof AdapterSecurityOptions, true> = {
-	authenticate: true,
-	allowUnauthenticated: true,
-	trustedProxy: true,
-	rateLimit: true,
-	trustedOrigins: true,
-	csrf: true,
-};
-
-function pickSecurityOptions(options: AdapterSecurityOptions): AdapterSecurityOptions {
-	const picked: AdapterSecurityOptions = {};
-	for (const key of Object.keys(SECURITY_OPTION_KEYS) as Array<keyof AdapterSecurityOptions>) {
-		if (options[key] !== undefined) Object.assign(picked, { [key]: options[key] });
-	}
-	return picked;
 }
 
 /**
@@ -67,15 +37,10 @@ export class TheAuthModule implements NestModule {
 	) {}
 
 	configure(consumer: MiddlewareConsumer): void {
-		const basePath = this.options.basePath ?? "/api/theauth";
+		const { theauth, ...handlerOptions } = this.options;
+		const basePath = handlerOptions.basePath ?? "/api/theauth";
 		consumer
-			.apply(
-				theAuthMiddleware({
-					theauth: this.options.theauth,
-					mcp: this.options.mcp,
-					...pickSecurityOptions(this.options),
-				}),
-			)
+			.apply(theAuthMiddleware({ ...handlerOptions, theauth, basePath }))
 			.forRoutes(`${basePath}/*path`);
 	}
 
@@ -91,6 +56,3 @@ export class TheAuthModule implements NestModule {
 		};
 	}
 }
-
-/** @deprecated Use `TheAuthModule` instead. Will be removed in a future major version. */
-export const AuthModule = TheAuthModule;

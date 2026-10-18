@@ -56,7 +56,7 @@ class TheAuthClient:
         async def main():
             async with TheAuthClient(
                 base_url="https://my-app.com/api/theauth",
-                token="kv_...",
+                token="ta_...",
             ) as client:
                 agent = await client.agents.create(
                     CreateAgentInput(
@@ -171,7 +171,7 @@ class TheAuthSyncClient:
 
         with TheAuthSyncClient(
             base_url="https://my-app.com/api/theauth",
-            token="kv_...",
+            token="ta_...",
         ) as client:
             agent = client.agents.create(
                 CreateAgentInput(

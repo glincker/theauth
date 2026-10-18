@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createAdapterAdmission } from "../src/adapter-admit.js";
 import { memoryStorage } from "../src/storage/memory.js";
 import type { SecondaryStorage } from "../src/storage/types.js";
@@ -34,12 +34,45 @@ describe("adapter admission: rate limiting", () => {
 		expect(await a.admit(req("GET", "/agents", { "x-real-ip": "1.1.1.1" }), "/agents")).toBeNull();
 	});
 
-	it("splits callers by credential when the client IP is unknown", async () => {
+	it("never lets a random Cookie or Authorization value mint a new bucket when the IP is unknown", async () => {
+		const a = createAdapterAdmission({ rateLimit: { read: { max: 3, window: 60 } } }, undefined);
+		let admitted = 0;
+		for (let i = 0; i < 200; i++) {
+			const r = req("GET", "/agents", { cookie: `x=${i}-${Math.random()}` });
+			if ((await a.admit(r, "/agents")) === null) admitted++;
+		}
+		expect(admitted).toBe(3);
+		let bearer = 0;
+		for (let i = 0; i < 200; i++) {
+			const r = req("GET", "/agents", { authorization: `Bearer t${i}` });
+			if ((await a.admit(r, "/agents")) === null) bearer++;
+		}
+		expect(bearer).toBe(3);
+	});
+
+	it("keeps anonymous, cookie and authorization fallbacks in separate buckets", async () => {
 		const a = createAdapterAdmission({ rateLimit: { read: { max: 1, window: 60 } } }, undefined);
-		const as = (token: string) => req("GET", "/agents", { authorization: `Bearer ${token}` });
-		expect(await a.admit(as("a"), "/agents")).toBeNull();
-		expect(await a.admit(as("a"), "/agents")).not.toBeNull();
-		expect(await a.admit(as("b"), "/agents")).toBeNull();
+		expect(await a.admit(req("GET", "/agents"), "/agents")).toBeNull();
+		expect(await a.admit(req("GET", "/agents"), "/agents")).not.toBeNull();
+		// A flood of anonymous traffic does not lock out callers that carry a credential.
+		expect(await a.admit(req("GET", "/agents", { cookie: "s=1" }), "/agents")).toBeNull();
+		expect(
+			await a.admit(req("GET", "/agents", { authorization: "Bearer a" }), "/agents"),
+		).toBeNull();
+	});
+
+	it("logs one warning on the first unknown-IP request, none with a trusted IP", async () => {
+		const warn = vi.fn();
+		const a = createAdapterAdmission({ logger: { warn } }, undefined);
+		await a.admit(req("GET", "/agents"), "/agents");
+		await a.admit(req("GET", "/agents"), "/agents");
+		const unknown = warn.mock.calls.filter((c) => String(c[0]).includes("client IP"));
+		expect(unknown).toHaveLength(1);
+
+		const warn2 = vi.fn();
+		const b = createAdapterAdmission({ logger: { warn: warn2 } }, proxy);
+		await b.admit(req("GET", "/agents", { "x-real-ip": "1.1.1.1" }), "/agents");
+		expect(warn2).not.toHaveBeenCalled();
 	});
 
 	it("can be turned off", async () => {

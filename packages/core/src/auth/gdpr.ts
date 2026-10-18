@@ -16,11 +16,15 @@
  * ```
  */
 
-import { eq, inArray, or, sql } from "drizzle-orm";
-import { eraseAuditIdentity } from "../audit/erasure.js";
-import { sha256 } from "../crypto/web-crypto.js";
+import { eq, inArray, or } from "drizzle-orm";
+import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
+import { getAuditChainConfig } from "../audit/chain.js";
+import { ensureTombstoneAgent, ensureTombstoneUser, eraseAuditIdentity } from "../audit/erasure.js";
+import { resolvePseudonymKey } from "../audit/pseudonym.js";
+import { hmacSha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import {
+	agentRegistrationTokens,
 	agents,
 	apiKeys,
 	approvalRequests,
@@ -28,16 +32,21 @@ import {
 	budgetPolicies,
 	delegationChains,
 	emailOtps,
+	ephemeralSessions,
 	magicLinks,
 	oauthAccessTokens,
 	oauthAuthorizationCodes,
 	organizations,
+	orgInvitations,
 	orgMembers,
 	passkeyCredentials,
 	sessions,
 	totpRecords,
 	users,
 } from "../db/schema.js";
+import { createDelegationModule } from "../delegation/delegation.js";
+import type { RevocationBus } from "../mcp/revocation-bus.js";
+import { publishUserRevocation, revokeOwnedAgents } from "./user-revocation.js";
 
 export interface UserDataExport {
 	user: { id: string; email: string; name: string | null; createdAt: string };
@@ -55,6 +64,8 @@ export interface DeleteOptions {
 	keepAuditLogs?: boolean;
 	/** Also delete organizations owned by this user (default: false). */
 	deleteOrganizations?: boolean;
+	/** Reason recorded on the MCP revocation rows (default: `gdpr.deleteUser`). */
+	revocationReason?: string;
 }
 
 export interface DeleteResult {
@@ -76,21 +87,37 @@ export interface GdprModule {
 	anonymizeUser(userId: string): Promise<void>;
 }
 
-/** Stable short hash for an ID, so anonymized audit logs from the same account stay correlated. */
-async function stableHash(id: string): Promise<string> {
-	const hash = await sha256(id);
-	return hash.slice(0, 12);
+/**
+ * Keyed, stable token for an id, so anonymized audit logs from the same account stay correlated while a list of candidate ids cannot be hashed offline to find the account. HMAC-SHA256 under the per-instance secret (`hmacKey`, else the stored random audit secret), 128 bits, domain separated from the audit pseudonyms. This is pseudonymization: whoever holds the secret can still link ids.
+ */
+async function keyedToken(key: string, id: string): Promise<string> {
+	return (await hmacSha256(key, `theauth.gdpr.anon.v1:${id}`)).slice(0, 32);
 }
 
-async function anonymizedUserId(userId: string): Promise<string> {
-	return `[deleted-${await stableHash(userId)}]`;
+async function anonymizedUserId(key: string, userId: string): Promise<string> {
+	return `[deleted-${await keyedToken(key, userId)}]`;
 }
 
-async function anonymizedEmail(userId: string): Promise<string> {
-	return `deleted-${await stableHash(userId)}@anon.invalid`;
+async function anonymizedEmail(key: string, userId: string): Promise<string> {
+	return `deleted-${await keyedToken(key, userId)}@anon.invalid`;
 }
 
-export function createGdprModule(db: Database): GdprModule {
+export function createGdprModule(
+	db: Database,
+	revocations?: RevocationBus | null,
+	options?: { hmacKey?: string },
+): GdprModule {
+	const delegation = createDelegationModule({ db, ...(revocations ? { revocations } : {}) });
+	const anonKey = async (): Promise<string> => {
+		const key = await resolvePseudonymKey(
+			db,
+			options?.hmacKey ?? getAuditChainConfig(db)?.hmacKey,
+			true,
+		);
+		if (!key) throw new Error("could not resolve the anonymization key");
+		return key;
+	};
+
 	async function exportUserData(userId: string): Promise<UserDataExport> {
 		const userRows = await db.select().from(users).where(eq(users.id, userId));
 		const user = userRows[0];
@@ -215,23 +242,50 @@ export function createGdprModule(db: Database): GdprModule {
 		};
 	}
 
+	/** Runs `move` (repoint to the tombstone user) only when a row in `table` is owned by `userId`, creating the tombstone on demand. */
+	async function moveToTombstone(
+		table: SQLiteTable,
+		column: SQLiteColumn,
+		userId: string,
+		anonUserId: string,
+		move: () => Promise<unknown>,
+	): Promise<void> {
+		const found = await db.select({ v: column }).from(table).where(eq(column, userId)).limit(1);
+		if (found.length === 0) return;
+		await ensureTombstoneUser(db, anonUserId);
+		await move();
+	}
+
 	async function deleteUser(userId: string, options?: DeleteOptions): Promise<DeleteResult> {
 		const keepAuditLogs = options?.keepAuditLogs ?? true;
 		const deleteOrgs = options?.deleteOrganizations ?? false;
 
-		const agentRows = await db
-			.select({ id: agents.id })
-			.from(agents)
-			.where(eq(agents.ownerId, userId));
+		const key = await anonKey();
+		const ownedAgents = await revokeOwnedAgents(db, userId);
+		const agentIds = ownedAgents.map((a) => a.id);
+		// Push `sub` and `agent` rows so MCP tokens of the erased user die on every instance.
+		await publishUserRevocation(
+			revocations,
+			userId,
+			ownedAgents,
+			options?.revocationReason ?? "gdpr.deleteUser",
+		);
 
-		const agentIds = agentRows.map((a) => a.id);
-
-		if (agentIds.length > 0) {
-			await db
-				.update(agents)
-				.set({ status: "revoked", updatedAt: new Date() })
-				.where(eq(agents.ownerId, userId));
+		// Revoke (never delete) every delegation link the user's agents give or receive, cascading to
+		// links further down, so downstream grants cannot outlive the authority they came from.
+		let deletedDelegations = 0;
+		const linkIds = new Set<string>();
+		for (const agentId of agentIds) {
+			const links = await db
+				.select({ id: delegationChains.id })
+				.from(delegationChains)
+				.where(
+					or(eq(delegationChains.fromAgentId, agentId), eq(delegationChains.toAgentId, agentId)),
+				);
+			for (const l of links) linkIds.add(l.id);
+			for (const id of await delegation.revokeAllForAgent(agentId)) linkIds.add(id);
 		}
+		deletedDelegations = linkIds.size;
 
 		const sessionRows = await db
 			.select({ id: sessions.id })
@@ -240,26 +294,6 @@ export function createGdprModule(db: Database): GdprModule {
 
 		const deletedSessions = sessionRows.length;
 		await db.delete(sessions).where(eq(sessions.userId, userId));
-
-		let deletedDelegations = 0;
-		if (agentIds.length > 0) {
-			const delegationRows = await db
-				.select({ id: delegationChains.id })
-				.from(delegationChains)
-				.where(
-					or(
-						inArray(delegationChains.fromAgentId, agentIds),
-						inArray(delegationChains.toAgentId, agentIds),
-					),
-				);
-
-			deletedDelegations = delegationRows.length;
-
-			if (delegationRows.length > 0) {
-				const delegationIds = delegationRows.map((d) => d.id);
-				await db.delete(delegationChains).where(inArray(delegationChains.id, delegationIds));
-			}
-		}
 
 		const apiKeyRows = await db
 			.select({ id: apiKeys.id })
@@ -271,17 +305,46 @@ export function createGdprModule(db: Database): GdprModule {
 
 		let anonymizedAuditLogs = 0;
 		const anonymizedIds = new Map<string, string>();
-		for (const agentId of agentIds) anonymizedIds.set(agentId, await anonymizedUserId(agentId));
+		for (const agentId of agentIds)
+			anonymizedIds.set(agentId, await anonymizedUserId(key, agentId));
 
-		if (agentIds.length > 0) {
-			// Keeping logs: userId and agentId become stable anonymous tokens.
-			anonymizedAuditLogs = await eraseAuditIdentity(db, {
-				userId,
-				agentIds,
-				anonUserId: await anonymizedUserId(userId),
-				anonAgentId: (agentId) => anonymizedIds.get(agentId) ?? agentId,
-				keepRows: keepAuditLogs,
-			});
+		const anonUserId = await anonymizedUserId(key, userId);
+		// The agents are deleted below when audit logs go too. The revoked links stay as a record, so
+		// they move to tombstone agents first and the foreign keys hold.
+		if (!keepAuditLogs && linkIds.size > 0) {
+			await ensureTombstoneUser(db, anonUserId);
+			for (const agentId of agentIds) {
+				const anonAgentId = anonymizedIds.get(agentId) ?? agentId;
+				await ensureTombstoneAgent(db, anonAgentId, anonUserId);
+				await db
+					.update(delegationChains)
+					.set({ fromAgentId: anonAgentId })
+					.where(eq(delegationChains.fromAgentId, agentId));
+				await db
+					.update(delegationChains)
+					.set({ toAgentId: anonAgentId })
+					.where(eq(delegationChains.toAgentId, agentId));
+			}
+		}
+		// Keeping logs: userId and agentId become stable anonymous tokens that point at tombstone rows.
+		anonymizedAuditLogs = await eraseAuditIdentity(db, {
+			userId,
+			agentIds,
+			anonUserId,
+			anonAgentId: (agentId) => anonymizedIds.get(agentId) ?? agentId,
+			keepRows: keepAuditLogs,
+		});
+		if (!keepAuditLogs) {
+			// Delete mode removes the user's own rows only. Other people's rows that name the user keep no id.
+			await db.update(auditLogs).set({ subjectId: null }).where(eq(auditLogs.subjectId, userId));
+			await db.update(auditLogs).set({ approverId: null }).where(eq(auditLogs.approverId, userId));
+			await db.update(auditLogs).set({ actorId: null }).where(eq(auditLogs.actorId, userId));
+			if (agentIds.length > 0) {
+				await db
+					.update(auditLogs)
+					.set({ actorId: null })
+					.where(inArray(auditLogs.actorId, agentIds));
+			}
 		}
 
 		// The user row still exists here, so the FK to users.id is satisfied.
@@ -319,16 +382,44 @@ export function createGdprModule(db: Database): GdprModule {
 		// keepAuditLogs=true keeps revoked agent rows so audit log references stay valid.
 		if (!keepAuditLogs && agentIds.length > 0) {
 			await db.delete(agents).where(eq(agents.ownerId, userId));
-			await db.delete(users).where(eq(users.id, userId));
-		} else {
-			// Agents remain, so FK enforcement is suspended while the parent user row is deleted.
-			await db.run(sql`PRAGMA foreign_keys = OFF`);
-			try {
-				await db.delete(users).where(eq(users.id, userId));
-			} finally {
-				await db.run(sql`PRAGMA foreign_keys = ON`);
-			}
+		} else if (agentIds.length > 0) {
+			await moveToTombstone(agents, agents.ownerId, userId, anonUserId, () =>
+				db.update(agents).set({ ownerId: anonUserId }).where(eq(agents.ownerId, userId)),
+			);
 		}
+		// Rows that legitimately outlive the user (orgs kept by default, invitations, agent
+		// registration tokens and ephemeral sessions) move to the tombstone user, so the FK to
+		// users.id holds on every dialect once the real row is gone.
+		await moveToTombstone(organizations, organizations.ownerId, userId, anonUserId, () =>
+			db
+				.update(organizations)
+				.set({ ownerId: anonUserId })
+				.where(eq(organizations.ownerId, userId)),
+		);
+		await moveToTombstone(orgInvitations, orgInvitations.invitedBy, userId, anonUserId, () =>
+			db
+				.update(orgInvitations)
+				.set({ invitedBy: anonUserId })
+				.where(eq(orgInvitations.invitedBy, userId)),
+		);
+		await moveToTombstone(
+			agentRegistrationTokens,
+			agentRegistrationTokens.ownerId,
+			userId,
+			anonUserId,
+			() =>
+				db
+					.update(agentRegistrationTokens)
+					.set({ ownerId: anonUserId })
+					.where(eq(agentRegistrationTokens.ownerId, userId)),
+		);
+		await moveToTombstone(ephemeralSessions, ephemeralSessions.ownerId, userId, anonUserId, () =>
+			db
+				.update(ephemeralSessions)
+				.set({ ownerId: anonUserId })
+				.where(eq(ephemeralSessions.ownerId, userId)),
+		);
+		await db.delete(users).where(eq(users.id, userId));
 
 		return {
 			deletedAgents: agentIds.length,
@@ -340,7 +431,7 @@ export function createGdprModule(db: Database): GdprModule {
 	}
 
 	async function anonymizeUser(userId: string): Promise<void> {
-		const anonEmail = await anonymizedEmail(userId);
+		const anonEmail = await anonymizedEmail(await anonKey(), userId);
 
 		await db
 			.update(users)

@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { TheAuthPlugin } from "../../../core/src/plugin/types.js";
 import { createTheAuth } from "../../../core/src/theauth.js";
 import { theAuthFastify } from "../src/adapter.js";
@@ -42,7 +42,25 @@ async function build() {
 describe("theAuthFastify authentication", () => {
 	it("fails closed when no resolver is configured", async () => {
 		const theauth = await make();
-		expect(() => theAuthFastify(theauth)).toThrow(/require authentication/);
+		// The handler is built once, when the plugin registers under its prefix.
+		const app = Fastify();
+		await expect(app.register(theAuthFastify(theauth), { prefix: "/api/theauth" })).rejects.toThrow(
+			/require authentication/,
+		);
+	});
+
+	it("warns once under allowUnauthenticated", async () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		try {
+			const app = Fastify();
+			await app.register(theAuthFastify(await make(), { allowUnauthenticated: true }), {
+				prefix: "/api/theauth",
+			});
+			await app.ready();
+			expect(warn).toHaveBeenCalledTimes(1);
+		} finally {
+			warn.mockRestore();
+		}
 	});
 
 	it("rejects anonymous callers and accepts the resolver's callers", async () => {

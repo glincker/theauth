@@ -29,7 +29,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createEphemeralSessionModule } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 const ephemeral = createEphemeralSessionModule({
@@ -62,7 +62,7 @@ const { token, expiresAt, auditGroupId } = result.data;
 // Pass `token` to the agent. Never store it or log it.
 ```
 
-The returned `token` is `kveph_` followed by 64 hex characters, to distinguish it from long-lived agent tokens (`kv_`). Only its SHA-256 hash is stored. Creating a session also creates a temporary agent (type `autonomous`) that holds the permissions, so `result.data` includes `agentId` as well. `ttlSeconds` above `maxTtlSeconds` returns a `TTL_EXCEEDS_MAX` error, and `permissions` must contain at least one entry.
+The returned `token` is `kveph_` followed by 64 hex characters, to distinguish it from long-lived agent tokens (`ta_`, or legacy `kv_`). Only its SHA-256 hash is stored. Creating a session also creates a temporary agent (type `autonomous`) that holds the permissions, so `result.data` includes `agentId` as well. `ttlSeconds` above `maxTtlSeconds` returns a `TTL_EXCEEDS_MAX` error, and `permissions` must contain at least one entry.
 
 ## Validating a session
 

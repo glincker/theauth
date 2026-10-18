@@ -3,7 +3,7 @@ import type { ApprovalRequest } from "../src/approval/approval.js";
 import type { TheAuth } from "../src/theauth.js";
 import { createTestTheAuth } from "./helpers.js";
 
-describe("approval – CIBA async approval flows", () => {
+describe("approval: CIBA async approval flows", () => {
 	let theauth: TheAuth;
 	let agentId: string;
 

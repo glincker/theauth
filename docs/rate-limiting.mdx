@@ -60,6 +60,33 @@ When the limit is exceeded, the response is `429` with this body, plus `Retry-Af
 
 Requests under the limit pass through without rate limit headers.
 
+## Adapter admission and unknown client IPs
+
+Every framework adapter runs an admission step before authentication: tiered rate limits (`strict` for `/mcp/token`, `/mcp/register` and authorize, `mutation`, `read`) and a cross-site check for cookie writes. It keys on the client IP.
+
+Hono, Next.js, SvelteKit, Astro, Nuxt, SolidStart and TanStack never see the socket peer, so without `trustedProxy` the IP is unknown. In that case requests fall into three fixed buckets per tier: `anonymous` (no credentials), `cookie` and `authorization`. The bucket never depends on the value of the header, so a random `Cookie` or `Authorization` cannot mint a fresh bucket. The consequence is that **limits are not per client**: all anonymous callers share one budget. The first such request logs a one-time warning through your `logger`.
+
+To get per-client limits, do one of:
+
+- Set `trustedProxy` (`trustedHeader` for an edge that overwrites a header such as `cf-connecting-ip`, or `trustedProxyCount`).
+- Pass `rateLimit.key` with your own function, for example one built on `resolveClientIp`, or on a verified OAuth `client_id`.
+
+## When the counter store fails
+
+Shared counters can fail (Redis down, database timeout). By default every limiter **fails open**: the request is let through, so a store outage never takes sign-in and sign-up down with it. The cost is that an attacker who can break the store can also switch throttling off. Each limiter logs a startup warning through the TheAuth logger (`config.logger`) while it fails open.
+
+Set `failClosed: true` to refuse the request with `503` and `Retry-After: 5` instead:
+
+```ts
+// Framework adapters and createTheAuthHandler
+createTheAuthHandler(theauth, { rateLimit: { failClosed: true } });
+
+// The rateLimit plugin
+rateLimit({ signIn: { window: '15m', max: 10 }, store, failClosed: true, logger });
+```
+
+The in-process limiter used when no shared store is configured cannot fail, so the option only matters with a store. The breached password check has the same switch (`hibp: { failClosed: true }`) and password lockout has `username.lockout.failClosed`; see [Breach checking](/hibp) and [Email and password](/auth/email-password). Run `theauth doctor` to see which limiters are failing open.
+
 ## Per-endpoint limits declared by plugins
 
 Some plugin endpoints carry their own `metadata.rateLimit` (for example the email OTP, magic link, anonymous, device, SIWE, OAuth proxy, and OAuth authorize endpoints). The plugin router enforces these with an in-process counter keyed by IP and endpoint path, and responds `429` with `{ "error": "Rate limit exceeded" }` and no `Retry-After` header. They are fixed in the plugin source, not configurable through `rateLimit()`, and not shared across instances. Note that the router interprets `window` in seconds, so `window: 60` means 60 seconds.

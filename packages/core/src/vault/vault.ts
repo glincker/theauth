@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { insertAuditRow } from "../audit/chain.js";
 import { generateId } from "../crypto/web-crypto.js";
-import { agents, delegationChains, permissions } from "../db/schema.js";
+import { agents, permissions } from "../db/schema.js";
+import { loadLiveInboundRows } from "../delegation/liveness.js";
 import { matchAction, matchResource } from "../policy/abac.js";
 import { createVaultCipher } from "./cipher.js";
 import { refreshTokens } from "./refresh.js";
@@ -110,17 +111,12 @@ export async function createTokenVault(config: TokenVaultConfig): Promise<TokenV
 		) {
 			return true;
 		}
-		const chains = await db
-			.select()
-			.from(delegationChains)
-			.where(and(eq(delegationChains.toAgentId, agentId), eq(delegationChains.status, "active")));
-		return chains
-			.filter((c) => c.expiresAt > at)
-			.some((c) =>
-				c.permissions.some(
-					(p) => matchResource(p.resource, resource) && matchAction(p.actions, VAULT_ACTION),
-				),
-			);
+		const chains = await loadLiveInboundRows(db, agentId, at);
+		return chains.some((c) =>
+			c.permissions.some(
+				(p) => matchResource(p.resource, resource) && matchAction(p.actions, VAULT_ACTION),
+			),
+		);
 	}
 
 	async function consentScopes(
@@ -143,12 +139,9 @@ export async function createTokenVault(config: TokenVaultConfig): Promise<TokenV
 			if (c.revokedAt) continue;
 			if (c.expiresAt && c.expiresAt <= at) continue;
 			if (c.delegationChainId) {
-				const chain = await db
-					.select()
-					.from(delegationChains)
-					.where(eq(delegationChains.id, c.delegationChainId))
-					.limit(1);
-				if (!chain[0] || chain[0].status !== "active" || chain[0].expiresAt <= at) continue;
+				// The consent's chain must still be live: active, unexpired, and lent by a live delegator.
+				const live = await loadLiveInboundRows(db, input.agentId, at);
+				if (!live.some((l) => l.id === c.delegationChainId)) continue;
 			}
 			if (isSubset(input.scopes, c.scopes)) return c.scopes;
 		}

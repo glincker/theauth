@@ -80,7 +80,7 @@ import { consoleOtpSender, createOtpService, otpRoutes } from '@glinr/theauth/au
 const otp = createOtpService({ senders: { email: consoleOtpSender() }, secret: process.env.OTP_SECRET });
 
 const auth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [
     otpRoutes({

@@ -31,11 +31,11 @@ With `agents.auditAll` on (the default), every decision about a known agent writ
 | `reason` | Written when |
 |---|---|
 | `agent_revoked` | `authorize(agentId)` or `authorizeByToken(token)` is called for a revoked agent |
-| `agent_expired` | The same calls for an agent whose status is `expired`, or whose token has passed its expiry |
+| `agent_expired` | The same calls for an agent whose status is `expired`, or whose `expiresAt` has passed, even if its stored status is still `active` |
 
 The `reason` string on the returned result is unchanged (for example `Agent "deploy-bot" is revoked`). The row stores the short code. The row never stores the token. It stores the action, resource, `arguments`, IP and user agent, like any other row, and it goes through the same writer, so with `tamperEvident` on it joins the agent's chain like any other row.
 
-Policy decisions from `theauth.policy.evaluate()` write a row too, with `result: "escalated"` when the outcome is `escalate`. Delegation and approval events write rows as well (`delegation.create`, and the approval request and answer, which carries the `approver_id`).
+Policy decisions from `theauth.policy.evaluate()` write a row too, with `result: "escalated"` when the outcome is `escalate`. Delegation and approval events write rows as well (`delegation.create` and `delegation.revoke`, and the approval request and answer, which carries the `approver_id`). Every row names what happened in its `event` column; see [event vocabulary](/audit#event-vocabulary).
 
 Some denials write no row:
 
@@ -56,6 +56,7 @@ Besides the action, resource, arguments and result, a row can carry:
 
 | Field | Holds |
 |---|---|
+| `event` | What happened (`authorize`, `policy.evaluate`, `delegation.create`, ...). `action` stays the domain verb. Not part of the hash, so adding it never changes an existing chain |
 | `subject_id` | The accountable human: the root owner of the delegation chain, else the agent's owner |
 | `actor_id` | The agent that acted |
 | `policy_version` | The `policy.policyVersion` label active when the decision was made |
@@ -84,7 +85,7 @@ Timestamps are hashed at one-second precision, because that is what the SQLite c
 
 Rows with `hash_version` 2 hash keyed pseudonyms of `user_id`, `agent_id`, `subject_id`, `actor_id` and `approver_id` instead of the raw ids, and store the pseudonyms on the row. The key is `audit.hmacKey` when set, otherwise a random secret stored in `theauth_audit_secrets`. GDPR erasure (`deleteUser`) can then blank or replace the raw ids and the row hash still verifies.
 
-Rows written before this format (`hash_version` null or 1) hash the raw ids, so rewriting them would break the hash. For those rows, and for rows deleted outright, erasure writes an `audit.erasure` record naming each affected row with its stored hash. `verifyAuditChain` reports them in an `erased` count instead of as tampering.
+Rows written before this format (`hash_version` null or 1) hash the raw ids, so rewriting them would break the hash. For those rows, and for rows deleted outright, erasure appends an `audit.erasure` record to the chain naming each affected row with its stored hash, and signs each entry with the audit key. `verifyAuditChain` reports them in an `erased` count instead of as tampering. A record without a valid signature, or one that is not on the chain, is reported as `erasure_forged` or `erasure_unchained` and excuses nothing.
 
 A pseudonym is linkable by whoever holds the key, so this is pseudonymization, not anonymization. Destroying the key is not implemented. The erasure path rewrites rows with SQLite-specific statements.
 
@@ -116,7 +117,7 @@ if (result.success && !result.data.ok) {
 }
 ```
 
-Break reasons: `hash_mismatch` (a row was edited), `seq_gap` (a row was deleted), `prev_hash_mismatch` (rows were reordered or relinked), `missing_hash`, `truncated`, and `pseudonym_mismatch` (a raw id was edited after the row was written). The result also reports `unchained` and `erased` counts. Retention cleanup (`audit.cleanup`) writes an `audit.checkpoint` row recording where the chain was cut, so removing the oldest rows on purpose does not read as a break.
+Break reasons: `hash_mismatch` (a row was edited), `seq_gap` (a row was deleted), `prev_hash_mismatch` (rows were reordered or relinked), `missing_hash`, `truncated`, `pseudonym_mismatch` (a raw id was edited after the row was written), `truncated_prefix` (the oldest rows are gone with no signed anchor), `anchor_mismatch`, `erasure_unchained`, `erasure_forged` and `version_downgrade` (see [audit receipts](/audit-receipts)). The result also reports `unchained` and `erased` counts. Retention cleanup (`audit.cleanup`) writes a signed `audit.checkpoint` row recording where the chain was cut, so removing the oldest rows on purpose does not read as a break. For a chain cut some other way, run `theauth.audit.checkpoint()` once to anchor its current start.
 
 Deleting the newest rows of a chain leaves a shorter chain that still verifies. To catch that, keep a chain head somewhere the database owner cannot edit (an export manifest works) and pass it back:
 

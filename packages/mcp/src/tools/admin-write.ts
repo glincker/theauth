@@ -149,12 +149,17 @@ function defineWriteTool(spec: WriteSpec, actor: string): RegisteredTool {
 							true,
 						);
 					}
-					// Spend the approval first, bound to this action and resource.
+					// Spend the approval first, bound to this action, resource and the reason the approver saw.
 					const spent = await ctx.client.request(
 						"POST",
 						`/approvals/${encodeURIComponent(args.approvalId)}/consume`,
 						{
-							body: { agentId: actor, action: spec.action, resource },
+							body: {
+								agentId: actor,
+								action: spec.action,
+								resource,
+								arguments: { reason: args.reason },
+							},
 						},
 					);
 					if (!spent.ok) {

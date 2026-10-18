@@ -281,7 +281,7 @@ describe("validateOrigin", () => {
 	});
 });
 
-describe("CookieSessionManager — createSession", () => {
+describe("CookieSessionManager: createSession", () => {
 	let db: Database;
 	let mgr: CookieSessionManager;
 
@@ -324,7 +324,7 @@ describe("CookieSessionManager — createSession", () => {
 	});
 });
 
-describe("CookieSessionManager — validateSession", () => {
+describe("CookieSessionManager: validateSession", () => {
 	let db: Database;
 	let mgr: CookieSessionManager;
 
@@ -369,7 +369,7 @@ describe("CookieSessionManager — validateSession", () => {
 	});
 });
 
-describe("CookieSessionManager — auto-refresh", () => {
+describe("CookieSessionManager: auto-refresh", () => {
 	let db: Database;
 	let mgr: CookieSessionManager;
 
@@ -401,7 +401,7 @@ describe("CookieSessionManager — auto-refresh", () => {
 	});
 });
 
-describe("CookieSessionManager — refreshSession", () => {
+describe("CookieSessionManager: refreshSession", () => {
 	let db: Database;
 	let mgr: CookieSessionManager;
 
@@ -436,7 +436,7 @@ describe("CookieSessionManager — refreshSession", () => {
 	});
 });
 
-describe("CookieSessionManager — revokeSession", () => {
+describe("CookieSessionManager: revokeSession", () => {
 	let db: Database;
 	let mgr: CookieSessionManager;
 
@@ -467,7 +467,7 @@ describe("CookieSessionManager — revokeSession", () => {
 	});
 });
 
-describe("CookieSessionManager — revokeAllSessions", () => {
+describe("CookieSessionManager: revokeAllSessions", () => {
 	let db: Database;
 	let mgr: CookieSessionManager;
 
@@ -506,7 +506,7 @@ describe("CookieSessionManager — revokeAllSessions", () => {
 	});
 });
 
-describe("CookieSessionManager — listSessions", () => {
+describe("CookieSessionManager: listSessions", () => {
 	let db: Database;
 	let mgr: CookieSessionManager;
 
@@ -528,7 +528,9 @@ describe("CookieSessionManager — listSessions", () => {
 		expect(result).toHaveLength(2);
 		expect(result.every((s) => s.userId === TEST_USER_ID)).toBe(true);
 		// Verify descending order.
-		expect(result[0]?.createdAt.getTime()).toBeGreaterThanOrEqual(result[1]?.createdAt.getTime());
+		expect(result[0]?.createdAt.getTime()).toBeGreaterThanOrEqual(
+			result[1]?.createdAt.getTime() ?? Number.POSITIVE_INFINITY,
+		);
 	});
 
 	it("excludes revoked sessions", async () => {
@@ -542,7 +544,7 @@ describe("CookieSessionManager — listSessions", () => {
 	});
 });
 
-describe("CookieSessionManager — session expiry", () => {
+describe("CookieSessionManager: session expiry", () => {
 	it("returns null when the session maxAge is zero and time has passed", async () => {
 		const db = await createTestDb();
 		// 1-second session.
@@ -565,7 +567,7 @@ describe("CookieSessionManager — session expiry", () => {
 	});
 });
 
-describe("CookieSessionManager — buildLogoutCookie", () => {
+describe("CookieSessionManager: buildLogoutCookie", () => {
 	it("returns a deletion cookie header without touching the database", async () => {
 		const db = await createTestDb();
 		const mgr = createCookieSessionManager({ secret: TEST_SECRET }, db);
@@ -575,7 +577,7 @@ describe("CookieSessionManager — buildLogoutCookie", () => {
 	});
 });
 
-describe("CookieSessionManager — raw manager access", () => {
+describe("CookieSessionManager: raw manager access", () => {
 	it("exposes the underlying SessionManager via .raw", async () => {
 		const db = await createTestDb();
 		const mgr = createCookieSessionManager({ secret: TEST_SECRET }, db);

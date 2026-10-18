@@ -1,4 +1,4 @@
-import { buildSetCookie } from "../plugin/helpers.js";
+import { buildSessionSetCookie, parseRememberMe } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { PasskeyConfig } from "./passkey.js";
 import { createPasskeyModule } from "./passkey.js";
@@ -45,7 +45,8 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 					}
 
 					const body = await parseBody(request);
-					const userId = typeof body.userId === "string" ? body.userId : user.id;
+					// Always the signed-in user: a body `userId` would bind a passkey to someone else.
+					const userId = user.id;
 					const userName =
 						typeof body.userName === "string" ? body.userName : (user.email ?? user.id);
 
@@ -78,7 +79,7 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 					}
 
 					const body = await parseBody(request);
-					const userId = typeof body.userId === "string" ? body.userId : user.id;
+					const userId = user.id;
 					const response = body.response as
 						| Parameters<typeof module.verifyRegistration>[1]
 						| undefined;
@@ -160,8 +161,12 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 									return signInGateResponse(new SignInGateError(decision));
 								}
 							}
-							const { session, token } = await ctx.sessionManager.create(result.userId);
-							const maxAge = Math.floor((session.expiresAt.getTime() - Date.now()) / 1000);
+							const rememberMe = parseRememberMe(body.rememberMe);
+							const { session, token } = await ctx.sessionManager.create(
+								result.userId,
+								undefined,
+								rememberMe === undefined ? undefined : { rememberMe },
+							);
 
 							return new Response(
 								JSON.stringify({
@@ -173,11 +178,10 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 									status: 200,
 									headers: {
 										"Content-Type": "application/json",
-										"Set-Cookie": buildSetCookie(
+										"Set-Cookie": buildSessionSetCookie(
 											"theauth_session",
 											token,
-											maxAge,
-											"/",
+											session,
 											(ctx.config.baseUrl ?? "").startsWith("https://"),
 										),
 									},

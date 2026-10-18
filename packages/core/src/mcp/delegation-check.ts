@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { delegationChains } from "../db/schema.js";
+import { createDelegatorLiveness } from "../delegation/liveness.js";
 import type {
 	McpActorAgentResolver,
 	McpActorRef,
@@ -80,7 +81,7 @@ function failure(
 }
 
 /**
- * Delegation store backed by the `delegation_chains` table, where the chain source and target ids are the `act` subjects (agent ids). When several rows link the same pair, a live one wins so a newer grant is not masked by an old revoked row.
+ * Delegation store backed by the `delegation_chains` table, where the chain source and target ids are the `act` subjects (agent ids). When several rows link the same pair, a live one wins so a newer grant is not masked by an old revoked row. A live link whose delegator agent is revoked, expired or no longer backed by a live ancestor reports as revoked or expired.
  */
 export function createDbDelegationStore(db: Database): McpDelegationStore {
 	return {
@@ -92,7 +93,13 @@ export function createDbDelegationStore(db: Database): McpDelegationStore {
 			const now = new Date();
 			const live = rows.find((r) => r.status === "active" && r.expiresAt > now);
 			const row = live ?? rows[0];
-			return row ? { status: row.status, expiresAt: row.expiresAt } : null;
+			if (!row) return null;
+			// A live link from a delegator that is itself revoked or expired lends nothing.
+			if (live) {
+				const state = await createDelegatorLiveness(db, now).delegatorState(from);
+				if (state !== "live") return { status: state, expiresAt: row.expiresAt };
+			}
+			return { status: row.status, expiresAt: row.expiresAt };
 		},
 	};
 }

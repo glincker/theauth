@@ -1,17 +1,10 @@
-import type { AdapterSecurityOptions, TheAuth } from "@glinr/theauth";
-import { createAdapterGuard } from "@glinr/theauth";
-import type { McpAuthModule } from "@glinr/theauth/mcp";
+import type { TheAuth } from "@glinr/theauth";
+import type { TheAuthHandlerOptions } from "@glinr/theauth/http";
+import { createTheAuthHandler } from "@glinr/theauth/http";
 import type { RequestHandler } from "@sveltejs/kit";
-import { dispatch } from "./dispatch.js";
 
-export interface TheAuthSvelteKitOptions extends AdapterSecurityOptions {
-	mcp?: McpAuthModule;
-	/** URL path prefix before the catch-all segment. Defaults to `/api/theauth`. */
-	basePath?: string;
-}
-
-/** @deprecated Use `TheAuthSvelteKitOptions` instead. Will be removed in a future major version. */
-export type AuthSvelteKitOptions = TheAuthSvelteKitOptions;
+/** Same options as the core handler: `mcp`, `basePath`, `routes`, `maxBodyBytes` plus the shared security options. */
+export type TheAuthSvelteKitOptions = TheAuthHandlerOptions;
 
 export interface TheAuthSvelteKitHandlers {
 	GET: RequestHandler;
@@ -21,56 +14,21 @@ export interface TheAuthSvelteKitHandlers {
 	OPTIONS: RequestHandler;
 }
 
-/** @deprecated Use `TheAuthSvelteKitHandlers` instead. Will be removed in a future major version. */
-export type AuthSvelteKitHandlers = TheAuthSvelteKitHandlers;
-
 /**
  * Create SvelteKit route handlers for all TheAuth REST API routes.
- *
  * Mount in `src/routes/api/theauth/[...path]/+server.ts`:
  *
  * @example
  * ```typescript
- * import { createTheAuth } from '@glinr/theauth';
- * import { theAuthSvelteKit } from '@glinr/theauth-sveltekit';
- *
- * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
- * const handlers = theAuthSvelteKit(auth);
- *
- * export const GET = handlers.GET;
- * export const POST = handlers.POST;
- * export const PATCH = handlers.PATCH;
- * export const DELETE = handlers.DELETE;
- * export const OPTIONS = handlers.OPTIONS;
- * ```
- *
- * With MCP OAuth 2.1:
- * ```typescript
- * import { createMcpModule } from '@glinr/theauth/mcp';
- * const mcp = createMcpModule({ ... });
- * const handlers = theAuthSvelteKit(auth, { mcp });
+ * export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthSvelteKit(auth, { mcp });
  * ```
  */
 export function theAuthSvelteKit(
 	auth: TheAuth,
 	options?: TheAuthSvelteKitOptions,
 ): TheAuthSvelteKitHandlers {
-	const mcp = options?.mcp;
-	const basePath = options?.basePath ?? "/api/theauth";
-	// Fails closed at construction when nothing can authenticate callers.
-	const guard = createAdapterGuard(auth, options, "theAuthSvelteKit");
-
-	// The SvelteKit event already hands over a Web API Request, so it goes straight to dispatch.
-	const handler: RequestHandler = ({ request }) => dispatch(request, auth, mcp, basePath, guard);
-
-	return {
-		GET: handler,
-		POST: handler,
-		PATCH: handler,
-		DELETE: handler,
-		OPTIONS: handler,
-	};
+	const handle = createTheAuthHandler(auth, options);
+	// The SvelteKit event already hands over a Web API Request.
+	const handler: RequestHandler = ({ request }) => handle(request);
+	return { GET: handler, POST: handler, PATCH: handler, DELETE: handler, OPTIONS: handler };
 }
-
-/** @deprecated Use `theAuthSvelteKit` instead. Will be removed in a future major version. */
-export const authSvelteKit = theAuthSvelteKit;

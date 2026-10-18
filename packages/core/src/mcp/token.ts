@@ -1,13 +1,15 @@
+import { bindingStoreOf, resolveAgentBinding } from "./binding.js";
 import { verifyClientAssertion } from "./client-assertion.js";
 import { readDpopHeader, verifyDpopProof } from "./dpop.js";
 import { handleClientCredentialsGrant } from "./grant-client-credentials.js";
 import type { GrantClientAuth } from "./grant-common.js";
 import { resolveAuthenticatedClient } from "./grant-common.js";
 import { handleJwtBearerGrant } from "./grant-jwt-bearer.js";
+import { checkGrantLive } from "./grant-liveness.js";
 import { handleRefreshTokenGrant } from "./grant-refresh-token.js";
 import { handleTokenExchangeGrant } from "./grant-token-exchange.js";
 import { resolveResource } from "./lenient.js";
-import { issueAccessTokenJwt, issueRefreshToken } from "./token-issue.js";
+import { issueAccessTokenJwt, issueRefreshToken, MCP_BINDING_REFUSED } from "./token-issue.js";
 import type {
 	McpAccessToken,
 	McpAuthContext,
@@ -153,17 +155,35 @@ export async function handleTokenExchange(
 
 	const auth: GrantClientAuth = { clientSecret: credentials.clientSecret, assertionVerified };
 
+	try {
+		return await dispatchGrant(ctx, data, auth, dpop.data);
+	} catch (error) {
+		// A token whose agent authority is gone (revoked, expired) or whose lifetime would be under
+		// one second is a refused grant (400), never a 500.
+		if (error instanceof Error && error.name === MCP_BINDING_REFUSED) {
+			return { success: false, error: { code: "INVALID_GRANT", message: error.message } };
+		}
+		throw error;
+	}
+}
+
+async function dispatchGrant(
+	ctx: McpAuthContext,
+	data: McpTokenRequestParsed,
+	auth: GrantClientAuth,
+	dpopJkt: string | null,
+): Promise<Result<McpTokenResponse>> {
 	switch (data.grant_type) {
 		case "authorization_code":
-			return handleAuthorizationCodeGrant(ctx, data, auth, dpop.data);
+			return handleAuthorizationCodeGrant(ctx, data, auth, dpopJkt);
 		case "refresh_token":
-			return handleRefreshTokenGrant(ctx, data, auth, dpop.data);
+			return handleRefreshTokenGrant(ctx, data, auth, dpopJkt);
 		case "client_credentials":
-			return handleClientCredentialsGrant(ctx, data, auth, dpop.data);
+			return handleClientCredentialsGrant(ctx, data, auth, dpopJkt);
 		case "urn:ietf:params:oauth:grant-type:token-exchange":
-			return handleTokenExchangeGrant(ctx, data, auth, dpop.data);
+			return handleTokenExchangeGrant(ctx, data, auth, dpopJkt);
 		case "urn:ietf:params:oauth:grant-type:jwt-bearer":
-			return handleJwtBearerGrant(ctx, data, auth, dpop.data);
+			return handleJwtBearerGrant(ctx, data, auth, dpopJkt);
 	}
 }
 
@@ -177,6 +197,22 @@ async function handleAuthorizationCodeGrant(
 	// Look up and authenticate the client
 	const resolved = await resolveAuthenticatedClient(ctx, data.client_id, auth);
 	if (!resolved.success) return resolved;
+
+	// Ordering (F1): a client bound to a dead agent can never be issued a token, so refuse BEFORE the
+	// single use code is consumed. The code stays untouched (it expires on its own, and every
+	// redemption is refused the same way). An agent that only resolves from the code's user
+	// (`getAgenticContext`) is checked inside the issuer, after consumption: that refusal is
+	// permanent too (revoked or expired agents do not come back), so a consumed code costs nothing.
+	const boundStore = bindingStoreOf(ctx);
+	if (boundStore && resolved.data.agentId) {
+		const preflight = await resolveAgentBinding(boundStore, resolved.data.agentId, new Date());
+		if (!preflight.success) {
+			return {
+				success: false,
+				error: { code: "INVALID_GRANT", message: preflight.error.message },
+			};
+		}
+	}
 
 	// Consume the authorization code (one-time use)
 	const authCode = await ctx.consumeAuthorizationCode(data.code);
@@ -242,7 +278,23 @@ async function handleAuthorizationCodeGrant(
 
 	const resource = authCode.resource;
 
-	const { jwt, jti, expiresAt } = await issueAccessTokenJwt(
+	// A code issued before a sign out everywhere, ban or client block must not mint after it.
+	const live = await checkGrantLive(ctx, {
+		jti: authCode.code,
+		sub: authCode.userId,
+		clientId: data.client_id,
+		grantedAt: authCode.createdAt,
+		agentId: resolved.data.agentId ?? undefined,
+	});
+	if (!live.success) return live;
+	if (live.data.revoked) {
+		return {
+			success: false,
+			error: { code: "INVALID_GRANT", message: "The grant has been revoked" },
+		};
+	}
+
+	const { jwt, jti, expiresAt, ttlSeconds } = await issueAccessTokenJwt(
 		ctx,
 		authCode.userId,
 		data.client_id,
@@ -267,7 +319,7 @@ async function handleAuthorizationCodeGrant(
 		...(familyId ? { familyId } : {}),
 		tokenType: dpopJkt ? "DPoP" : "Bearer",
 		...(dpopJkt ? { dpopJkt } : {}),
-		expiresIn: ctx.config.accessTokenTtl,
+		expiresIn: ttlSeconds,
 		scope: authCode.scope,
 		clientId: data.client_id,
 		userId: authCode.userId,
@@ -281,7 +333,7 @@ async function handleAuthorizationCodeGrant(
 	const response: McpTokenResponse = {
 		access_token: jwt,
 		token_type: dpopJkt ? "DPoP" : "Bearer",
-		expires_in: ctx.config.accessTokenTtl,
+		expires_in: ttlSeconds,
 		scope: authCode.scope.join(" "),
 		...(refreshToken ? { refresh_token: refreshToken } : {}),
 	};

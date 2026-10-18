@@ -68,11 +68,11 @@ class TestContextManager:
 
     @pytest.mark.asyncio
     async def test_async_context_manager(self) -> None:
-        async with TheAuthClient(base_url=BASE_URL, token="kv_test") as client:
+        async with TheAuthClient(base_url=BASE_URL, token="ta_test") as client:
             assert client._transport is not None
 
     def test_sync_context_manager(self) -> None:
-        with TheAuthSyncClient(base_url=BASE_URL, token="kv_test") as client:
+        with TheAuthSyncClient(base_url=BASE_URL, token="ta_test") as client:
             assert client._transport is not None
 
 

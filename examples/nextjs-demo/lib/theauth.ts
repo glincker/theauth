@@ -17,7 +17,7 @@ export function getTheAuth(): Promise<TheAuthInstance> {
 
   if (!theAuthPromise) {
     theAuthPromise = createTheAuth({
-      database: { provider: 'sqlite', url: './theauth-demo.db' },
+      database: { provider: 'sqlite-native', url: './theauth-demo.db' },
       agents: {
         enabled: true,
         maxPerUser: 10,

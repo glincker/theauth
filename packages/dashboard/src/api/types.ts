@@ -54,9 +54,15 @@ export interface AuditLogEntry {
 	result: AuditResult;
 	durationMs: number;
 	metadata: Record<string, unknown>;
+	/** Machine-readable decision code (`no_permission`, `hook_timeout`, ...). Absent on rows written before codes existed. */
+	code?: string;
+	/** Audit event name, for example `authorize` or `policy.evaluate`. */
+	event?: string;
 }
 
 export interface AuditLogFilters {
+	/** Decision codes to keep. Sent as `codes` and applied again on the loaded page. */
+	codes?: string[];
 	agentId?: string;
 	action?: string;
 	result?: AuditResult;
@@ -198,4 +204,58 @@ export interface ApprovalDecision {
 	id: string;
 	status: "approved" | "denied";
 	respondedAt: string;
+}
+
+// Explain Types (POST /explain, the subset the drawer renders)
+
+export interface ExplainRequest {
+	agentId: string;
+	action: string;
+	resource: string;
+	/** Evaluate time windows at this instant, usually the audit row's timestamp. */
+	at?: string;
+}
+
+export interface ExplainGrant {
+	source: "own" | "delegation";
+	permission: { resource: string; actions: string[] };
+	resourceMatch: string;
+	actionMatch: string;
+}
+
+export interface ExplainConstraintStep {
+	constraint: string;
+	outcome: "pass" | "fail" | "approval";
+	detail: string;
+}
+
+export interface ExplainNearMiss {
+	source: "own" | "delegation";
+	grant: { resource: string; actions: string[] };
+	hint: string;
+}
+
+export interface ExplainResponse {
+	decision: "allow" | "deny" | "escalate";
+	allowed: boolean;
+	code: string;
+	reason: string;
+	agent: { id: string; name: string; ownerId: string; status: string } | null;
+	matchedGrant?: ExplainGrant;
+	constraints: ExplainConstraintStep[];
+	attempts: Array<{
+		source: "own" | "delegation";
+		rulesChecked: number;
+		outcome: string;
+		code: string;
+	}>;
+	hook: {
+		configured: boolean;
+		evaluated: boolean;
+		outcome?: string;
+		reason?: string;
+		guard?: string;
+		elapsedMs?: number;
+	};
+	nearMisses: ExplainNearMiss[];
 }

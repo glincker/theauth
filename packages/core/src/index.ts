@@ -26,6 +26,20 @@ export * from "./crypto/web-crypto.js";
 // (DatabaseConfig is already exported below from types.ts, skip it here.)
 export type { D1DatabaseBinding, Database } from "./db/database.js";
 export { createDatabase, createDatabaseSync } from "./db/database.js";
+export type {
+	Dialect as SchemaDialect,
+	Migration as SchemaMigration,
+	MigrationRunResult as SchemaMigrationRunResult,
+	MigrationStatus as SchemaMigrationStatus,
+} from "./db/migrate/index.js";
+export {
+	getSchemaStatus,
+	MIGRATIONS as SCHEMA_MIGRATIONS,
+	migrationSql,
+	runMigrations as runSchemaMigrations,
+	SchemaChecksumError,
+	SchemaOutdatedError,
+} from "./db/migrate/index.js";
 export { createTables } from "./db/migrations.js";
 // Schema tables (export all except apiKeys which conflicts with the auth plugin name)
 export {
@@ -67,8 +81,16 @@ export type {
 	EmailTemplates,
 } from "./email/index.js";
 export { createEmailTemplates } from "./email/index.js";
+export * from "./explain/index.js";
 export * from "./hooks/index.js";
 export * from "./i18n/index.js";
+export type {
+	DecisionEvent,
+	DecisionHookOutcome,
+	ObservabilityConfig,
+	ObservabilityStats,
+	TheAuthLogger,
+} from "./observability/types.js";
 export { generateOpenAPISpec } from "./openapi.js";
 export * from "./permission/index.js";
 export * from "./plugin/index.js";
@@ -129,6 +151,7 @@ export type {
 	TokenValidationResult,
 	UpdateAgentInput,
 } from "./types.js";
+export * from "./user/index.js";
 export * from "./vault/index.js";
 export * from "./vc/index.js";
 export type {

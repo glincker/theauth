@@ -186,7 +186,7 @@ The `Kavach*` removal also renamed things that are not exports. Check each one b
 | Webhook headers | `X-Kavach-*` | `X-TheAuth-Delivery-Id`, `X-TheAuth-Event`, `X-TheAuth-Signature`, `X-TheAuth-Timestamp`. Update any receiver that reads or verifies them. |
 | Cookie names and the default API route | `kavach` | `theauth`, per the release notes. If your own code reads a cookie by name or hard-codes the route, update it. |
 
-Agent tokens still start with `kv_`. That prefix did not change.
+Agent tokens: the `kv_` prefix is no longer produced. New tokens start with `ta_`. Previously issued `kv_` tokens are still accepted and keep validating (lookups are by SHA-256 hash, so no stored data was rewritten). `agent.rotate` replaces a `kv_` token with a `ta_` one. See "Token format" in `docs/agents.mdx`.
 
 ## Migration guide
 

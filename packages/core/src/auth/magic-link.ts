@@ -25,6 +25,7 @@ import { and, eq, gt } from "drizzle-orm";
 import { generateId, randomBytesHex } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { magicLinks, users } from "../db/schema.js";
+import { parseRememberMe } from "../plugin/helpers.js";
 import type { SessionManager } from "../session/session.js";
 import { normalizeEmail } from "./normalize-email.js";
 import type { SignInGate } from "./sign-in-gate.js";
@@ -49,10 +50,10 @@ export interface MagicLinkModule {
 	 */
 	verify: (
 		token: string,
-		context?: { request?: Request },
+		context?: { request?: Request; rememberMe?: boolean },
 	) => Promise<{
 		user: { id: string; email: string };
-		session: { token: string; expiresAt: Date };
+		session: { token: string; expiresAt: Date; rememberMe?: boolean };
 	} | null>;
 	/**
 	 * Handle an incoming HTTP request.
@@ -124,10 +125,10 @@ export function createMagicLinkModule(
 
 	async function verify(
 		token: string,
-		context?: { request?: Request },
+		context?: { request?: Request; rememberMe?: boolean },
 	): Promise<{
 		user: { id: string; email: string };
-		session: { token: string; expiresAt: Date };
+		session: { token: string; expiresAt: Date; rememberMe?: boolean };
 	} | null> {
 		const now = new Date();
 
@@ -152,11 +153,19 @@ export function createMagicLinkModule(
 		});
 		if (decision.action !== "allow") throw new SignInGateError(decision);
 
-		const { token: sessionToken, session } = await sessionManager.create(user.id);
+		const { token: sessionToken, session } = await sessionManager.create(
+			user.id,
+			undefined,
+			context?.rememberMe === undefined ? undefined : { rememberMe: context.rememberMe },
+		);
 
 		return {
 			user,
-			session: { token: sessionToken, expiresAt: session.expiresAt },
+			session: {
+				token: sessionToken,
+				expiresAt: session.expiresAt,
+				...(session.rememberMe !== undefined && { rememberMe: session.rememberMe }),
+			},
 		};
 	}
 
@@ -205,7 +214,8 @@ export function createMagicLinkModule(
 
 			let result: Awaited<ReturnType<typeof verify>>;
 			try {
-				result = await verify(token, { request });
+				const rememberMe = parseRememberMe(url.searchParams.get("rememberMe"));
+				result = await verify(token, { request, ...(rememberMe !== undefined && { rememberMe }) });
 			} catch (err) {
 				if (err instanceof SignInGateError) return signInGateResponse(err);
 				throw err;

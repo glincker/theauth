@@ -1,7 +1,10 @@
 import { SignJWT } from "jose";
 import { generateId } from "../crypto/web-crypto.js";
 import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
+import { bindingStoreOf, earliest, resolveAgentBinding } from "./binding.js";
 import { getAsymmetricSigner } from "./keys.js";
+import type { McpDelegationBinding } from "./revocation-types.js";
+import { MCP_DELEGATION_CLAIM, MCP_PARENT_JTI_CLAIM } from "./revocation-types.js";
 import type { McpAccessToken, McpActorClaim, McpAuthContext, McpTokenResponse } from "./types.js";
 import { generateSecureToken, hashToken } from "./utils.js";
 
@@ -31,6 +34,30 @@ export interface IssueAccessTokenOptions {
 	act?: McpActorClaim;
 	/** Explicit agent claims. When omitted, `getAgenticContext` is consulted as before. */
 	agent?: McpAgentClaims;
+	/**
+	 * Delegation binding to sign as `theauth_dlg`, already resolved and checked live by the caller
+	 * (token exchange). `null` means the caller resolved the token as unbound: no binding is added.
+	 * Undefined lets the issuer bind the token to its resolved `agent_id` when a binding store is attached.
+	 */
+	binding?: McpDelegationBinding | null;
+	/** Hard upper bound on `exp` (parent token, links, agents). The issued `exp` is never later. */
+	expiresNotAfter?: Date;
+	/**
+	 * Fill a missing `agent_id` from the client's bound agent. Default true. Token exchange passes
+	 * false: its agent is the acting agent of the binding, never the presenting client's by default.
+	 */
+	inheritClientAgent?: boolean;
+	/** Ancestor jtis (subject token lineage, root first), signed as `theauth_pjti`. Token exchange only. */
+	parentJtis?: string[];
+}
+
+/** Thrown when a token cannot be minted because its agent authority is gone or its lifetime would be under one second. */
+export const MCP_BINDING_REFUSED = "McpBindingRefused";
+
+function bindingRefused(message: string): Error {
+	const error = new Error(message);
+	error.name = MCP_BINDING_REFUSED;
+	return error;
 }
 
 /** Issue a signed JWT access token. */
@@ -49,14 +76,6 @@ export async function issueAccessTokenJwt(
 		throw new Error("MCP signingSecret or signing key is required to issue tokens");
 	}
 	const jti = generateId();
-	const now = Math.floor(Date.now() / 1000);
-	const ttlSeconds =
-		options.ttlSeconds !== undefined
-			? Math.max(1, Math.floor(options.ttlSeconds))
-			: ctx.config.accessTokenTtl;
-	const exp = now + ttlSeconds;
-	const expiresAt = new Date(exp * 1000);
-
 	// Audience: either the specific resource (RFC 8707) or the issuer
 	const audience = resource ?? ctx.config.issuer;
 
@@ -69,6 +88,12 @@ export async function issueAccessTokenJwt(
 	) {
 		Object.assign(agentic, await ctx.config.getAgenticContext(userId));
 	}
+	// A client bound to an agent carries that agent without any integrator code. Explicit claims and
+	// `getAgenticContext` win; the binding fills the gap.
+	if (agentic.agentId === undefined && options.inheritClientAgent !== false) {
+		const bound = (await ctx.findClient(clientId))?.agentId;
+		if (bound) agentic.agentId = bound;
+	}
 	const agenticClaims: Record<string, unknown> = {};
 	if (agentic.agentId !== undefined) agenticClaims[AGENTIC_JWT_CLAIMS.AGENT_ID] = agentic.agentId;
 	if (agentic.agentType !== undefined) {
@@ -78,6 +103,35 @@ export async function issueAccessTokenJwt(
 		agenticClaims[AGENTIC_JWT_CLAIMS.TRUST_TIER] = agentic.trustTier;
 	}
 
+	// Delegation binding: explicit from the caller, or `agt: [agent_id]` when the agent is a row in the
+	// attached binding store. A dead agent refuses the mint; its expiry caps `exp`.
+	let binding = options.binding ?? undefined;
+	let bindingCap: Date | null = null;
+	const store = bindingStoreOf(ctx);
+	if (options.binding === undefined && agentic.agentId !== undefined && store) {
+		const resolved = await resolveAgentBinding(store, agentic.agentId, new Date());
+		if (!resolved.success) throw bindingRefused(resolved.error.message);
+		binding = resolved.data.binding;
+		bindingCap = resolved.data.capAt;
+	}
+	// A bound token names its agent inside the binding, so revoking that agent always reaches it.
+	if (binding && agentic.agentId !== undefined && !binding.agt.includes(agentic.agentId)) {
+		throw bindingRefused(`Agent ${agentic.agentId} is not covered by the delegation binding`);
+	}
+
+	const now = Math.floor(Date.now() / 1000);
+	const requested =
+		options.ttlSeconds !== undefined
+			? Math.max(1, Math.floor(options.ttlSeconds))
+			: ctx.config.accessTokenTtl;
+	let exp = now + requested;
+	const cap = earliest(options.expiresNotAfter, bindingCap);
+	// Round the cap down to whole seconds so `exp` never lands after it.
+	if (cap) exp = Math.min(exp, Math.floor(cap.getTime() / 1000));
+	const ttlSeconds = exp - now;
+	if (ttlSeconds < 1) throw bindingRefused("Token lifetime would be under one second");
+	const expiresAt = new Date(exp * 1000);
+
 	const builder = new SignJWT({
 		sub: userId,
 		client_id: clientId,
@@ -85,6 +139,8 @@ export async function issueAccessTokenJwt(
 		jti,
 		...(dpopJkt ? { cnf: { jkt: dpopJkt } } : {}),
 		...(options.act ? { act: options.act } : {}),
+		...(binding ? { [MCP_DELEGATION_CLAIM]: binding } : {}),
+		...(options.parentJtis?.length ? { [MCP_PARENT_JTI_CLAIM]: options.parentJtis } : {}),
 		...agenticClaims,
 	})
 		.setProtectedHeader(

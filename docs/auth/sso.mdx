@@ -14,15 +14,16 @@ Configure your identity providers when creating the theAuth instance. `theauth.s
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   sso: { // [!code highlight]
     saml: [ // [!code highlight]
       {
         id: 'okta', // [!code highlight]
         name: 'Okta', // [!code highlight]
         entryPoint: 'https://your-org.okta.com/app/appId/sso/saml', // [!code highlight]
-        issuer: 'https://your-app.com', // [!code highlight]
-        cert: process.env.OKTA_SAML_CERT!, // [!code highlight]
+        issuer: 'https://your-app.com', // your SP entity id // [!code highlight]
+        idpEntityId: 'http://www.okta.com/exk123abc', // the IdP Issuer, from its metadata // [!code highlight]
+        cert: process.env.OKTA_SAML_CERT!, // X.509 certificate PEM, bare base64, or public key PEM // [!code highlight]
         callbackUrl: 'https://your-app.com/api/theauth/auth/sso/saml/conn_id/acs', // [!code highlight]
       },
     ],
@@ -35,7 +36,7 @@ const theauth = await createTheAuth({
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   sso: { // [!code highlight]
     oidc: [ // [!code highlight]
       {
@@ -90,21 +91,71 @@ The `user.id` is derived deterministically, so the same IdP user always maps to 
 ## SAML flow
 
 ```ts
-// 1. Redirect the user to the IdP
+// 1. Redirect the user to the IdP. RelayState carries a single-use token
+//    bound to the AuthnRequest id; '/dashboard' stays on the server.
 const authUrl = await theauth.sso!.getSamlAuthUrl(connection.id, '/dashboard');
 // redirect to authUrl
 
-// 2. Handle the ACS callback (POST from IdP)
-const { user, orgId } = await theauth.sso!.handleSamlResponse(
+// 2. Handle the ACS callback (POST from IdP). Pass the posted RelayState so
+//    InResponseTo is checked against the stored request id.
+const { user, orgId, relayState, sessionIndex } = await theauth.sso!.handleSamlResponse(
   connection.id,
-  samlResponseFromFormData,
+  form.get('SAMLResponse'),
+  { relayState: form.get('RelayState') },
 );
-// user.id, user.email, user.name
+// relayState === '/dashboard'
 ```
 
-<Note>
-  SAML responses are verified against the IdP certificate. Unsigned responses are rejected unless you set `wantAuthnResponseSigned: false` on the provider. Encrypted assertions are not supported, so configure your IdP to send unencrypted assertions. Pass `expectedRequestId` as a third argument to `handleSamlResponse` to bind the response to a request you started.
-</Note>
+The built-in ACS route (`POST /auth/sso/saml/:connectionId/acs`) reads `RelayState` and does this for you. If you track AuthnRequest ids yourself, pass `{ expectedRequestId }` instead (a plain string as the third argument still works).
+
+Pending request ids and the assertion replay cache live in `secondaryStorage` (feature `nonces`). The default is process memory, which only works on a single instance. Behind a load balancer, configure a shared store such as Redis, Cloudflare KV or `'database'`.
+
+## SAML security
+
+### Provider options
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `idpEntityId` | required | IdP entity id. The Assertion Issuer, and the Response Issuer when present, must equal it. Logins fail with `SAML_CONFIG_ERROR` until it is set. |
+| `cert` | required | IdP signing credential: X.509 certificate PEM, bare base64 DER (as in metadata), or `PUBLIC KEY` PEM. RSA only, at least 2048 bits. `KeyInfo` in responses is never used. |
+| `issuer` / `entityId` | | Your SP entity id. `entityId` wins when set. Checked against `Audience`. |
+| `callbackUrl` | required | Your ACS URL. Checked against `Destination` and `SubjectConfirmationData Recipient`. |
+| `clockSkewSeconds` | `120` | Tolerance for `NotBefore` and `NotOnOrAfter`. Must be between 0 and 300. |
+| `allowLegacySha1` | `false` | Accept RSA-SHA1 signatures and SHA-1 digests. Only for IdPs that cannot sign with SHA-256. |
+| `allowIdpInitiated` | `false` | Accept unsolicited responses with no `InResponseTo`. These cannot be bound to a browser session, so leave this off unless you need IdP-initiated login. |
+| `xmlLimits` | see below | Parser limits: `maxBytes` (262144), `maxDepth` (32), `maxAttributes` (32), `maxElements` (4096). |
+
+`wantAuthnResponseSigned` is deprecated. Setting it to `false` is a config error: signature verification cannot be turned off.
+
+The `sso` config also takes `storage` (a `SecondaryStorage`, overrides the `nonces` store) and `samlRequestTtlSeconds` (default 600).
+
+### What is verified
+
+1. The response is base64 UTF-8 XML within the size, depth, attribute and element limits. DOCTYPE, ENTITY declarations, unknown entity references, duplicate attributes and unbound prefixes are rejected.
+2. The root is a `samlp:Response` with exactly one top-level `Assertion`. Encrypted assertions are rejected.
+3. Signatures may sit only directly on the Response or on that Assertion, at most one each, and at least one must be present. Every signature present must verify.
+4. Each signature has exactly one `Reference` to a same-document `#id` that resolves to exactly the element holding the signature. Any id value used twice anywhere in the document is rejected.
+5. Transforms are exactly enveloped-signature followed by exclusive c14n (with or without comments, with an optional `InclusiveNamespaces` list). Canonicalization is exclusive c14n 1.0, computed on the parsed tree; the signature is removed structurally. The digest is compared in constant time.
+6. Algorithms are allowlisted: RSA-SHA256 and SHA-256, plus RSA-SHA1 and SHA-1 only with `allowLegacySha1`. Anything else is rejected.
+7. Every claim (Issuer, NameID, attributes, Conditions, SubjectConfirmation, SessionIndex) is read by fixed child paths from the verified Assertion. Comments or child elements inside `NameID`, `Issuer`, `Audience` or `AttributeValue` are rejected.
+8. `Status` is Success. `Destination` matches `callbackUrl` (required when the Response is signed). Issuers match `idpEntityId`.
+9. `Conditions` `NotBefore` and `NotOnOrAfter` hold within the skew, and every `AudienceRestriction` names your entity id.
+10. A bearer `SubjectConfirmationData` has the right `Recipient`, an unexpired `NotOnOrAfter` and an `InResponseTo` equal to the stored AuthnRequest id.
+11. The assertion id has not been seen before. It stays in the replay cache until the assertion could no longer be accepted.
+
+### Threat model
+
+The verifier assumes an attacker can post any XML to the ACS endpoint and can hold real signed responses for other users or other service providers of the same IdP. It is built to stop signature wrapping (claims from an unsigned element), references that do not resolve, comment truncation of `NameID`, algorithm downgrade, replay of a captured response, responses meant for another SP, and unsolicited or cross-session responses. It trusts the configured `cert` and nothing in the message itself.
+
+### Not supported
+
+- Encrypted assertions (`EncryptedAssertion`, `EncryptedID`).
+- Detached signatures, signatures over the whole document (`URI=""`), XPath or XSLT transforms, inclusive c14n, and `Object` elements.
+- Signed AuthnRequests, the HTTP-Artifact binding and single logout.
+- Certificate chain or expiry validation. Rotate keys by updating `cert`.
+- More than one Assertion per Response.
+
+The SAML verifier is our own code, written for Workers compatibility (Web Crypto only, no Node APIs). It is tested against xmllint and xml-crypto output, but it has not had an independent audit. If you need that assurance today, put an audited SAML library in front of theAuth and pass the resulting identity to your own session code.
 
 ## OIDC flow
 

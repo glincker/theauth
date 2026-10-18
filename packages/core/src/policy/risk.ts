@@ -57,7 +57,7 @@ export function applyRisk(
 		reason: `risk tier "${rule.tier}" requires ${rule.require}`,
 	};
 	return {
-		...withEffect(decision, "escalate"),
+		...withEffect(decision, "escalate", "risk_escalation"),
 		reason: POLICY_ERROR_CODES.ESCALATION_REQUIRED,
 		escalation,
 	};

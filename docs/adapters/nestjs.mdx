@@ -1,10 +1,10 @@
 ---
 title: NestJS
-description: Wire theAuth into NestJS with `AuthModule.forRoot(options)`. Mounts agent identity, delegation, audit, and MCP OAuth routes as Express middleware in AppModule.
+description: Wire theAuth into NestJS with `TheAuthModule.forRoot(options)`. Mounts agent identity, delegation, audit, and MCP OAuth routes as Express middleware in AppModule.
 icon: "/brand-icons/nestjs.svg"
 ---
 
-`AuthModule.forRoot(options)` is a NestJS dynamic module that mounts all theAuth routes as Express middleware. Import it once in your root `AppModule`.
+`TheAuthModule.forRoot(options)` is a NestJS dynamic module that mounts all theAuth routes as Express middleware. Import it once in your root `AppModule`.
 
 ## Install
 
@@ -42,17 +42,17 @@ export const mcp = createMcpModule({
 ```
 
 </Step>
-<Step title="Import AuthModule">
+<Step title="Import TheAuthModule">
 
 ```typescript
 // app.module.ts
 import { Module } from '@nestjs/common';
-import { AuthModule } from '@glinr/theauth-nestjs';
+import { TheAuthModule } from '@glinr/theauth-nestjs';
 import { theauth, mcp } from './lib/theauth.js';
 
 @Module({
   imports: [
-    AuthModule.forRoot({
+    TheAuthModule.forRoot({
       theauth,
       mcp,
       authenticate, // who may call /agents, /delegations, /audit, /dashboard
@@ -91,7 +91,7 @@ bootstrap();
 The default mount path is `/api/theauth`. Change it with the `basePath` option:
 
 ```typescript
-AuthModule.forRoot({ theauth, basePath: '/auth' })
+TheAuthModule.forRoot({ theauth, basePath: '/auth' })
 ```
 
 All theAuth routes will then be available under `/auth/*`.
@@ -129,7 +129,7 @@ bootstrap();
 Pass `mcp` to enable the MCP OAuth 2.1 authorization server:
 
 ```typescript
-AuthModule.forRoot({ theauth, mcp, basePath: '/api/theauth' })
+TheAuthModule.forRoot({ theauth, mcp, basePath: '/api/theauth' })
 // registers:
 // GET  /api/theauth/.well-known/oauth-authorization-server
 // GET  /api/theauth/.well-known/oauth-protected-resource
@@ -148,25 +148,29 @@ The adapter does not read forwarded headers for the client IP. Behind a proxy, s
 TheAuthModule.forRoot({ theauth, authenticate, trustedProxy: { trustedProxyCount: 1 } })
 ```
 
-On Cloudflare use `trustedHeader: 'cf-connecting-ip'`. Only trust a header your edge overwrites. Without `trustedProxy` the adapter uses `req.ip`, which is the socket peer unless your server framework is configured to trust the proxy.
+On Cloudflare use `trustedHeader: 'cf-connecting-ip'`. Only trust a header your edge overwrites.
 
 ## Endpoint reference
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/agents` | Create an agent |
-| `GET` | `/agents` | List agents |
-| `GET` | `/agents/:id` | Get an agent |
-| `PATCH` | `/agents/:id` | Update an agent |
-| `DELETE` | `/agents/:id` | Revoke an agent |
-| `POST` | `/agents/:id/rotate` | Rotate token |
-| `POST` | `/authorize` | Authorize by agent ID |
-| `POST` | `/authorize/token` | Authorize by bearer token |
-| `POST` | `/delegations` | Create delegation |
-| `GET` | `/delegations/:agentId` | List delegation chains |
-| `DELETE` | `/delegations/:id` | Revoke delegation |
-| `GET` | `/audit` | Query audit logs |
-| `GET` | `/audit/export` | Export audit logs |
+Every adapter serves the same routes with the same status codes. See the [route reference](/adapters/routes).
+
+## Protect a route for agents
+
+```typescript
+import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { getAgent, requireScope } from '@glinr/theauth-nestjs';
+
+@Controller('invoices')
+export class InvoicesController {
+  @Get()
+  @UseGuards(requireScope(theauth, { action: 'read', resource: 'invoices' }))
+  list(@Req() req: { agent?: { id: string } }) {
+    return { agentId: getAgent(req)?.id };
+  }
+}
+```
+
+Missing or invalid bearer token returns 401 and a denied scope returns 403. The body is `{ "error": { "code", "message" } }`, where `code` is the decision code (for example `no_permission`). See the [requireScope guide](/require-scope).
 
 ## Related
 

@@ -1,17 +1,68 @@
 import { buildStepUpResponse } from "./step-up.js";
-import type { McpAuthContext, McpSession } from "./types.js";
+import type {
+	McpAuthContext,
+	McpAuthErrorCode,
+	McpRejectedToken,
+	RequireScopesResult,
+} from "./types.js";
 import { extractBearerToken } from "./utils.js";
 import { buildUnauthorizedResponse, validateAccessToken } from "./validate.js";
 
+export type { McpAuthErrorCode, McpRejectedToken, RequireScopesResult } from "./types.js";
+
+const KNOWN_CODES: ReadonlySet<string> = new Set<McpAuthErrorCode>([
+	"UNAUTHORIZED",
+	"INVALID_TOKEN",
+	"TOKEN_EXPIRED",
+	"INVALID_AUDIENCE",
+	"INVALID_ISSUER",
+	"DELEGATION_REVOKED",
+	"INSUFFICIENT_SCOPE",
+	"DPOP_REQUIRED",
+	"SERVER_ERROR",
+]);
+
+const DELEGATION_REASONS: ReadonlySet<string> = new Set([
+	"delegation_revoked",
+	"delegation_expired",
+	"agent_revoked",
+	"agent_expired",
+]);
+
+/** True when the freshness check (`details.revocation`) says the token's delegation or agent is gone. */
+function isDelegationReason(details: Record<string, unknown> | undefined): boolean {
+	const r = details?.revocation;
+	if (typeof r !== "object" || r === null) return false;
+	const reason = (r as { reason?: unknown }).reason;
+	return typeof reason === "string" && DELEGATION_REASONS.has(reason);
+}
+
+/** Refine the validator's code with what its details say (delegation and DPoP failures share INVALID_TOKEN there). */
+function refineCode(code: string, details: Record<string, unknown> | undefined): McpAuthErrorCode {
+	if (details?.delegation) return "DELEGATION_REVOKED";
+	if (isDelegationReason(details)) return "DELEGATION_REVOKED";
+	if (details?.dpopMissing === true) return "DPOP_REQUIRED";
+	return KNOWN_CODES.has(code) ? (code as McpAuthErrorCode) : "INVALID_TOKEN";
+}
+
+function readRejected(details: Record<string, unknown> | undefined): McpRejectedToken | undefined {
+	const r = details?.rejected;
+	return typeof r === "object" && r !== null ? (r as McpRejectedToken) : undefined;
+}
+
 /**
  * Validates the Bearer token on a request and asserts that it carries all `requiredScopes`.
- * Returns 401 for a missing or malformed token, 403 with a step-up challenge for missing scopes,
- * and the session otherwise.
+ *
+ * On failure the result says why, in a form code can branch on and an audit log can record:
+ * `status` (401 for a missing or bad token, 403 for missing scopes, 500 for a server misconfiguration), `error.code` (see {@link McpAuthErrorCode}), and `rejected` (who the token belonged to, only when its signature verified). `response` is the ready-made HTTP answer with the `WWW-Authenticate` challenge (RFC 6750, RFC 9728 `resource_metadata`, and `scope`).
  *
  * @example
  * ```typescript
  * const check = await requireScopes(ctx, request, ['mcp:write']);
- * if (!check.authorized) return check.response;
+ * if (!check.authorized) {
+ *   if (check.rejected) await audit.denied(check.rejected.agentId, check.error.code);
+ *   return check.response;
+ * }
  * // check.session is available here
  * ```
  */
@@ -19,55 +70,76 @@ export async function requireScopes(
 	ctx: McpAuthContext,
 	request: Request,
 	requiredScopes: string[],
-): Promise<{ authorized: true; session: McpSession } | { authorized: false; response: Response }> {
-	// Step 1: Extract Bearer token
+): Promise<RequireScopesResult> {
 	const token = extractBearerToken(request);
 
 	if (!token) {
+		const error = { code: "UNAUTHORIZED" as const, message: "Bearer token required" };
 		return {
 			authorized: false,
-			response: buildUnauthorizedResponse(ctx, {
-				code: "UNAUTHORIZED",
-				message: "Bearer token required",
-			}),
+			status: 401,
+			error,
+			response: buildUnauthorizedResponse(ctx, error, { scope: requiredScopes }),
 		};
 	}
 
-	// Step 2: Validate the token (without scope enforcement yet)
-	// We validate first without requiredScopes so we can distinguish
-	// "bad token" (401) from "valid token but wrong scopes" (403).
+	// Validate without scope enforcement first, so a bad token (401) stays distinct from a
+	// valid token with the wrong scopes (403).
 	const tokenResult = await validateAccessToken(ctx, token, {
 		expectedAudience: ctx.config.resource,
 	});
 
 	if (!tokenResult.success) {
+		const details = tokenResult.error.details;
+		const code = refineCode(tokenResult.error.code, details);
+		const error = { code, message: tokenResult.error.message };
+		if (code === "SERVER_ERROR") {
+			return {
+				authorized: false,
+				status: 500,
+				error,
+				response: new Response(
+					JSON.stringify({ error: "server_error", error_description: error.message }),
+					{
+						status: 500,
+						headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+					},
+				),
+			};
+		}
+		const rejected = readRejected(details);
 		return {
 			authorized: false,
-			response: buildUnauthorizedResponse(ctx, {
-				code: tokenResult.error.code,
-				message: tokenResult.error.message,
-			}),
+			status: 401,
+			error,
+			...(rejected ? { rejected } : {}),
+			response: buildUnauthorizedResponse(ctx, error, { scope: requiredScopes }),
 		};
 	}
 
 	const session = tokenResult.data;
-
-	// Step 3: Check required scopes
-	if (requiredScopes.length > 0) {
-		const missingScopes = requiredScopes.filter((s) => !session.scopes.includes(s));
-
-		if (missingScopes.length > 0) {
-			return {
-				authorized: false,
-				response: buildStepUpResponse(ctx, {
-					currentScopes: session.scopes,
-					requiredScopes,
-					resource: session.resource ?? undefined,
-				}),
-			};
-		}
+	const missing = requiredScopes.filter((s) => !session.scopes.includes(s));
+	if (missing.length > 0) {
+		return {
+			authorized: false,
+			status: 403,
+			error: {
+				code: "INSUFFICIENT_SCOPE",
+				message: `Token is missing required scope: ${missing.join(" ")}`,
+			},
+			rejected: {
+				clientId: session.clientId,
+				subject: session.userId,
+				tokenId: session.tokenId,
+				...(session.agent ? { agentId: session.agent.id } : {}),
+			},
+			response: buildStepUpResponse(ctx, {
+				currentScopes: session.scopes,
+				requiredScopes,
+				resource: session.resource ?? undefined,
+			}),
+		};
 	}
 
-	// Step 4: All checks passed
 	return { authorized: true, session };
 }

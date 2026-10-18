@@ -37,6 +37,10 @@ export interface Options {
 	/** Optional refresh token. Enables rotation and reuse detection. It gets consumed. */
 	refreshToken?: string;
 	timeoutMs: number;
+	/** "guard" runs the remote guard protocol checks against a vendor endpoint. */
+	mode?: "oauth" | "guard";
+	/** HMAC secret for guard mode. Used to sign probes, never printed. */
+	guardSecret?: string;
 }
 
 export interface Summary {

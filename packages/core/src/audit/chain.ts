@@ -8,6 +8,8 @@ import { compareCodeUnits } from "../compare.js";
 import { hmacSha256, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
+import { errorText, isUniqueViolation } from "../db/unique-violation.js";
+import { eventForAction } from "./events.js";
 import { computePseudonyms, resolvePseudonymKey } from "./pseudonym.js";
 
 export type AuditInsert = typeof auditLogs.$inferInsert;
@@ -107,58 +109,65 @@ function hashedFieldsV2(row: AuditInsert | AuditRow): Record<string, unknown> {
 	};
 }
 
+/** The exact string that is hashed for a row: canonical JSON of `{v, seq, prev, row}`. Exported for conformance vectors and offline verifiers. */
+export function chainPayload(
+	row: AuditInsert | AuditRow,
+	chainSeq: number,
+	prevHash: string | null,
+): string {
+	const version = row.hashVersion ?? 1;
+	return canonicalJson({
+		v: version,
+		seq: chainSeq,
+		prev: prevHash,
+		row: version >= 2 ? hashedFieldsV2(row) : hashedFieldsV1(row),
+	});
+}
+
 export async function computeRowHash(
 	row: AuditInsert | AuditRow,
 	chainSeq: number,
 	prevHash: string | null,
 	hmacKey?: string,
 ): Promise<string> {
-	const version = row.hashVersion ?? 1;
-	const payload = canonicalJson({
-		v: version,
-		seq: chainSeq,
-		prev: prevHash,
-		row: version >= 2 ? hashedFieldsV2(row) : hashedFieldsV1(row),
-	});
+	const payload = chainPayload(row, chainSeq, prevHash);
 	return hmacKey ? hmacSha256(hmacKey, payload) : sha256(payload);
 }
 
-function errorText(err: unknown): string {
-	const parts: string[] = [];
-	let cur: unknown = err;
-	for (let i = 0; i < 4 && cur instanceof Error; i++) {
-		parts.push(cur.message);
-		const code = (cur as Error & { code?: unknown }).code;
-		if (typeof code === "string") parts.push(code);
-		cur = (cur as Error & { cause?: unknown }).cause;
-	}
-	return parts.join(" ");
-}
+let lastRecordedMs = 0;
 
-function isUniqueViolation(err: unknown): boolean {
-	return /unique|duplicate|23505|ER_DUP_ENTRY|SQLITE_CONSTRAINT_PRIMARYKEY/i.test(errorText(err));
+/**
+ * Millisecond write-order stamp for `audit_logs.recorded_at_ms`. Strictly greater than the previous stamp issued by this process and than `floor` (the chain head's stamp), so same-second and same-millisecond writes keep their order even if the clock stalls or another process wrote ahead. Not hashed.
+ */
+export function nextRecordedAtMs(floor = 0): number {
+	lastRecordedMs = Math.max(Date.now(), lastRecordedMs + 1, floor + 1);
+	return lastRecordedMs;
 }
 
 async function readHead(
 	db: Database,
 	agentId: string,
-): Promise<{ seq: number; hash: string } | null> {
+): Promise<{ seq: number; hash: string; recordedAtMs: number } | null> {
 	const rows = await db
-		.select({ seq: auditLogs.chainSeq, hash: auditLogs.hash })
+		.select({ seq: auditLogs.chainSeq, hash: auditLogs.hash, ms: auditLogs.recordedAtMs })
 		.from(auditLogs)
 		.where(and(eq(auditLogs.agentId, agentId), isNotNull(auditLogs.chainSeq)))
 		.orderBy(desc(auditLogs.chainSeq))
 		.limit(1);
 	const head = rows[0];
 	if (!head || head.seq === null || head.hash === null) return null;
-	return { seq: head.seq, hash: head.hash };
+	return { seq: head.seq, hash: head.hash, recordedAtMs: head.ms ?? 0 };
 }
 
 /** Insert an audit row. Plain insert unless the chain is enabled for this database, in which case the row is linked to its agent's chain. */
-export async function insertAuditRow(db: Database, values: AuditInsert): Promise<void> {
+export async function insertAuditRow(db: Database, input: AuditInsert): Promise<void> {
+	// `event` is stored beside the row and is not hashed.
+	const values: AuditInsert = { ...input, event: input.event ?? eventForAction(input.action) };
 	const config = registry.get(db);
 	if (!config) {
-		await db.insert(auditLogs).values(values);
+		await db
+			.insert(auditLogs)
+			.values({ ...values, recordedAtMs: values.recordedAtMs ?? nextRecordedAtMs() });
 		return;
 	}
 
@@ -201,7 +210,13 @@ async function appendChained(
 		const prevHash = head ? head.hash : null;
 		const hash = await computeRowHash(stamped, chainSeq, prevHash, config.hmacKey);
 		try {
-			await db.insert(auditLogs).values({ ...stamped, chainSeq, prevHash, hash });
+			await db.insert(auditLogs).values({
+				...stamped,
+				chainSeq,
+				prevHash,
+				hash,
+				recordedAtMs: nextRecordedAtMs(head?.recordedAtMs ?? 0),
+			});
 			return;
 		} catch (err) {
 			if (!isUniqueViolation(err)) throw err;

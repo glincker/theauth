@@ -28,7 +28,7 @@ func agentFixture() theauth.Agent {
 		OwnerID: "user-1",
 		Name:    "test-agent",
 		Type:    theauth.AgentTypeAutonomous,
-		Token:   "kv_abc123",
+		Token:   "ta_abc123",
 		Permissions: []theauth.Permission{
 			{Resource: "mcp:github:*", Actions: []string{"read"}},
 		},
@@ -60,7 +60,7 @@ func TestNewClient_Defaults(t *testing.T) {
 
 func TestNewClient_WithOptions(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer kv_test" {
+		if r.Header.Get("Authorization") != "Bearer ta_test" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -73,7 +73,7 @@ func TestNewClient_WithOptions(t *testing.T) {
 	defer srv.Close()
 
 	c := theauth.NewClient(srv.URL,
-		theauth.WithToken("kv_test"),
+		theauth.WithToken("ta_test"),
 		theauth.WithTimeout(5*time.Second),
 		theauth.WithHeader("X-Custom", "hello"),
 	)
@@ -132,8 +132,8 @@ func TestAgents_Create(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if agent.Token != "kv_abc123" {
-		t.Errorf("expected token kv_abc123, got %s", agent.Token)
+	if agent.Token != "ta_abc123" {
+		t.Errorf("expected token ta_abc123, got %s", agent.Token)
 	}
 }
 
@@ -246,7 +246,7 @@ func TestAgents_Revoke(t *testing.T) {
 
 func TestAgents_Rotate(t *testing.T) {
 	rotated := agentFixture()
-	rotated.Token = "kv_new_token"
+	rotated.Token = "ta_new_token"
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/rotate") {
@@ -261,8 +261,8 @@ func TestAgents_Rotate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if agent.Token != "kv_new_token" {
-		t.Errorf("expected kv_new_token, got %s", agent.Token)
+	if agent.Token != "ta_new_token" {
+		t.Errorf("expected ta_new_token, got %s", agent.Token)
 	}
 }
 
@@ -450,7 +450,7 @@ func TestAuth_AuthorizeByToken(t *testing.T) {
 		if r.URL.Path != "/authorize" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer kv_") {
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ta_") {
 			t.Errorf("expected agent bearer token")
 		}
 		writeJSON(w, 200, theauth.AuthorizeResult{Allowed: true, AuditID: "aud_789"})
@@ -458,7 +458,30 @@ func TestAuth_AuthorizeByToken(t *testing.T) {
 	defer srv.Close()
 
 	c := theauth.NewClient(srv.URL)
-	result, err := c.Auth.AuthorizeByToken(context.Background(), "kv_agent_token", theauth.AuthorizeRequest{
+	result, err := c.Auth.AuthorizeByToken(context.Background(), "ta_agent_token", theauth.AuthorizeRequest{
+		Action:   "read",
+		Resource: "mcp:github:repos",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Allowed {
+		t.Error("expected allowed=true")
+	}
+}
+
+// Tokens issued before the ta_ prefix start with kv_ and must still be sent as is.
+func TestAuth_AuthorizeByToken_LegacyPrefix(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer kv_legacy_token" {
+			t.Errorf("legacy token was altered: %s", r.Header.Get("Authorization"))
+		}
+		writeJSON(w, 200, theauth.AuthorizeResult{Allowed: true, AuditID: "aud_legacy"})
+	}))
+	defer srv.Close()
+
+	c := theauth.NewClient(srv.URL)
+	result, err := c.Auth.AuthorizeByToken(context.Background(), "kv_legacy_token", theauth.AuthorizeRequest{
 		Action:   "read",
 		Resource: "mcp:github:repos",
 	})

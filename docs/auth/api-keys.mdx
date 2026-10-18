@@ -12,7 +12,7 @@ icon: key
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   apiKeys: { // [!code highlight]
     prefix: 'kos_',          // default // [!code highlight]
     defaultExpiryDays: 90,   // default: 365 // [!code highlight]
@@ -86,7 +86,7 @@ Add the `apiKeys()` plugin (from `@glinr/theauth/auth`) to expose HTTP endpoints
 import { apiKeys } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [apiKeys({ prefix: 'kos_' })],
 });

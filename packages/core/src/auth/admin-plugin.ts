@@ -10,7 +10,12 @@ export function admin(config?: AdminConfig): TheAuthPlugin {
 		id: "theauth-admin",
 
 		async init(ctx): Promise<undefined> {
-			const module = createAdminModule(config ?? {}, ctx.db, ctx.sessionManager ?? null);
+			const module = createAdminModule(
+				config ?? {},
+				ctx.db,
+				ctx.sessionManager ?? null,
+				ctx.revocations,
+			);
 
 			// GET /auth/admin/users
 			// Lists all users. Requires admin.

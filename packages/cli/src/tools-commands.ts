@@ -88,18 +88,48 @@ export const DOCTOR_HELP = `
 theauth doctor
 
 Usage:
-  theauth doctor [--json] [--cwd <dir>]
+  theauth doctor [--json] [--cwd <dir>] [--live [url]] [--url <url>] [--fail-on <severity>]
 
-Checks your setup for common mistakes: Node version, session secret strength,
-app URL, database URL, whether .env is gitignored, and whether a dependency on
-@glinr/theauth exists. Exits 1 when any check fails. Warnings do not fail.
+Checks your setup for common mistakes: Node version, secret strength, app URL,
+database URL, whether .env is gitignored, the @glinr/theauth dependency, core
+version against the adapter peer range, pending schema migrations, and unsafe
+settings (allowUnauthenticated, a missing trustedProxy in production).
+
+  --live [url]  Also call the running server at the URL where the routes are
+                mounted (default http://localhost:3000/api/theauth): routes are
+                reachable, MCP metadata only lists mounted endpoints, and a
+                protected route answers 401 without a token.
+  --url <url>   Same as giving the URL to --live.
+  --fail-on <severity>
+                Lowest severity that makes the command exit 1: fail (default),
+                warn or info. Severity order is info < warn < fail, so
+                --fail-on warn also fails on fail, and --fail-on info fails on
+                every check that is not a pass. A check without a severity field
+                counts as its status (warn or fail).
+  --json        Print { "ok": boolean, "checks": [{ "id", "status", "severity?", "message", "fix?" }] }.
+                status is pass, warn or fail. severity (info, warn or fail) is set
+                on config rules and some live checks. "ok" is false exactly when
+                the exit code is 1. New checks only add entries.
+
+Exits 1 when any check reaches the --fail-on severity (default: a failed check).
+Warnings and info findings do not fail unless --fail-on says so. Exits 1 on a
+usage error too.
 `;
 
 export type CheckStatus = "pass" | "warn" | "fail";
 
+/** Severity of a finding: info < warn < fail. */
+export type CheckSeverity = "info" | "warn" | "fail";
+
+export const FAIL_ON_VALUES: readonly CheckSeverity[] = ["info", "warn", "fail"];
+
+const SEVERITY_RANK: Record<CheckSeverity, number> = { info: 0, warn: 1, fail: 2 };
+
 export interface DoctorCheck {
 	id: string;
 	status: CheckStatus;
+	/** Set by config rules and some live checks. A check without one counts as its status. */
+	severity?: CheckSeverity;
 	message: string;
 	fix?: string;
 }
@@ -127,7 +157,7 @@ export function parseDotenv(text: string): Record<string, string> {
 	return out;
 }
 
-function loadEnv(
+export function loadEnv(
 	cwd: string,
 	base: Record<string, string | undefined>,
 ): Record<string, string | undefined> {
@@ -294,38 +324,93 @@ export function runDoctorChecks(input: DoctorEnv): DoctorCheck[] {
 
 export interface DoctorOptions {
 	json: boolean;
+	/** Lowest severity that makes the run fail. Default `fail`. */
+	failOn: CheckSeverity;
+	/** Base URL to probe, or null to skip the live checks. */
+	live: string | null;
 	cwd: string;
 	help: boolean;
 	error: string | null;
 }
 
 export function parseDoctorArgs(args: string[], defaultCwd: string): DoctorOptions {
-	const out: DoctorOptions = { json: false, cwd: defaultCwd, help: false, error: null };
+	const out: DoctorOptions = {
+		json: false,
+		failOn: "fail",
+		live: null,
+		cwd: defaultCwd,
+		help: false,
+		error: null,
+	};
+	let url: string | null = null;
 	for (let i = 0; i < args.length; i++) {
 		const a = args[i] ?? "";
 		const [flag, inline] = a.split("=", 2);
 		if (a === "--json") out.json = true;
 		else if (flag === "--cwd") out.cwd = inline ?? args[++i] ?? defaultCwd;
-		else if (a === "--help" || a === "-h") out.help = true;
+		else if (flag === "--fail-on") {
+			const value = inline ?? args[++i] ?? "";
+			const level = FAIL_ON_VALUES.find((v) => v === value);
+			if (level) out.failOn = level;
+			else out.error ??= `--fail-on must be one of: ${FAIL_ON_VALUES.join(", ")}`;
+		} else if (flag === "--live") {
+			const next = args[i + 1];
+			if (inline !== undefined) url = inline;
+			else if (next !== undefined && /^https?:\/\//.test(next)) url = args[++i] ?? null;
+			out.live = url ?? "";
+		} else if (flag === "--url") {
+			url = inline ?? args[++i] ?? null;
+			out.live = url ?? "";
+		} else if (a === "--help" || a === "-h") out.help = true;
 		else out.error ??= `Unknown option: ${a}`;
 	}
+	if (out.live !== null) out.live = url ?? "";
 	return out;
 }
 
-export function formatDoctor(checks: DoctorCheck[], json: boolean): { text: string; ok: boolean } {
-	const ok = !checks.some((c) => c.status === "fail");
+/** The severity a check counts as: its own `severity`, else its status. Passes have none. */
+export function checkSeverity(check: DoctorCheck): CheckSeverity | null {
+	if (check.status === "pass") return null;
+	return check.severity ?? check.status;
+}
+
+/** True when a check is at or above the `--fail-on` level. */
+export function reachesThreshold(check: DoctorCheck, failOn: CheckSeverity): boolean {
+	const severity = checkSeverity(check);
+	return severity !== null && SEVERITY_RANK[severity] >= SEVERITY_RANK[failOn];
+}
+
+export function formatDoctor(
+	checks: DoctorCheck[],
+	json: boolean,
+	failOn: CheckSeverity = "fail",
+): { text: string; ok: boolean } {
+	const tripped = checks.filter((c) => reachesThreshold(c, failOn));
+	const ok = tripped.length === 0;
 	if (json) return { text: `${JSON.stringify({ ok, checks }, null, 2)}\n`, ok };
-	const mark: Record<CheckStatus, string> = { pass: "ok  ", warn: "warn", fail: "FAIL" };
+	const mark = (c: DoctorCheck): string => {
+		if (c.status === "pass") return "ok  ";
+		if (c.status === "fail") return "FAIL";
+		return c.severity === "info" ? "info" : "warn";
+	};
 	const lines = checks.flatMap((c) => [
-		`${mark[c.status]}  ${c.message}`,
+		`${mark(c)}  ${c.message}`,
 		...(c.fix && c.status !== "pass" ? [`      ${c.fix}`] : []),
 	]);
 	const fails = checks.filter((c) => c.status === "fail").length;
 	const warns = checks.filter((c) => c.status === "warn").length;
-	lines.push(
-		"",
-		ok ? `No failures (${warns} warning${warns === 1 ? "" : "s"}).` : `${fails} failed.`,
-	);
+	lines.push("");
+	if (failOn !== "fail") {
+		lines.push(
+			ok
+				? `Nothing at ${failOn} or above (${warns} warning${warns === 1 ? "" : "s"}).`
+				: `${tripped.length} check${tripped.length === 1 ? "" : "s"} at ${failOn} or above (--fail-on ${failOn}).`,
+		);
+	} else {
+		lines.push(
+			ok ? `No failures (${warns} warning${warns === 1 ? "" : "s"}).` : `${fails} failed.`,
+		);
+	}
 	return { text: `${lines.join("\n")}\n`, ok };
 }
 

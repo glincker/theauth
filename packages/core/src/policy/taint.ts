@@ -126,7 +126,7 @@ export function applyTaint(
 	if (verdict.verdict === "clean") return withVerdict;
 	if (verdict.verdict === "deny") {
 		return {
-			...withEffect(withVerdict, "deny"),
+			...withEffect(withVerdict, "deny", "taint_violation"),
 			reason: POLICY_ERROR_CODES.TAINT_VIOLATION,
 			escalation: undefined,
 		};
@@ -138,7 +138,7 @@ export function applyTaint(
 		reason: describe(verdict),
 	};
 	return {
-		...withEffect(withVerdict, "escalate"),
+		...withEffect(withVerdict, "escalate", "taint_violation"),
 		reason: POLICY_ERROR_CODES.ESCALATION_REQUIRED,
 		escalation,
 	};

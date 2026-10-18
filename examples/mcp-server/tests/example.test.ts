@@ -129,7 +129,7 @@ describe("mcp-server example", () => {
 		});
 		expect(createRes.status).toBe(201);
 		const created = (await createRes.json()) as { data: { token: string } };
-		expect(created.data.token).toMatch(/^kv_/);
+		expect(created.data.token).toMatch(/^ta_/);
 
 		const listToolsRes = await fetch(`${app.baseUrl}/tools/list`, {
 			headers: { Authorization: `Bearer ${created.data.token}` },

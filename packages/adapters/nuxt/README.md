@@ -23,7 +23,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { theAuthNuxt } from '@glinr/theauth-nuxt';
 
 const theauth = createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 export default theAuthNuxt(theauth, { authenticate });
@@ -52,6 +52,8 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 - `POST /mcp/register`
 - `GET /mcp/authorize`
 - `POST /mcp/token`
+- `POST /mcp/revoke`
+- `GET /mcp/jwks`
 
 ## Management routes and client IP
 
@@ -65,16 +67,33 @@ export default theAuthNuxt(theauth, { authenticate, trustedProxy: { trustedProxy
 
 On Cloudflare use `trustedHeader: "cf-connecting-ip"`. Only trust a header your edge overwrites.
 
-## API surface
 
-`theAuthNuxt(theauth, options?)` returns an H3 `EventHandler` for use as a Nuxt server route.
+## Options
+
+`theAuthNuxt(theauth, options?)` takes the same options as the core handler (`createTheAuthHandler` from `@glinr/theauth/http`), so they are identical on every adapter:
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
+| `mcp` | `McpAuthModule` | Enables the MCP OAuth 2.1 endpoints |
 | `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/theauth` |
+| `routes` | `{ management?, mcp?, plugins?, explain? }` | Turn route groups off. `mcp` also takes `{ register, authorize, token, revoke, jwks }` booleans |
+| `maxBodyBytes` | `number` | Largest request body, default 1 MiB (413 above it) |
+| `authenticate`, `allowUnauthenticated`, `trustedProxy`, `rateLimit`, `trustedOrigins`, `csrf` | | Shared security options |
 
-For full docs on agent identity, permissions, delegation, and audit, see the main [@glinr/theauth](https://www.npmjs.com/package/@glinr/theauth) package.
+Every route and status code is listed on the [route reference](https://docs.theauth.dev/adapters/routes).
+
+## Protect a route with `requireScope`
+
+```typescript
+import { requireScope } from '@glinr/theauth-nuxt';
+
+// server/api/invoices.get.ts
+export default requireScope(theauth, { action: 'read', resource: 'invoices' }, (event) => ({
+  agent: event.context.agent.id,
+}));
+```
+
+`requireScope(theauth, { action, resource }, handler)` reads the agent bearer token and checks it may perform the action. It answers 401 (`invalid_token`, `agent_not_found`, `agent_revoked`, `agent_expired`) or 403 (any other denial) with body `{ "error": { "code", "message" } }`, and otherwise passes the agent (without its token) on via `event.context.agent`. Pass `clientIp` to feed `ipAllowlist` constraints.
 
 ## Links
 

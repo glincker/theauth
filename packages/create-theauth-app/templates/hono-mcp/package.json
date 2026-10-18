@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
+    "dev": "tsx watch --env-file=.env src/server.ts",
+    "start": "tsx --env-file=.env src/server.ts",
+    "doctor": "npx @glinr/theauth-cli doctor",
+    "doctor:live": "npx @glinr/theauth-cli doctor --live http://localhost:3001/api",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

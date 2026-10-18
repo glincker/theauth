@@ -5,12 +5,22 @@
 
 import type { NextRequest, NextResponse as NextResponseType } from "next/server";
 import { NextResponse } from "next/server";
-import { generateCsrfToken } from "./csrf.js";
+import { getConfigSecret } from "./config.js";
+import {
+	isHttpsForwarded,
+	REFRESH_MAX_AGE_S,
+	readAuthCookie,
+	sessionCookieAttrs,
+} from "./cookie-options.js";
+import { createCsrfToken } from "./csrf.js";
 import { isTokenExpiring } from "./jwt.js";
+import { safeRedirectPath } from "./safe-redirect.js";
+import { createSessionMarker, verifySessionMarker } from "./session-marker.js";
 import type { ResolvedAuthConfig } from "./types.js";
 
 export { createAuthConfig } from "./config.js";
 export { readJwtExp } from "./jwt.js";
+export { safeRedirectPath } from "./safe-redirect.js";
 export type { AuthConfig, AuthSession, DefaultUser, ResolvedAuthConfig } from "./types.js";
 
 interface MiddlewareOptions {
@@ -63,6 +73,12 @@ export function withAuth<TUser>(
 ): (req: NextRequest) => Promise<NextResponseType> {
 	const { protectedPaths = [], signInPath = "/signin", refreshTimeoutMs = 4000 } = options;
 
+	if (!signInPath.startsWith("/") || signInPath.startsWith("//") || signInPath.includes("\\")) {
+		throw new Error(
+			'[theauth-nextjs-auth] signInPath must be a same-origin path such as "/signin".',
+		);
+	}
+
 	return async function authMiddleware(req: NextRequest): Promise<NextResponseType> {
 		const pathname = req.nextUrl.pathname;
 
@@ -72,10 +88,17 @@ export function withAuth<TUser>(
 
 		const response = NextResponse.next({ request: { headers: reqHeaders } });
 
-		const { sessionPrefix } = config.cookies;
+		const secret = getConfigSecret(config);
+		const get = (name: string) => req.cookies.get(name)?.value;
+		const rawToken = readAuthCookie(get, config, "token");
+		// The gate only trusts a token this server issued: the marker is an HMAC of the token under
+		// a key derived from the secret, so an arbitrary cookie value fails and is treated as absent.
 		const accessToken =
-			req.cookies.get(`__Host-${sessionPrefix}-token`)?.value ??
-			req.cookies.get(`${sessionPrefix}-token`)?.value;
+			secret &&
+			rawToken &&
+			(await verifySessionMarker(secret, rawToken, readAuthCookie(get, config, "gate")))
+				? rawToken
+				: "";
 		const refreshToken = req.cookies.get(config.cookies.refresh)?.value;
 
 		const needsRefresh = !accessToken || isTokenExpiring(accessToken, config.expiryRefreshBufferS);
@@ -85,10 +108,16 @@ export function withAuth<TUser>(
 		let hasValidSession = Boolean(accessToken);
 
 		if (needsRefresh && refreshToken) {
-			const refreshed = await _tryRefresh(config, refreshToken, refreshTimeoutMs);
+			const refreshed = await _tryRefresh(config, refreshToken, refreshTimeoutMs, secret);
 			if (refreshed) {
 				hasValidSession = true;
-				_writeSessionCookies(response, refreshed, config);
+				await _writeSessionCookies(
+					response,
+					refreshed,
+					config,
+					req.nextUrl.protocol === "https:" ||
+						isHttpsForwarded(req.headers.get("x-forwarded-proto")),
+				);
 			} else if (!accessToken) {
 				// No existing token at all AND refresh failed → definitely unauthenticated.
 				hasValidSession = false;
@@ -104,7 +133,7 @@ export function withAuth<TUser>(
 			if (isProtected) {
 				const signInUrl = req.nextUrl.clone();
 				signInUrl.pathname = signInPath;
-				signInUrl.searchParams.set("next", pathname);
+				signInUrl.searchParams.set("next", safeRedirectPath(pathname + req.nextUrl.search, "/"));
 				return NextResponse.redirect(signInUrl, { status: 307 });
 			}
 		}
@@ -117,6 +146,7 @@ async function _tryRefresh<TUser>(
 	config: ResolvedAuthConfig<TUser>,
 	refreshToken: string,
 	timeoutMs: number,
+	secret: string | undefined,
 ): Promise<{ accessToken: string; refreshToken?: string; csrfToken: string } | null> {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -139,12 +169,12 @@ async function _tryRefresh<TUser>(
 		if (!res.ok) return null;
 
 		const data = (await res.json()) as RefreshTokenResponse;
-		if (!data.accessToken) return null;
+		if (!data.accessToken || !secret) return null;
 
 		return {
 			accessToken: data.accessToken,
 			refreshToken: data.refreshToken,
-			csrfToken: generateCsrfToken(),
+			csrfToken: await createCsrfToken(secret, data.accessToken),
 		};
 	} catch {
 		clearTimeout(timer);
@@ -152,20 +182,23 @@ async function _tryRefresh<TUser>(
 	}
 }
 
-function _writeSessionCookies<TUser>(
+async function _writeSessionCookies<TUser>(
 	response: NextResponseType,
 	tokens: { accessToken: string; refreshToken?: string; csrfToken: string },
 	config: ResolvedAuthConfig<TUser>,
-): void {
-	const sessionOpts = {
-		httpOnly: true,
-		secure: config.isProd,
-		sameSite: "lax" as const,
-		path: "/",
-		maxAge: 60 * 60 * 24 * 7,
-	};
+	https: boolean,
+): Promise<void> {
+	const sessionOpts = sessionCookieAttrs(config, https);
 
 	response.cookies.set(config.cookies.sessionName, tokens.accessToken, sessionOpts);
+	const secret = getConfigSecret(config);
+	if (secret) {
+		response.cookies.set(
+			config.cookies.markerName,
+			await createSessionMarker(secret, tokens.accessToken),
+			sessionOpts,
+		);
+	}
 	response.cookies.set(config.cookies.csrfName, tokens.csrfToken, {
 		...sessionOpts,
 		httpOnly: false,
@@ -174,7 +207,7 @@ function _writeSessionCookies<TUser>(
 	if (tokens.refreshToken) {
 		response.cookies.set(config.cookies.refresh, tokens.refreshToken, {
 			...sessionOpts,
-			maxAge: 60 * 60 * 24 * 30,
+			maxAge: REFRESH_MAX_AGE_S,
 		});
 	}
 }

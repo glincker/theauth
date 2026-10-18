@@ -216,6 +216,37 @@ perms[0].actions.push('write'); // safe, does not mutate the original
   Spreading directly from `permissionTemplates` gives you a reference to the original array entries. If you mutate the objects after spreading, you will modify the template. Use `getPermissionTemplate` when you need to modify entries.
 </Warning>
 
+## Typed permissions
+
+Declare a catalog with `definePermissions` and pass it as `permissions` to `createTheAuth`. The returned instance narrows `resource` and `action` on `authorize`, `authorizeByToken`, `agent.create`, `agent.update` and `delegate`, so typos become compile errors.
+
+```typescript
+import { createTheAuth, definePermissions } from '@glinr/theauth';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: ':memory:' },
+  permissions: definePermissions({
+    'mcp:github:*': ['read', 'write'],
+    'tool:file_read': ['execute'],
+  }),
+});
+
+await theauth.authorize(id, { resource: 'mcp:github:issues', action: 'read' });    // ok
+await theauth.authorize(id, { resource: 'mcp:github:issues', action: 'execute' }); // compile error
+await theauth.authorize(id, { resource: 'mcp:gitlab:issues', action: 'read' });    // compile error
+```
+
+Rules:
+
+- Actions are correlated with the pattern that covers the resource. `execute` is valid for `tool:file_read` but not for `mcp:github:issues`.
+- A trailing `*` accepts any suffix. An exact pattern accepts only that literal resource.
+- In `agent.create`, `agent.update` and `delegate`, `actions: ['*']` is always allowed.
+- A catalog entry of `'*'` makes `resource` collapse to `string` for that entry.
+- Without `permissions`, nothing changes and every value stays `string`.
+- The catalog is type level only. It is not enforced at runtime.
+
+The typed instance is a `TypedTheAuth<C>` facade. To pass it to an adapter that expects `TheAuth`, cast it: `theauth as unknown as TheAuth`. The cast is sound because the typed methods only narrow their inputs. `explain(agentId, action, resource)` is typed the same way, with `action` and `resource` correlated.
+
 ## Next steps
 
 <CardGroup cols={2}>

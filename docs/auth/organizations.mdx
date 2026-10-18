@@ -18,7 +18,7 @@ There are two ways to use organizations, and the `theauth.org` object used in th
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   org: { // [!code highlight]
     maxMembers: 100, // [!code highlight]
     maxOrgsPerUser: 5, // [!code highlight]
@@ -36,7 +36,7 @@ const org = await theauth.org?.create({ name: 'Acme', slug: 'acme', ownerId: 'us
 import { organization } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [organization({ maxMembers: 100, maxOrgsPerUser: 5, allowCustomRoles: true })],
 });

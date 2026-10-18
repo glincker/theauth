@@ -1,6 +1,7 @@
 /** Tests for the custom session fields plugin. */
 
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CustomSessionModule } from "../src/auth/custom-session.js";
 import { createCustomSessionModule, customSession } from "../src/auth/custom-session.js";
@@ -146,20 +147,19 @@ describe("CustomSessionModule.updateSessionFields", () => {
 		const [row] = await db
 			.select({ metadata: sessions.metadata })
 			.from(sessions)
-			.where((t) => t.id === sessionId);
+			.where(eq(sessions.id, sessionId));
 
 		// getSessionFields only returns custom sub-key
 		const fields = await mod.getSessionFields(sessionId);
 		expect(fields?.theme).toBe("dark");
-		// Ensure the 'anonymous' key is still present if we had direct access.
-		// We test via raw metadata query.
-		void row; // row is undefined here since we're not using the filter correctly; covered by other tests
+		// The sibling 'anonymous' key must survive the custom-field update.
+		expect(row?.metadata).toMatchObject({ anonymous: false, custom: { theme: "dark" } });
 	});
 });
 
 // customSession plugin, onSessionCreate hook (defaultFields + callback)
 
-describe("customSession plugin — onSessionCreate hook", () => {
+describe("customSession plugin: onSessionCreate hook", () => {
 	it("stores defaultFields in metadata.custom when a session is created via the hook", async () => {
 		const { createTheAuth } = await import("../src/theauth.js");
 
@@ -427,7 +427,7 @@ describe("customSession plugin endpoints", () => {
 
 // createSessionManager integration, custom fields round-trip
 
-describe("customSession — round-trip via SessionManager", () => {
+describe("customSession: round-trip via SessionManager", () => {
 	it("can write and read back custom fields on a real session token", async () => {
 		const db = await createTestDb();
 		const sessionManager = createSessionManager({ secret: SESSION_SECRET }, db);

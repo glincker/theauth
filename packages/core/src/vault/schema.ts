@@ -3,7 +3,8 @@
  * Token columns hold AES-GCM envelopes, never plaintext. - `theauth_vault_consents`: what a user allows a specific agent to use.
  */
 
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { json, timestampSec } from "../db/schema/columns.js";
 
 export const vaultConnections = sqliteTable("theauth_vault_connections", {
 	id: text("id").primaryKey(),
@@ -17,13 +18,13 @@ export const vaultConnections = sqliteTable("theauth_vault_connections", {
 	refreshTokenEnc: text("refresh_token_enc"),
 	/** Key id the envelopes were sealed with (informational, used by rotation). */
 	keyId: text("key_id").notNull(),
-	scopes: text("scopes", { mode: "json" }).notNull().$type<string[]>(),
+	scopes: json<string[]>("scopes").notNull(),
 	status: text("status", { enum: ["active", "needs_reauth", "revoked"] })
 		.notNull()
 		.default("active"),
-	expiresAt: integer("expires_at", { mode: "timestamp" }),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+	expiresAt: timestampSec("expires_at"),
+	createdAt: timestampSec("created_at").notNull(),
+	updatedAt: timestampSec("updated_at").notNull(),
 });
 
 export const vaultConsents = sqliteTable("theauth_vault_consents", {
@@ -32,10 +33,10 @@ export const vaultConsents = sqliteTable("theauth_vault_consents", {
 	agentId: text("agent_id").notNull(),
 	tenantId: text("tenant_id").notNull().default(""),
 	provider: text("provider").notNull(),
-	scopes: text("scopes", { mode: "json" }).notNull().$type<string[]>(),
+	scopes: json<string[]>("scopes").notNull(),
 	/** When set, the consent dies with this delegation chain. */
 	delegationChainId: text("delegation_chain_id"),
-	expiresAt: integer("expires_at", { mode: "timestamp" }),
-	revokedAt: integer("revoked_at", { mode: "timestamp" }),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	expiresAt: timestampSec("expires_at"),
+	revokedAt: timestampSec("revoked_at"),
+	createdAt: timestampSec("created_at").notNull(),
 });

@@ -7,7 +7,7 @@ icon: scroll
 
 ## How audit logging works
 
-Every call to `theauth.authorize()` or `theauth.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed and denied calls are both recorded (the `rate_limited` value exists in the type, but the built-in permission engine records rate limit denials as `denied`). Calls rejected before the permission engine runs, such as an unknown or revoked agent, are not logged. The SDK never updates entries; `theauth.audit.cleanup({ retentionDays })` deletes entries older than the cutoff.
+Every call to `theauth.authorize()` or `theauth.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed and denied calls are both recorded (the `rate_limited` value exists in the type, but the built-in permission engine records rate limit denials as `denied`). A call blocked by a `beforeAuthorize` hook, including a hook timeout or error, is logged as a denial in the agent's hash chain (see [Lifecycle hooks](/hooks#what-a-block-leaves-in-the-audit-log)). A call for a revoked or expired agent is logged too. `theauth.delegation.revoke()` writes a chained `delegation.revoke` row for each link it revokes, cascaded links included, on the delegate's chain (`resource` is `delegation:<id>`; `parameters` holds `delegationId`, `fromAgent`, `toAgent`, `revokedBy` when known, `cascade`, `cascadeFrom` and `rootDelegationId`). Revoking a link that is already revoked writes nothing. Calls for an unknown agent id or an unknown token have no agent row to attach to and are not logged. The SDK never updates entries; `theauth.audit.cleanup({ retentionDays })` deletes entries older than the cutoff.
 
 `authorize()` returns an `auditId` linking the decision to its log entry:
 
@@ -27,18 +27,20 @@ console.log(result.auditId); // a UUID, e.g. "7b0c1d52-..."
 <ParamField path="id" type="string">Unique entry identifier (a UUID). Equal to the `auditId` returned by `authorize()`.</ParamField>
 <ParamField path="agentId" type="string">The agent that triggered the authorization check.</ParamField>
 <ParamField path="userId" type="string">The user who owns the agent.</ParamField>
-<ParamField path="action" type="string">The action the agent attempted (e.g. read, write, delete).</ParamField>
+<ParamField path="action" type="string">The domain verb: the action the agent attempted (e.g. read, write, delete), or the tool name. Delegation rows written by 2.0 use `delegate`; rows written before that keep `delegation.create` and `delegation.revoke`, because `action` is hashed.</ParamField>
+<ParamField path="event" type="AuditEvent | null">What happened, from the [event vocabulary](#event-vocabulary). `null` on rows from writers that do not set it and on old rows the backfill could not classify. Not part of the audit hash.</ParamField>
 <ParamField path="resource" type="string">The resource the action was attempted on.</ParamField>
 <ParamField path="parameters" type={`Record<string, unknown>`}>Arguments passed to the tool at the time of the call.</ParamField>
 <ParamField path="result" type="'allowed' | 'denied' | 'rate_limited' | 'escalated'">The outcome of the check. The built-in permission engine writes `allowed` or `denied`. `policy.evaluate()` writes `escalated` when the action needs human approval. Rows also carry accountability fields such as the acting agent, the accountable human and the policy version; see [Tamper-evident audit trail](/audit-trail#fields-on-each-row).</ParamField>
 <ParamField path="reason" type="string">Free-text explanation of a denial. Absent on allowed entries.</ParamField>
+<ParamField path="code" type="DecisionCode">Machine-readable outcome, such as `allowed`, `no_permission`, `rate_limited`, `hook_denied`, `hook_timeout` or `hook_error`. Read from the nullable `decision_code` column, so it is `undefined` on rows written before that column existed. It is an index convenience, not evidence: it is not part of the audit hash, so use `reason` and the hashed fields when proving what happened.</ParamField>
 <ParamField path="durationMs" type="number">Time taken to evaluate the decision, in milliseconds.</ParamField>
 <ParamField path="tokensCost" type="number">Optional token usage. The built-in permission engine does not populate it.</ParamField>
 <ParamField path="timestamp" type="Date">When the authorization check occurred.</ParamField>
 
 ### Filtering
 
-All filter fields are optional and combinable. Results are ordered newest first. Without filters or a `limit`, the query returns every entry.
+All filter fields are optional and combinable. Results are ordered newest first unless you pass `order: 'asc'`. The `timestamp` column has 1 second resolution, so ordering uses the `recorded_at_ms` write-order column (strictly increasing per agent chain), then `id` to break ties. Rows written in the same second always come back in write order. `recorded_at_ms` is not part of the audit hash. Without filters or a `limit`, the query returns every entry.
 
 ```typescript
 const logs = await theauth.audit.query({
@@ -48,8 +50,10 @@ const logs = await theauth.audit.query({
   since: new Date('2025-01-01'),
   until: new Date('2025-02-01'),
   actions: ['write', 'delete'],
+  events: ['authorize', 'policy.evaluate'],
+  resource: 'mcp:github:*',
+  order: 'asc',
   limit: 100,
-  offset: 0,
 });
 ```
 
@@ -57,10 +61,46 @@ const logs = await theauth.audit.query({
 <ParamField path="userId" type="string">Filter to all agents owned by a user.</ParamField>
 <ParamField path="since" type="Date">Include entries on or after this timestamp.</ParamField>
 <ParamField path="until" type="Date">Include entries on or before this timestamp.</ParamField>
-<ParamField path="actions" type="string[]">Filter to specific action names. Applied after `limit` and `offset`, so a page can come back shorter than `limit`.</ParamField>
+<ParamField path="codes" type="DecisionCode[]">Only entries whose `code` is one of these, for example `['hook_denied', 'hook_timeout', 'hook_error']` to list every hook block.</ParamField>
+<ParamField path="actions" type="string[]">Filter to specific action names. Applied in the query, before `limit`.</ParamField>
+<ParamField path="events" type="AuditEvent[]">Only entries with one of these [events](#event-vocabulary).</ParamField>
+<ParamField path="resource" type="string">Exact resource, or a prefix when the value ends with `*` (for example `mcp:github:*`). `%` and `_` in the value are literal.</ParamField>
+<ParamField path="order" type="'asc' | 'desc'">`desc` (default) is newest first, `asc` is oldest first.</ParamField>
+<ParamField path="cursor" type="string">Opaque cursor from `nextCursor` of the previous page. Use it with `audit.page()`.</ParamField>
 <ParamField path="result" type="'allowed' | 'denied' | 'rate_limited'">Filter by outcome.</ParamField>
 <ParamField path="limit" type="number">Maximum entries to return. No default: all matching entries are returned when omitted.</ParamField>
-<ParamField path="offset" type="number">Pagination offset.</ParamField>
+<ParamField path="offset" type="number">Deprecated, use `cursor`. Offsets skip or repeat rows when entries are written between pages. Ignored when `cursor` is set.</ParamField>
+
+### Pagination
+
+`theauth.audit.page(filter)` returns `{ entries, nextCursor }`. Pass `nextCursor` back as `cursor` (with the same filter and `order`) to get the next page. It is `null` on the last page, and always `null` when you pass no `limit`. The cursor encodes the `recorded_at_ms` and `id` of the last row, so pages have no gaps or repeats even when rows share a millisecond or new rows arrive between requests.
+
+```typescript
+let cursor: string | undefined;
+do {
+  const page = await theauth.audit.page({ agentId: 'agt_...', order: 'asc', limit: 200, cursor });
+  for (const entry of page.entries) handle(entry);
+  cursor = page.nextCursor ?? undefined;
+} while (cursor);
+```
+
+`audit.query()` still returns a plain array. Over HTTP, `GET /audit` returns the same array by default. Add `paged=true` (or send `cursor`) to get `{ entries, nextCursor }`; an invalid cursor answers 400. The query string accepts `order`, `cursor`, `events` (comma separated) and `resource` besides the existing filters. The `query_audit` MCP tool passes them through and always returns `nextCursor`.
+
+### Event vocabulary
+
+`event` says what happened. `action` keeps the domain verb. For an authorization row, `action` is the requested action (`read`) and `event` is `authorize`.
+
+| `event` | Written by |
+|---|---|
+| `authorize` | `theauth.authorize()` and `authorizeByToken()` decisions, including denials |
+| `policy.evaluate` | `theauth.policy.evaluate()` decisions |
+| `delegation.create`, `delegation.revoke` | `theauth.delegate()` and `theauth.delegation.revoke()`, with `action: "delegate"` |
+| `agent.cascade.revoked` | The row `agent.revoke()` writes for the delegations it cut |
+| `approval.request`, `approval.approve`, `approval.deny` | Approval requests and answers |
+| `vault.read` | Token vault reads |
+| `audit.checkpoint`, `audit.write_failed`, `audit.erasure` | Bookkeeping rows |
+
+`authorize.token`, `mcp.tool.call`, `agent.create` and `agent.revoke` are reserved names that the built-in writers do not use yet. The list is open: a custom writer can pass any string as `event` to `recordAuditEvent`. Rows from before the `event` column read back with a backfilled value where the old `action` made it clear, otherwise `null`.
 
 ### Exporting logs
 

@@ -72,7 +72,7 @@ await app.listen({ port: 3000 });
 </Steps>
 
 <Info>
-  The prefix is controlled by Fastify's `register` options, not by a `basePath` option on the adapter. This is consistent with how Fastify plugins work.
+  The prefix is controlled by Fastify's `register` options, and the handler picks it up. You can still pass `basePath` to override it.
 </Info>
 
 ## MCP endpoints
@@ -103,21 +103,21 @@ On Cloudflare use `trustedHeader: 'cf-connecting-ip'`. Only trust a header your 
 
 ## Endpoint reference
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/agents` | Create an agent |
-| `GET` | `/agents` | List agents |
-| `GET` | `/agents/:id` | Get an agent |
-| `PATCH` | `/agents/:id` | Update an agent |
-| `DELETE` | `/agents/:id` | Revoke an agent |
-| `POST` | `/agents/:id/rotate` | Rotate token |
-| `POST` | `/authorize` | Authorize by agent ID |
-| `POST` | `/authorize/token` | Authorize by bearer token |
-| `POST` | `/delegations` | Create delegation |
-| `GET` | `/delegations/:agentId` | List delegation chains |
-| `DELETE` | `/delegations/:id` | Revoke delegation |
-| `GET` | `/audit` | Query audit logs |
-| `GET` | `/audit/export` | Export audit logs |
+Every adapter serves the same routes with the same status codes. See the [route reference](/adapters/routes).
+
+## Protect a route for agents
+
+```typescript
+import { getAgent, requireScope } from '@glinr/theauth-fastify';
+
+app.get(
+  '/invoices',
+  { preHandler: requireScope(theauth, { action: 'read', resource: 'invoices' }) },
+  async (request) => ({ agentId: getAgent(request)?.id }),
+);
+```
+
+Missing or invalid bearer token returns 401 and a denied scope returns 403. The body is `{ "error": { "code", "message" } }`, where `code` is the decision code (for example `no_permission`). See the [requireScope guide](/require-scope).
 
 ## Full example
 

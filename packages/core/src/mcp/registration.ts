@@ -36,7 +36,17 @@ function metadataError(message: string): Result<McpClientRegistrationResponse> {
 export async function registerClient(
 	ctx: McpAuthContext,
 	body: unknown,
+	request?: Request,
 ): Promise<Result<McpClientRegistrationResponse>> {
+	if (ctx.config.registration?.enabled === false) {
+		return {
+			success: false,
+			error: {
+				code: "REGISTRATION_DISABLED",
+				message: "Dynamic client registration is disabled on this server",
+			},
+		};
+	}
 	const parsed = McpClientRegistrationSchema.safeParse(body);
 	if (!parsed.success) {
 		return {
@@ -172,6 +182,16 @@ export async function registerClient(
 		createdAt: now,
 		updatedAt: now,
 	};
+
+	// Server side only: the registration body has no field that can name an agent.
+	const agentForClient = ctx.config.registration?.agentForClient;
+	if (agentForClient) {
+		const bound = await agentForClient(
+			client,
+			request ?? new Request(`${ctx.config.baseUrl}/mcp/register`, { method: "POST" }),
+		);
+		if (bound) client.agentId = bound;
+	}
 
 	await ctx.storeClient(client);
 

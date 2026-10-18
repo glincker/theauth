@@ -251,12 +251,12 @@ export function OverviewPage({ client, onNavigate }: OverviewPageProps) {
 
 			{/* Main content: activity + quick actions */}
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-				{/* Activity Feed — takes up 2/3 */}
+				{/* Activity Feed, takes up 2/3 */}
 				<div className="lg:col-span-2">
 					<ActivityFeed client={client} />
 				</div>
 
-				{/* Quick Actions — takes up 1/3 */}
+				{/* Quick Actions, takes up 1/3 */}
 				<div className="flex flex-col gap-4">
 					<div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
 						<div className="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800">

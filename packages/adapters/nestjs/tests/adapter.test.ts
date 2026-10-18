@@ -109,7 +109,7 @@ describe("NestJS adapter", () => {
 			.post("/api/auth/theauth/authorize/token")
 			.set("Authorization", `Bearer ${token}`)
 			.send({ action: "read", resource: "mcp:github" });
-		expect(denyRes.status).toBe(403);
+		expect(denyRes.status).toBe(401);
 		const denyBody = denyRes.body as { data: { allowed: boolean; reason: string } };
 		expect(denyBody.data.allowed).toBe(false);
 		expect(denyBody.data.reason).toContain("Invalid or expired");

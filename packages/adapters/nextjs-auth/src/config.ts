@@ -2,6 +2,18 @@ import type { AuthConfig, DefaultUser, ResolvedAuthConfig } from "./types.js";
 
 const DEFAULT_COOKIE_CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_EXPIRY_REFRESH_BUFFER_S = 60;
+const MIN_SECRET_BYTES = 32;
+
+const secrets = new WeakMap<object, string>();
+
+/**
+ * Returns the signing secret bound to a config created by createAuthConfig, or undefined for any
+ * object that did not come from it (callers must then fail closed). Kept out of the config's own
+ * properties so logging or spreading the config never leaks it.
+ */
+export function getConfigSecret(config: object): string | undefined {
+	return secrets.get(config);
+}
 
 /**
  * Factory that resolves defaults and returns an immutable config object.
@@ -27,21 +39,43 @@ const DEFAULT_EXPIRY_REFRESH_BUFFER_S = 60;
 export function createAuthConfig<TUser = DefaultUser>(
 	input: AuthConfig<TUser>,
 ): ResolvedAuthConfig<TUser> {
+	if (
+		typeof input.secret !== "string" ||
+		new TextEncoder().encode(input.secret).length < MIN_SECRET_BYTES
+	) {
+		throw new Error(
+			`[theauth-nextjs-auth] \`secret\` is required and must be at least ${MIN_SECRET_BYTES} bytes. Generate one with: openssl rand -base64 48`,
+		);
+	}
+	// `isProd` only influences cookie NAMES (the __Host- prefix). It never controls `Secure`.
 	const isProd = input.isProd ?? process.env.NODE_ENV === "production";
+	// Secure is on unless the caller explicitly opts out (localhost development over plain http).
+	const secure = input.secure !== false;
+	const useHostPrefix = secure && isProd;
 
 	const sessionPrefix = input.cookies?.sessionPrefix ?? "glinr";
-	const refreshCookieName = input.cookies?.refresh ?? `${sessionPrefix}-refresh-token`;
+	// The refresh cookie is the most valuable one and is the credential the middleware trusts when no
+	// access token is present, so it gets `__Host-` (Secure, Path=/, no Domain) whenever `secure` is on,
+	// independent of `isProd`. A sibling subdomain cannot set or overwrite a `__Host-` cookie.
+	// `secure: false` (plain http localhost development) is the only way to the unprefixed name.
+	const refreshCookieName =
+		input.cookies?.refresh ??
+		(secure ? `__Host-${sessionPrefix}-refresh-token` : `${sessionPrefix}-refresh-token`);
 
-	const sessionName = isProd ? `__Host-${sessionPrefix}-token` : `${sessionPrefix}-token`;
-	const csrfName = isProd ? `__Host-${sessionPrefix}-csrf` : `${sessionPrefix}-csrf`;
-	const cacheName = `${sessionPrefix}-session-cache`;
+	const sessionName = useHostPrefix ? `__Host-${sessionPrefix}-token` : `${sessionPrefix}-token`;
+	const csrfName = useHostPrefix ? `__Host-${sessionPrefix}-csrf` : `${sessionPrefix}-csrf`;
+	const cacheName = useHostPrefix
+		? `__Host-${sessionPrefix}-session-cache`
+		: `${sessionPrefix}-session-cache`;
+
+	const markerName = useHostPrefix ? `__Host-${sessionPrefix}-gate` : `${sessionPrefix}-gate`;
 
 	const defaultMapUser = (raw: unknown): TUser | null => {
 		if (raw === null || raw === undefined) return null;
 		return raw as TUser;
 	};
 
-	return {
+	const resolved: ResolvedAuthConfig<TUser> = {
 		backendUrl: input.backendUrl.replace(/\/$/, ""),
 		appUrl: input.appUrl.replace(/\/$/, ""),
 		tenantDomain: input.tenantDomain ?? "",
@@ -56,10 +90,15 @@ export function createAuthConfig<TUser = DefaultUser>(
 			sessionName,
 			csrfName,
 			cacheName,
+			markerName,
 		},
 		cookieCacheMaxAgeMs: input.cookieCacheMaxAgeMs ?? DEFAULT_COOKIE_CACHE_MAX_AGE_MS,
 		expiryRefreshBufferS: input.expiryRefreshBufferS ?? DEFAULT_EXPIRY_REFRESH_BUFFER_S,
 		mapUser: input.mapUser ?? defaultMapUser,
 		isProd,
+		secure,
+		legacyCookieNames: input.legacyCookieNames === true,
 	};
+	secrets.set(resolved, input.secret);
+	return resolved;
 }

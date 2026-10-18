@@ -6,6 +6,8 @@ import { and, eq, gte } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { rateLimits } from "../db/schema.js";
+import type { DenialCode } from "../permission/codes.js";
+import { codeForConstraint } from "../permission/codes.js";
 import type { Permission, PermissionConstraints } from "../types.js";
 
 export interface ConstraintEvaluationInput {
@@ -18,6 +20,8 @@ export interface ConstraintEvaluationInput {
 export interface ConstraintResult {
 	allowed: boolean;
 	reason?: string;
+	/** Set on every denial. */
+	code?: DenialCode;
 	/** True when the constraint holds the call for human approval (escalate, not deny). */
 	needsApproval?: boolean;
 }
@@ -168,6 +172,7 @@ export async function checkRateLimit(
 		return {
 			allowed: false,
 			reason: rateLimitReason(totalCalls, maxCallsPerHour, resource),
+			code: "rate_limited",
 		};
 	}
 
@@ -254,6 +259,8 @@ export interface ConstraintInspection {
 	allowed: boolean;
 	needsApproval: boolean;
 	reason?: string;
+	/** Set when the walk stopped on a failure. */
+	code?: DenialCode;
 	steps: ConstraintStep[];
 }
 
@@ -278,7 +285,13 @@ export function inspectConstraints(
 		needsApproval = false,
 	): ConstraintInspection => {
 		steps.push(step);
-		return { allowed: false, needsApproval, reason, steps };
+		return {
+			allowed: false,
+			needsApproval,
+			reason,
+			code: codeForConstraint(step.constraint),
+			steps,
+		};
 	};
 
 	if (constraints.maxCallsPerHour != null && options.rateUsage !== undefined) {
@@ -440,7 +453,12 @@ export async function evaluateConstraints(
 	const inspection = inspectConstraints(input, constraints, { now: new Date() });
 	return inspection.allowed
 		? { allowed: true }
-		: { allowed: false, reason: inspection.reason, needsApproval: inspection.needsApproval };
+		: {
+				allowed: false,
+				reason: inspection.reason,
+				code: inspection.code,
+				needsApproval: inspection.needsApproval,
+			};
 }
 
 /**

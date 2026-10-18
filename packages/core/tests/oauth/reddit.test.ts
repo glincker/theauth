@@ -48,7 +48,7 @@ describe("createRedditProvider", () => {
 	});
 });
 
-describe("createRedditProvider — getAuthorizationUrl", () => {
+describe("createRedditProvider: getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code, PKCE S256, and duration=permanent", async () => {
 		const provider = createRedditProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
 		const url = await provider.getAuthorizationUrl("state-abc", CODE_VERIFIER, REDIRECT_URI);

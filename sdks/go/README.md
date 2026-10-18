@@ -29,7 +29,7 @@ import (
 
 func main() {
     client := theauth.NewClient("https://your-app.com/api/theauth",
-        theauth.WithToken("kv_..."),
+        theauth.WithToken("ta_..."),
         theauth.WithTimeout(10*time.Second),
     )
 
@@ -63,7 +63,7 @@ func main() {
 
 ```go
 client := theauth.NewClient(baseURL,
-    theauth.WithToken("kv_..."),          // bearer token for every request
+    theauth.WithToken("ta_..."),          // bearer token for every request
     theauth.WithTimeout(10*time.Second),  // HTTP timeout (default 30s)
     theauth.WithHeader("X-Tenant", "acme"), // extra header on every request
     theauth.WithHTTPClient(customHTTPClient), // bring your own http.Client
@@ -140,7 +140,7 @@ err = client.Auth.SignOut(ctx, resp.Session.Token)
 session, err := client.Auth.GetSession(ctx, "tok_...")
 
 // Authorize by agent token (when you have the raw token, not the ID)
-result, err := client.Auth.AuthorizeByToken(ctx, "kv_agent_token", theauth.AuthorizeRequest{
+result, err := client.Auth.AuthorizeByToken(ctx, "ta_agent_token", theauth.AuthorizeRequest{
     Action:   "execute",
     Resource: "mcp:deploy:production",
 })

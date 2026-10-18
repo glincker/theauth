@@ -105,9 +105,11 @@ describe("stateless sessions", () => {
 
 		it("rejects a flipped signature", async () => {
 			const { s, header } = await issued();
+			// Flip a character well inside the signature. The last base64url character of a 32 byte MAC carries
+			// only 4 significant bits, so swapping it can decode to the same bytes and be rightly accepted.
 			const bad = mutateCookie(header, "theauth_stateless", (v) => {
-				const last = v.slice(-1);
-				return v.slice(0, -1) + (last === "A" ? "B" : "A");
+				const at = v.length - 8;
+				return v.slice(0, at) + (v[at] === "A" ? "B" : "A") + v.slice(at + 1);
 			});
 			expect(await s.getSession(bad)).toBeNull();
 		});

@@ -1,7 +1,7 @@
 {
   "name": "@glinr/theauth-test-utils",
   "version": "0.2.0",
-  "description": "Test utilities for TheAuth — mock providers, factories, and assertions for auth test suites",
+  "description": "Test utilities for TheAuth: mock providers, factories, and assertions for auth test suites",
   "license": "MIT",
   "author": "TheAuth <support@glinr.com>",
   "repository": {

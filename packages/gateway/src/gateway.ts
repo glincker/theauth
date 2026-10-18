@@ -172,7 +172,7 @@ async function recordAuditEntry(
  * import { createTheAuth } from '@glinr/theauth';
  * import { createGateway } from '@glinr/theauth-gateway';
  *
- * const theauth = await createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
+ * const theauth = await createTheAuth({ database: { provider: 'sqlite-native', url: 'theauth.db' } });
  *
  * const gateway = createGateway({
  *   upstream: 'http://localhost:8080',

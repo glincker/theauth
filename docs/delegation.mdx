@@ -39,11 +39,11 @@ console.log(chain.depth);     // 1
 console.log(chain.expiresAt); // Date
 ```
 
-<ParamField path="fromAgent" type="string">Agent ID granting the permissions. Must hold every permission being delegated.</ParamField>
+<ParamField path="fromAgent" type="string">Agent ID granting the permissions. Must hold every permission being delegated, either as its own permission or through a delegation it received.</ParamField>
 <ParamField path="toAgent" type="string">Agent ID receiving the permissions.</ParamField>
-<ParamField path="permissions" type="Permission[]">Subset of permissions to delegate. Must not exceed the fromAgent's own permissions.</ParamField>
+<ParamField path="permissions" type="Permission[]">Subset of permissions to delegate. Must not exceed what the fromAgent holds (its own permissions plus the active, unexpired delegations it received).</ParamField>
 <ParamField path="expiresAt" type="Date">When the delegation expires. After this point, the chain is no longer valid.</ParamField>
-<ParamField path="maxDepth" type="number">Highest chain depth this call may create. The new link's depth (1 for a first hop, parent depth plus 1 for a re-delegation) must be less than or equal to this value, otherwise the call throws. Default is 3. The value is not inherited by later hops: each `delegate()` call is checked against its own `maxDepth`.</ParamField>
+<ParamField path="maxDepth" type="number">Highest chain depth this link and any later link below it may reach. The new link's depth (1 for a first hop, parent depth plus 1 for a re-delegation) must be less than or equal to the effective limit, otherwise the call throws. Default is 3. The limit is inherited: a re-delegation is checked against the smaller of its own `maxDepth` and the `maxDepth` of every active delegation the parent received.</ParamField>
 
 ### Permission subset enforcement
 
@@ -72,7 +72,7 @@ Invalid delegations:
 
 ### Constraints carry over
 
-Constraints on the permissions you delegate are stored on the chain and enforced by `policy.evaluate()`. They are narrowed against the permission the parent holds, so a child can only be tighter:
+Constraints on the permissions you delegate are stored on the chain and enforced by `authorize()`, `authorizeByToken()` and `policy.evaluate()`. They are narrowed against the permission the parent holds, so a child can only be tighter:
 
 | Constraint | Result |
 |---|---|
@@ -95,7 +95,7 @@ await theauth.delegate({
 
 ### Depth limiting
 
-Each link has a depth: 1 for a delegation from an agent that did not itself receive one, otherwise the deepest active chain into the delegating agent plus 1. On every `delegate()` call the code compares the new link's depth with the `maxDepth` passed on that same call (default 3) and throws if the depth is larger. `maxDepth` is not stored as a ceiling for later hops, so to stop re-delegation you pass a small `maxDepth` on each call, and the hop that would exceed it is rejected.
+Each link has a depth: 1 for a delegation from an agent that did not itself receive one, otherwise the deepest active chain into the delegating agent plus 1. On every `delegate()` call the code computes an effective limit, the smallest of the `maxDepth` passed on that call (default 3) and the `maxDepth` stored on every active, unexpired delegation into the delegating agent, and throws if the new link's depth is larger. The effective limit is stored on the new link, so a limit set at the top of a chain holds for every hop below it. A later call can lower it, never raise it.
 
 ```typescript
 // Orchestrator → Sub (depth 1, maxDepth 2): allowed
@@ -107,7 +107,7 @@ await theauth.delegate({
   maxDepth: 2,
 });
 
-// Sub → SubSub (depth 2, maxDepth 2): allowed
+// Sub → SubSub (depth 2, limit min(2, 2) = 2): allowed
 await theauth.delegate({
   fromAgent: sub.id,
   toAgent: subSub.id,
@@ -116,15 +116,19 @@ await theauth.delegate({
   maxDepth: 2,
 });
 
-// Same call with maxDepth: 1 is rejected: depth 2 exceeds maxDepth 1
-// SubSub → anything with maxDepth: 2 is rejected: depth 3 exceeds maxDepth 2
+// Sub → anyone with maxDepth: 1 is rejected: depth 2 exceeds limit 1
+// SubSub → anyone, even with maxDepth: 10, is rejected: depth 3 exceeds the inherited limit 2
 ```
 
 The default `maxDepth` when not specified is `3`.
 
-<Warning>
-The subset check uses the delegating agent's own permissions, not the permissions it received through delegation. An agent that holds only delegated permissions (such as `sub` above, created with `permissions: []`) cannot re-delegate them: that call throws the subset error before depth is considered. Give the intermediate agent its own copy of the permissions if it must re-delegate.
-</Warning>
+<Info>
+A delegating agent can re-delegate permissions it received. The subset check runs against the agent's own permissions plus the active delegations into it, so `sub` above, created with `permissions: []`, can pass on what it was given, never more. The new link also cannot outlive the delegation it was derived from: its expiry is capped at the earliest expiry among the delegations into the parent, unless the parent's own permissions already cover the request.
+</Info>
+
+### Delegators must be live
+
+A delegation lends authority only while its delegator is live. If a delegating agent is revoked or expired (or any status other than `active`), the links it gave stop counting: the delegate loses the permissions that came through it in `authorize()`, `authorizeByToken()`, `policy.evaluate()`, `explain()`, the simulator and the live MCP check, and the chain passed to `beforeAuthorize` no longer lists it. This applies down the chain, even when no revocation cascade ran. An agent that stands on its own permissions, and a root user as delegator, are not affected, and permissions the delegate holds directly are never touched. The same filter backs token vault consent (a downstream agent cannot use a vault credential through a dead intermediate) and the policy-shrink grant list, so unused-permission suggestions ignore dead links. If a delegator's inbound links are all dead, its onward links still stand when they grant only permissions it holds directly, because that authority never came through the dead chain. Onward links that grant what it received through the dead chain stop.
 
 ### Cascading revocation
 
@@ -145,7 +149,7 @@ In the TypeScript package, `agent.revoke()` also revokes every active chain wher
 </Note>
 
 <Note>
-Tokens minted through MCP token exchange carry their chain in the `act` claim. Set `delegationStore` in the MCP config to have the resource server re-check that chain against live records, so revoking a parent chain rejects tokens issued down it before they expire. See [MCP auth](/mcp).
+Tokens minted through MCP token exchange carry their chain in the `act` claim, plus a signed `theauth_dlg` binding to the exact links and agents behind it. With `auth` passed to `createMcpModule`, the resource server checks that binding against the live rows on every request, so revoking a link (and every link below it in the cascade) or revoking an agent makes the next request carrying an affected token fail, on every instance that shares the database. A token never outlives the links and agents it came from. Resource servers that only verify the JWT see the revoke at token expiry. See [MCP token revocation](/mcp-revocation) for the modes and limits. `delegationStore` remains as the opt in check for older tokens that have an `act` claim and no binding.
 </Note>
 
 ### Effective permissions
@@ -213,7 +217,7 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
     ```
   </Step>
   <Step>
-    Delegate only what the sub-agent needs, with a short expiry and a small `maxDepth` (re-delegation calls must pass a larger one, see depth limiting above).
+    Delegate only what the sub-agent needs, with a short expiry and a small `maxDepth` (later hops inherit it, see depth limiting above).
 
     ```typescript
     await theauth.delegate({
@@ -242,6 +246,6 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
   Delegated permissions count as granted when you compare them with what an agent used.
 </Card>
   <Card title="MCP OAuth 2.1" href="/mcp">
-  Use delegation with MCP-authenticated agents. The optional `delegationStore` re-checks a token's delegation chain on each validation.
+  Use delegation with MCP-authenticated agents. Tokens from token exchange are bound to their delegation, so revoking a link rejects them on the next request. See [MCP token revocation](/mcp-revocation).
 </Card>
 </CardGroup>
