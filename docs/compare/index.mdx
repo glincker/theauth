@@ -8,7 +8,7 @@ Auth is a crowded space. These pages are meant to help you pick the right tool, 
 
 <CardGroup cols={2}>
   <Card title="theAuth vs better-auth" icon="code-compare" href="/compare/vs-ba">
-    Both are MIT TypeScript libraries with a broad OAuth provider list. The split is agent primitives: better-auth treats agents as OAuth clients; theAuth makes them first-class entities with delegation, ephemeral sessions, trust scoring, and compliance exports.
+    Both are MIT TypeScript libraries and both ship an MCP OAuth 2.1 server and an agent plugin or module. better-auth is the larger project with the larger community. theAuth adds delegation chains, approvals bound to arguments, an audit chain, devices and a Go library, some of which are on the release branch and not yet in a published release. The page lists each row with its source.
   </Card>
   <Card title="theAuth vs Hanko" icon="fingerprint" href="/compare/vs-hanko">
     Hanko is a passkey-first library with an AGPL backend. If passkeys are your entire auth story and you have no agent workloads, it's worth a look. If you need any agent identity or RBAC, you'll be building on top of it yourself.

@@ -37908,7 +37908,7 @@ Auth is a crowded space. These pages are meant to help you pick the right tool, 
 
 <CardGroup cols={2}>
   <Card title="theAuth vs better-auth" icon="code-compare" href="/compare/vs-ba">
-    Both are MIT TypeScript libraries with a broad OAuth provider list. The split is agent primitives: better-auth treats agents as OAuth clients; theAuth makes them first-class entities with delegation, ephemeral sessions, trust scoring, and compliance exports.
+    Both are MIT TypeScript libraries and both ship an MCP OAuth 2.1 server and an agent plugin or module. better-auth is the larger project with the larger community. theAuth adds delegation chains, approvals bound to arguments, an audit chain, devices and a Go library, some of which are on the release branch and not yet in a published release. The page lists each row with its source.
   </Card>
   <Card title="theAuth vs Hanko" icon="fingerprint" href="/compare/vs-hanko">
     Hanko is a passkey-first library with an AGPL backend. If passkeys are your entire auth story and you have no agent workloads, it's worth a look. If you need any agent identity or RBAC, you'll be building on top of it yourself.
@@ -37927,45 +37927,58 @@ Auth is a crowded space. These pages are meant to help you pick the right tool, 
 
 Source: https://docs.theauth.dev/compare/vs-ba
 
-better-auth and theAuth are both open-source TypeScript auth libraries, and they start from different places. better-auth is built around human sign-in with a plugin system on top. theAuth is built around identities that can be humans or agents, so agent permissions, delegation and audit are part of the core model instead of an add-on.
+better-auth and theAuth are both open-source TypeScript auth libraries, and they start from different places. better-auth grew out of human sign-in and added a plugin system on top. theAuth is built around identities that can be humans, agents or devices, so permissions, delegation and audit apply to all of them.
 
-This page lists what each ships today with sources, so you can check the rows that matter for your project. Every claim here should be easy to verify in the linked docs.
+better-auth is the larger project with the larger community, and it has an agent plugin of its own. This page lists what each documents, with the source for each row, so you can check the rows that matter to you. Where we did not verify a row for better-auth, we left it out instead of guessing. Last checked: 2026-10-18.
 
-A migration guide from better-auth is available: [Migrate from better-auth](/migrate/from-better-auth).
+A migration guide is available: [Migrate from better-auth](/migrate/from-better-auth).
 
-## Feature matrix
+## What both do
 
 | Capability | theAuth | better-auth |
 |---|---|---|
-| Language | TypeScript, MIT | TypeScript, MIT |
-| Named OAuth providers | 48 (22 first class, 26 presets) | 37 |
-| MCP OAuth 2.1 server | Built in with agent identity, delegation, and ephemeral sessions | Thin OIDC wrapper plugin |
-| Agent identity | First-class `AgentIdentity` entity next to `User` | Treated as an OAuth client |
-| A2A protocol | Server + client + Agent Cards with JWS signing | Not shipped |
-| Ephemeral agent sessions | Built in with auto-expiry, action limits, and audit grouping | Not shipped |
-| Cost attribution per agent/tool/chain | Built in with alerts and budget integration | Not shipped |
-| Trust scoring | 5-level built in | Not shipped |
-| Compliance reports (EU AI Act, NIST AI RMF, SOC 2, ISO 42001) | Exports built in | Not shipped |
-| Unified RBAC + ABAC + ReBAC policy engine | One engine | RBAC only |
-| Approval flows (CIBA) | Built in | Not shipped |
-| Verifiable Credentials audit export | On roadmap | Not shipped |
-| Edge runtime (Workers, Deno, Bun) | Zero `node:crypto` imports, Web Crypto throughout | Partial |
-| DB adapters | Drizzle (core) plus Prisma (`@glinr/theauth-prisma`) | Prisma, Drizzle, Kysely, Mongo, Redis |
-| Client libraries | React, Vue, Svelte, Electron, Expo, plain fetch | React, Vue, Svelte, Solid, Electron, Expo |
+| License and language | MIT, TypeScript, plus a Go library | MIT, TypeScript |
+| MCP OAuth 2.1 server | PKCE, RFC 7591, RFC 8707, RFC 9728 and Client ID Metadata Documents | MCP plugin built on its OAuth 2.1 Provider, PKCE, RFC 8414 and RFC 9728 metadata, DCR off unless you enable it, CIMD recommended ([docs](https://www.better-auth.com/docs/plugins/mcp)) |
+| Agent identity | `AgentIdentity` entity next to `User`, with delegation chains between agents | Agent Auth plugin with agent, host, grant and approval records and capability grants. Its docs label it "not yet stable" ([docs](https://www.better-auth.com/docs/plugins/agent-auth)) |
+| Human approval of agent actions | Approval module with decision codes | `device_authorization` and `ciba` approval methods in the Agent Auth plugin ([docs](https://www.better-auth.com/docs/plugins/agent-auth)) |
+| Passkeys, two factor, SAML, SCIM, organizations, API keys | Plugins for each | Plugins for each, documented on its site |
+
+## Where theAuth goes further
+
+These come from our own repository. We did not find the same features in better-auth's documentation when we looked on 2026-10-18, which does not prove they are absent.
+
+| Capability | theAuth | Status |
+|---|---|---|
+| Approvals bound to the arguments the human saw, with a mismatch code | Canonical hash of action, resource and arguments, spent once | On the release branch, not in a published release yet |
+| Tamper evident audit chain with signed checkpoints, and a verifier for the Go library's chain | Chained rows, signed head checkpoints | Chain published; signed head checkpoints on the release branch |
+| Revocation that reaches issued MCP tokens | A signed delegation claim and a shared denylist, checked live, cached or offline | On the release branch |
+| Devices as principals: enrollment, offline signed policy bundles | `device` principal with the same permissions, delegation and audit | On the release branch |
+| MQTT broker authorization | Backend for EMQX and Mosquitto, tested against EMQX 5.8.6 and Mosquitto 2.0.15 | On the release branch (Go) |
+| ROS 2 permissions | Export to SROS2 and DDS Security files, tested with enforcement on ROS 2 Humble | On the release branch |
+| Go library with the same model | Memory, SQLite, Postgres and MySQL stores | Published (v2.12.0) |
+| No `node:crypto` imports in core | Runs on Workers, Deno and Bun | Published |
+
+"Release branch" means the code is written and tested but is not in the npm or Go release you get today. Check the [GitHub releases](https://github.com/glincker/theauth/releases) before you rely on a row.
+
+## Where better-auth is ahead or equal
+
+- Adoption and ecosystem. better-auth had 30.4k GitHub stars on 2026-10-18 and a large plugin and integration community. theAuth is new and has no user numbers we can quote.
+- Databases. better-auth documents Kysely (SQLite and D1, PostgreSQL, MySQL, MSSQL), Prisma, Drizzle and MongoDB. theAuth has Drizzle and a Prisma adapter, and the Go library has memory, SQLite, Postgres and MySQL. If you need MongoDB or MSSQL, better-auth covers it today. Redis in better-auth is secondary storage, not a database.
+- MCP. Both ship an OAuth 2.1 server for MCP, so that alone does not separate them.
+- Approvals. Both support human approval of agent actions. The difference is the argument binding noted above.
+- SAML. theAuth's SAML verifier has not had an independent audit, and the docs say so. Treat it as experimental.
 
 ## Pick theAuth if
 
-- Your app runs AI agents with their own identity, permissions, or audit requirements.
-- You need MCP OAuth 2.1 with proper agent delegation, not just an OIDC wrapper.
-- You're targeting Cloudflare Workers, Deno, or Bun and need full edge compatibility from day one.
+- Your app runs AI agents, devices or robots that need their own identity, scoped permissions, delegation and an audit trail.
+- You want one model across TypeScript and Go services.
+- You need approvals tied to the exact arguments, or revocation that reaches tokens already issued, and you can run the release branch or wait for the release.
 
 ## Pick better-auth if
 
-- You're building a human-facing web app with no agent workloads.
-- You need an OAuth provider it ships that theAuth does not cover. Check both provider lists first.
-- You want a Mongo or Redis adapter and Prisma first-class support right now.
-
-Both are MIT, both are TypeScript. The question is whether agents are part of your architecture.
+- You are building a human-facing web app and want the larger community and ecosystem.
+- You need a database or provider that theAuth does not cover. Check both lists first.
+- You want its agent plugin and are fine with it being marked not yet stable.
 
 ## Related
 
@@ -38112,15 +38125,15 @@ Source: https://docs.theauth.dev/compare/vs-paid
 
 Clerk and Auth0 are polished products. The onboarding is fast, the UI components are good, and you can be in production in an afternoon. That's a real advantage worth naming before anything else.
 
-The tradeoff is real too. You don't own the code, self-hosting is not an option, and the bill scales with your user count. Both have free tiers that feel generous until you hit the ceiling. Check their pricing pages directly, [Clerk pricing](https://clerk.com/pricing) and [Auth0 pricing](https://auth0.com/pricing), before making a spreadsheet.
+The tradeoff is real too. You run on their service, and the bill scales with your user count. Both have free tiers that feel generous until you hit the ceiling. Check their pricing pages directly, [Clerk pricing](https://clerk.com/pricing) and [Auth0 pricing](https://auth0.com/pricing), before making a spreadsheet.
 
 ## The structural differences
 
-**Open source vs. closed.** theAuth is MIT. You can read every line, fork it, run it anywhere. Paid platforms are proprietary. You're trusting their security posture, their uptime SLA, and their product roadmap.
+**Open source vs. closed.** theAuth is MIT. You can read every line, fork it, run it anywhere. Clerk and Auth0 are hosted platforms, so you rely on their security posture, their uptime commitments and their product roadmap. Check each one's license and terms on its own site.
 
-**Self-hosted vs. vendor.** Running theAuth means you control the database, the logs, and the data residency. That matters if you're in healthcare, finance, or working under GDPR data locality requirements. Vendor platforms handle the infrastructure but own the logs too.
+**Self-hosted vs. vendor.** Running theAuth means you control the database, the logs, and the data residency. That matters if you're in healthcare, finance, or working under GDPR data locality requirements. Vendor platforms handle the infrastructure, which also means your auth logs live in their service.
 
-**Agent identity in the core.** theAuth models agents directly: `AgentIdentity`, delegation chains, ephemeral sessions and cost attribution are part of the library. With a general purpose identity platform you issue tokens an agent can use and build that layer on top of the provider's APIs.
+**Agent identity in the core.** theAuth models agents directly: `AgentIdentity`, delegation chains, ephemeral sessions and cost attribution are part of the library. Clerk and Auth0 now document MCP and agent features of their own, so compare what each one covers (Auth0 labels parts of this early access, as of 2026-10-18). With theAuth the model lives in the library you run.
 
 ## When managed platforms make sense
 
@@ -38132,7 +38145,7 @@ It's also worth considering if your team has no one who wants to own auth infras
 
 Once you have a stable user base, the cost curve of managed platforms typically exceeds what it costs to run a database and a self-hosted SDK. Beyond cost, open source gives you the ability to audit the code for compliance, patch issues without waiting on a vendor, and keep sensitive auth data inside your own infrastructure.
 
-For any product with AI agents, theAuth is the only open-source option that treats them as first-class entities rather than an afterthought.
+For a product with AI agents, compare the agent features of each option. Better Auth, an open-source library, also has an agent plugin; see [theAuth vs better-auth](/compare/vs-ba) for the differences we verified.
 
 ## Related
 

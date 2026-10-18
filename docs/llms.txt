@@ -229,7 +229,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Test utilities](https://docs.theauth.dev/test-utils): Test auth-dependent code without a database using @glinr/theauth-test-utils. Provides entity factories, in-memory mock auth server, and per-request user overrides.
 - [A2A protocol](https://docs.theauth.dev/a2a): Authenticate Google A2A protocol traffic between agents with theAuth bearer tokens, scoped permissions, and a shared audit trail.
 - [Compare theAuth](https://docs.theauth.dev/compare/index): Side-by-side breakdowns of theAuth against better-auth, Hanko, Casdoor, and paid platforms. Covers agent identity, MCP OAuth, RBAC, and deployment model.
-- [theAuth vs better-auth](https://docs.theauth.dev/compare/vs-ba): A feature-by-feature comparison of theAuth and better-auth for TypeScript applications.
+- [theAuth vs better-auth](https://docs.theauth.dev/compare/vs-ba): A sourced comparison of theAuth and better-auth for TypeScript applications, last checked 2026-10-18.
 - [theAuth vs Hanko](https://docs.theauth.dev/compare/vs-hanko): theAuth versus Hanko across passkey support, OAuth providers, agent identity, MCP OAuth, RBAC, and licensing. Includes a clear decision framework for each tool.
 - [theAuth vs Casdoor](https://docs.theauth.dev/compare/vs-casdoor): theAuth as an in-process TypeScript library versus Casdoor as a standalone Go IAM service. Compares MCP OAuth 2.1, agent identity, LDAP, RBAC, and deployment model.
 - [theAuth vs paid auth platforms](https://docs.theauth.dev/compare/vs-paid): theAuth versus Clerk and Auth0: open-source self-hosted against managed platforms. Covers cost, data residency, agent identity gaps, and when each fits.
