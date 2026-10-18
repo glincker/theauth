@@ -4,6 +4,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export const GUARD_PROTOCOL_VERSION = "2026-10";
 export const TIMESTAMP_HEADER = "x-theauth-timestamp";
 export const SIGNATURE_HEADER = "x-theauth-signature";
+export const RESPONSE_TIMESTAMP_HEADER = "x-theauth-response-timestamp";
+export const RESPONSE_SIGNATURE_HEADER = "x-theauth-response-signature";
 export const VERSION_HEADER = "x-theauth-guard-version";
 /** Latency budget, matches the default hook timeout in core. */
 export const GUARD_LATENCY_BUDGET_MS = 2000;
@@ -12,6 +14,16 @@ export const CANARY_DENY_RESOURCE = "conformance:canary:deny";
 
 export function sign(secret: string, timestamp: number, body: string): string {
 	return `v1=${createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex")}`;
+}
+
+/** Response signature, bound to the request id: HMAC over `<requestId>.<timestamp>.<body>`. */
+export function signResponse(
+	secret: string,
+	requestId: string,
+	timestamp: number,
+	body: string,
+): string {
+	return `v1=${createHmac("sha256", secret).update(`${requestId}.${timestamp}.${body}`).digest("hex")}`;
 }
 
 export function signatureMatches(expected: string, given: string): boolean {

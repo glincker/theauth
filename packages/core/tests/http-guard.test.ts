@@ -9,7 +9,9 @@ import {
 	GUARD_PROTOCOL_VERSION,
 	httpGuard,
 	signGuardBody,
+	signGuardResponse,
 	verifyGuardRequest,
+	verifyGuardResponse,
 } from "../src/hooks/http-guard.js";
 import { auditRows, makeTheAuth, newAgent, READ_GITHUB } from "./hook-test-utils.js";
 
@@ -53,8 +55,22 @@ beforeAll(async () => {
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
+function lastRequestId(): string {
+	return JSON.parse(seen[seen.length - 1]?.body ?? "{}").requestId as string;
+}
+
+/** Send a JSON answer signed like a conforming vendor would sign it. */
 function json(res: ServerResponse, body: unknown, status = 200): void {
-	res.writeHead(status, { "content-type": "application/json" });
+	const text = JSON.stringify(body);
+	void signGuardResponse(SECRET, { requestId: lastRequestId(), body: text }).then((signed) => {
+		res.writeHead(status, { "content-type": "application/json", ...signed });
+		res.end(text);
+	});
+}
+
+/** Send an answer with explicit headers, for the signing failure cases. */
+function raw(res: ServerResponse, body: unknown, headers: Record<string, string>): void {
+	res.writeHead(200, { "content-type": "application/json", ...headers });
 	res.end(JSON.stringify(body));
 }
 
@@ -154,6 +170,174 @@ describe("httpGuard fails closed", () => {
 		const g = httpGuard({ name: "v", url: `${base}/p/token=abc?key=zzz`, secret: SECRET });
 		const err = (await g.check(INPUT, signal()).catch((e: unknown) => e)) as Error;
 		expect(err.message).not.toMatch(/SECRET|s3cret|zzz|token=abc/i);
+	});
+});
+
+describe("signed responses", () => {
+	const allow = { decision: "allow" };
+	const text = JSON.stringify(allow);
+	const stale = Math.floor(Date.now() / 1000) - 3600;
+
+	const failures: [string, Handler, RegExp][] = [
+		["missing signature", (_q, res) => raw(res, allow, {}), /missing response signature/],
+		[
+			"malformed timestamp",
+			(_q, res) =>
+				raw(res, allow, {
+					"x-theauth-response-timestamp": "abc",
+					"x-theauth-response-signature": `v1=${"0".repeat(64)}`,
+				}),
+			/bad response timestamp/,
+		],
+		[
+			"malformed signature",
+			(_q, res) =>
+				raw(res, allow, {
+					"x-theauth-response-timestamp": String(Math.floor(Date.now() / 1000)),
+					"x-theauth-response-signature": "nonsense",
+				}),
+			/bad response signature/,
+		],
+		[
+			"wrong secret",
+			async (_q, res) =>
+				raw(
+					res,
+					allow,
+					await signGuardResponse("other", { requestId: lastRequestId(), body: text }),
+				),
+			/bad response signature/,
+		],
+		[
+			"different requestId",
+			async (_q, res) =>
+				raw(
+					res,
+					allow,
+					await signGuardResponse(SECRET, { requestId: "other-request", body: text }),
+				),
+			/bad response signature/,
+		],
+		[
+			"stale timestamp",
+			async (_q, res) =>
+				raw(
+					res,
+					allow,
+					await signGuardResponse(SECRET, {
+						requestId: lastRequestId(),
+						body: text,
+						timestamp: stale,
+					}),
+				),
+			/stale response/,
+		],
+		[
+			"tampered body",
+			async (_q, res) =>
+				raw(
+					res,
+					{ decision: "allow", reason: "x" },
+					await signGuardResponse(SECRET, { requestId: lastRequestId(), body: text }),
+				),
+			/bad response signature/,
+		],
+	];
+	for (const [name, h, message] of failures) {
+		it(`refuses ${name}`, async () => {
+			handler = h;
+			await expect(guard().check(INPUT, signal())).rejects.toThrow(message);
+		});
+	}
+
+	it("a deny turned into an allow in transit is refused", async () => {
+		handler = async (_q, res, body) => {
+			const real = JSON.stringify({ decision: "deny", reason: "no" });
+			const headers = await signGuardResponse(SECRET, {
+				requestId: JSON.parse(body).requestId,
+				body: real,
+			});
+			raw(res, allow, headers);
+		};
+		await expect(guard().check(INPUT, signal())).rejects.toThrow(/bad response signature/);
+	});
+
+	it("fails closed through the hook runner", async () => {
+		handler = (_q, res) => raw(res, allow, {});
+		const theauth = await makeTheAuth({ hooks: { beforeAuthorize: guardHook(guard()) } });
+		const agent = await newAgent(theauth, "a", READ_GITHUB);
+		const result = await theauth.authorize(agent.id, {
+			action: "read",
+			resource: "mcp:github:issues",
+		});
+		expect(result.allowed).toBe(false);
+	});
+
+	it("accepts a separate responseSecret and refuses the shared one", async () => {
+		handler = async (_q, res) =>
+			raw(
+				res,
+				allow,
+				await signGuardResponse("resp-secret", { requestId: lastRequestId(), body: text }),
+			);
+		const g = httpGuard({
+			name: "v",
+			url: `${base}/x`,
+			secret: SECRET,
+			responseSecret: "resp-secret",
+		});
+		expect(await g.check(INPUT, signal())).toEqual(allow);
+		handler = (_q, res) => json(res, allow);
+		await expect(g.check(INPUT, signal())).rejects.toThrow(/bad response signature/);
+	});
+
+	it("requireSignedResponse: false accepts an unsigned response", async () => {
+		handler = (_q, res) => raw(res, allow, {});
+		const g = httpGuard({
+			name: "v",
+			url: `${base}/x`,
+			secret: SECRET,
+			requireSignedResponse: false,
+		});
+		expect(await g.check(INPUT, signal())).toEqual(allow);
+	});
+
+	it("honors a custom toleranceSec", async () => {
+		handler = async (_q, res) =>
+			raw(
+				res,
+				allow,
+				await signGuardResponse(SECRET, {
+					requestId: lastRequestId(),
+					body: text,
+					timestamp: Math.floor(Date.now() / 1000) - 600,
+				}),
+			);
+		const g = httpGuard({ name: "v", url: `${base}/x`, secret: SECRET, toleranceSec: 900 });
+		expect(await g.check(INPUT, signal())).toEqual(allow);
+	});
+
+	it("signGuardResponse and verifyGuardResponse round trip, also with Headers", async () => {
+		const headers = await signGuardResponse(SECRET, { requestId: "r9", body: text });
+		expect(headers["x-theauth-response-signature"]).toMatch(/^v1=[0-9a-f]{64}$/);
+		expect(headers["x-theauth-response-timestamp"]).toMatch(/^\d+$/);
+		const args = { requestId: "r9", headers: new Headers(headers), body: text };
+		expect(await verifyGuardResponse(SECRET, args)).toEqual({ ok: true });
+		expect((await verifyGuardResponse(SECRET, { ...args, requestId: "r8" })).ok).toBe(false);
+	});
+
+	it("the full vendor flow works in three lines", async () => {
+		handler = async (req, res, body) => {
+			const r = await verifyGuardRequest(SECRET, req.headers as Record<string, string>, body);
+			if (!r.ok) return void res.writeHead(401).end();
+			const answer = JSON.stringify({ decision: "allow" });
+			raw(
+				res,
+				JSON.parse(answer),
+				await signGuardResponse(SECRET, { requestId: r.requestId, body: answer }),
+			);
+		};
+		expect(await guard().check(INPUT, signal())).toEqual(allow);
 	});
 });
 

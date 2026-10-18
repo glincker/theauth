@@ -305,7 +305,7 @@ const theauth = await createTheAuth({
 });
 ```
 
-For a vendor endpoint over HTTPS, use `httpGuard` instead of writing the `fetch` yourself. It signs the request, validates the verdict strictly and refuses redirects. See [remote guards](/guards).
+For a vendor endpoint over HTTPS, use `httpGuard` instead of writing the `fetch` yourself. It signs the request, requires a signed response, validates the verdict strictly and refuses redirects. See [remote guards](/guards).
 
 ### What the guard receives
 

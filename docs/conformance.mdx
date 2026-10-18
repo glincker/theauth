@@ -123,9 +123,12 @@ The secret can also come from `THEAUTH_GUARD_SECRET`. It signs the probes and is
 | `guard-malformed-input` | MUST | A signed body that is not JSON, or lacks `input`, is never allowed |
 | `guard-no-redirect` | MUST | The endpoint answers directly |
 | `guard-dry-run` | SHOULD | A `dryRun: true` canary still gets a valid verdict |
+| `guard-response-signed` | MUST | A verdict carries `x-theauth-response-signature` and `x-theauth-response-timestamp` |
+| `guard-response-signature` | MUST | The signature covers `<requestId>.<timestamp>.<body>` with the shared secret |
+| `guard-response-fresh` | MUST | The response timestamp is within 300 seconds |
 | `guard-latency` | SHOULD | The slowest of 3 canaries answers within 2000 ms |
 
-The package ships a reference guard, `startGuardReference({ secret })`, that passes all nine. Its tests also run deliberately flawed variants to prove each check catches its flaw. In code: `runSuite({ target, timeoutMs: 10000, mode: "guard", guardSecret })`.
+The package ships a reference guard, `startGuardReference({ secret })`, that passes all twelve. Its tests also run deliberately flawed variants to prove each check catches its flaw. In code: `runSuite({ target, timeoutMs: 10000, mode: "guard", guardSecret })`.
 
 ## Tested against theAuth
 

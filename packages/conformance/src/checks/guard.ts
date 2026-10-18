@@ -5,8 +5,12 @@ import {
 	canaryEnvelope,
 	GUARD_LATENCY_BUDGET_MS,
 	GUARD_PROTOCOL_VERSION,
+	RESPONSE_SIGNATURE_HEADER,
+	RESPONSE_TIMESTAMP_HEADER,
 	SIGNATURE_HEADER,
 	sign,
+	signatureMatches,
+	signResponse,
 	TIMESTAMP_HEADER,
 	VERSION_HEADER,
 	validateVerdict,
@@ -77,6 +81,68 @@ async function canary(ctx: Context, resource: string, expected: "allow" | "deny"
 		return fail(`Canary ${expected} resource got "${verdict.decision}".`, evidence);
 	}
 	return pass(`Valid ${expected} verdict.`, { status: res.status });
+}
+
+const RESPONSE_TOLERANCE_SEC = 300;
+
+type ResponseProblem = "missing" | "signature" | "stale";
+
+/** Send a valid canary and judge the response signature. Returns the problem, or null when fine. */
+async function inspectResponse(
+	ctx: Context,
+): Promise<{ problem: ResponseProblem | null; status: number; detail: string }> {
+	const envelope = canaryEnvelope({ resource: CANARY_ALLOW_RESOURCE });
+	const requestId = String(envelope.requestId);
+	const res = await post(ctx, { body: JSON.stringify(envelope), secret: secretOf(ctx) });
+	const ts = res.headers.get(RESPONSE_TIMESTAMP_HEADER);
+	const sig = res.headers.get(RESPONSE_SIGNATURE_HEADER);
+	if (res.status < 200 || res.status >= 300) {
+		return { problem: "missing", status: res.status, detail: `canary got HTTP ${res.status}` };
+	}
+	if (!ts || !sig) {
+		return { problem: "missing", status: res.status, detail: "response signature headers absent" };
+	}
+	if (!/^\d{1,12}$/.test(ts)) {
+		return { problem: "signature", status: res.status, detail: "response timestamp is malformed" };
+	}
+	if (!signatureMatches(signResponse(secretOf(ctx), requestId, Number(ts), res.text), sig)) {
+		return {
+			problem: "signature",
+			status: res.status,
+			detail: "signature does not match secret, request id and body",
+		};
+	}
+	if (Math.abs(now() - Number(ts)) > RESPONSE_TOLERANCE_SEC) {
+		return {
+			problem: "stale",
+			status: res.status,
+			detail: "response timestamp is outside the window",
+		};
+	}
+	return { problem: null, status: res.status, detail: "ok" };
+}
+
+function responseCheck(
+	id: string,
+	title: string,
+	problems: ResponseProblem[],
+	passMessage: string,
+	failMessage: string,
+): Check {
+	return {
+		id,
+		title,
+		spec: "theauth guard protocol 2026-10, signed responses",
+		severity: "must",
+		async run(ctx) {
+			if (!secretOf(ctx)) return missingSecret();
+			const r = await inspectResponse(ctx);
+			if (r.problem !== null && problems.includes(r.problem)) {
+				return fail(`${failMessage} (${r.detail}).`, { status: r.status });
+			}
+			return r.problem === null ? pass(passMessage, { status: r.status }) : fail(`${r.detail}.`);
+		},
+	};
 }
 
 export const guardChecks: Check[] = [
@@ -199,4 +265,25 @@ export const guardChecks: Check[] = [
 					);
 		},
 	},
+	responseCheck(
+		"guard-response-signed",
+		"A verdict carries x-theauth-response-signature and x-theauth-response-timestamp",
+		["missing"],
+		"Response is signed.",
+		"The response is not signed. httpGuard denies unsigned responses",
+	),
+	responseCheck(
+		"guard-response-signature",
+		"The response signature uses the shared secret and is bound to the request id",
+		["signature"],
+		"Signature matches secret, request id and body.",
+		"The response signature is wrong. Sign <requestId>.<timestamp>.<body> with the shared secret",
+	),
+	responseCheck(
+		"guard-response-fresh",
+		"The response timestamp is within the replay window",
+		["stale"],
+		"Response timestamp is fresh.",
+		"The response timestamp is stale. Use the current unix time",
+	),
 ];

@@ -29,7 +29,7 @@ const theauth = await createTheAuth({
 
 ## Guard vendors
 
-If your integration is a policy service, you do not need this template. Expose an HTTPS endpoint that follows the remote guard protocol (`docs/guards.mdx`) and customers wire it with `httpGuard`. Check it with `npx @glinr/theauth-conformance guard <url> --secret <s>`.
+If your integration is a policy service, you do not need this template. Expose an HTTPS endpoint that follows the remote guard protocol (`docs/guards.mdx`) and customers wire it with `httpGuard`. Verify the request with `verifyGuardRequest` and sign every verdict with `signGuardResponse`, because `httpGuard` denies unsigned responses. Check it with `npx @glinr/theauth-conformance guard <url> --secret <s>`.
 
 ## Framework adapters
 

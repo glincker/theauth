@@ -26,7 +26,7 @@ describe("guard conformance", () => {
 		const report = await runAgainst();
 		expect(failing(report)).toEqual([]);
 		expect(report.summary.pass).toBe(report.results.length);
-		expect(report.results.length).toBeGreaterThanOrEqual(9);
+		expect(report.results.length).toBeGreaterThanOrEqual(12);
 	});
 
 	const cases: Array<[GuardFlaw, string]> = [
@@ -35,6 +35,10 @@ describe("guard conformance", () => {
 		["bad-verdict", "guard-canary-allow"],
 		["allows-malformed", "guard-malformed-input"],
 		["redirects", "guard-no-redirect"],
+		["unsigned-response", "guard-response-signed"],
+		["wrong-response-secret", "guard-response-signature"],
+		["wrong-response-request-id", "guard-response-signature"],
+		["stale-response", "guard-response-fresh"],
 	];
 	for (const [flaw, id] of cases) {
 		it(`flags ${flaw} through ${id}`, async () => {
@@ -45,7 +49,7 @@ describe("guard conformance", () => {
 	it("flags a slow guard through the latency budget", async () => {
 		const report = await runAgainst("slow", SECRET, 2050);
 		expect(failing(report)).toContain("guard-latency");
-	}, 30000);
+	}, 90000);
 
 	it("fails the canaries when the secret is wrong", async () => {
 		const report = await runAgainst(undefined, "wrong-secret");

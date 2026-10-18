@@ -8,7 +8,10 @@
  *   x-theauth-timestamp: unix seconds
  *   x-theauth-signature: v1=<hex HMAC-SHA256 of "<timestamp>.<body>">
  *   x-theauth-guard-version: 2026-10
- * Response: 2xx JSON, one of the GuardWireVerdict shapes. Anything else denies.
+ * Response: 2xx JSON, one of the GuardWireVerdict shapes, signed:
+ *   x-theauth-response-timestamp: unix seconds
+ *   x-theauth-response-signature: v1=<hex HMAC-SHA256 of "<requestId>.<responseTimestamp>.<body>">
+ * Anything else denies. Vendors sign with `signGuardResponse`.
  */
 import { z } from "zod";
 import type { ExternalGuard, GuardCheckInput } from "./guard.js";
@@ -20,6 +23,8 @@ export const GUARD_PROTOCOL_VERSION = "2026-10";
 export const GUARD_TIMESTAMP_HEADER = "x-theauth-timestamp";
 export const GUARD_SIGNATURE_HEADER = "x-theauth-signature";
 export const GUARD_VERSION_HEADER = "x-theauth-guard-version";
+export const GUARD_RESPONSE_TIMESTAMP_HEADER = "x-theauth-response-timestamp";
+export const GUARD_RESPONSE_SIGNATURE_HEADER = "x-theauth-response-signature";
 export const GUARD_KEY_ID_HEADER = "x-theauth-key-id";
 /** Default replay window for `verifyGuardRequest`, in seconds. */
 export const GUARD_DEFAULT_TOLERANCE_SEC = 300;
@@ -71,6 +76,16 @@ export interface HttpGuardOptions {
 	/** HMAC secret shared with the guard. Never logged, never sent. */
 	secret: string;
 	keyId?: string;
+	/** Secret for response signatures. Defaults to `secret`. */
+	responseSecret?: string;
+	/**
+	 * Require a valid `x-theauth-response-signature` on every response. Default true.
+	 * Set false only for local development: an unsigned response lets anyone on the
+	 * network path turn a deny into an allow. Not verified, not logged.
+	 */
+	requireSignedResponse?: boolean;
+	/** Max response age or clock skew in seconds. Default 300. */
+	toleranceSec?: number;
 	/** Extra request headers, for example a vendor API key. Never echoed in errors. */
 	headers?: Record<string, string>;
 	/** Drop or mask fields before they leave the process. Default sends the full input. */
@@ -130,6 +145,19 @@ export async function signGuardBody(
 	return `v1=${await hmacHex(secret, `${timestamp}.${body}`)}`;
 }
 
+/** Vendor side: sign a response body, bound to the request id. Returns the headers to send. */
+export async function signGuardResponse(
+	secret: string,
+	options: { requestId: string; body: string; timestamp?: number },
+): Promise<Record<string, string>> {
+	const timestamp = options.timestamp ?? Math.floor(Date.now() / 1000);
+	const mac = await hmacHex(secret, `${options.requestId}.${timestamp}.${options.body}`);
+	return {
+		[GUARD_RESPONSE_TIMESTAMP_HEADER]: String(timestamp),
+		[GUARD_RESPONSE_SIGNATURE_HEADER]: `v1=${mac}`,
+	};
+}
+
 type HeaderSource = Headers | Record<string, string | string[] | undefined>;
 
 function readHeader(headers: HeaderSource, name: string): string | undefined {
@@ -162,8 +190,9 @@ export interface VerifyGuardOptions {
  * parses the envelope.
  *
  *   const r = await verifyGuardRequest(secret, req.headers, rawBody);
- *   if (!r.ok) return respond(401);
- *   return respond(200, decide(r.input));
+ *   if (!r.ok) return new Response(null, { status: 401 });
+ *   const body = JSON.stringify(decide(r.input));
+ *   return new Response(body, { headers: await signGuardResponse(secret, { requestId: r.requestId, body }) });
  */
 export async function verifyGuardRequest(
 	secret: string,
@@ -208,6 +237,34 @@ export async function verifyGuardRequest(
 	};
 }
 
+export type VerifyGuardResponseResult = { ok: true } | { ok: false; reason: string };
+
+/** Client side: check the response signature, freshness and request binding in constant time. */
+export async function verifyGuardResponse(
+	secret: string,
+	args: {
+		requestId: string;
+		headers: HeaderSource;
+		body: string;
+		toleranceSec?: number;
+		now?: () => number;
+	},
+): Promise<VerifyGuardResponseResult> {
+	const timestamp = readHeader(args.headers, GUARD_RESPONSE_TIMESTAMP_HEADER);
+	const signature = readHeader(args.headers, GUARD_RESPONSE_SIGNATURE_HEADER);
+	if (!timestamp || !signature) return { ok: false, reason: "missing response signature" };
+	if (!/^\d{1,12}$/.test(timestamp)) return { ok: false, reason: "bad response timestamp" };
+	const ts = Number(timestamp);
+	const now = (args.now ?? (() => Math.floor(Date.now() / 1000)))();
+	if (Math.abs(now - ts) > (args.toleranceSec ?? GUARD_DEFAULT_TOLERANCE_SEC)) {
+		return { ok: false, reason: "stale response" };
+	}
+	const expected = `v1=${await hmacHex(secret, `${args.requestId}.${ts}.${args.body}`)}`;
+	return safeEqual(expected, signature)
+		? { ok: true }
+		: { ok: false, reason: "bad response signature" };
+}
+
 async function readCapped(response: Response): Promise<string> {
 	const declared = Number(response.headers.get("content-length") ?? "0");
 	if (declared > GUARD_MAX_RESPONSE_BYTES) throw new Error("guard response too large");
@@ -223,6 +280,8 @@ export function httpGuard(options: HttpGuardOptions): ExternalGuard {
 	const url = assertSafeUrl(options.url, options.name);
 	if (!options.secret) throw new Error(`httpGuard "${options.name}": secret is required`);
 	const { secret, redact, keyId } = options;
+	const responseSecret = options.responseSecret ?? secret;
+	const requireSigned = options.requireSignedResponse !== false;
 	const doFetch = options.fetch ?? fetch;
 	const where = url.origin;
 	const guard: ExternalGuard = {
@@ -262,9 +321,19 @@ export function httpGuard(options: HttpGuardOptions): ExternalGuard {
 			if (response.status < 200 || response.status >= 300) {
 				throw new Error(`guard at ${where} answered HTTP ${response.status}`);
 			}
+			const text = await readCapped(response);
+			if (requireSigned) {
+				const checked = await verifyGuardResponse(responseSecret, {
+					requestId: envelope.requestId,
+					headers: response.headers,
+					body: text,
+					toleranceSec: options.toleranceSec,
+				});
+				if (!checked.ok) throw new Error(`guard at ${where} response refused: ${checked.reason}`);
+			}
 			let json: unknown;
 			try {
-				json = JSON.parse(await readCapped(response));
+				json = JSON.parse(text);
 			} catch (error) {
 				if (error instanceof Error && error.message === "guard response too large") throw error;
 				throw new Error(`guard at ${where} returned a body that is not JSON`);
