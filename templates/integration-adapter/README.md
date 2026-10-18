@@ -27,6 +27,10 @@ const theauth = await createTheAuth({
 - Output: `{ allow: boolean; reason?: string }` or nothing. Returning nothing lets the call proceed. This template always returns an explicit decision.
 - Errors and timeouts deny with a reason. See `docs/hooks.mdx` for the full hook semantics.
 
+## Framework adapters
+
+This template is for hook integrations. To integrate a web framework instead, wrap `createTheAuthHandler` from `@glinr/theauth/http` (web `Request` in, `Response` out) rather than re-implementing routes, and wrap `requireAgent` for a `requireScope` guard. See `docs/adapters/routes.mdx`.
+
 ## Scripts
 
 - `npm test`: run the vitest suite.

@@ -1,9 +1,9 @@
 /** Request admission for the framework adapters: tiered rate limiting and a cross-site check for cookie-authenticated writes. Runs before authentication so an anonymous flood is refused cheaply. */
 
 import type { TrustedProxyConfig } from "./auth/client-ip.js";
-import { resolveClientIp } from "./auth/client-ip.js";
 import type { RateLimitConfig, RateLimiter } from "./auth/rate-limiter.js";
 import { createRateLimiter } from "./auth/rate-limiter.js";
+import { resolveRequestIp } from "./http/node.js";
 import type { SecondaryStorage } from "./storage/types.js";
 
 /** Per-tier limits for the adapter routes. Each is requests per window (seconds). */
@@ -62,7 +62,7 @@ function digest(value: string): string {
 }
 
 function bucketKey(request: Request, proxy: TrustedProxyConfig | undefined): string {
-	const ip = resolveClientIp(request, proxy);
+	const ip = resolveRequestIp(request, proxy);
 	if (ip) return `ip:${ip}`;
 	// Without a trusted proxy setting the IP is unknown. Split callers by their
 	// credential so one noisy client does not exhaust a shared bucket.

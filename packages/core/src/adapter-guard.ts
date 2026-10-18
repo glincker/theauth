@@ -8,7 +8,7 @@ import { createAdapterAdmission } from "./adapter-admit.js";
 import type { AdapterScope } from "./adapter-scope.js";
 import { createOwnerScope, createUnrestrictedScope } from "./adapter-scope.js";
 import type { TrustedProxyConfig } from "./auth/client-ip.js";
-import { resolveClientIp } from "./auth/client-ip.js";
+import { resolveRequestIp } from "./http/node.js";
 import { extractToken } from "./plugin/helpers.js";
 import type { TheAuth } from "./theauth.js";
 
@@ -110,7 +110,7 @@ export function createAdapterGuard(
 	adapterName: string,
 ): AdapterGuard {
 	const trustedProxy = options?.trustedProxy;
-	const clientIp = (request: Request): string | null => resolveClientIp(request, trustedProxy);
+	const clientIp = (request: Request): string | null => resolveRequestIp(request, trustedProxy);
 	// Counts live in the `rateLimit` secondary storage, so a shared store
 	// (database, Redis) enforces the limit across instances.
 	const admission = createAdapterAdmission(

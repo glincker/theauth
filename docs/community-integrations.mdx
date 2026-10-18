@@ -31,6 +31,10 @@ const theauth = await createTheAuth({
 });
 ```
 
+### Framework adapters
+
+If you are building an adapter for a web framework instead of a hook, do not re-implement the routes. Wrap the handler from core: `createTheAuthHandler(theauth, options)` from `@glinr/theauth/http` takes a web `Request` and returns a `Response`, and `listRoutes()` describes everything it serves. Your adapter only translates the framework's request and response types (Node frameworks can use `toWebRequest` and `sendWebResponse`) and exports a `requireScope` wrapper around `requireAgent`. See the [route reference](/adapters/routes).
+
 ## The contract
 
 ### Hook input

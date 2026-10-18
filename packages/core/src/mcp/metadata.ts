@@ -84,3 +84,60 @@ export function getProtectedResourceMetadata(ctx: McpAuthContext): McpProtectedR
 			: {}),
 	};
 }
+
+/** MCP endpoints a host can mount. The two `.well-known` documents are served whenever MCP is on. */
+export interface McpMountedRoutes {
+	register: boolean;
+	authorize: boolean;
+	token: boolean;
+	revoke: boolean;
+	jwks: boolean;
+}
+
+/** Every MCP endpoint mounted, the default of the HTTP handler. */
+export const ALL_MCP_ROUTES: McpMountedRoutes = {
+	register: true,
+	authorize: true,
+	token: true,
+	revoke: true,
+	jwks: true,
+};
+
+/** Authorization server metadata where the endpoints that are not mounted are left out. */
+export type McpMountedServerMetadata = Omit<
+	McpServerMetadata,
+	"authorization_endpoint" | "token_endpoint" | "registration_endpoint"
+> &
+	Partial<
+		Pick<McpServerMetadata, "authorization_endpoint" | "token_endpoint" | "registration_endpoint">
+	>;
+
+/** Drop every advertised endpoint that is not in the mounted set, so metadata never points at a 404. */
+export function applyMountedToServerMetadata(
+	metadata: McpServerMetadata,
+	mounted: McpMountedRoutes,
+): McpMountedServerMetadata {
+	const hidden = new Set<string>();
+	if (!mounted.authorize) hidden.add("authorization_endpoint");
+	if (!mounted.token) hidden.add("token_endpoint");
+	if (!mounted.register) hidden.add("registration_endpoint");
+	if (!mounted.jwks) hidden.add("jwks_uri");
+	if (!mounted.revoke) {
+		hidden.add("revocation_endpoint");
+		hidden.add("revocation_endpoint_auth_methods_supported");
+		hidden.add("revocation_endpoint_auth_signing_alg_values_supported");
+	}
+	return Object.fromEntries(
+		Object.entries(metadata).filter(([key]) => !hidden.has(key)),
+	) as McpMountedServerMetadata;
+}
+
+/** Protected resource metadata without a `jwks_uri` when the JWKS route is not mounted. */
+export function applyMountedToResourceMetadata(
+	metadata: McpProtectedResourceMetadata,
+	mounted: McpMountedRoutes,
+): McpProtectedResourceMetadata {
+	if (mounted.jwks) return metadata;
+	const { jwks_uri: _jwksUri, ...rest } = metadata;
+	return rest;
+}

@@ -59,8 +59,13 @@ export {
 } from "./keys.js";
 export { createInMemoryJtiDenylist, createInMemoryTokenFamilyStore } from "./memory-stores.js";
 export {
+	ALL_MCP_ROUTES,
+	applyMountedToResourceMetadata,
+	applyMountedToServerMetadata,
 	getAuthorizationServerMetadata,
 	getProtectedResourceMetadata,
+	type McpMountedRoutes,
+	type McpMountedServerMetadata,
 } from "./metadata.js";
 export { registerClient } from "./registration.js";
 export {
