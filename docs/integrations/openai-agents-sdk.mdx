@@ -79,3 +79,7 @@ guardFunctionTool(definition, {
 ```
 
 `agentId` may be a function of the run context, the second argument of `execute`. `requestApproval`, `action`, `resource` and `onDecision` work as in the [Vercel AI SDK helper](/integrations/vercel-ai-sdk). Use `guardFunctionTools(definitions, options)` for a list.
+
+## Python
+
+The Python Agents SDK has the same guard, `guard_function_tool` from `theauth.integrations`. It wraps the `FunctionTool` that `@function_tool` returns. See [LangGraph and CrewAI](/integrations/langgraph-crewai) for the setup and a snippet.

@@ -1,10 +1,10 @@
 ---
 title: "LangGraph and CrewAI"
-description: "Authorize LangGraph and CrewAI tool calls over REST with POST /authorize/token, plus a small TypeScript guard for Node orchestrators."
+description: "Guard LangGraph, CrewAI and OpenAI Agents SDK tools from Python with theauth.integrations, or call POST /authorize/token directly. Includes a TypeScript guard for Node orchestrators."
 icon: plug
 ---
 
-LangGraph and CrewAI are Python frameworks, so there is no Python package in this repo. Any process that can make an HTTP call can ask theAuth before running a tool. This page has a REST recipe for Python and a TypeScript guard, `createHttpGuard`, for Node orchestrators such as LangGraph.js.
+LangGraph, CrewAI and the OpenAI Agents SDK are Python frameworks. The Python SDK (`pip install theauth`) has guards for all three and a generic decorator in `theauth.integrations`. Any other process that can make an HTTP call can ask theAuth before running a tool with the REST endpoint below. For Node orchestrators such as LangGraph.js there is a TypeScript guard, `createHttpGuard`.
 
 ## The endpoint
 
@@ -25,71 +25,158 @@ curl -s -X POST https://YOUR_HOST/api/auth/authorize/token \
 
 `data.code` is the decision code, for example `no_permission`, `rate_limited` or `approval_required`. Treat any non 200 answer, and any network error, as a denial.
 
-## Python recipe (LangGraph)
+## Python guards
+
+The Python SDK ships the guards in `theauth.integrations`. They match the TypeScript helpers: `authorize` runs before the tool, and a refusal comes back as a structured denial with the decision code and `approvalRequired`. Nothing is imported from LangGraph, CrewAI or the OpenAI Agents SDK when you import `theauth`, so the frameworks stay optional.
+
+```bash
+pip install theauth
+```
+
+Every guard is built on one `Gate`. Build it once from a client and the agent bearer token. The gate fails closed: a network error, a timeout, a malformed answer or an exception in your own callback becomes a denial with code `guard_error`, and the tool does not run.
 
 ```python
 import os
-import requests
 
-AUTH_URL = os.environ["THEAUTH_URL"]  # e.g. https://YOUR_HOST/api/auth
-AGENT_TOKEN = os.environ["THEAUTH_AGENT_TOKEN"]
+from theauth import TheAuthSyncClient
+from theauth.integrations import Gate
 
-
-def authorize(tool_name, arguments):
-    try:
-        res = requests.post(
-            f"{AUTH_URL}/authorize/token",
-            headers={"authorization": f"Bearer {AGENT_TOKEN}"},
-            json={"action": "execute", "resource": f"tool:{tool_name}", "arguments": arguments},
-            timeout=5,
-        )
-        body = res.json()
-    except Exception as exc:
-        return {"denied": True, "code": "guard_error", "reason": str(exc)}
-    data = body.get("data") or {}
-    if res.status_code == 200 and data.get("allowed") is True:
-        return None
-    return {
-        "denied": True,
-        "code": data.get("code") or (body.get("error") or {}).get("code", "guard_error"),
-        "reason": data.get("reason") or (body.get("error") or {}).get("message", "denied"),
-        "approval_required": data.get("code") == "approval_required",
-    }
-
-
-def guarded(tool_name, fn):
-    def run(**kwargs):
-        refusal = authorize(tool_name, kwargs)
-        return refusal if refusal else fn(**kwargs)
-    return run
+client = TheAuthSyncClient(base_url=os.environ["THEAUTH_URL"], timeout=5)  # e.g. https://YOUR_HOST/api/auth
+gate = Gate.from_token(client, os.environ["THEAUTH_AGENT_TOKEN"])
 ```
 
-With LangGraph, return the refusal dict as the tool message content so the graph continues:
+Use `TheAuthClient` for an async app. The same gate then works in async tools, because it checks with `await` when the tool is a coroutine function. To check by agent id instead of token, pass `client.authorize` and the id: `Gate(client.authorize, "agent_123")`.
+
+## Python (LangGraph)
+
+Wrap the tool function. The signature and docstring are kept, so LangChain still builds the argument schema from them.
 
 ```python
 from langchain_core.tools import StructuredTool
 
+from theauth.integrations import guard_tool
+
+
 def refund(order_id: str, amount: float) -> dict:
     return {"order_id": order_id, "refunded": amount}
 
+
 refund_tool = StructuredTool.from_function(
-    func=guarded("refund", refund), name="refund", description="Refund an order"
+    func=guard_tool(gate, refund, "refund"),
+    name="refund",
+    description="Refund an order",
 )
 ```
 
-## Python recipe (CrewAI)
+A refused call returns the denial dict as the tool message content, so the graph continues and the model can tell the user:
+
+```json
+{"ok": false, "denied": true, "toolName": "refund", "code": "approval_required", "reason": "...", "approvalRequired": true, "auditId": "..."}
+```
+
+To guard every tool in one place, wrap the node that executes tool calls. `guard_node` checks each pending call of the last AI message before the node runs. If one is refused, the node does not run: refused calls get the denial as a tool message and the others get a `skipped` notice, so every `tool_call_id` is answered.
+
+```python
+from langgraph.prebuilt import ToolNode
+
+from theauth.integrations import guard_node
+
+tool_node = guard_node(ToolNode([refund_tool]), gate)
+# graph.add_node("tools", tool_node)
+```
+
+For an async graph use `aguard_node` with `TheAuthClient` and `Gate.from_token(async_client, token)`. Prefer `guard_tool` when a step can hold several calls and you want the allowed ones to run.
+
+## Python (CrewAI)
+
+CrewAI tools return text to the model, so give the guard a text formatter. Put it under `@tool`:
 
 ```python
 from crewai.tools import tool
 
+from theauth.integrations import guard
+
+
 @tool("refund")
-def refund_tool(order_id: str, amount: float) -> str:
+@guard(gate, "refund", format_denial=lambda d: d.to_text())
+def refund_order(order_id: str, amount: float) -> str:
     """Refund an order."""
-    refusal = authorize("refund", {"order_id": order_id, "amount": amount})
-    if refusal:
-        return f"Refused ({refusal['code']}): {refusal['reason']}"
     return f"Refunded {amount} on {order_id}"
 ```
+
+A refusal reads `Refused (approval_required): <reason>. Ask the user to approve it.` For a tool class that subclasses `BaseTool`, or a tool you already built, call `guard_crewai_tool(tool, gate)`. It wraps `_run` or `func` in place.
+
+## Python (OpenAI Agents SDK)
+
+`guard_function_tool` takes the object `@function_tool` returns and gives back a copy whose `on_invoke_tool` checks the gate first. The input JSON is parsed for the argument check, and input that is not valid JSON is refused.
+
+```python
+from agents import function_tool
+
+from theauth.integrations import guard_function_tool
+
+
+@function_tool
+def lookup_invoice(invoice_id: str) -> str:
+    """Read an invoice."""
+    return f"{invoice_id}: paid"
+
+
+lookup_invoice = guard_function_tool(lookup_invoice, gate)
+```
+
+Pass the result in `Agent(tools=[...])` as usual. The denial is returned as JSON text. Use `guard_function_tools([...], gate)` for a list.
+
+## Python (any function)
+
+`@guard(gate, "name")` works on any sync or async function:
+
+```python
+from theauth.integrations import guard
+
+
+@guard(gate, "send_email")
+def send_email(to: str, body: str) -> str:
+    return f"sent to {to}"
+
+
+send_email("a@example.com", "hi")  # returns the denial dict when refused
+```
+
+Parameters named `self`, `cls`, `ctx`, `context`, `config` and `runtime` are treated as run context, not tool input, and are not sent as `arguments`. Other values are converted to JSON safe form first (Pydantic models and dataclasses become dicts, unknown objects become strings).
+
+## Python approvals
+
+When the decision is `approval_required`, the gate can open a request, wait for a human and retry once with the approved id. Pass `request_approval`. It receives an `ApprovalContext` (tool name, agent id, action, resource, arguments, audit id) and returns the approved request id, or `None` to refuse.
+
+`wait_for_approval` polls `client.approvals.get(id)` until the request is `approved`. It returns `None` when the request is denied, expired or missing, or when `timeout_s` passes, and the gate then refuses the call. The read route needs an admin user token. The request itself is opened by your backend with `theauth.approval.request(...)`, because `POST /approvals` on the admin API only opens `admin:` actions. `/api/open-approval` below is your own route:
+
+```python
+import httpx
+
+from theauth.integrations import wait_for_approval
+
+admin = TheAuthSyncClient(base_url=os.environ["THEAUTH_URL"], token=os.environ["THEAUTH_ADMIN_TOKEN"], timeout=5)
+
+
+def ask_human(request):
+    opened = httpx.post(
+        os.environ["APPROVAL_OPENER_URL"],  # your route, e.g. https://YOUR_APP/api/open-approval
+        json={
+            "agentId": request.agent_id,
+            "action": request.action,
+            "resource": request.resource,
+            "arguments": request.arguments,
+        },
+        timeout=5,
+    )
+    return wait_for_approval(admin.approvals, opened.json()["id"], timeout_s=120, poll_interval_s=2)
+
+
+gate = Gate.from_token(client, os.environ["THEAUTH_AGENT_TOKEN"], request_approval=ask_human)
+```
+
+In an async app use `await await_approval(admin_client.approvals, id, timeout_s=120)`. A sync gate cannot await, so give it a sync `request_approval` and a sync client. The approved id is spent on the single retry, and the approval is bound to the same action, resource and arguments. See [Approval](/approval).
 
 ## TypeScript guard for Node orchestrators
 

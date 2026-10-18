@@ -340,6 +340,25 @@ one time `jti` rule needs. `devices.issue_bundle` and `device.bundle` return the
 signed offline policy bundle for devices that cannot call home. A private JWK is
 refused by `CredentialSpec.from_jwk` before it leaves the process.
 
+## Framework guards
+
+`theauth.integrations` checks `authorize` before a tool runs and fails closed. It covers LangGraph (`guard_tool`, `guard_node`), CrewAI (`guard`, `guard_crewai_tool`), the OpenAI Agents SDK (`guard_function_tool`) and any function (`guard`). The frameworks are never imported by `theauth`.
+
+```python
+from theauth import TheAuthSyncClient
+from theauth.integrations import Gate, guard
+
+client = TheAuthSyncClient(base_url="https://YOUR_HOST/api/auth", timeout=5)
+gate = Gate.from_token(client, "ta_...")
+
+
+@guard(gate, "refund")
+def refund(order_id: str, amount: float) -> dict:
+    return {"order_id": order_id, "refunded": amount}
+```
+
+A refused call returns `{"ok": False, "denied": True, "toolName", "code", "reason", "approvalRequired", "auditId"}`. See the LangGraph and CrewAI page in the docs for each framework and for the approval wait.
+
 ## Permissions helpers
 
 The `theauth.permissions` module provides shorthand constructors.

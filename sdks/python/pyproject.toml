@@ -55,3 +55,13 @@ testpaths = ["tests"]
 [tool.mypy]
 strict = true
 python_version = "3.9"
+
+# Optional frameworks the guards work with. They are never imported by the package itself.
+[[tool.mypy.overrides]]
+module = ["langchain_core.*", "langgraph.*", "crewai.*", "agents.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests.test_integrations_real"]
+disallow_untyped_decorators = false
+disallow_subclassing_any = false
