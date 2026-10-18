@@ -224,12 +224,21 @@ export interface PendingApproval {
 	requiredAcr?: string;
 	/** Approving needs a sign-in event at most this many seconds old. */
 	maxAuthAge?: number;
+	/** Distinct approvers needed. Absent on older servers, which means 1. */
+	requiredApprovals?: number;
+	/** Approvers counted so far. */
+	approvalsReceived?: number;
+	/** Who approved so far, for a quorum request. */
+	approvers?: string[];
 }
 
 export interface ApprovalDecision {
 	id: string;
-	status: "approved" | "denied";
+	/** `pending` means the vote counted and the quorum is not complete yet. */
+	status: "approved" | "denied" | "pending";
 	respondedAt: string;
+	requiredApprovals?: number;
+	approvalsReceived?: number;
 }
 
 // Explain Types (POST /explain, the subset the drawer renders)

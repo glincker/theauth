@@ -114,6 +114,8 @@ test("restores a stored session and clears it on sign out", async () => {
 	});
 
 	await waitFor(() => sessionValue !== null);
+	// The stored session shows at once, then the server read settles the loading flag.
+	await waitFor(() => !isLoading);
 
 	expect(sessionValue).toMatchObject(restoredSession);
 	expect(isLoading).toBe(false);
@@ -144,7 +146,7 @@ test("auto-loads agents after sign-in and refreshes them after create", async ()
 			const url = new URL(String(input), "http://localhost");
 			const method = init?.method ?? "GET";
 
-			if (url.pathname === "/api/theauth/auth/sign-in") {
+			if (url.pathname === "/api/theauth/auth/username/sign-in") {
 				signInCalls += 1;
 				return {
 					ok: true,
@@ -213,4 +215,76 @@ test("auto-loads agents after sign-in and refreshes them after create", async ()
 
 	unsubscribeSession();
 	unsubscribeAgents();
+});
+
+test("signOut revokes the session on the server with the stored token", async () => {
+	window.localStorage.setItem(SESSION_KEY, JSON.stringify(restoredSession));
+	const calls: Array<{ path: string; auth: string | null }> = [];
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const path = new URL(String(input), "http://localhost").pathname;
+			calls.push({ path, auth: new Headers(init?.headers).get("authorization") });
+			return { ok: true, status: 200, json: async () => ({ success: true }) };
+		}) as typeof fetch,
+	);
+	const client = createTheAuthClient();
+	let sessionValue: TheAuthSession | null = null;
+	const off = client.session.subscribe((v) => {
+		sessionValue = v;
+	});
+	await waitFor(() => sessionValue !== null);
+	await client.signOut();
+	expect(calls.at(-1)).toEqual({
+		path: "/api/theauth/auth/sign-out",
+		auth: `Bearer ${restoredSession.token}`,
+	});
+	expect(sessionValue).toBeNull();
+	expect(window.localStorage.getItem(SESSION_KEY)).toBeNull();
+	off();
+});
+
+test("reads the session from the server when nothing is stored", async () => {
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			json: async () => ({ user: { id: "user-7", username: "lee" }, session: { id: "s" } }),
+		})) as typeof fetch,
+	);
+	const client = createTheAuthClient();
+	let sessionValue: TheAuthSession | null = null;
+	const off = client.session.subscribe((v) => {
+		sessionValue = v;
+	});
+	await waitFor(() => sessionValue !== null);
+	expect((sessionValue as TheAuthSession | null)?.user.id).toBe("user-7");
+	off();
+});
+
+test("initialSession hydrates with no request, and focus refetches only while subscribed", async () => {
+	const fetchMock = vi.fn(async () => ({
+		ok: true,
+		status: 200,
+		json: async () => ({ user: { id: "ssr-1" } }),
+	}));
+	vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+	const client = createTheAuthClient({
+		initialSession: { user: { id: "ssr-1" } },
+		refetch: { onFocus: true },
+	});
+	let sessionValue: TheAuthSession | null = null;
+	const off = client.session.subscribe((v) => {
+		sessionValue = v;
+	});
+	expect((sessionValue as TheAuthSession | null)?.user.id).toBe("ssr-1");
+	expect(fetchMock).not.toHaveBeenCalled();
+	window.dispatchEvent(new Event("focus"));
+	await flush();
+	expect(fetchMock).toHaveBeenCalledTimes(1);
+	off();
+	window.dispatchEvent(new Event("focus"));
+	await flush();
+	expect(fetchMock).toHaveBeenCalledTimes(1);
 });

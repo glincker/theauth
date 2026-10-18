@@ -157,6 +157,43 @@ async function apiFetch<T>(
 /** @deprecated Use `TheAuthApiClient` instead. Will be removed in a future major version. */
 export type AuthApiClient = TheAuthApiClient;
 
+/**
+ * The core admin API serves no route for users, permission templates, MCP server
+ * registration or settings. Only the CLI demo server does. Against a server without
+ * them the call answers 404 or 405, and this turns that into a NOT_SUPPORTED failure
+ * the page shows as a clear message instead of a generic HTTP error.
+ */
+function notServed<T>(res: ApiResult<T>, feature: string): ApiResult<T> {
+	if (res.success) return res;
+	if (res.error.code !== "HTTP_404" && res.error.code !== "HTTP_405") return res;
+	return {
+		success: false,
+		error: {
+			code: "NOT_SUPPORTED",
+			message: `This server does not serve ${feature}, so this page has no data source. The core admin API has no such route; only the CLI demo server does.`,
+		},
+	};
+}
+
+const TEMPLATES = "/api/permissions/templates";
+const TEMPLATES_LABEL = "permission templates (/api/permissions/templates)";
+const MCP_LABEL = "an MCP server registry (/api/mcp/servers)";
+const SETTINGS_LABEL = "settings (/api/settings)";
+
+/** Reads `permissions` off the agent record. `GET /agents/:id` has no `/permissions` sub-route. */
+function toAgentPermissions(agent: { permissions?: unknown }): AgentPermission[] {
+	if (!Array.isArray(agent.permissions)) return [];
+	return agent.permissions.map((raw, i) => {
+		const p = (raw ?? {}) as Partial<AgentPermission>;
+		return {
+			id: typeof p.id === "string" ? p.id : `${p.resource ?? "permission"}-${i}`,
+			resource: String(p.resource ?? ""),
+			actions: Array.isArray(p.actions) ? p.actions : [],
+			constraints: p.constraints ?? {},
+		};
+	});
+}
+
 export function createApiClient(apiUrl: string): TheAuthApiClient {
 	const fetch = <T>(path: string, options?: RequestInit) => apiFetch<T>(apiUrl, path, options);
 	const fetchText = (path: string) => apiFetch<string>(apiUrl, path, undefined, "text");
@@ -193,18 +230,29 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 				body: JSON.stringify(input),
 			}),
 
-		revokeAgent: (agentId) =>
-			fetch<{ success: boolean }>(`/api/agents/${agentId}/revoke`, {
-				method: "POST",
-			}),
+		// The core revokes with DELETE /agents/:id. It has no /revoke route.
+		revokeAgent: async (agentId) => {
+			const res = await fetch<unknown>(`/api/agents/${encodeURIComponent(agentId)}`, {
+				method: "DELETE",
+			});
+			return res.success ? { success: true as const, data: { success: true } } : res;
+		},
 
 		rotateAgentToken: (agentId) =>
 			fetch<{ token: string }>(`/api/agents/${agentId}/rotate`, {
 				method: "POST",
 			}),
 
-		getAgentPermissions: (agentId) =>
-			fetch<AgentPermission[]>(`/api/agents/${agentId}/permissions`),
+		getAgentPermissions: async (agentId) => {
+			const id = encodeURIComponent(agentId);
+			const res = await fetch<{ permissions?: unknown }>(`/api/agents/${id}`);
+			if (res.success) return { success: true as const, data: toAgentPermissions(res.data) };
+			// The CLI demo server serves a dedicated sub-route instead.
+			if (res.error.code === "HTTP_404") {
+				return fetch<AgentPermission[]>(`/api/agents/${id}/permissions`);
+			}
+			return res;
+		},
 
 		// Audit Logs
 		getAuditLogs: async (filters?: AuditLogFilters) => {
@@ -254,27 +302,35 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 			}),
 
 		// Users
-		getUsers: () => fetch<User[]>("/api/users"),
+		getUsers: async () => notServed(await fetch<User[]>("/api/users"), "a users list (/api/users)"),
 
-		// Permission Templates
-		getPermissionTemplates: () => fetch<PermissionTemplate[]>("/api/permissions/templates"),
+		// Permission Templates (no core route, demo server only)
+		getPermissionTemplates: async () =>
+			notServed(await fetch<PermissionTemplate[]>(TEMPLATES), TEMPLATES_LABEL),
 
-		createPermissionTemplate: (input) =>
-			fetch<PermissionTemplate>("/api/permissions/templates", {
-				method: "POST",
-				body: JSON.stringify(input),
-			}),
+		createPermissionTemplate: async (input) =>
+			notServed(
+				await fetch<PermissionTemplate>(TEMPLATES, {
+					method: "POST",
+					body: JSON.stringify(input),
+				}),
+				TEMPLATES_LABEL,
+			),
 
-		updatePermissionTemplate: (id, input) =>
-			fetch<PermissionTemplate>(`/api/permissions/templates/${id}`, {
-				method: "PATCH",
-				body: JSON.stringify(input),
-			}),
+		updatePermissionTemplate: async (id, input) =>
+			notServed(
+				await fetch<PermissionTemplate>(`${TEMPLATES}/${id}`, {
+					method: "PATCH",
+					body: JSON.stringify(input),
+				}),
+				TEMPLATES_LABEL,
+			),
 
-		deletePermissionTemplate: (id) =>
-			fetch<{ success: boolean }>(`/api/permissions/templates/${id}`, {
-				method: "DELETE",
-			}),
+		deletePermissionTemplate: async (id) =>
+			notServed(
+				await fetch<{ success: boolean }>(`${TEMPLATES}/${id}`, { method: "DELETE" }),
+				TEMPLATES_LABEL,
+			),
 
 		// Delegations
 		getDelegations: () => fetch<DelegationChain[]>("/api/delegations"),
@@ -284,22 +340,30 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 				method: "DELETE",
 			}),
 
-		// MCP Servers
-		getMcpServers: () => fetch<McpServerInfo[]>("/api/mcp/servers"),
+		// MCP Servers (no core route, demo server only)
+		getMcpServers: async () =>
+			notServed(await fetch<McpServerInfo[]>("/api/mcp/servers"), MCP_LABEL),
 
-		registerMcpServer: (input) =>
-			fetch<McpServerInfo>("/api/mcp/servers", {
-				method: "POST",
-				body: JSON.stringify(input),
-			}),
+		registerMcpServer: async (input) =>
+			notServed(
+				await fetch<McpServerInfo>("/api/mcp/servers", {
+					method: "POST",
+					body: JSON.stringify(input),
+				}),
+				MCP_LABEL,
+			),
 
-		// Settings
-		getSettings: () => fetch<TheAuthSettings>("/api/settings"),
+		// Settings (no core route, demo server only)
+		getSettings: async () =>
+			notServed(await fetch<TheAuthSettings>("/api/settings"), SETTINGS_LABEL),
 
-		updateSettings: (settings) =>
-			fetch<TheAuthSettings>("/api/settings", {
-				method: "PATCH",
-				body: JSON.stringify(settings),
-			}),
+		updateSettings: async (settings) =>
+			notServed(
+				await fetch<TheAuthSettings>("/api/settings", {
+					method: "PATCH",
+					body: JSON.stringify(settings),
+				}),
+				SETTINGS_LABEL,
+			),
 	};
 }

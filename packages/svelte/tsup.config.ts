@@ -4,6 +4,6 @@ export default defineConfig({
 	format: ["esm"],
 	dts: true,
 	sourcemap: true,
-	external: ["svelte", "svelte/store"],
+	external: ["svelte", "svelte/store", "@glinr/theauth-client"],
 	target: "es2022",
 });

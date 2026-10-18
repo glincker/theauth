@@ -298,8 +298,7 @@ describe("openOAuthWindow", () => {
 
 		const result = await openOAuthWindow("github", { basePath: "/api/theauth" });
 
-		expect(capturedUrl).toContain("/api/theauth/sign-in/github");
-		expect(capturedUrl).toContain("redirect=electron");
+		expect(capturedUrl).toBe("/api/theauth/auth/oauth/authorize/github");
 		expect(result.success).toBe(false);
 		expect(result.error).toBe("Window closed by user");
 	});
@@ -414,6 +413,53 @@ describe("openOAuthWindow", () => {
 		expect(result.error).toBe("User denied access");
 
 		void closedCb;
+	});
+});
+
+describe("openOAuthWindow callback flow", () => {
+	afterEach(() => {
+		setElectronApiForTesting(null);
+	});
+
+	it("waits for the core callback to finish before it reports success", async () => {
+		let navigateCb: ((_ev: unknown, url: string) => void) | null = null;
+		const mockWin = {
+			loadURL: vi.fn(async () => undefined),
+			on: vi.fn(),
+			webContents: {
+				on: vi.fn((event: string, cb: (_ev: unknown, url: string) => void) => {
+					if (event === "will-redirect") navigateCb = cb;
+				}),
+				session: { cookies: { get: vi.fn(async () => []) } },
+			},
+			destroy: vi.fn(),
+			show: vi.fn(),
+		};
+		setElectronApiForTesting(
+			makeElectronApi({
+				BrowserWindow: constructorMock(() => mockWin) as unknown as ElectronApi["BrowserWindow"],
+			}),
+		);
+		const { openOAuthWindow } = await import("../src/oauth-window.js");
+		let done = false;
+		const result = openOAuthWindow("github", { basePath: "https://app.test/api/theauth" }).then(
+			(r) => {
+				done = true;
+				return r;
+			},
+		);
+		await Promise.resolve();
+
+		// Provider sends the browser to the core callback. The cookie is not set yet.
+		navigateCb?.({}, "https://app.test/api/theauth/auth/oauth/callback/github?code=abc&state=xyz");
+		await new Promise((r) => setTimeout(r, 10));
+		expect(done).toBe(false);
+		expect(mockWin.destroy).not.toHaveBeenCalled();
+
+		// The core answers with a redirect back to the app.
+		navigateCb?.({}, "https://app.test/");
+		expect(await result).toEqual({ success: true });
+		expect(mockWin.destroy).toHaveBeenCalled();
 	});
 });
 

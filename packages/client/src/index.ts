@@ -84,6 +84,21 @@ export type {
 	PasskeySignInOptions,
 } from "./passkey.js";
 export { createPasskeyClient } from "./passkey.js";
+export type { EventTargetLike, RefetchEnvironment, RefetchOptions } from "./refetch.js";
+export { attachRefetch } from "./refetch.js";
+export type {
+	HydrateInput,
+	SessionState,
+	SessionStorageLike,
+	SessionStore,
+	SessionStoreOptions,
+	StoreActionResult,
+	StoreSession,
+	StoreUser,
+} from "./session-store.js";
+export { createSessionStore } from "./session-store.js";
+export type { SolidAuth, SolidPrimitives } from "./solid.js";
+export { createSolidAuth } from "./solid.js";
 export type {
 	Agent,
 	AgentFilters,

@@ -121,7 +121,7 @@ describe("provider passkeys", () => {
 	it("uses the injected fetch, stores the session and requires a session to register", async () => {
 		const fetchFn = router({
 			...SIGN_IN_ROUTES,
-			"/session": () => json({ data: { token: "tok", user: { id: "u1", email: "a@b.c" } } }),
+			"/auth/session": () => json({ data: { token: "tok", user: { id: "u1", email: "a@b.c" } } }),
 			"/auth/passkey/register/options": () => json({ challenge: "r" }),
 			"/auth/passkey/register/verify": () => json({}),
 		});

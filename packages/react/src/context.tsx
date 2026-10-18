@@ -1,3 +1,5 @@
+import type { SessionStorageLike, StoreActionResult } from "@glinr/theauth-client";
+import { attachRefetch, createSessionStore } from "@glinr/theauth-client";
 import type { ReactNode } from "react";
 import {
 	createContext,
@@ -7,10 +9,12 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	useSyncExternalStore,
 } from "react";
 import type {
 	ActionResult,
 	ExternalAuthConfig,
+	ManagedAuthConfig,
 	RotateErrorCode,
 	RotateResult,
 	RotateRetryConfig,
@@ -39,6 +43,8 @@ export interface TheAuthProviderProps {
 	 * not localStorage. Paths are joined onto `external.apiUrl`.
 	 */
 	external?: ExternalAuthConfig;
+	/** Options for the built in session store (refetch triggers, SSR seed, route paths). */
+	managed?: ManagedAuthConfig;
 	/** Logs auth state transitions to the console. Also on when `localStorage.DEBUG === "theauth"`. */
 	debug?: boolean;
 }
@@ -63,6 +69,7 @@ export function TheAuthProvider({
 	children,
 	basePath = "/api/theauth",
 	external,
+	managed,
 	debug,
 }: TheAuthProviderProps): ReactNode {
 	const debugEnabled = resolveDebug(debug);
@@ -74,7 +81,7 @@ export function TheAuthProvider({
 		);
 	}
 	return (
-		<ManagedProvider basePath={basePath} debug={debugEnabled}>
+		<ManagedProvider basePath={basePath} debug={debugEnabled} managed={managed}>
 			{children}
 		</ManagedProvider>
 	);
@@ -130,8 +137,8 @@ function ExternalProvider({
 }): ReactNode {
 	// Stable identity across renders so useCallback deps don't churn.
 	const log = useMemo(() => makeLogger(debug), [debug]);
-	const [user, setUser] = useState<TheAuthUser | null>(null);
-	const [isLoading, setIsLoading] = useState(true);
+	const [user, setUser] = useState<TheAuthUser | null>(config.initialUser ?? null);
+	const [isLoading, setIsLoading] = useState(config.initialUser === undefined);
 	const [rotationStatus, setRotationStatus] = useState<RotationStatus>("idle");
 	const [isOnline, setIsOnline] = useState<boolean>(() =>
 		typeof navigator !== "undefined" ? navigator.onLine : true,
@@ -199,15 +206,37 @@ function ExternalProvider({
 				log("me:unauthenticated", { status: res.status });
 			}
 		} catch (err) {
-			setUser(null);
+			// Keep the current user: a dropped connection is not a sign-out.
 			log("me:network-error", { error: (err as Error).message });
 		} finally {
 			setIsLoading(false);
 		}
 	}, [apiUrl, mePath, mapUser, log]);
 
+	const hydratedRef = useRef(config.initialUser !== undefined);
 	useEffect(() => {
+		// A user seeded from the server needs no first request.
+		if (hydratedRef.current) {
+			hydratedRef.current = false;
+			return;
+		}
 		void refresh();
+	}, [refresh]);
+
+	// Refetch on focus, reconnect or an interval. `refresh` never overlaps itself:
+	// a trigger while one is running is dropped.
+	const refetchRef = useRef(config.refetch);
+	refetchRef.current = config.refetch;
+	const refreshingRef = useRef(false);
+	useEffect(() => {
+		if (!refetchRef.current) return;
+		return attachRefetch(() => {
+			if (refreshingRef.current) return;
+			refreshingRef.current = true;
+			void refresh().finally(() => {
+				refreshingRef.current = false;
+			});
+		}, refetchRef.current);
 	}, [refresh]);
 
 	const mapServerCode = useCallback((raw: unknown): RotateErrorCode => {
@@ -533,51 +562,58 @@ function defaultMapUser(data: Record<string, unknown>): TheAuthUser {
 	};
 }
 
+function browserStorage(): SessionStorageLike | undefined {
+	try {
+		return typeof window === "undefined" ? undefined : window.localStorage;
+	} catch {
+		return undefined;
+	}
+}
+
+function toActionResult(r: StoreActionResult): ActionResult {
+	return r.success ? { success: true, data: undefined } : { success: false, error: r.error };
+}
+
 function ManagedProvider({
 	children,
 	basePath,
 	debug = false,
+	managed,
 }: {
 	children: ReactNode;
 	basePath: string;
 	debug?: boolean;
+	managed?: ManagedAuthConfig;
 }): ReactNode {
 	const log = useMemo(() => makeLogger(debug), [debug]);
-	const [session, setSession] = useState<TheAuthSession | null>(null);
-	const [isLoading, setIsLoading] = useState(true);
 	const [isOnline, setIsOnline] = useState<boolean>(() =>
 		typeof navigator !== "undefined" ? navigator.onLine : true,
 	);
 
 	const base = basePath.replace(/\/$/, "");
-
-	const STORAGE_KEY = "theauth_session";
-
-	const fetchSession = useCallback(async (): Promise<void> => {
-		if (typeof window === "undefined") return;
-		try {
-			const raw = window.localStorage.getItem(STORAGE_KEY);
-			if (raw) {
-				const stored = JSON.parse(raw) as TheAuthSession;
-				setSession(stored);
-			} else {
-				setSession(null);
-			}
-		} catch {
-			setSession(null);
-		}
-	}, []);
+	// The store holds the session. Options are read once per base path, like the other
+	// bindings, so pass a stable `managed` object or none.
+	const managedRef = useRef(managed);
+	managedRef.current = managed;
+	const store = useMemo(() => {
+		const m = managedRef.current;
+		const created = createSessionStore({
+			basePath: base,
+			storage: browserStorage(),
+			signInPath: m?.signInPath,
+			signUpPath: m?.signUpPath,
+			identifierField: m?.identifierField,
+			refetch: m?.refetch,
+		});
+		if (m?.initialSession !== undefined) created.hydrateSession(m.initialSession);
+		return created;
+	}, [base]);
+	const state = useSyncExternalStore(store.subscribe, store.getState, store.getState);
 
 	useEffect(() => {
-		if (typeof window === "undefined") {
-			setIsLoading(false);
-			return;
-		}
-		setIsLoading(true);
-		void fetchSession().finally(() => {
-			setIsLoading(false);
-		});
-	}, [fetchSession]);
+		if (managedRef.current?.initialSession === undefined) void store.refresh();
+		return () => store.destroy();
+	}, [store]);
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -591,103 +627,29 @@ function ManagedProvider({
 		};
 	}, []);
 
-	const refresh = useCallback(async (): Promise<void> => {
-		await fetchSession();
-	}, [fetchSession]);
+	const refresh = useCallback(() => store.refresh(), [store]);
 
 	const signIn = useCallback(
 		async (email: string, password: string): Promise<ActionResult> => {
-			try {
-				const res = await fetch(`${base}/auth/sign-in`, {
-					method: "POST",
-					credentials: "include",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email, password }),
-				});
-				const json = (await res.json()) as
-					| { user: TheAuthUser; session: { token: string; expiresAt: string } }
-					| { error: { code: string; message: string } };
-
-				if (!res.ok) {
-					const errBody = json as { error: { code: string; message: string } };
-					return {
-						success: false,
-						error: errBody.error?.message ?? `Sign-in failed (${res.status})`,
-					};
-				}
-
-				const okBody = json as { user: TheAuthUser; session: { token: string; expiresAt: string } };
-				const sessionData: TheAuthSession = {
-					token: okBody.session.token,
-					user: okBody.user,
-					expiresAt: okBody.session.expiresAt,
-				};
-				setSession(sessionData);
-				log("signIn:success", { userId: okBody.user.id });
-				if (typeof window !== "undefined") {
-					window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
-				}
-				return { success: true, data: undefined };
-			} catch (err) {
-				log("signIn:error", { error: (err as Error).message });
-				return {
-					success: false,
-					error: err instanceof Error ? err.message : "Network error",
-				};
-			}
+			const result = await store.signIn(email, password);
+			log(result.success ? "signIn:success" : "signIn:error");
+			return toActionResult(result);
 		},
-		[base, log],
+		[store, log],
 	);
 
 	const signUp = useCallback(
-		async (email: string, password: string, name?: string): Promise<ActionResult> => {
-			try {
-				const res = await fetch(`${base}/auth/sign-up`, {
-					method: "POST",
-					credentials: "include",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email, password, name }),
-				});
-				const json = (await res.json()) as
-					| { user: TheAuthUser; token: string }
-					| { error: { code: string; message: string } };
-
-				if (!res.ok) {
-					const errBody = json as { error: { code: string; message: string } };
-					return {
-						success: false,
-						error: errBody.error?.message ?? `Sign-up failed (${res.status})`,
-					};
-				}
-
-				const okBody = json as { user: TheAuthUser; token: string };
-				const sessionData: TheAuthSession = {
-					token: okBody.token,
-					user: okBody.user,
-				};
-				setSession(sessionData);
-				if (typeof window !== "undefined") {
-					window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
-				}
-				return { success: true, data: undefined };
-			} catch (err) {
-				return {
-					success: false,
-					error: err instanceof Error ? err.message : "Network error",
-				};
-			}
-		},
-		[base],
+		async (email: string, password: string, name?: string): Promise<ActionResult> =>
+			toActionResult(await store.signUp(email, password, name)),
+		[store],
 	);
 
 	const signOut = useCallback(async (): Promise<void> => {
 		log("signOut");
-		setSession(null);
-		if (typeof window !== "undefined") {
-			window.localStorage.removeItem(STORAGE_KEY);
-		}
-	}, [log]);
+		await store.signOut();
+	}, [store, log]);
 
+	const session: TheAuthSession | null = state.session;
 	const user: TheAuthUser | null = session?.user ?? null;
 
 	const rotateSession = useCallback(
@@ -698,7 +660,7 @@ function ManagedProvider({
 	const value: TheAuthContextValue = {
 		session,
 		user,
-		isLoading,
+		isLoading: state.isLoading,
 		isAuthenticated: session !== null,
 		signIn,
 		signUp,

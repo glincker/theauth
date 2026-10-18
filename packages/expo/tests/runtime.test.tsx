@@ -25,6 +25,7 @@ let latest: Snapshot | null = null;
 let fetchMock: ReturnType<typeof vi.fn>;
 let storage = createMemoryStorage();
 let agentsState: TheAuthAgent[] = [];
+let signInBody: unknown = null;
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(body === null ? null : JSON.stringify(body), {
@@ -88,48 +89,33 @@ beforeEach(async () => {
 		const parsed = new URL(url, "http://localhost");
 		const authHeader = new Headers(init?.headers).get("Authorization");
 
-		if (parsed.pathname === "/api/theauth/session" && authHeader === "Bearer stored-token") {
+		if (parsed.pathname === "/api/theauth/auth/session" && authHeader === "Bearer stored-token") {
+			// Same shape as core-wiring.ts: no token in the body.
 			return jsonResponse({
-				data: {
-					token: "stored-token",
-					user: {
-						id: "user-1",
-						email: "ada@example.com",
-						name: "Ada",
-					},
-					expiresAt: "2026-04-01T00:00:00.000Z",
-				},
+				user: { id: "user-1", email: "ada@example.com", name: "Ada" },
+				session: { id: "s1", expiresAt: "2026-04-01T00:00:00.000Z" },
 			});
 		}
 
-		if (parsed.pathname === "/api/theauth/sign-in/email" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/auth/username/sign-in" && init?.method === "POST") {
+			signInBody = JSON.parse(String(init.body));
 			return jsonResponse({
-				data: {
-					token: "signin-token",
-					user: {
-						id: "user-1",
-						email: "ada@example.com",
-						name: "Ada",
-					},
-					expiresAt: "2026-04-01T00:00:00.000Z",
-				},
+				user: { id: "user-1", username: "ada@example.com", name: "Ada" },
+				session: { token: "signin-token", expiresAt: "2026-04-01T00:00:00.000Z" },
 			});
 		}
 
-		if (parsed.pathname === "/api/theauth/sign-up/email" && init?.method === "POST") {
-			return jsonResponse({
-				data: {
-					token: "signup-token",
-					user: {
-						id: "user-2",
-						email: "new@example.com",
-						name: "New User",
-					},
+		if (parsed.pathname === "/api/theauth/auth/username/sign-up" && init?.method === "POST") {
+			return jsonResponse(
+				{
+					user: { id: "user-2", email: "new@example.com", name: "New User" },
+					session: { token: "signup-token" },
 				},
-			});
+				201,
+			);
 		}
 
-		if (parsed.pathname === "/api/theauth/sign-out" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/auth/sign-out" && init?.method === "POST") {
 			return new Response(null, { status: 204 });
 		}
 
@@ -227,7 +213,7 @@ describe("@glinr/theauth-expo runtime smoke", () => {
 		expect(
 			fetchMock.mock.calls.some(
 				([input, init]) =>
-					String(input).includes("/api/theauth/session") &&
+					String(input).includes("/api/theauth/auth/session") &&
 					new Headers(init?.headers).get("Authorization") === "Bearer stored-token",
 			),
 		).toBe(true);
@@ -257,6 +243,7 @@ describe("@glinr/theauth-expo runtime smoke", () => {
 		expect(signInResult).toEqual({ success: true, data: undefined });
 		expect(await storage.getItem(SESSION_KEY)).toBe("signin-token");
 		expect(latest?.context.isAuthenticated).toBe(true);
+		expect(signInBody).toEqual({ username: "ada@example.com", password: "secret123" });
 
 		let created: ActionResult<TheAuthAgent> | undefined;
 		await act(async () => {

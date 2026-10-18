@@ -73,18 +73,18 @@ beforeEach(() => {
 		const url = typeof input === "string" ? input : input.toString();
 		const parsed = new URL(url, "http://localhost");
 
-		if (parsed.pathname === "/api/theauth/auth/sign-up" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/auth/username/sign-up" && init?.method === "POST") {
 			return jsonResponse({
 				user: {
 					id: "user-2",
 					email: "new@example.com",
 					name: "New User",
 				},
-				token: "signup-token",
+				session: { token: "signup-token", expiresAt: "2026-04-01T00:00:00.000Z" },
 			});
 		}
 
-		if (parsed.pathname === "/api/theauth/auth/sign-in" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/auth/username/sign-in" && init?.method === "POST") {
 			return jsonResponse({
 				user: {
 					id: "user-1",
@@ -96,6 +96,11 @@ beforeEach(() => {
 					expiresAt: "2026-04-01T00:00:00.000Z",
 				},
 			});
+		}
+
+		if (parsed.pathname === "/api/theauth/auth/sign-out" && init?.method === "POST") {
+			signOutAuth.push(new Headers(init.headers).get("authorization"));
+			return jsonResponse({ success: true });
 		}
 
 		if (parsed.pathname === "/api/theauth/agents" && init?.method === "POST") {
@@ -160,6 +165,7 @@ afterEach(() => {
 });
 
 let agentsState: TheAuthAgent[] = [];
+const signOutAuth: Array<string | null> = [];
 
 describe("@glinr/theauth-react runtime smoke", () => {
 	it("restores the provider session from localStorage and loads agents", async () => {

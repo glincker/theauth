@@ -101,6 +101,16 @@ export interface TheAuthExpoConfig {
 	basePath: string;
 	/** Storage adapter for persisting session tokens. Defaults to in-memory. */
 	storage?: TheAuthStorage;
+	/**
+	 * Sign-in route under `basePath`. Default `/auth/username/sign-in`, the route the
+	 * username module serves. The core has no email and password route: point this at
+	 * your own, or at the one `@glinr/theauth-email` serves (`/auth/sign-in`, with `identifierField: "email"`).
+	 */
+	signInPath?: string;
+	/** Sign-up route under `basePath`. Default `/auth/username/sign-up`. */
+	signUpPath?: string;
+	/** Body field that carries the first argument of `signIn` and `signUp`. Default `username`. */
+	identifierField?: string;
 	social?: SocialSignInConfig;
 	passkeys?: PasskeyAuthenticator;
 	/**

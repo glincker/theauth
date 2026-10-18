@@ -30,6 +30,9 @@
   "peerDependencies": {
     "svelte": ">=4.0.0"
   },
+  "dependencies": {
+    "@glinr/theauth-client": "workspace:*"
+  },
   "devDependencies": {
     "svelte": "^5.56.3",
     "tsup": "^8.4.0",

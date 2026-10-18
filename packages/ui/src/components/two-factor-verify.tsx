@@ -81,7 +81,7 @@ export function TwoFactorVerify({
 			setIsLoading(true);
 			setError(null);
 
-			const payload = useBackup ? { backupCode } : { code: code.join("") };
+			const payload = useBackup ? { code: backupCode } : { code: code.join("") };
 
 			if (!useBackup && code.join("").length !== digits) {
 				setError(`Enter all ${digits} digits`);
@@ -90,7 +90,7 @@ export function TwoFactorVerify({
 			}
 
 			try {
-				const res = await fetch(`${base}/auth/two-factor/verify`, {
+				const res = await fetch(`${base}/auth/2fa/verify`, {
 					method: "POST",
 					credentials: "include",
 					headers: { "Content-Type": "application/json" },
@@ -100,8 +100,12 @@ export function TwoFactorVerify({
 				if (res.ok) {
 					onSuccess?.();
 				} else {
-					const json = (await res.json()) as { error?: { message?: string } };
-					setError(json.error?.message ?? "Invalid code");
+					// The core replies { error: "message" }, some servers { error: { message } }.
+					const json = (await res.json().catch(() => ({}))) as {
+						error?: string | { message?: string };
+					};
+					const msg = typeof json.error === "string" ? json.error : json.error?.message;
+					setError(msg ?? "Invalid code");
 				}
 			} catch {
 				setError("Network error");

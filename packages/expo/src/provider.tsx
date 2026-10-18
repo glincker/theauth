@@ -11,6 +11,7 @@ import type {
 	TheAuthStorage,
 	TheAuthUser,
 } from "./types.js";
+import { parseError, parseSession } from "./wire.js";
 
 const SESSION_KEY = "theauth_session";
 
@@ -43,6 +44,9 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 	const [isLoading, setIsLoading] = useState(true);
 
 	const base = config.basePath.replace(/\/$/, "");
+	const signInPath = config.signInPath ?? "/auth/username/sign-in";
+	const signUpPath = config.signUpPath ?? "/auth/username/sign-up";
+	const identifierField = config.identifierField ?? "username";
 
 	// Stable storage ref so callbacks don't re-create on each render
 	const storageRef = useRef<TheAuthStorage>(config.storage ?? createMemoryStorage());
@@ -65,19 +69,21 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		}
 
 		try {
-			const res = await fetchRef.current(`${base}/session`, {
+			const res = await fetchRef.current(`${base}/auth/session`, {
 				headers: { Authorization: `Bearer ${token}` },
 			});
 			if (res.ok) {
-				const json = (await res.json()) as { data?: TheAuthSession };
-				setSession(json.data ?? null);
-				if (!json.data) {
+				// GET /auth/session carries no token, so keep the one we sent.
+				const next = parseSession(await res.json().catch(() => null), token);
+				setSession(next);
+				if (!next) {
 					await storageRef.current.removeItem(SESSION_KEY);
 				}
-			} else {
+			} else if (res.status === 401 || res.status === 403) {
 				setSession(null);
 				await storageRef.current.removeItem(SESSION_KEY);
 			}
+			// A 5xx keeps the stored token so a server blip does not sign the user out.
 		} catch {
 			setSession(null);
 		}
@@ -97,27 +103,22 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 	const signIn = useCallback(
 		async (email: string, password: string): Promise<ActionResult> => {
 			try {
-				const res = await fetchRef.current(`${base}/sign-in/email`, {
+				const res = await fetchRef.current(`${base}${signInPath}`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email, password }),
+					body: JSON.stringify({ [identifierField]: email, password }),
 				});
 
-				const json = (await res.json()) as
-					| { data: TheAuthSession }
-					| { error: { code: string; message: string } };
+				const json: unknown = await res.json().catch(() => null);
 
 				if (!res.ok) {
-					const errBody = json as { error: { code: string; message: string } };
-					return {
-						success: false,
-						error: errBody.error?.message ?? `Sign-in failed (${res.status})`,
-					};
+					return { success: false, error: parseError(json, `Sign-in failed (${res.status})`) };
 				}
 
-				const okBody = json as { data: TheAuthSession };
-				await storageRef.current.setItem(SESSION_KEY, okBody.data.token);
-				setSession(okBody.data);
+				const next = parseSession(json);
+				if (!next) return { success: false, error: "Sign-in returned an unexpected response" };
+				await storageRef.current.setItem(SESSION_KEY, next.token);
+				setSession(next);
 				return { success: true, data: undefined };
 			} catch (err) {
 				return {
@@ -126,33 +127,28 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 				};
 			}
 		},
-		[base],
+		[base, signInPath, identifierField],
 	);
 
 	const signUp = useCallback(
 		async (email: string, password: string, name?: string): Promise<ActionResult> => {
 			try {
-				const res = await fetchRef.current(`${base}/sign-up/email`, {
+				const res = await fetchRef.current(`${base}${signUpPath}`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email, password, name }),
+					body: JSON.stringify({ [identifierField]: email, password, name }),
 				});
 
-				const json = (await res.json()) as
-					| { data: TheAuthSession }
-					| { error: { code: string; message: string } };
+				const json: unknown = await res.json().catch(() => null);
 
 				if (!res.ok) {
-					const errBody = json as { error: { code: string; message: string } };
-					return {
-						success: false,
-						error: errBody.error?.message ?? `Sign-up failed (${res.status})`,
-					};
+					return { success: false, error: parseError(json, `Sign-up failed (${res.status})`) };
 				}
 
-				const okBody = json as { data: TheAuthSession };
-				await storageRef.current.setItem(SESSION_KEY, okBody.data.token);
-				setSession(okBody.data);
+				const next = parseSession(json);
+				if (!next) return { success: false, error: "Sign-up returned an unexpected response" };
+				await storageRef.current.setItem(SESSION_KEY, next.token);
+				setSession(next);
 				return { success: true, data: undefined };
 			} catch (err) {
 				return {
@@ -161,7 +157,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 				};
 			}
 		},
-		[base],
+		[base, signUpPath, identifierField],
 	);
 
 	const socialConfig = config.social;
@@ -217,7 +213,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 		const token = await storageRef.current.getItem(SESSION_KEY);
 		try {
 			if (token) {
-				await fetchRef.current(`${base}/sign-out`, {
+				await fetchRef.current(`${base}/auth/sign-out`, {
 					method: "POST",
 					headers: { Authorization: `Bearer ${token}` },
 				});

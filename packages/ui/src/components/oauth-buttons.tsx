@@ -26,8 +26,8 @@ export function OAuthButtons({
 	if (providers.length === 0) return null;
 
 	const handleClick = (providerId: string) => {
-		const redirectUri = `${globalThis.location.origin}${base}/auth/${providerId}/callback`;
-		globalThis.location.href = `${base}/auth/${providerId}?redirectUri=${encodeURIComponent(redirectUri)}`;
+		// The server builds the callback URL itself (/auth/oauth/callback/:provider).
+		globalThis.location.href = `${base}/auth/oauth/authorize/${encodeURIComponent(providerId)}`;
 	};
 
 	if (layout === "grid") {

@@ -1,3 +1,5 @@
+import type { HydrateInput, RefetchOptions } from "@glinr/theauth-client";
+
 export interface TheAuthUser {
 	id: string;
 	email?: string;
@@ -84,6 +86,20 @@ export interface RotateRetryConfig {
 
 export type RotationStatus = "idle" | "rotating" | "error";
 
+/** Options for the built in session store used when `external` is not set. */
+export interface ManagedAuthConfig {
+	/** Refetch the session on focus, reconnect or an interval. Off unless set. */
+	refetch?: RefetchOptions;
+	/** Session the server already resolved (SSR). Skips the first request. `null` means signed out. */
+	initialSession?: HydrateInput | null;
+	/** Default `/auth/username/sign-in`. The core has no email and password route. */
+	signInPath?: string;
+	/** Default `/auth/username/sign-up`. */
+	signUpPath?: string;
+	/** Body field for the sign-in identifier. Default `username`. */
+	identifierField?: string;
+}
+
 /** Delegates all auth to an external API when passed to `<TheAuthProvider external={...}>`. */
 export interface ExternalAuthConfig {
 	apiUrl: string;
@@ -98,6 +114,10 @@ export interface ExternalAuthConfig {
 	/** Default maps `user_id`, `id`, or `sub` to the id, plus email, name, avatar, image. */
 	mapUser?: (data: Record<string, unknown>) => TheAuthUser;
 	onLogout?: () => void;
+	/** Refetch the user on focus, reconnect or an interval. Off unless set. */
+	refetch?: RefetchOptions;
+	/** User the server already resolved (SSR). Skips the first request. `null` means signed out. */
+	initialUser?: TheAuthUser | null;
 
 	/**
 	 * Enables rotation. Defaults to `"/auth/refresh"`: `POST` with credentials, returning

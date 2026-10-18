@@ -27,6 +27,7 @@ export type {
 	AuthUser,
 	CreateAgentInput,
 	ExternalAuthConfig,
+	ManagedAuthConfig,
 	RotateErrorCode,
 	RotateResult,
 	RotateRetryConfig,

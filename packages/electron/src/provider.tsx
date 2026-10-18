@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { SecureStorage } from "./storage.js";
+import { parseError, parseSession } from "./wire.js";
 
 interface TheAuthUser {
 	id: string;
@@ -35,6 +36,17 @@ export interface ElectronTheAuthProviderProps {
 	storage?: SecureStorage;
 	/** Persist session to secure storage across restarts. Defaults to true. */
 	persistSession?: boolean;
+	/**
+	 * Sign-in route under `basePath`. Default `/auth/username/sign-in`, the route the
+	 * username module serves. The core has no email and password route: point this at
+	 * your own, or at the one `@glinr/theauth-email` serves (`/auth/sign-in`, with
+	 * `identifierField: "email"`).
+	 */
+	signInPath?: string;
+	/** Sign-up route under `basePath`. Default `/auth/username/sign-up`. */
+	signUpPath?: string;
+	/** Body field that carries the first argument of `signIn` and `signUp`. Default `username`. */
+	identifierField?: string;
 }
 
 const SESSION_STORAGE_KEY = "theauth:session";
@@ -47,21 +59,6 @@ export function useElectronTheAuthContext(): TheAuthContextValue {
 		throw new Error("useElectronTheAuthContext must be used inside <ElectronTheAuthProvider>");
 	}
 	return ctx;
-}
-
-type JsonErrorBody = { error?: { code?: string; message?: string } };
-
-function extractErrorMessage(body: unknown, fallback: string): string {
-	if (
-		body !== null &&
-		typeof body === "object" &&
-		"error" in body &&
-		typeof (body as JsonErrorBody).error === "object" &&
-		typeof (body as JsonErrorBody).error?.message === "string"
-	) {
-		return (body as JsonErrorBody).error?.message ?? fallback;
-	}
-	return fallback;
 }
 
 /**
@@ -80,11 +77,16 @@ export function ElectronTheAuthProvider({
 	basePath = "/api/theauth",
 	storage,
 	persistSession = true,
+	signInPath = "/auth/username/sign-in",
+	signUpPath = "/auth/username/sign-up",
+	identifierField = "username",
 }: ElectronTheAuthProviderProps): ReactNode {
 	const [session, setSession] = useState<TheAuthSession | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 
 	const base = basePath.replace(/\/$/, "");
+	// GET /auth/session carries no token, so keep the one sign-in or storage gave us.
+	const tokenRef = useRef("");
 
 	const persistToStorage = useCallback(
 		async (s: TheAuthSession | null): Promise<void> => {
@@ -122,15 +124,17 @@ export function ElectronTheAuthProvider({
 
 	const fetchSession = useCallback(async (): Promise<void> => {
 		try {
-			const res = await fetch(`${base}/session`, { credentials: "include" });
+			const res = await fetch(`${base}/auth/session`, { credentials: "include" });
 			if (res.ok) {
-				const json = (await res.json()) as { data?: TheAuthSession };
-				const s = json.data ?? null;
+				const s = parseSession(await res.json().catch(() => null), tokenRef.current || undefined);
 				setSession(s);
 				await persistToStorage(s);
-			} else {
+			} else if (res.status === 401 || res.status === 403) {
+				tokenRef.current = "";
 				setSession(null);
+				await persistToStorage(null);
 			}
+			// A 5xx keeps the restored session so a server blip does not sign the user out.
 		} catch {
 			setSession(null);
 		}
@@ -142,6 +146,7 @@ export function ElectronTheAuthProvider({
 		void (async () => {
 			const stored = await restoreFromStorage();
 			if (stored) {
+				tokenRef.current = stored.token;
 				setSession(stored);
 			}
 			// Always verify the session with the server regardless of storage.
@@ -157,24 +162,21 @@ export function ElectronTheAuthProvider({
 	const signIn = useCallback(
 		async (email: string, password: string): Promise<ActionResult> => {
 			try {
-				const res = await fetch(`${base}/sign-in/email`, {
+				const res = await fetch(`${base}${signInPath}`, {
 					method: "POST",
 					credentials: "include",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email, password }),
+					body: JSON.stringify({ [identifierField]: email, password }),
 				});
-				const json = (await res.json()) as
-					| { data: TheAuthSession }
-					| { error: { code: string; message: string } };
+				const json: unknown = await res.json().catch(() => null);
 
 				if (!res.ok) {
-					return {
-						success: false,
-						error: extractErrorMessage(json, `Sign-in failed (${res.status})`),
-					};
+					return { success: false, error: parseError(json, `Sign-in failed (${res.status})`) };
 				}
 
-				const s = (json as { data: TheAuthSession }).data;
+				const s = parseSession(json);
+				if (!s) return { success: false, error: "Sign-in returned an unexpected response" };
+				tokenRef.current = s.token;
 				setSession(s);
 				await persistToStorage(s);
 				return { success: true, data: undefined };
@@ -185,30 +187,27 @@ export function ElectronTheAuthProvider({
 				};
 			}
 		},
-		[base, persistToStorage],
+		[base, signInPath, identifierField, persistToStorage],
 	);
 
 	const signUp = useCallback(
 		async (email: string, password: string, name?: string): Promise<ActionResult> => {
 			try {
-				const res = await fetch(`${base}/sign-up/email`, {
+				const res = await fetch(`${base}${signUpPath}`, {
 					method: "POST",
 					credentials: "include",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email, password, name }),
+					body: JSON.stringify({ [identifierField]: email, password, name }),
 				});
-				const json = (await res.json()) as
-					| { data: TheAuthSession }
-					| { error: { code: string; message: string } };
+				const json: unknown = await res.json().catch(() => null);
 
 				if (!res.ok) {
-					return {
-						success: false,
-						error: extractErrorMessage(json, `Sign-up failed (${res.status})`),
-					};
+					return { success: false, error: parseError(json, `Sign-up failed (${res.status})`) };
 				}
 
-				const s = (json as { data: TheAuthSession }).data;
+				const s = parseSession(json);
+				if (!s) return { success: false, error: "Sign-up returned an unexpected response" };
+				tokenRef.current = s.token;
 				setSession(s);
 				await persistToStorage(s);
 				return { success: true, data: undefined };
@@ -219,16 +218,17 @@ export function ElectronTheAuthProvider({
 				};
 			}
 		},
-		[base, persistToStorage],
+		[base, signUpPath, identifierField, persistToStorage],
 	);
 
 	const signOut = useCallback(async (): Promise<void> => {
 		try {
-			await fetch(`${base}/sign-out`, {
+			await fetch(`${base}/auth/sign-out`, {
 				method: "POST",
 				credentials: "include",
 			});
 		} finally {
+			tokenRef.current = "";
 			setSession(null);
 			await persistToStorage(null);
 		}

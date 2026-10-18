@@ -3,6 +3,7 @@ import { Plus, Server } from "lucide-react";
 import { useState } from "react";
 import type { TheAuthApiClient } from "../api/client.js";
 import type { McpServerInfo, RegisterMcpServerInput } from "../api/types.js";
+import { ApiErrorNotice } from "../components/api-error.js";
 import { Badge, StatusDot } from "../components/badge.js";
 import { Button } from "../components/button.js";
 import { FormGroup, Input, Label } from "../components/input.js";
@@ -223,6 +224,8 @@ export function McpServersPage({ client }: McpServersPageProps) {
 					</Button>
 				}
 			/>
+
+			<ApiErrorNotice result={serversResult} />
 
 			{isLoading ? (
 				<div className="flex items-center justify-center py-16">
