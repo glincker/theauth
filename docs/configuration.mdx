@@ -167,6 +167,10 @@ When `auth` is omitted, `theauth.auth.resolveUser()` always returns `null` (manu
 
 Built-in adapters exported from `@glinr/theauth/auth` include `betterAuthAdapter`, `authJsAdapter`, `clerkAdapter`, `bearerAuth`, `cookieAuth`, `headerAuth`, `apiKeyAdapter`, and `customAuth`.
 
+## Secret rotation
+
+Secrets that sign or encrypt data accept a list so you can rotate without invalidating what is already issued: `secret: [current, ...previous]`. The first entry signs and encrypts, every entry verifies and decrypts. Add the new secret at the front and deploy, then remove the old one after the longest lifetime of anything it signed. Entries can also be `{ id, secret }`, and the id is emitted with the signature (`X-TheAuth-Key-Id` for webhooks, a cookie field for sessions) so verifiers try that key first. Entries must be at least 32 bytes, and empty or duplicate entries throw at startup. The list form is supported by webhook endpoint `secret` (see [Webhooks](/webhooks)), `createStatelessSessions` and `createSessionCookieCache` (see [Session hardening](/session-hardening)). `auth.session.secret` and `McpConfig.signingSecret` remain single strings.
+
 ## Session config
 
 <ParamField path="secret" type="string" required>Signing secret for session JWTs. Min 32 characters.</ParamField>

@@ -1,5 +1,7 @@
 /** Webhook system types. */
 
+import type { SecretRingConfig } from "../crypto/secrets.js";
+
 export type WebhookEventType =
 	| "user.signIn"
 	| "user.signUp"
@@ -59,8 +61,8 @@ export interface WebhookEndpointConfig {
 	url: string;
 	/** Events this endpoint subscribes to */
 	events: WebhookEventType[];
-	/** HMAC-SHA256 signing secret */
-	secret: string;
+	/** HMAC-SHA256 signing secret. Pass `[current, ...previous]` to rotate: the first signs, receivers may accept any. Array and `{ id, secret }` entries must be at least 32 bytes. */
+	secret: SecretRingConfig;
 }
 
 export interface RetryConfig {

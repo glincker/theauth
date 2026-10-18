@@ -12,13 +12,9 @@
  * ```
  */
 
-import {
-	constantTimeEqual,
-	fromBase64Url,
-	hmacSha256Raw,
-	sha256,
-	toBase64Url,
-} from "../crypto/web-crypto.js";
+import type { SecretRingConfig } from "../crypto/secrets.js";
+import { SecretRing } from "../crypto/secrets.js";
+import { fromBase64Url, sha256, toBase64Url } from "../crypto/web-crypto.js";
 import type { Result } from "../mcp/types.js";
 import type { CookieOptions } from "./cookie.js";
 import { parseCookies } from "./cookie.js";
@@ -27,8 +23,8 @@ import { clearChunkedCookie, readChunkedCookie, serializeChunkedCookie } from ".
 import type { Session } from "./session.js";
 
 export interface SessionCookieCacheConfig {
-	/** Signing secret, at least 32 characters. */
-	secret: string;
+	/** Signing secret, at least 32 bytes. A string, or `[current, ...previous]` for rotation: the first signs, every entry verifies. Entries may be `{ id, secret }`, the id is written into the cookie so verification tries that key first. */
+	secret: SecretRingConfig | SecretRing;
 	/** Cookie name. Default `theauth_session_data`. */
 	name?: string;
 	/** Cache lifetime in seconds. Default 300. */
@@ -113,9 +109,7 @@ function reviveSession(plain: Record<string, unknown>): Session | null {
 }
 
 export function createSessionCookieCache(config: SessionCookieCacheConfig): SessionCookieCache {
-	if (!config.secret || config.secret.length < 32) {
-		throw new Error("SessionCookieCache: secret must be at least 32 characters.");
-	}
+	const ring = SecretRing.from(config.secret, { label: "SessionCookieCache" });
 	const name = config.name ?? DEFAULT_NAME;
 	const maxAge = config.maxAge ?? DEFAULT_MAX_AGE;
 	const maxBytes = config.maxBytes ?? DEFAULT_MAX_BYTES;
@@ -137,8 +131,10 @@ export function createSessionCookieCache(config: SessionCookieCacheConfig): Sess
 	};
 	const { maxAge: _drop, ...deleteOpts } = cookieOpts;
 
+	/** Cookie value suffix `sig` or `sig.kid`. */
 	async function sign(body: string): Promise<string> {
-		return toBase64Url(await hmacSha256Raw(config.secret, `${VERSION}.${body}`));
+		const { signature, kid } = await ring.sign(`${VERSION}.${body}`);
+		return kid === undefined ? toBase64Url(signature) : `${toBase64Url(signature)}.${kid}`;
 	}
 
 	async function bindingTag(binding: string): Promise<string> {
@@ -180,11 +176,10 @@ export function createSessionCookieCache(config: SessionCookieCacheConfig): Sess
 		const raw = readChunkedCookie(parseCookies(cookieHeader), name);
 		if (!raw) return null;
 		const parts = raw.split(".");
-		if (parts.length !== 3 || parts[0] !== VERSION) return null;
-		const [, body, sig] = parts as [string, string, string];
+		if ((parts.length !== 3 && parts.length !== 4) || parts[0] !== VERSION) return null;
+		const [, body, sig, kid] = parts as [string, string, string, string | undefined];
 		try {
-			const expected = await sign(body);
-			if (!constantTimeEqual(encoder.encode(expected), encoder.encode(sig))) return null;
+			if (!(await ring.verify(`${VERSION}.${body}`, fromBase64Url(sig), kid))) return null;
 			const payload = JSON.parse(decoder.decode(fromBase64Url(body))) as {
 				s?: Record<string, unknown>;
 				b?: string;

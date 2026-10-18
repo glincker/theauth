@@ -123,7 +123,7 @@ Default cookies are host-only. Set `cookieOptions.domain: '.your-domain.com'` (w
 </Accordion>
 
 <Accordion title="User signed out after every deploy" icon="bug">
-You are probably changing the session `secret`. Session tokens are signed with it, and a new secret invalidates existing cookies. The `secret` option takes a single string, so keep it stable across deploys. theAuth does not support a list of secrets for rotation.
+You are probably changing the session `secret`. Session tokens are signed with it, and a new secret invalidates existing cookies. The session manager `secret` option takes a single string, so keep it stable across deploys. The stateless session cookies and the session cookie cache do support rotation: pass `secret: [newSecret, oldSecret]` (first signs, all verify) and remove the old entry after the cookie lifetime has passed. See [Session hardening](/session-hardening).
 </Accordion>
 
 <Accordion title="SameSite=Lax rejected by a mobile webview" icon="bug">

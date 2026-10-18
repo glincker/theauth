@@ -25,9 +25,16 @@
  */
 
 import { createDeliveryEngine } from "./delivery.js";
+import { webhookSecretRing } from "./signing.js";
 import type { DeliveryRecord, WebhookEndpointConfig, WebhooksPluginConfig } from "./types.js";
 
-export { buildWebhookHeaders, currentTimestamp, generateDeliveryId, verify } from "./signing.js";
+export {
+	buildWebhookHeaders,
+	currentTimestamp,
+	generateDeliveryId,
+	verify,
+	webhookSecretRing,
+} from "./signing.js";
 export type {
 	DeliveryAttempt,
 	DeliveryEngine,
@@ -51,6 +58,8 @@ export interface WebhooksPlugin {
 export function webhooks(config: WebhooksPluginConfig): WebhooksPlugin {
 	const engine = createDeliveryEngine(config.retry ?? {});
 	const endpoints: WebhookEndpointConfig[] = [...config.endpoints];
+	// Fail at startup on bad secrets (empty, duplicate, too short in rotation form).
+	for (const ep of endpoints) webhookSecretRing(ep.secret);
 
 	function matchingEndpoints(event: string): WebhookEndpointConfig[] {
 		// Cast to string[] for the .includes() check, the endpoint filter is

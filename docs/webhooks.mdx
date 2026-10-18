@@ -42,7 +42,7 @@ theauth.webhooks?.emit('user.created', { userId: 'user_123' });
 ### Endpoint options
 
 <ParamField path="url" type="string">Destination URL for the POST request.</ParamField>
-<ParamField path="secret" type="string">Signing secret used for the HMAC-SHA256 signature.</ParamField>
+<ParamField path="secret" type={`string | Array<string | { id: string; secret: string }>`}>Signing secret used for the HMAC-SHA256 signature. Pass an array, `[current, ...previous]`, to rotate: the first entry signs. Array entries must be at least 32 bytes, empty and duplicate entries are rejected when `webhooks()` is created. A plain string keeps working as before.</ParamField>
 <ParamField path="events" type="WebhookEvent[]">Event types this endpoint receives. There is no `'*'` wildcard: list every event you want.</ParamField>
 <ParamField path="retries" type="number">Retry attempts after the first failed delivery. Defaults to 3.</ParamField>
 <ParamField path="timeout" type="number">Per-request timeout in milliseconds. Defaults to 10000.</ParamField>
@@ -93,6 +93,7 @@ Every webhook delivery includes these headers:
 | `X-TheAuth-Signature` | `sha256=<hex>`, the HMAC-SHA256 of `<timestamp>.<raw body>` using your secret |
 | `X-TheAuth-Event` | Event type, e.g. `user.created` |
 | `X-TheAuth-Timestamp` | Unix timestamp (seconds) of delivery, the same value as `timestamp` in the body |
+| `X-TheAuth-Key-Id` | Only sent when the current signing secret was configured as `{ id, secret }`. Receivers try the key with this id first |
 
 ## Verifying signatures
 
@@ -151,6 +152,33 @@ async function verifyWebhook(
 ```
   </Tab>
 </Tabs>
+
+## Rotating the signing secret
+
+Each delivery is signed with one key, the first entry of `secret`. Receivers rotate by accepting both keys for a while. Add the new key first, deploy, then remove the old one, so no delivery is ever rejected.
+
+1. Generate a new secret (`openssl rand -base64 32`) and add it to the receivers: `secret: [oldSecret, newSecret]`. Deploy the receivers. Nothing changes yet, because the sender still signs with the old key.
+2. Switch the sender to sign with the new key and keep the old one: `secret: [newSecret, oldSecret]`. Deploy. Deliveries now carry the new signature, and in-flight retries signed earlier still verify.
+3. After the retry window and your timestamp tolerance have passed, remove the old key from the receivers and the sender: `secret: [newSecret]`.
+
+The `verify` helper from `@glinr/theauth/webhook` accepts the same list. It checks every key and does not stop at the first match, so timing does not reveal which key signed.
+
+```typescript
+import { verify } from '@glinr/theauth/webhook';
+
+const ok = await verify({
+  secret: [
+    { id: '2026-10', secret: process.env.WEBHOOK_SECRET_NEW! },
+    { id: '2026-04', secret: process.env.WEBHOOK_SECRET_OLD! },
+  ],
+  rawBody: await request.text(),
+  signature: request.headers.get('X-TheAuth-Signature') ?? '',
+  timestamp: request.headers.get('X-TheAuth-Timestamp') ?? '',
+  keyId: request.headers.get('X-TheAuth-Key-Id') ?? undefined,
+});
+```
+
+Key ids (letters, digits, `_` and `-`, up to 32 characters) are optional labels. They only choose which key is tried first. The secrets are never logged or included in error messages.
 
 ## Retry behavior
 

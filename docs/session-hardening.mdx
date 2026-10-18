@@ -26,6 +26,8 @@ const { session, setCookieHeader, cacheCookieHeaders } = await sessions.createSe
 const deletions = sessions.buildLogoutCookies(request.headers.get("cookie") ?? "");
 ```
 
+Rotating the cache secret: `createSessionCookieCache` and `createStatelessSessions` take `secret: string | string[]` (or entries shaped `{ id, secret }`). With an array, the first entry signs and every entry verifies, so cookies issued before a rotation keep working. Add the new secret first and deploy, then remove the old one once the longest cookie lifetime (`maxAge`) has passed. Each secret must be at least 32 bytes, and empty or duplicate entries throw at construction. `createCookieSessionManager` still passes its single `secret` string to the cache.
+
 The cookie is signed, not encrypted, and tied to the session token it was issued for. Payloads past about 3.6 KB are chunked; oversized ones fall back to database reads.
 
 ## Refresh token reuse grace
