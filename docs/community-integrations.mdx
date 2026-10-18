@@ -24,7 +24,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createBeforeAuthorizeHook } from 'your-integration';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     beforeAuthorize: createBeforeAuthorizeHook({ timeoutMs: 2000 }),
   },
@@ -75,6 +75,10 @@ Maintainers review listings. To request one:
 4. A maintainer reviews the spec and fixture. Accepted integrations are added to the table below.
 
 Listing does not mean theAuth maintains or audits the package. Review the code before you depend on it.
+
+## List your guard
+
+A guard vendor does not need a package. Expose an HTTPS endpoint that follows the [remote guard protocol](/guards), run `npx @glinr/theauth-conformance guard <url> --secret <s>`, and attach the JSON report (`--json`) to your Discussion. Customers then wire it with `httpGuard`.
 
 ## Listed integrations
 

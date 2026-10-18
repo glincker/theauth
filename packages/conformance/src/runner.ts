@@ -1,3 +1,4 @@
+import { guardChecks } from "./checks/guard.js";
 import type { Check } from "./checks/index.js";
 import { ALL_CHECKS } from "./checks/index.js";
 import { createContext } from "./context.js";
@@ -37,7 +38,10 @@ async function runOne(check: Check, ctx: ReturnType<typeof createContext>): Prom
 	};
 }
 
-export async function runSuite(options: Options, checks: Check[] = ALL_CHECKS): Promise<Report> {
+export async function runSuite(
+	options: Options,
+	checks: Check[] = options.mode === "guard" ? guardChecks : ALL_CHECKS,
+): Promise<Report> {
 	const ctx = createContext(options);
 	const results: CheckResult[] = [];
 	for (const check of checks) {

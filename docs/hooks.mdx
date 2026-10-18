@@ -147,7 +147,7 @@ Pass a `hooks` object to `createTheAuth`:
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async beforeAuthorize({ agentId, action, resource }) {
       // Example: block calls outside business hours
@@ -174,7 +174,7 @@ const theauth = await createTheAuth({
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async afterAuthorize({ agentId, action, resource, result }) {
       if (!result.allowed) {
@@ -197,7 +197,7 @@ The `result.auditId` links this log line to the audit entry, so you can correlat
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async beforeAgentCreate(input) {
       // Require sandbox metadata on all autonomous agents
@@ -220,7 +220,7 @@ The `onViolation` hook fires for every denial returned by `theauth.authorize()` 
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async onViolation({ type, agentId, action, resource, reason }) {
       // Send to your alerting system
@@ -248,7 +248,7 @@ import { createDiscoveryModule } from '@glinr/theauth-plugin-discovery';
 let discovery: ReturnType<typeof createDiscoveryModule>;
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async onAgentRevoke(agentId) {
       // Remove the agent's discovery card. The discovery module is the separate
@@ -304,6 +304,8 @@ const theauth = await createTheAuth({
   hookSafety: { beforeAuthorize: { timeoutMs: 1500 } },
 });
 ```
+
+For a vendor endpoint over HTTPS, use `httpGuard` instead of writing the `fetch` yourself. It signs the request, validates the verdict strictly and refuses redirects. See [remote guards](/guards).
 
 ### What the guard receives
 

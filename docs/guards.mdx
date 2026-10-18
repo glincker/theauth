@@ -1,0 +1,101 @@
+---
+title: "Remote guards"
+description: "Plug an external guard such as HOL Guard into theAuth over HTTPS. Signed requests, a strict verdict schema, fail closed, and a conformance check for vendors."
+icon: shield-check
+---
+
+A guard is a policy service that decides whether an agent may act. `guardHook` runs a guard that lives in your process. `httpGuard` calls a guard over HTTPS, so a vendor ships an endpoint instead of JavaScript. Both plug into `beforeAuthorize`, and timeout, default deny and audit fields come from the hook runner (see [hooks](/hooks)).
+
+```ts
+import { createTheAuth, guardHook, httpGuard } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database,
+  hooks: {
+    beforeAuthorize: guardHook(
+      httpGuard({
+        name: "hol-guard",
+        url: "https://guard.example.com/theauth",
+        secret: process.env.GUARD_SECRET!,
+        redact: (input) => ({ ...input, arguments: undefined }),
+      }),
+    ),
+  },
+  hookSafety: { beforeAuthorize: { timeoutMs: 1500 } },
+});
+```
+
+## Protocol 2026-10
+
+`httpGuard` sends one `POST` per check. The vendor answers with a verdict.
+
+```http
+POST /theauth HTTP/1.1
+content-type: application/json
+x-theauth-guard-version: 2026-10
+x-theauth-timestamp: 1792261200
+x-theauth-signature: v1=5b0c...e1
+x-theauth-key-id: prod-1
+
+{"version":"2026-10","requestId":"6f1c...","issuedAt":"2026-10-17T19:00:00.000Z",
+ "input":{"agentId":"agent_1","action":"read","resource":"mcp:github:issues",
+ "arguments":{"q":"bugs"},"agent":{"id":"agent_1","ownerId":"u1","type":"autonomous","name":"bot"},
+ "delegation":{"path":["agent_1"],"links":[],"inbound":[]},"source":"authorize","dryRun":false}}
+```
+
+The signature is `v1=` plus the hex HMAC-SHA256, keyed with the shared secret, of the string `<timestamp>.<raw body>`. `x-theauth-key-id` is sent only when you set `keyId`, for secret rotation on the vendor side.
+
+The response is HTTP 2xx with one of these JSON bodies. Unknown fields are rejected.
+
+```json
+{ "decision": "allow" }
+{ "decision": "deny", "reason": "blocked by rule 7", "code": "R7" }
+{ "decision": "escalate", "reason": "needs a human" }
+```
+
+`allow` and `escalate` may carry `reason`. `deny` requires a non-empty `reason` (returned to the calling agent, so keep secrets out) and may carry `code`. All three may carry `guard`, `ruleId` and `metadata` (at most 16 scalar keys), which are written to the audit row. `code` is stored as `ruleId` when `ruleId` is absent. `escalate` sends the call to the approval flow. An allow never overrides theAuth's own permission checks.
+
+## Vendor side
+
+Verify before you decide. Three lines:
+
+```ts
+import { verifyGuardRequest } from "@glinr/theauth";
+
+const r = await verifyGuardRequest(SECRET, req.headers, rawBody); // raw bytes as a string, not re-serialized JSON
+if (!r.ok) return new Response(null, { status: 401 });
+return Response.json(decide(r.input)); // { decision: "allow" | "deny" | "escalate", ... }
+```
+
+`verifyGuardRequest` checks the signature in constant time, rejects timestamps more than 300 seconds away from now (set `toleranceSec` to change it), and parses the envelope. Pass `seen: (requestId) => boolean` to reject exact replays inside the window. If you do not use TypeScript, implement the same HMAC in any language.
+
+### Exposing HOL Guard (or any guard)
+
+1. Put the guard behind an HTTPS endpoint and give the customer a secret.
+2. Verify signature and freshness, then map `input` to your engine. `agent`, `delegation`, `action` and `resource` are always present, `arguments` only if the customer did not redact it.
+3. Return the verdict inside the latency budget (default 2000 ms, the customer sets `hookSafety`).
+4. Treat `dryRun: true` as a question, not an event: do not count or alert on it.
+5. Run the [conformance check](/conformance#guard-conformance) and publish the result. List the guard in [community integrations](/community-integrations).
+
+For the conformance canaries, answer `allow` for resource `conformance:canary:allow` and `deny` for `conformance:canary:deny`.
+
+## Security properties
+
+- The shared secret never leaves the process and is never logged. Errors name the endpoint origin only, not the path, query, headers or body.
+- Signature plus timestamp bind the body to a moment. Stale or future requests fail at the vendor.
+- Any problem denies through the hook runner: network error, timeout, non-2xx, redirect, non-JSON, schema mismatch, oversized body (over 64 KiB). Failing open requires `onError: "allow"` in `hookSafety` and is recorded on the audit row.
+- Redirects are never followed, so a compromised endpoint cannot bounce the signed body elsewhere.
+- `url` must be https. `http` is accepted only for `localhost`, `127.0.0.1` and `[::1]` when `NODE_ENV` is not `production`. URLs with embedded credentials are refused.
+- The agent token and session data are never sent.
+- Responses are not signed. Rely on TLS to the vendor, or pin the vendor in your network policy.
+
+## What leaves your process
+
+The agent (id, owner, tenant, type, name), `action`, `resource`, `arguments`, the delegation chain with each grant's permissions, `source`, `ip` when known and `dryRun`. `arguments` can hold user data, so use `redact` to drop or mask fields before sending. The default sends everything.
+
+## Limits
+
+- One request per check, no batching, no retries. A retry would double the latency budget.
+- Response body limit 64 KiB. Default timeout 2000 ms, clamped to 60000 ms by `hookSafety`.
+- No response signing, no mTLS option yet.
+- Conformance proves the protocol, not the quality of the vendor's decisions.

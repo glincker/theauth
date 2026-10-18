@@ -27,6 +27,10 @@ Checks that need a credential are skipped unless you pass one (`--token`, `--ref
 
 Run `theauth-conformance --help` for every option. Exit code is 0 when no MUST check failed, 1 otherwise, 2 on a usage error.
 
+## Guard mode
+
+`npx @glinr/theauth-conformance guard <url> --secret <s>` checks a remote guard endpoint against the guard protocol (9 checks). See [docs/guards.mdx](../../docs/guards.mdx).
+
 ## Badge
 
 `--badge badge.json` writes a shields.io endpoint document. Host it at a public URL and add:

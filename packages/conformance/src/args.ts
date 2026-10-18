@@ -11,10 +11,15 @@ export interface CliArgs {
 }
 
 export const USAGE = `Usage: theauth-conformance <url> [options]
+       theauth-conformance guard <url> --secret <secret> [options]
 
 Black-box agent-auth checks for any OAuth 2.1 or MCP authorization server or resource server.
 
+Guard mode checks a remote guard vendor endpoint (docs/guards.mdx). It needs --secret
+(or THEAUTH_GUARD_SECRET) and sends signed canary requests.
+
 Options:
+  --secret <secret>      Guard mode: shared HMAC secret
   --json                 Print the report as JSON
   --badge <file>         Write a shields.io endpoint badge JSON file
   --resource <url>       Protected MCP endpoint to probe for the 401 challenge
@@ -43,14 +48,20 @@ const VALUE_FLAGS = new Set([
 	"--token",
 	"--refresh-token",
 	"--timeout",
+	"--secret",
 ]);
 
 export function parseArgs(argv: string[], env: Record<string, string | undefined>): CliArgs {
 	const values = new Map<string, string>();
 	const flags = new Set<string>();
 	let target: string | null = null;
+	let guardMode = false;
 	for (let i = 0; i < argv.length; i += 1) {
 		const arg = argv[i] ?? "";
+		if (i === 0 && arg === "guard") {
+			guardMode = true;
+			continue;
+		}
 		if (VALUE_FLAGS.has(arg)) {
 			const value = argv[i + 1];
 			if (value === undefined || value.startsWith("--")) {
@@ -80,6 +91,10 @@ export function parseArgs(argv: string[], env: Record<string, string | undefined
 			throw new UsageError(`Not a valid URL: ${target}`);
 		}
 	}
+	const guardSecret = values.get("--secret") ?? env.THEAUTH_GUARD_SECRET;
+	if (guardMode && !help && !version && !guardSecret) {
+		throw new UsageError("guard mode needs --secret or THEAUTH_GUARD_SECRET");
+	}
 	const timeout = Number(values.get("--timeout") ?? "10000");
 	if (!Number.isFinite(timeout) || timeout <= 0) throw new UsageError("--timeout must be positive");
 	const accessToken = values.get("--token") ?? env.THEAUTH_CONFORMANCE_TOKEN;
@@ -91,6 +106,8 @@ export function parseArgs(argv: string[], env: Record<string, string | undefined
 		options: {
 			target: target ?? "",
 			timeoutMs: timeout,
+			...(guardMode ? { mode: "guard" as const } : {}),
+			...(guardMode && guardSecret ? { guardSecret } : {}),
 			...(resource ? { resource } : {}),
 			...(clientId ? { clientId } : {}),
 			...(redirectUri ? { redirectUri } : {}),

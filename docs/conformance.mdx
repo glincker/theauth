@@ -103,6 +103,30 @@ const report = await runSuite({ target: "https://auth.example.com", timeoutMs: 1
 const badge = buildBadge(report);
 ```
 
+## Guard conformance
+
+A guard vendor can check an HTTPS endpoint against the [remote guard protocol](/guards):
+
+```bash
+npx @glinr/theauth-conformance guard https://guard.example.com/theauth --secret "$GUARD_SECRET"
+```
+
+The secret can also come from `THEAUTH_GUARD_SECRET`. It signs the probes and is never printed. Nine checks run:
+
+| Check | Severity | What it proves |
+|---|---|---|
+| `guard-rejects-unsigned` | MUST | A request without signature headers is refused (4xx or deny) |
+| `guard-rejects-bad-signature` | MUST | A wrong secret is refused |
+| `guard-rejects-stale` | MUST | A correctly signed request one hour old is refused |
+| `guard-canary-allow` | MUST | Resource `conformance:canary:allow` returns a valid allow verdict |
+| `guard-canary-deny` | MUST | Resource `conformance:canary:deny` returns a valid deny verdict with a reason |
+| `guard-malformed-input` | MUST | A signed body that is not JSON, or lacks `input`, is never allowed |
+| `guard-no-redirect` | MUST | The endpoint answers directly |
+| `guard-dry-run` | SHOULD | A `dryRun: true` canary still gets a valid verdict |
+| `guard-latency` | SHOULD | The slowest of 3 canaries answers within 2000 ms |
+
+The package ships a reference guard, `startGuardReference({ secret })`, that passes all nine. Its tests also run deliberately flawed variants to prove each check catches its flaw. In code: `runSuite({ target, timeoutMs: 10000, mode: "guard", guardSecret })`.
+
 ## Tested against theAuth
 
 The package test runs the suite against the real MCP OAuth module from `@glinr/theauth` on a Node `http` server. Pinned result: 13 pass, 0 fail, 5 skipped (refresh rotation, audience, token exchange twice, introspection). A lax stub server must fail the checks.

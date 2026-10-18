@@ -14,7 +14,7 @@ import { createTheAuth } from "@glinr/theauth";
 import { createBeforeAuthorizeHook } from "./index.js";
 
 const theauth = await createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
   hooks: {
     beforeAuthorize: createBeforeAuthorizeHook({ timeoutMs: 2000 }),
   },
@@ -26,6 +26,10 @@ const theauth = await createTheAuth({
 - Input: `{ agentId, action, resource, arguments? }`.
 - Output: `{ allow: boolean; reason?: string }` or nothing. Returning nothing lets the call proceed. This template always returns an explicit decision.
 - Errors and timeouts deny with a reason. See `docs/hooks.mdx` for the full hook semantics.
+
+## Guard vendors
+
+If your integration is a policy service, you do not need this template. Expose an HTTPS endpoint that follows the remote guard protocol (`docs/guards.mdx`) and customers wire it with `httpGuard`. Check it with `npx @glinr/theauth-conformance guard <url> --secret <s>`.
 
 ## Framework adapters
 
