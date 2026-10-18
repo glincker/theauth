@@ -86,18 +86,10 @@ export async function readJsonBody(request: Request, maxBytes: number): Promise<
 	}
 }
 
-export const MCP_CORS_HEADERS = {
-	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-	"Access-Control-Allow-Headers": "Content-Type, Authorization, DPoP",
-	"Access-Control-Expose-Headers": "DPoP-Nonce, WWW-Authenticate",
-	"Access-Control-Max-Age": "86400",
-};
-
 export function mcpOk<T>(data: T, status = 200, extra?: HeadersInit): Response {
 	return new Response(JSON.stringify(data), {
 		status,
-		headers: { ...JSON_HEADERS, ...MCP_CORS_HEADERS, ...extra },
+		headers: { ...JSON_HEADERS, ...extra },
 	});
 }
 
@@ -107,4 +99,58 @@ export function mcpError(code: string, message: string, status: number): Respons
 
 export function mcpNoStore<T>(data: T, status = 200): Response {
 	return mcpOk(data, status, { "Cache-Control": "no-store", Pragma: "no-cache" });
+}
+
+/** Cache headers every response gets unless the route set its own (the discovery keys set `public`). */
+const NO_STORE_DEFAULTS = { "Cache-Control": "no-store", Pragma: "no-cache" };
+
+export interface FinalizeOptions {
+	/** Set only when the response does not already carry the header (security headers). */
+	defaults?: Record<string, string>;
+	/** Set unconditionally (CORS decisions made by the router). */
+	overrides?: Record<string, string>;
+	/** Tokens appended to `Vary`. */
+	vary?: string[];
+}
+
+function mutable(res: Response): Response {
+	// Response.redirect() and fetch() results have immutable headers: rebuild those.
+	try {
+		res.headers.set("X-Theauth-Probe", "1");
+		res.headers.delete("X-Theauth-Probe");
+		return res;
+	} catch {
+		return new Response(res.body, {
+			status: res.status,
+			statusText: res.statusText,
+			headers: new Headers(res.headers),
+		});
+	}
+}
+
+/**
+ * The one place response headers are decided after a handler ran: `Cache-Control: no-store` and
+ * `Pragma: no-cache` by default (a handler's own value wins), then the optional security headers
+ * and CORS headers. Every auth response carries credentials or session state, so no-store is the rule.
+ */
+export function finalizeResponse(res: Response, options: FinalizeOptions = {}): Response {
+	const out = mutable(res);
+	const h = out.headers;
+	for (const [name, value] of Object.entries(NO_STORE_DEFAULTS)) {
+		if (!h.has(name)) h.set(name, value);
+	}
+	for (const [name, value] of Object.entries(options.defaults ?? {})) {
+		if (!h.has(name)) h.set(name, value);
+	}
+	for (const [name, value] of Object.entries(options.overrides ?? {})) h.set(name, value);
+	if (options.vary && options.vary.length > 0) {
+		const existing = (h.get("Vary") ?? "")
+			.split(",")
+			.map((t) => t.trim())
+			.filter(Boolean);
+		const have = new Set(existing.map((t) => t.toLowerCase()));
+		for (const token of options.vary) if (!have.has(token.toLowerCase())) existing.push(token);
+		h.set("Vary", existing.join(", "));
+	}
+	return out;
 }

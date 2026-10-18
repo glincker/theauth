@@ -4,6 +4,8 @@ import type { AdapterScope } from "../adapter-scope.js";
 import type { McpMountedRoutes } from "../mcp/metadata.js";
 import type { McpAuthModule } from "../mcp/types.js";
 import type { TheAuth } from "../theauth-core.js";
+import type { CorsOptions } from "./cors.js";
+import type { SecurityHeadersOptions } from "./security-headers.js";
 
 /** Options for {@link createTheAuthHandler}. Security options are the shared adapter ones (authenticate, allowUnauthenticated, trustedProxy, rateLimit, trustedOrigins, csrf). */
 export interface TheAuthHandlerOptions extends AdapterSecurityOptions {
@@ -20,6 +22,14 @@ export interface TheAuthHandlerOptions extends AdapterSecurityOptions {
 	};
 	/** Largest accepted request body in bytes. Default 1048576 (1 MiB). Larger bodies get 413. */
 	maxBodyBytes?: number;
+	/**
+	 * Add response hardening headers (nosniff, no-referrer, CORP, HSTS over https, frame and CSP on HTML). Default off. `true` uses the defaults. Never set on a 404 for an unknown route.
+	 */
+	securityHeaders?: boolean | SecurityHeadersOptions;
+	/**
+	 * Cross-origin access by exact origin allowlist. Default off (no CORS headers anywhere). Once origins are listed the public discovery documents get CORS; the token, introspection and revoke endpoints stay closed until named under `groups`.
+	 */
+	cors?: CorsOptions;
 }
 
 export type TheAuthHandler = (request: Request) => Promise<Response>;

@@ -3,14 +3,7 @@ import {
 	applyMountedToServerMetadata,
 } from "../../mcp/metadata.js";
 import type { McpClientRegistrationRequest } from "../../mcp/types.js";
-import {
-	MCP_CORS_HEADERS,
-	mcpError,
-	mcpNoStore,
-	mcpOk,
-	notFound,
-	readJsonBody,
-} from "../respond.js";
+import { mcpError, mcpNoStore, mcpOk, notFound, readJsonBody } from "../respond.js";
 import type { HttpRoute, RouteContext } from "../types.js";
 
 const NOT_CONFIGURED = "MCP module not configured";
@@ -233,10 +226,6 @@ async function jwks(ctx: RouteContext): Promise<Response> {
 	} catch (err) {
 		return mcpError("server_error", err instanceof Error ? err.message : "JWKS unavailable", 500);
 	}
-}
-
-export function mcpPreflight(): Response {
-	return new Response(null, { status: 204, headers: MCP_CORS_HEADERS });
 }
 
 export const mcpRoutes: HttpRoute[] = [

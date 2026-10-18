@@ -2,15 +2,18 @@ import { createAdapterAdmission } from "../adapter-admit.js";
 import { createAdapterGuard, isProtectedAdapterPath } from "../adapter-guard.js";
 import type { McpMountedRoutes } from "../mcp/metadata.js";
 import { ALL_MCP_ROUTES } from "../mcp/metadata.js";
+import { NOOP_LOGGER } from "../observability/index.js";
 import type { TheAuth } from "../theauth-core.js";
+import { createCors } from "./cors.js";
 import { resolveRequestIp } from "./node.js";
-import { internalError, methodNotAllowed, notFound } from "./respond.js";
+import { finalizeResponse, internalError, methodNotAllowed, notFound } from "./respond.js";
 import { agentRoutes } from "./routes/agents.js";
 import { auditRoutes } from "./routes/audit.js";
 import { authorizeRoutes } from "./routes/authorize.js";
 import { delegationRoutes } from "./routes/delegations.js";
 import { explainRoutes } from "./routes/explain.js";
-import { mcpPreflight, mcpRoutes } from "./routes/mcp.js";
+import { mcpRoutes } from "./routes/mcp.js";
+import { isSecureRequest, securityHeaders } from "./security-headers.js";
 import type {
 	HttpRoute,
 	RouteContext,
@@ -125,6 +128,27 @@ function buildGate(auth: TheAuth, options: TheAuthHandlerOptions | undefined): G
 	};
 }
 
+/** Doctor-style startup warning for unsafe opt-outs, through the observability logger (console when none is set). */
+function warnAboutRiskyOptions(
+	auth: TheAuth,
+	options: TheAuthHandlerOptions | undefined,
+	corsWarnings: string[],
+): void {
+	const messages = [...corsWarnings];
+	if (options?.allowUnauthenticated === true) {
+		messages.unshift("allowUnauthenticated: management routes are open to anyone");
+	}
+	const logger = auth.observability.logger;
+	for (const message of messages) {
+		const text = `createTheAuthHandler: ${message}`;
+		if (logger !== NOOP_LOGGER) logger.warn(text, { source: "http", check: "handler-options" });
+		else if (!message.startsWith("allowUnauthenticated")) {
+			// biome-ignore lint/suspicious/noConsole: startup warning when no logger is configured (the guard already warns for allowUnauthenticated)
+			console.warn(`[theauth] ${text}`);
+		}
+	}
+}
+
 /**
  * Build the single web-standard HTTP handler for TheAuth: `(Request) => Promise<Response>`.
  * Framework adapters only translate their request and response types around it.
@@ -139,7 +163,36 @@ export function createTheAuthHandler(
 	const mounted = resolveMountedMcpRoutes(options);
 	const gate = buildGate(auth, options);
 	const served = ALL_ROUTES.filter((r) => isServed(r, options)).map(compile);
-	const mcpOn = options?.routes?.mcp !== false;
+
+	const cors = options?.cors ? createCors(options.cors) : null;
+	const hardening = options?.securityHeaders;
+	const hardeningOptions = typeof hardening === "object" ? hardening : {};
+	warnAboutRiskyOptions(auth, options, cors?.warnings() ?? []);
+
+	/** Every response the handler produces passes through here (except a 404 for an unknown route). */
+	const finish = (
+		request: Request,
+		response: Response,
+		route: Pick<HttpRoute, "path" | "group"> | null,
+	): Response => {
+		const overrides: Record<string, string> = {};
+		const vary: string[] = [];
+		if (cors && route) {
+			const decision = cors.forResponse(request, route);
+			Object.assign(overrides, decision.headers);
+			vary.push(...decision.vary);
+		}
+		let defaults: Record<string, string> | undefined;
+		if (hardening) {
+			const html = (response.headers.get("content-type") ?? "").toLowerCase().includes("text/html");
+			defaults = securityHeaders({
+				...hardeningOptions,
+				secure: isSecureRequest(request, options?.trustedProxy),
+				html,
+			});
+		}
+		return finalizeResponse(response, { defaults, overrides, vary });
+	};
 
 	return async (request) => {
 		const url = new URL(request.url);
@@ -148,10 +201,32 @@ export function createTheAuthHandler(
 		const method = request.method.toUpperCase();
 
 		const refused = await gate.admit(request, path);
-		if (refused) return refused;
+		if (refused) return finish(request, refused, null);
 
 		const matches = served.filter((c) => c.pattern.test(path));
 		const hit = matches.find((c) => c.route.method === method);
+		const routeOf = (matches[0] ?? null)?.route ?? null;
+
+		// Preflights carry no credentials, so they are answered before authentication.
+		if (method === "OPTIONS" && routeOf) {
+			const methods = [...new Set(matches.map((c) => c.route.method))];
+			const headers: Record<string, string> = { Allow: [...methods, "OPTIONS"].join(", ") };
+			const vary: string[] = [];
+			if (cors && request.headers.has("origin")) {
+				const decision = cors.forPreflight(request, routeOf, methods);
+				Object.assign(headers, decision.headers);
+				vary.push(...decision.vary);
+			}
+			return finalizeResponse(new Response(null, { status: 204, headers }), {
+				defaults: hardening
+					? securityHeaders({
+							...hardeningOptions,
+							secure: isSecureRequest(request, options?.trustedProxy),
+						})
+					: undefined,
+				vary,
+			});
+		}
 
 		// Management routes need an authenticated caller. The scope limits the default session
 		// resolver to the caller's own resources; a custom resolver gets an unrestricted scope.
@@ -162,16 +237,8 @@ export function createTheAuthHandler(
 			matches.some((c) => c.route.auth === "admin");
 		if (protectedPath && gate.resolve) {
 			const resolved = await gate.resolve(request);
-			if (!resolved.ok) return resolved.response;
+			if (!resolved.ok) return finish(request, resolved.response, routeOf);
 			scope = resolved.scope;
-		}
-
-		if (
-			method === "OPTIONS" &&
-			mcpOn &&
-			(path.startsWith("/mcp/") || path.startsWith("/.well-known/"))
-		) {
-			return mcpPreflight();
 		}
 
 		if (hit) {
@@ -181,7 +248,7 @@ export function createTheAuthHandler(
 				params[name] = decode(values[i] ?? "");
 			});
 			try {
-				return await hit.route.handle({
+				const response = await hit.route.handle({
 					auth,
 					request,
 					url,
@@ -192,17 +259,22 @@ export function createTheAuthHandler(
 					mounted,
 					maxBodyBytes,
 				});
+				return finish(request, response, hit.route);
 			} catch {
-				return internalError();
+				return finish(request, internalError(), hit.route);
 			}
 		}
 
 		if (options?.routes?.plugins !== false) {
 			const pluginResponse = await auth.plugins.handleRequest(request, basePath);
-			if (pluginResponse !== null) return pluginResponse;
+			if (pluginResponse !== null) return finish(request, pluginResponse, null);
 		}
 		if (matches.length > 0) {
-			return methodNotAllowed([...new Set(matches.map((c) => c.route.method))]);
+			return finish(
+				request,
+				methodNotAllowed([...new Set(matches.map((c) => c.route.method))]),
+				routeOf,
+			);
 		}
 		return notFound("Route not found");
 	};

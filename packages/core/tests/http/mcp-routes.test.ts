@@ -79,11 +79,12 @@ describe("MCP revoke and jwks routes", () => {
 		expect(spec).toMatchObject({ method: "POST", auth: "client" });
 	});
 
-	it("answers CORS preflight on mcp and well-known paths", async () => {
+	it("answers OPTIONS on mcp paths without CORS headers unless configured", async () => {
 		const { handler } = await setup();
 		const res = await handler(new Request(`${BASE}/mcp/revoke`, { method: "OPTIONS" }));
 		expect(res.status).toBe(204);
-		expect(res.headers.get("access-control-allow-origin")).toBe("*");
+		expect(res.headers.get("access-control-allow-origin")).toBeNull();
+		expect(res.headers.get("allow")).toBe("POST, OPTIONS");
 	});
 
 	it("serves register, authorize and token", async () => {
