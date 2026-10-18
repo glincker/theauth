@@ -3,25 +3,31 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import type { NextResponse } from "next/server";
 import { getConfigSecret } from "./config.js";
-import { isHttpsForwarded, REFRESH_MAX_AGE_S, sessionCookieAttrs } from "./cookie-options.js";
+import {
+	isHttpsForwarded,
+	REFRESH_MAX_AGE_S,
+	readAuthCookie,
+	sessionCookieAttrs,
+} from "./cookie-options.js";
+import { createCsrfToken } from "./csrf.js";
 import { decodeSessionCache, encodeSessionCache } from "./session-cache-codec.js";
+import { createSessionMarker } from "./session-marker.js";
 import type { ResolvedAuthConfig, SessionCacheEntry } from "./types.js";
 
-/** Returns the session access token, checking prefixed + unprefixed names. */
-export async function getSessionToken<TUser>(config: ResolvedAuthConfig<TUser>): Promise<string> {
-	const store = await cookies();
-	// Always check both __Host- variant and plain variant for migration safety.
-	const prefixedName = `__Host-${config.cookies.sessionPrefix}-token`;
-	const plainName = `${config.cookies.sessionPrefix}-token`;
-	return store.get(prefixedName)?.value ?? store.get(plainName)?.value ?? "";
+function storeGetter(
+	store: Awaited<ReturnType<typeof cookies>>,
+): (name: string) => string | undefined {
+	return (name) => store.get(name)?.value;
 }
 
-/** Returns the CSRF token, checking prefixed + unprefixed names. */
+/** Returns the session access token. See readAuthCookie for the `__Host-` / plain name rules. */
+export async function getSessionToken<TUser>(config: ResolvedAuthConfig<TUser>): Promise<string> {
+	return readAuthCookie(storeGetter(await cookies()), config, "token");
+}
+
+/** Returns the CSRF cookie value (same name rules as the session token). */
 export async function getCsrfToken<TUser>(config: ResolvedAuthConfig<TUser>): Promise<string> {
-	const store = await cookies();
-	const prefixedName = `__Host-${config.cookies.sessionPrefix}-csrf`;
-	const plainName = `${config.cookies.sessionPrefix}-csrf`;
-	return store.get(prefixedName)?.value ?? store.get(plainName)?.value ?? "";
+	return readAuthCookie(storeGetter(await cookies()), config, "csrf");
 }
 
 /** Cheap check: does the request carry a session access token? */
@@ -107,19 +113,30 @@ export async function clearSessionCache<TUser>(config: ResolvedAuthConfig<TUser>
 
 interface SessionCookieValues {
 	accessToken: string;
-	csrfToken: string;
 	refreshToken?: string;
 }
 
-/** Sets all session cookies on a NextResponse: __Host- prefix in prod, plain names in dev. */
-export function setSessionCookies<TUser>(
+/**
+ * Sets all session cookies on a NextResponse: __Host- prefix in prod, plain names in dev. Also
+ * sets the signed middleware marker and a signed CSRF token bound to `accessToken`, and returns
+ * that CSRF token. Needs the secret from createAuthConfig, so it is async.
+ */
+export async function setSessionCookies<TUser>(
 	response: NextResponse,
-	{ accessToken, csrfToken, refreshToken }: SessionCookieValues,
+	{ accessToken, refreshToken }: SessionCookieValues,
 	config: ResolvedAuthConfig<TUser>,
-): void {
+): Promise<string> {
+	const secret = getConfigSecret(config);
+	if (!secret) throw new Error("[theauth-nextjs-auth] config was not created by createAuthConfig");
 	const sessionOpts = sessionCookieAttrs(config);
+	const csrfToken = await createCsrfToken(secret, accessToken);
 
 	response.cookies.set(config.cookies.sessionName, accessToken, sessionOpts);
+	response.cookies.set(
+		config.cookies.markerName,
+		await createSessionMarker(secret, accessToken),
+		sessionOpts,
+	);
 
 	// CSRF double-submit: httpOnly=false so JS can read and echo in X-CSRF-Token.
 	response.cookies.set(config.cookies.csrfName, csrfToken, {
@@ -133,6 +150,7 @@ export function setSessionCookies<TUser>(
 			maxAge: REFRESH_MAX_AGE_S,
 		});
 	}
+	return csrfToken;
 }
 
 /** Clears all auth cookies on a NextResponse, both __Host- and plain variants, for clean migration. */
@@ -148,6 +166,8 @@ export function clearAllAuthCookies<TUser>(
 		`${sessionPrefix}-token`,
 		`__Host-${sessionPrefix}-csrf`,
 		`${sessionPrefix}-csrf`,
+		`__Host-${sessionPrefix}-gate`,
+		`${sessionPrefix}-gate`,
 		config.cookies.refresh,
 		config.cookies.cacheName,
 		`${sessionPrefix}-session-cache`,
@@ -168,6 +188,8 @@ export async function clearAllAuthCookiesFromStore<TUser>(
 		`${sessionPrefix}-token`,
 		`__Host-${sessionPrefix}-csrf`,
 		`${sessionPrefix}-csrf`,
+		`__Host-${sessionPrefix}-gate`,
+		`${sessionPrefix}-gate`,
 		config.cookies.refresh,
 		config.cookies.cacheName,
 		`${sessionPrefix}-session-cache`,

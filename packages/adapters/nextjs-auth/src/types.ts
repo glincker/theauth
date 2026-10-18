@@ -73,6 +73,13 @@ export interface AuthConfig<TUser = DefaultUser> {
 	 * not disabled). Auto-detected from NODE_ENV when omitted. Does not affect the `Secure` flag.
 	 */
 	isProd?: boolean;
+	/**
+	 * Migration only. When false (default), once the `__Host-` cookie names are in use the plain
+	 * names are ignored, so a plain cookie injected from a subdomain cannot stand in for a missing
+	 * `__Host-` one. Set true for a short window while users with old plain cookies roll over,
+	 * then remove it. Plain is still only used when the `__Host-` cookie is absent.
+	 */
+	legacyCookieNames?: boolean;
 }
 
 /** Fully resolved config with all defaults applied. */
@@ -85,12 +92,15 @@ export interface ResolvedAuthConfig<TUser = DefaultUser> {
 		sessionName: string;
 		csrfName: string;
 		cacheName: string;
+		/** Signed session marker cookie read by the middleware gate. */
+		markerName: string;
 	};
 	cookieCacheMaxAgeMs: number;
 	expiryRefreshBufferS: number;
 	mapUser: (raw: unknown) => TUser | null;
 	isProd: boolean;
 	secure: boolean;
+	legacyCookieNames: boolean;
 }
 
 /** Returned by refreshSession() on success. */

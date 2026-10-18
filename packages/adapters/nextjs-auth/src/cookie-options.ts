@@ -35,6 +35,30 @@ export function sessionCookieAttrs<TUser>(
 	};
 }
 
+export type AuthCookieKind = "token" | "csrf" | "gate";
+
+/**
+ * Reads a token/csrf/gate cookie by its configured name. When the `__Host-` form is in use the
+ * plain name is ignored (a subdomain or sibling path can set a plain cookie, never a `__Host-`
+ * one), unless `legacyCookieNames` is set, and then plain is only a fallback when the `__Host-`
+ * cookie is absent. In plain-name mode the `__Host-` name is likewise ignored unless legacy.
+ */
+export function readAuthCookie<TUser>(
+	get: (name: string) => string | undefined,
+	config: ResolvedAuthConfig<TUser>,
+	kind: AuthCookieKind,
+): string {
+	const { sessionPrefix } = config.cookies;
+	const host = `__Host-${sessionPrefix}-${kind}`;
+	const plain = `${sessionPrefix}-${kind}`;
+	const hostMode = config.cookies.sessionName.startsWith("__Host-");
+	const primary = hostMode ? host : plain;
+	const fallback = hostMode ? plain : host;
+	const value = get(primary);
+	if (value) return value;
+	return config.legacyCookieNames ? (get(fallback) ?? "") : "";
+}
+
 /** True when an x-forwarded-proto header value (possibly a list) says https. */
 export function isHttpsForwarded(value: string | null | undefined): boolean {
 	return value?.split(",")[0]?.trim().toLowerCase() === "https";

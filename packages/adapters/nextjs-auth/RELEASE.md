@@ -38,3 +38,9 @@ git push --tags
 - Tests for `withAuth()` middleware (currently only lower-level helpers have tests)
 - Plugin slot for 2FA / org-context / multi-session
 - better-auth-style `auth.api` namespacing for more ergonomic imports
+
+## Pre-release checklist for the signed-cookie security release
+
+- Major bump (see `.changeset/nextjs-auth-signed-session-cache.md`). Breaking defaults: required `secret`, `Secure` by default, signed marker and CSRF cookies, plain cookie names ignored under `__Host-` (`legacyCookieNames: true` to migrate), `setSessionCookies` async, `createSignOutHandler(csrfToken)`.
+- Run `npx vitest run` and `npx tsc --noEmit` in the package. The middleware must stay Edge compatible: only Web Crypto, no `node:` imports.
+- Tell users to roll `secret` as a server-only env var and expect one refresh per session after upgrading.

@@ -16,10 +16,17 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Fixed session forgery in 0.2.0 and earlier.** The session cache cookie was unsigned JSON that `getServerSession` trusted without a session token. It is now HMAC-SHA256 signed, bound to the session token and an expiry, and verified in constant time; anything else is ignored and the backend is asked. Unsigned legacy cookies are treated as no cache.
 
+- **Middleware gate verifies a signed marker.** The token cookie alone no longer counts as signed in: a `{prefix}-gate` cookie (HMAC of the token, derived key, Web Crypto only) must verify, so an arbitrary cookie cannot pass. Still a UX gate: use `getServerSession` for authorization.
+- **Signed CSRF double submit.** Tokens are HMAC signed and bound to the session token, verified in constant time by `verifyCsrfRequest`, enforced by `createSignOutHandler` and the new `createSignOutRouteHandler`. Missing, mismatched, forged and cross-session tokens are rejected.
+- **Plain cookie names ignored under `__Host-`.** Cookie shadowing and subdomain injection no longer work. Migration: `legacyCookieNames: true` (default false).
+
 ### Breaking
 
 - `createAuthConfig` requires `secret` (at least 32 bytes) and throws otherwise.
 - Cookies are `Secure` by default regardless of `NODE_ENV`. Use `secure: false` for localhost development. `isProd` now only affects cookie name prefixes.
+- `setSessionCookies` is async, no longer takes `csrfToken`, and returns the signed CSRF token. `generateCsrfToken` is deprecated.
+- `createSignOutHandler` returns `(csrfToken?: string)` and refuses without a valid signed token. Sessions without the new marker cookie fail the middleware gate until refreshed.
+- Plain `{prefix}-token`/`-csrf` cookies are ignored when `__Host-` names are in use unless `legacyCookieNames: true`.
 - The cache cookie name gets the `__Host-` prefix when the prefix is in use.
 
 ### Added

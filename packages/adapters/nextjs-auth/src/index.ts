@@ -10,10 +10,15 @@ export {
 	hasSessionCookie,
 	setSessionCookies,
 } from "./cookies.js";
-export { generateCsrfToken } from "./csrf.js";
+export { createCsrfToken, generateCsrfToken, verifyCsrfToken } from "./csrf.js";
+export { verifyCsrfRequest } from "./csrf-verify.js";
 export { buildAuthHeaders, buildClientHeaders } from "./headers.js";
 export { refreshSession } from "./refresh.js";
-export { createSignOutAction, createSignOutHandler } from "./route-handlers.js";
+export {
+	createSignOutAction,
+	createSignOutHandler,
+	createSignOutRouteHandler,
+} from "./route-handlers.js";
 export { safeRedirectPath } from "./safe-redirect.js";
 export { getServerSession } from "./server-session.js";
 

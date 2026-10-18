@@ -7,10 +7,10 @@
  * The payload is signed, not encrypted: the user object is readable by the holder of the cookie.
  */
 
+import { deriveKey, fromB64Url, timingSafeEqual, toB64Url } from "./hkdf.js";
 import type { SessionCacheEntry } from "./types.js";
 
 const VERSION = "v1";
-const HKDF_SALT = "theauth-nextjs-auth/session-cache/salt/v1";
 const INFO_SIGN = "theauth-nextjs-auth/session-cache/sign/v1";
 const INFO_BIND = "theauth-nextjs-auth/session-cache/token-binding/v1";
 
@@ -34,46 +34,6 @@ interface Payload<TUser> {
 	x: number;
 	/** HMAC of the session token (token binding), base64url */
 	t: string;
-}
-
-async function deriveKey(secret: string, info: string): Promise<CryptoKey> {
-	const base = await crypto.subtle.importKey("raw", encoder.encode(secret), "HKDF", false, [
-		"deriveKey",
-	]);
-	return crypto.subtle.deriveKey(
-		{ name: "HKDF", hash: "SHA-256", salt: encoder.encode(HKDF_SALT), info: encoder.encode(info) },
-		base,
-		{ name: "HMAC", hash: "SHA-256", length: 256 },
-		false,
-		["sign", "verify"],
-	);
-}
-
-function toB64Url(bytes: Uint8Array): string {
-	let bin = "";
-	for (const b of bytes) bin += String.fromCharCode(b);
-	return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function fromB64Url(input: string): Uint8Array<ArrayBuffer> | null {
-	if (!/^[A-Za-z0-9_-]*$/.test(input)) return null;
-	try {
-		const b64 = input.replace(/-/g, "+").replace(/_/g, "/");
-		const bin = atob(b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "="));
-		const out = new Uint8Array(new ArrayBuffer(bin.length));
-		for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-		return out;
-	} catch {
-		return null;
-	}
-}
-
-/** Constant-time comparison for equal-length inputs (length is not secret here). */
-function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
-	if (a.length !== b.length) return false;
-	let diff = 0;
-	for (let i = 0; i < a.length; i++) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
-	return diff === 0;
 }
 
 async function tokenBinding(secret: string, token: string): Promise<Uint8Array> {

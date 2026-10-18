@@ -1,9 +1,11 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { getConfigSecret } from "./config.js";
 import { REFRESH_MAX_AGE_S, sessionCookieAttrs } from "./cookie-options.js";
 import { clearAllAuthCookiesFromStore, clearSessionCache } from "./cookies.js";
-import { generateCsrfToken } from "./csrf.js";
+import { createCsrfToken } from "./csrf.js";
+import { createSessionMarker } from "./session-marker.js";
 import type { RefreshResult, ResolvedAuthConfig } from "./types.js";
 
 interface BackendRefreshResponse {
@@ -60,11 +62,18 @@ export async function refreshSession<TUser>(
 
 	if (!data.accessToken) return null;
 
-	const newCsrf = generateCsrfToken();
+	const secret = getConfigSecret(config);
+	if (!secret) return null;
+	const newCsrf = await createCsrfToken(secret, data.accessToken);
 
 	const sessionOpts = sessionCookieAttrs(config);
 
 	store.set(config.cookies.sessionName, data.accessToken, sessionOpts);
+	store.set(
+		config.cookies.markerName,
+		await createSessionMarker(secret, data.accessToken),
+		sessionOpts,
+	);
 	store.set(config.cookies.csrfName, newCsrf, {
 		...sessionOpts,
 		httpOnly: false,

@@ -62,6 +62,8 @@ export function createAuthConfig<TUser = DefaultUser>(
 		? `__Host-${sessionPrefix}-session-cache`
 		: `${sessionPrefix}-session-cache`;
 
+	const markerName = useHostPrefix ? `__Host-${sessionPrefix}-gate` : `${sessionPrefix}-gate`;
+
 	const defaultMapUser = (raw: unknown): TUser | null => {
 		if (raw === null || raw === undefined) return null;
 		return raw as TUser;
@@ -82,12 +84,14 @@ export function createAuthConfig<TUser = DefaultUser>(
 			sessionName,
 			csrfName,
 			cacheName,
+			markerName,
 		},
 		cookieCacheMaxAgeMs: input.cookieCacheMaxAgeMs ?? DEFAULT_COOKIE_CACHE_MAX_AGE_MS,
 		expiryRefreshBufferS: input.expiryRefreshBufferS ?? DEFAULT_EXPIRY_REFRESH_BUFFER_S,
 		mapUser: input.mapUser ?? defaultMapUser,
 		isProd,
 		secure,
+		legacyCookieNames: input.legacyCookieNames === true,
 	};
 	secrets.set(resolved, input.secret);
 	return resolved;

@@ -164,7 +164,7 @@ Server-only. Like `fetchWithRefresh` but for GraphQL. Throws `GraphQLRequestErro
 const data = await graphqlWithRefresh<MyQuery>(authConfig, MY_QUERY, { id: "123" });
 ```
 
-### `createSignOutHandler(config)` → `() => Promise<{ success: boolean }>`
+### `createSignOutHandler(config)` → `(csrfToken?: string) => Promise<{ success: boolean }>`
 
 Server-only. Returns an async function that calls the backend logout endpoint (best-effort) and clears all auth cookies. Does **not** include an inline `"use server"` directive; wrap it in your own `"use server"` file (see [Sign out](#4-sign-out)).
 
@@ -234,25 +234,31 @@ Tradeoffs:
 1. Generate a secret: `openssl rand -base64 48`, store it as a server-only environment variable.
 2. Pass it: `createAuthConfig({ secret: process.env.THEAUTH_SESSION_SECRET!, ... })`.
 3. Cookies are now `Secure` by default. On plain-http localhost set `secure: false` in development only.
-4. Old unsigned cache cookies are ignored automatically. Until you upgrade, set `cookieCacheMaxAgeMs: 0` as a workaround (the legacy code then never reads the cache).
+4. Existing sessions need one refresh to get the signed marker and CSRF cookies; until then the middleware treats the token as absent. `setSessionCookies` is now async, takes no `csrfToken` and returns the signed one. `createSignOutHandler` requires the CSRF cookie value as its argument. Plain cookie names are ignored under `__Host-` unless `legacyCookieNames: true`.
+5. Old unsigned cache cookies are ignored automatically. Until you upgrade, set `cookieCacheMaxAgeMs: 0` as a workaround (the legacy code then never reads the cache).
 
-## Middleware is an optimistic gate
+## Middleware is a gate, not authorization
 
-`withAuth` runs on the Edge without the backend. It treats any non-empty access token cookie as "signed in" for the `protectedPaths` redirect, so it is a UX gate, not authorization. Always call `getServerSession` (or the backend) in pages, layouts, route handlers and server actions before returning protected data.
+`withAuth` runs on the Edge without the backend. A token cookie only counts as "signed in" when it is accompanied by a signed marker cookie (`{prefix}-gate`, HMAC-SHA256 of the token under a key derived from `secret` with HKDF, verified with Web Crypto, no backend call). Setting an arbitrary token cookie no longer passes the `protectedPaths` gate, because forging the marker needs the secret. The marker is written by `setSessionCookies`, `refreshSession` and the middleware refresh. A token without a valid marker is treated as absent (the middleware tries the refresh token, otherwise redirects).
+
+The marker only proves this server issued the token. It does not prove the session is still alive (revoked, expired on the backend). Always call `getServerSession` (or the backend) in pages, layouts, route handlers and server actions before returning protected data.
 
 Use `safeRedirectPath(next, fallback)` (exported from both entry points) on the `?next=` value in your sign-in page before redirecting, so only same-origin paths are followed. `withAuth` rejects a `signInPath` that is not a same-origin path.
 
 ## CSRF protection
 
-Uses the double-submit cookie pattern:
-1. On login, the server sets a CSRF token in a **non-httpOnly** cookie so JS can read it.
-2. On mutating requests, the client echoes it as `X-CSRF-Token`.
-3. The backend compares header value vs. cookie value; they must match.
-4. An attacker on a different origin cannot read the cookie → cannot forge the header.
+Signed double submit:
+1. On login and refresh the server sets a CSRF token in a **non-httpOnly** cookie. The token is `v1.<nonce>.<HMAC>`, signed with a key derived from `secret` and bound to the current session token.
+2. On mutating requests the client echoes it as `X-CSRF-Token` (or as the argument of a server action).
+3. `verifyCsrfRequest(config, submitted)` requires the submitted value to equal the cookie (constant time) and the signature to verify against the current session token. Missing, mismatched, forged (including an attacker-injected matching cookie and header) and replayed-from-another-session tokens are rejected.
 
-Limits: the CSRF cookie is not signed, and `buildAuthHeaders` echoes the same browser cookie into both header and cookie, so for calls proxied through Next.js the protection comes from `SameSite=Lax`, the `__Host-` prefix (blocks cookie tossing from subdomains) and Next.js's own Origin check on Server Actions, not from the double submit.
+Applied to every state changing handler the package exposes: `createSignOutHandler` (pass the CSRF cookie value as the argument, otherwise `{ success: false }`) and `createSignOutRouteHandler` (`X-CSRF-Token` header, 403 otherwise). Use `verifyCsrfRequest` in your own route handlers and actions.
 
-`buildAuthHeaders` includes both `X-CSRF-Token` and a `Cookie` echo of the plain (non-`__Host-`) CSRF cookie name, matching theAuth Spring backends that use a `CsrfDoubleSubmitFilter`.
+`buildAuthHeaders` still forwards the cookie value as both `X-CSRF-Token` and a `Cookie` echo for backends with a `CsrfDoubleSubmitFilter`. That echo is only for the backend's own check; the adapter's check is `verifyCsrfRequest`. `generateCsrfToken` is deprecated (unsigned); use `createCsrfToken(secret, sessionToken)`.
+
+## Plain cookie names and `legacyCookieNames`
+
+Once the `__Host-` names are in use, the plain `{prefix}-token`, `{prefix}-csrf` and `{prefix}-gate` cookies are ignored everywhere (server and middleware), because a subdomain can set a plain cookie but never a `__Host-` one. To roll existing users over, set `legacyCookieNames: true` temporarily: the plain name is then accepted only when the `__Host-` cookie is absent. Default is `false`. Remove the option after the migration window.
 
 ## Cookie prefix policy
 
