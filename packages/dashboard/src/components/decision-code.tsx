@@ -10,7 +10,13 @@ export const DECISION_CODE_OPTIONS = [
 	"time_restricted",
 	"argument_rejected",
 	"approval_required",
-	"approval_invalid",
+	"approval_not_found",
+	"approval_pending",
+	"approval_denied",
+	"approval_expired",
+	"approval_already_used",
+	"approval_mismatch",
+	"approval_arguments_mismatch",
 	"agent_not_found",
 	"agent_revoked",
 	"agent_expired",
@@ -29,6 +35,7 @@ type CodeVariant = "green" | "red" | "yellow" | "gray";
 const GREEN = new Set(["allowed", "approval_consumed"]);
 const YELLOW = new Set([
 	"approval_required",
+	"approval_pending",
 	"risk_escalation",
 	"rate_limited",
 	"hook_timeout",

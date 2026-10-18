@@ -143,6 +143,9 @@ describe("admin api: authentication and authorization", () => {
 		["DELETE", "/delegations/d1"],
 		["POST", "/users/user_target/disable"],
 		["GET", "/sessions"],
+		["GET", "/revocations"],
+		["GET", "/revocations/delegations"],
+		["POST", "/revocations"],
 	];
 
 	it("registers every route", () => {

@@ -8,9 +8,11 @@ import { AgentsPage } from "./pages/agents.js";
 import { ApprovalsPage } from "./pages/approvals.js";
 import { AuditPage } from "./pages/audit.js";
 import { DelegationsPage } from "./pages/delegations.js";
+import { ExplainPage } from "./pages/explain.js";
 import { McpServersPage } from "./pages/mcp-servers.js";
 import { OverviewPage } from "./pages/overview.js";
 import { PermissionsPage } from "./pages/permissions.js";
+import { RevocationsPage } from "./pages/revocations.js";
 import { SecurityPage } from "./pages/security.js";
 import { SettingsPage } from "./pages/settings.js";
 import { UsersPage } from "./pages/users.js";
@@ -52,6 +54,10 @@ function InnerDashboard({ apiUrl, onLogout, demo, theme, onThemeToggle }: InnerD
 				return <UsersPage client={client} onNavigate={setCurrentPage} />;
 			case "approvals":
 				return <ApprovalsPage client={client} />;
+			case "explain":
+				return <ExplainPage client={client} />;
+			case "revocations":
+				return <RevocationsPage client={client} />;
 			case "audit":
 				return <AuditPage client={client} />;
 			case "permissions":

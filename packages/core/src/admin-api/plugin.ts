@@ -12,6 +12,7 @@ import { createDelegationModule } from "../delegation/delegation.js";
 import { json } from "../plugin/helpers.js";
 import type { EndpointContext, PluginEndpoint, TheAuthPlugin } from "../plugin/types.js";
 import { decideApproval, listPendingApprovals } from "./approval-decisions.js";
+import { registerRevocationRoutes } from "./revocations.js";
 import {
 	AUDIT_MODES,
 	AUDIT_RESULTS,
@@ -109,7 +110,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 				ctx.revocations,
 			);
 			const approvals = createApprovalModule(config.approval ?? {}, db);
-			const delegations = createDelegationModule({ db });
+			const delegations = createDelegationModule({ db, revocations: ctx.revocations });
 			const limiter = createRateLimiter(config.rateLimit ?? { max: 60, window: 60 });
 			const limit = config.rateLimit ?? { max: 60, window: 60 };
 
@@ -475,6 +476,15 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 					);
 				},
 			);
+
+			registerRevocationRoutes({
+				db,
+				revocations: ctx.revocations,
+				add,
+				audit,
+				fail,
+				revokeDelegation: delegations.revokeDelegation,
+			});
 
 			return undefined;
 		},

@@ -14,8 +14,11 @@ export type {
 	CreateAgentInput,
 	CreateAgentResponse,
 	CreatePermissionTemplateInput,
+	DelegationImpact,
 	PaginatedAuditLogs,
 	PermissionTemplate,
+	RevocationBusStats,
+	RevocationRow,
 	TheAuthSettings,
 } from "./api/types.js";
 export { ToastProvider, useToast } from "./components/toast.js";

@@ -7,8 +7,10 @@ import type {
 	CreateAgentInput,
 	CreateAgentResponse,
 	CreatePermissionTemplateInput,
+	CreateRevocationInput,
 	DashboardStats,
 	DelegationChain,
+	DelegationImpact,
 	ExplainRequest,
 	ExplainResponse,
 	McpServerInfo,
@@ -16,6 +18,8 @@ import type {
 	PendingApproval,
 	PermissionTemplate,
 	RegisterMcpServerInput,
+	RevocationKind,
+	RevocationsSnapshot,
 	TheAuthSettings,
 	User,
 } from "./types.js";
@@ -45,6 +49,12 @@ export interface TheAuthApiClient {
 		id: string,
 		decision: "approve" | "deny",
 	) => Promise<ApiResult<ApprovalDecision>>;
+
+	/** Live denylist rows plus bus stats. Absent on cores older than the revocation routes (HTTP_404). */
+	getRevocations: (kind?: RevocationKind) => Promise<ApiResult<RevocationsSnapshot>>;
+	getDelegationImpact: () => Promise<ApiResult<DelegationImpact[]>>;
+	/** Audited on the server. Answers the ids that are now denied. */
+	createRevocation: (input: CreateRevocationInput) => Promise<ApiResult<{ revoked: string[] }>>;
 
 	getUsers: () => Promise<ApiResult<User[]>>;
 
@@ -190,6 +200,18 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 		decideApproval: (id, decision) =>
 			fetch<ApprovalDecision>(`/api/approvals/${encodeURIComponent(id)}/${decision}`, {
 				method: "POST",
+			}),
+
+		// Revocations
+		getRevocations: (kind) =>
+			fetch<RevocationsSnapshot>(`/api/revocations${kind ? `?kind=${kind}` : ""}`),
+
+		getDelegationImpact: () => fetch<DelegationImpact[]>("/api/revocations/delegations"),
+
+		createRevocation: (input) =>
+			fetch<{ revoked: string[] }>("/api/revocations", {
+				method: "POST",
+				body: JSON.stringify(input),
 			}),
 
 		// Users

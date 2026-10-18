@@ -1,5 +1,6 @@
 import {
 	Activity,
+	Ban,
 	Bot,
 	ChevronRight,
 	GitBranch,
@@ -7,6 +8,7 @@ import {
 	ListChecks,
 	Moon,
 	ScrollText,
+	Search,
 	Server,
 	Settings,
 	ShieldAlert,
@@ -86,6 +88,18 @@ const NAV_ITEMS: NavItem[] = [
 		label: "Approvals",
 		icon: ListChecks,
 		description: "Pending admin approvals",
+	},
+	{
+		id: "revocations",
+		label: "Revocations",
+		icon: Ban,
+		description: "Denylist and delegation revokes",
+	},
+	{
+		id: "explain",
+		label: "Explain",
+		icon: Search,
+		description: "Why a decision was made",
 	},
 	{
 		id: "audit",

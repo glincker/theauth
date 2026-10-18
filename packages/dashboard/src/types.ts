@@ -7,6 +7,8 @@ export type Page =
 	| "mcp-servers"
 	| "audit"
 	| "approvals"
+	| "explain"
+	| "revocations"
 	| "security"
 	| "settings";
 

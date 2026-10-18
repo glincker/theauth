@@ -13,6 +13,11 @@ const POLL_MS = 15_000;
 type Decision = "approve" | "deny";
 
 /** "4m 05s", "45s", or "expired" for a past timestamp. */
+/** The approvals routes are opt in on the server; a 404 means they are not mounted, not that loading broke. */
+export function approvalsUnavailable(error: { code: string }): boolean {
+	return error.code === "HTTP_404";
+}
+
 export function formatExpiresIn(iso: string, now: number): string {
 	const secs = Math.floor((new Date(iso).getTime() - now) / 1000);
 	if (secs <= 0) return "expired";
@@ -200,7 +205,9 @@ export function ApprovalsPage({ client }: ApprovalsPageProps) {
 					role="alert"
 					className="mb-4 rounded-lg border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-400"
 				>
-					Could not load approvals: {data.error.message}
+					{approvalsUnavailable(data.error)
+						? "The approvals API is not enabled on this server. Turn on adminApi to use the inbox."
+						: `Could not load approvals: ${data.error.message}`}
 				</div>
 			)}
 

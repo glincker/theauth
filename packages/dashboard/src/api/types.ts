@@ -259,3 +259,51 @@ export interface ExplainResponse {
 	};
 	nearMisses: ExplainNearMiss[];
 }
+
+// Revocation Types (GET/POST /revocations on the admin API)
+
+export type RevocationKind = "jti" | "dlg" | "agent" | "sub" | "client";
+
+export interface RevocationRow {
+	kind: RevocationKind;
+	id: string;
+	revokedAt: string;
+	expiresAt: string;
+	reason: string;
+	sourceId: string | null;
+}
+
+/** Counters of the instance's revocation bus. */
+export interface RevocationBusStats {
+	published: number;
+	rowsPushed: number;
+	retries: number;
+	pushFailures: number;
+	attemptFailures: number;
+	pruned: number;
+}
+
+export interface RevocationsSnapshot {
+	rows: RevocationRow[];
+	/** Null when the instance has no revocation bus. */
+	stats: RevocationBusStats | null;
+}
+
+export interface DelegationImpact {
+	id: string;
+	fromAgentId: string;
+	toAgentId: string;
+	expiresAt: string;
+	/** Link ids a revoke would deny, this link first. */
+	cascade: string[];
+	agents: string[];
+	denied: boolean;
+	/** MCP tokens are stateless, so impact is a rule over theauth_dlg.lnk. */
+	tokenRule: string;
+}
+
+export interface CreateRevocationInput {
+	kind: RevocationKind;
+	id: string;
+	reason?: string;
+}
