@@ -501,7 +501,7 @@ To rotate, move the old key into `previous: [{ kid, publicKey }]` and set a new 
 
 **Issuer identification (RFC 9207).** Authorization responses carry `iss`, and metadata sets `authorization_response_iss_parameter_supported`.
 
-**Client ID Metadata Documents (opt in).** With `clientIdMetadataDocuments: { enabled: true }`, an unknown `https://` client_id is fetched and its document must contain the same `client_id`. The fetcher resolves DNS and refuses loopback, private, link-local, CGNAT, unique-local and metadata addresses, never follows redirects, caps the body at 5 KB, accepts JSON only, times out after 5 seconds, and fails closed. It cannot pin the connection to the address it checked, so a hostile DNS server with a near-zero TTL can in theory still rebind; supply a `fetchImpl` that pins the IP if that matters for you. Registration no longer fetches `client_uri`.
+**Client ID Metadata Documents (opt in).** Clients can identify themselves with an `https://` client_id that points at a metadata document. Enable it with `clientIdMetadataDocuments: { enabled: true }`, which requires `consentPage`. See [Client ID metadata documents](/mcp-client-id-metadata) for setup, the consent screen, and what the fetcher does and does not protect against.
 
 ## Related
 

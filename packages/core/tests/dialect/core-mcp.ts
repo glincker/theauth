@@ -8,7 +8,8 @@ import {
 } from "../../src/db/schema.js";
 import { createInMemoryJtiDenylist } from "../../src/mcp/memory-stores.js";
 import { createMcpModule } from "../../src/mcp/server.js";
-import type { McpAuthModule, McpTokenResponse } from "../../src/mcp/types.js";
+import { createMcpStores } from "../../src/mcp/stores-db.js";
+import type { McpAuthModule, McpClient, McpTokenResponse } from "../../src/mcp/types.js";
 import { computeS256Challenge, generateSecureToken } from "../../src/mcp/utils.js";
 import type { TheAuth } from "../../src/theauth.js";
 import type { CoreBooter } from "./core-boot.js";
@@ -200,6 +201,87 @@ export function defineMcpCoreTests(booter: CoreBooter): void {
 			await mcp.clients.bindAgent(clientId, agent.id);
 			await auth.db.delete(agents).where(eq(agents.id, agent.id));
 			expect(await mcp.clients.agentFor(clientId)).toBeNull();
+		});
+
+		it("CIMD: blocks by url and host, concurrent upserts, refresh keeps admin state", async () => {
+			const { auth } = await booter.boot();
+			const user = await auth.user.create({ email: "mcp-cimd@example.com" });
+			const stores = createMcpStores(auth.db);
+			const url = "https://cimd.theauth.test/client.json";
+
+			const rules = await Promise.all(
+				Array.from({ length: 4 }, () =>
+					stores.blocks.addBlock({ kind: "host", value: "theauth.test" }),
+				),
+			);
+			expect(new Set(rules.map((r) => r.id)).size).toBe(1);
+			const urlRule = await stores.blocks.addBlock({ kind: "url", value: url, reason: "abuse" });
+			expect((await stores.blocks.findBlock(url, []))?.id).toBe(urlRule.id);
+			expect(
+				(await stores.blocks.findBlock(url, ["cimd.theauth.test", "theauth.test"]))?.id,
+			).toBeTruthy();
+			expect(await stores.blocks.findBlock("https://other.test/c", ["other.test"])).toBeNull();
+			expect((await stores.blocks.listBlocks()).length).toBe(2);
+			await stores.blocks.removeBlock(urlRule.id);
+			await stores.blocks.removeBlock(rules[0]?.id ?? "");
+			expect(await stores.blocks.listBlocks()).toEqual([]);
+
+			const now = new Date();
+			const client: McpClient = {
+				clientId: url,
+				clientSecret: null,
+				clientName: "CIMD",
+				clientUri: null,
+				logoUri: null,
+				redirectUris: [REDIRECT],
+				grantTypes: ["authorization_code"],
+				responseTypes: ["code"],
+				tokenEndpointAuthMethod: "none",
+				scope: "mcp:read",
+				contacts: null,
+				tosUri: null,
+				policyUri: null,
+				softwareId: null,
+				softwareVersion: null,
+				clientType: "public",
+				disabled: false,
+				userId: null,
+				source: "cimd",
+				createdAt: now,
+				updatedAt: now,
+			};
+			await stores.storeClient(client);
+			const agent = await auth.agent.create({
+				ownerId: user.id,
+				name: "cimd-bot",
+				type: "autonomous",
+				permissions: [],
+			});
+			await stores.setClientAgent(url, agent.id);
+			await stores.setClientDisabled(url, true, "blocked");
+			const fetchedAt = new Date(Math.floor(Date.now() / 1000) * 1000);
+			await stores.storeClient(
+				{
+					...client,
+					clientName: "Refreshed",
+					cimd: {
+						digest: "abc",
+						fetchedAt,
+						expiresAt: new Date(fetchedAt.getTime() + 3_600_000),
+						document: { client_id: url },
+					},
+				},
+				{ preserveAdminState: true },
+			);
+			const stored = await stores.findClient(url);
+			expect(stored).toMatchObject({
+				clientName: "Refreshed",
+				disabled: true,
+				disabledReason: "blocked",
+				agentId: agent.id,
+			});
+			expect(stored?.cimd?.fetchedAt.getTime()).toBe(fetchedAt.getTime());
+			expect(stored?.cimd?.document).toEqual({ client_id: url });
 		});
 	});
 }

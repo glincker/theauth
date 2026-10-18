@@ -36,7 +36,14 @@ export function resolveMountedMcpRoutes(options?: TheAuthHandlerOptions): McpMou
 	const setting = options?.routes?.mcp;
 	if (setting === undefined || setting === true) return { ...ALL_MCP_ROUTES };
 	if (setting === false) {
-		return { register: false, authorize: false, token: false, revoke: false, jwks: false };
+		return {
+			register: false,
+			authorize: false,
+			token: false,
+			revoke: false,
+			introspect: false,
+			jwks: false,
+		};
 	}
 	return { ...ALL_MCP_ROUTES, ...setting };
 }

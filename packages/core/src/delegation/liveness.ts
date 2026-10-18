@@ -72,7 +72,7 @@ export function createDelegatorLiveness(db: Database, now: Date) {
 		const next = new Set(trail).add(id);
 		let firstDead: DelegatorState = "revoked";
 		for (const [i, link] of inbound.entries()) {
-			const state = await linkState(link, next);
+			const state = await stateOfLink(link, next);
 			if (state === "live") return "live";
 			if (i === 0) firstDead = state;
 		}
@@ -80,7 +80,7 @@ export function createDelegatorLiveness(db: Database, now: Date) {
 	}
 
 	/** A link is live if its delegator is live, or if the delegator is itself active and unexpired and its own direct permissions cover what the link grants (that authority never came through an inbound chain). */
-	async function linkState(link: ChainRow, trail: Set<string>): Promise<DelegatorState> {
+	async function stateOfLink(link: ChainRow, trail: Set<string>): Promise<DelegatorState> {
 		const state = await stateOf(link.fromAgentId, trail);
 		if (state === "live") return "live";
 		const row = await agentRow(link.fromAgentId);
@@ -90,6 +90,9 @@ export function createDelegatorLiveness(db: Database, now: Date) {
 	}
 
 	return {
+		/** State of a link as a carrier of authority: its delegator's state, with the direct permission exception. Does not read the link's own status or expiry; callers filter those first. */
+		linkState: (link: ChainRow): Promise<DelegatorState> =>
+			stateOfLink(link, new Set([link.toAgentId])),
 		/** State of the delegator `agentId` as a lender of authority. */
 		delegatorState: (agentId: string): Promise<DelegatorState> => stateOf(agentId, new Set()),
 		/** Active, unexpired inbound links to `agentId` whose delegator is live. */
@@ -97,7 +100,7 @@ export function createDelegatorLiveness(db: Database, now: Date) {
 			const rows = await inboundRows(agentId);
 			const kept: ChainRow[] = [];
 			for (const row of rows) {
-				if ((await linkState(row, new Set([agentId]))) === "live") kept.push(row);
+				if ((await stateOfLink(row, new Set([agentId]))) === "live") kept.push(row);
 			}
 			return kept;
 		},
@@ -111,4 +114,13 @@ export async function loadLiveInboundRows(
 	now: Date = new Date(),
 ): Promise<ChainRow[]> {
 	return createDelegatorLiveness(db, now).liveInboundRows(agentId);
+}
+
+/** State of one delegation link as a carrier of authority (see {@link createDelegatorLiveness}). The link's own status and expiry are the caller's to check. */
+export async function linkState(
+	db: Database,
+	link: ChainRow,
+	now: Date = new Date(),
+): Promise<DelegatorState> {
+	return createDelegatorLiveness(db, now).linkState(link);
 }

@@ -2,6 +2,8 @@ import type { McpClient, McpSession } from "./types.js";
 
 /** Options for dynamic client registration (RFC 7591). */
 export interface McpRegistrationConfig {
+	/** Set to false to turn dynamic client registration off: no registration route, no `registration_endpoint` in metadata, `registerClient` returns REGISTRATION_DISABLED. Existing clients keep working. Default true. */
+	enabled?: boolean;
 	/**
 	 * Decide which agent a newly registered client acts as. Runs on the server side after the request body validated, so a registering client cannot choose its own agent. Return `undefined` to leave the client unbound. The request is the one handed to `registerClient` (a synthetic POST when none was given), which lets you read the caller's session or an initial access token.
 	 */

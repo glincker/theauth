@@ -4,6 +4,7 @@
  */
 
 import type { AdminAuditEntry } from "../auth/admin.js";
+import type { McpRevocationEvent } from "../mcp/revocation-types.js";
 import type { Session } from "../session/session.js";
 import type { BuiltEvent } from "./events.js";
 import { events } from "./events.js";
@@ -32,6 +33,8 @@ export interface EmissionBridge {
 	onPasswordChanged: (userId: string) => Promise<void>;
 	/** For `totp.onChange`. */
 	onTotpChange: (userId: string, change: "enabled" | "disabled") => Promise<void>;
+	/** For `mcp.revocation.onRevoked` (the revocation bus calls it without awaiting). Delegation, agent and sign-out-everywhere revocations become session-revoked with an opaque `<kind>:<id>` session. Token and client revocations emit nothing, and so does an event with no known user. */
+	onMcpRevocation: (event: McpRevocationEvent) => Promise<void>;
 	/** For `passkey.onCredentialChange`. */
 	onPasskeyChange: (userId: string, change: "added" | "removed") => Promise<void>;
 }
@@ -64,6 +67,24 @@ export function createEmissionBridge(options: EmissionBridgeOptions): EmissionBr
 				} catch {
 					// See above.
 				}
+			}
+		},
+
+		async onMcpRevocation(event) {
+			if (!event.userId) return;
+			if (event.kind !== "dlg" && event.kind !== "agent" && event.kind !== "sub") return;
+			try {
+				const user = await subjectFor(event.userId);
+				if (user.format === "complex") return;
+				for (const id of event.ids) {
+					await send(events.sessionRevoked({ reasonAdmin: event.reason }), {
+						format: "complex",
+						user,
+						session: { format: "opaque", id: `${event.kind}:${id}` },
+					});
+				}
+			} catch {
+				// See above.
 			}
 		},
 

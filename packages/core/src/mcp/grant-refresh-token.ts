@@ -151,10 +151,9 @@ export async function handleRefreshTokenGrant(
 	}
 	const resource = originalResource;
 
-	// Revoke the old access token
-	await revokeStoredAccessToken(ctx, existingToken);
-
-	const { jwt, jti, expiresAt } = await issueAccessTokenJwt(
+	// Mint first: a refused mint (agent revoked or expired) must not also revoke the old token
+	// state half way. The refresh token is already rotated, and that refusal is permanent.
+	const { jwt, jti, expiresAt, ttlSeconds } = await issueAccessTokenJwt(
 		ctx,
 		existingToken.userId,
 		data.client_id,
@@ -162,6 +161,9 @@ export async function handleRefreshTokenGrant(
 		resource,
 		dpopJkt,
 	);
+
+	// Revoke the old access token
+	await revokeStoredAccessToken(ctx, existingToken);
 
 	const rotated = await issueRefreshToken(ctx, existingToken.userId, familyId);
 	const newRefreshToken = rotated.rawToken;
@@ -173,7 +175,7 @@ export async function handleRefreshTokenGrant(
 		...(rotated.familyId ? { familyId: rotated.familyId } : {}),
 		tokenType: dpopJkt ? "DPoP" : "Bearer",
 		...(dpopJkt ? { dpopJkt } : {}),
-		expiresIn: ctx.config.accessTokenTtl,
+		expiresIn: ttlSeconds,
 		scope: scopes,
 		clientId: data.client_id,
 		userId: existingToken.userId,
@@ -187,7 +189,7 @@ export async function handleRefreshTokenGrant(
 	const response: McpTokenResponse = {
 		access_token: jwt,
 		token_type: dpopJkt ? "DPoP" : "Bearer",
-		expires_in: ctx.config.accessTokenTtl,
+		expires_in: ttlSeconds,
 		refresh_token: newRefreshToken,
 		scope: scopes.join(" "),
 	};

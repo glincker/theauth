@@ -351,6 +351,8 @@ describe("Client ID Metadata Documents", () => {
 
 	function cimdMcp(store: Store, body: unknown, resolver = async () => ["93.184.216.34"]) {
 		return makeMcp(store, {
+			// Client ID Metadata Documents refuse to start without a consent page.
+			consentPage: "https://auth.theauth.test/consent",
 			clientIdMetadataDocuments: {
 				enabled: true,
 				resolver,

@@ -1,6 +1,6 @@
 /** Client ID Metadata Documents: private_key_jwt support, Cache-Control driven refresh and the failed-fetch negative cache. */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cimdCacheSeconds } from "../src/mcp/client-metadata.js";
+import { cimdCacheBounds, cimdCacheSeconds } from "../src/mcp/client-metadata.js";
 import { computeS256Challenge, generateSecureToken } from "../src/mcp/utils.js";
 import type { Harness, KeyMaterial } from "./mcp-test-harness.js";
 import {
@@ -12,10 +12,11 @@ import {
 	REDIRECT,
 	RESOURCE,
 	tokenRequest,
+	USER,
 } from "./mcp-test-harness.js";
 
-const CLIENT_ID = "https://client.example.test/metadata.json";
-const JWKS_URL = "https://client.example.test/jwks.json";
+const CLIENT_ID = "https://client.example.com/metadata.json";
+const JWKS_URL = "https://client.example.com/jwks.json";
 
 interface Served {
 	body: unknown;
@@ -46,6 +47,7 @@ function cimdHarness(
 ): { h: Harness; calls: string[]; routes: Record<string, Served> } {
 	const s = server(routes);
 	const h = makeHarness({
+		consentPage: "https://auth.example.com/consent",
 		clientIdMetadataDocuments: {
 			enabled: true,
 			resolver: async () => ["93.184.216.34"],
@@ -73,7 +75,11 @@ async function authorize(h: Harness) {
 		resource: RESOURCE,
 	};
 	for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-	return { res: await h.mcp.authorize(new Request(url)), verifier };
+	return {
+		res: await h.mcp.authorize(new Request(url)),
+		verifier,
+		challenge: params.code_challenge as string,
+	};
 }
 
 describe("cimdCacheSeconds", () => {
@@ -85,14 +91,35 @@ describe("cimdCacheSeconds", () => {
 		expect(cimdCacheSeconds("max-age=999999999")).toBe(86400);
 		expect(cimdCacheSeconds("no-store")).toBe(60);
 		expect(cimdCacheSeconds("max-age=-5")).toBe(3600);
+		expect(cimdCacheSeconds("max-age=0")).toBe(60);
+		expect(cimdCacheSeconds("s-maxage=9999")).toBe(3600);
+	});
+
+	it("honors configured bounds and keeps min <= default <= max", () => {
+		const b = cimdCacheBounds({ enabled: true, minCacheSeconds: 120, maxCacheSeconds: 600 });
+		expect(b).toEqual({ min: 120, max: 600, default: 600 });
+		expect(cimdCacheSeconds("max-age=10", b)).toBe(120);
+		expect(cimdCacheSeconds("max-age=5000", b)).toBe(600);
+		expect(cimdCacheBounds({ enabled: true, minCacheSeconds: 1 }).min).toBe(30);
+		expect(cimdCacheBounds({ enabled: true, maxCacheSeconds: 99999999 }).max).toBe(604800);
 	});
 });
 
 describe("CIMD private_key_jwt", () => {
 	async function codeExchange(h: Harness, assertion: string) {
-		const { res, verifier } = await authorize(h);
+		const { res, verifier, challenge } = await authorize(h);
 		if (!res.success) throw new Error(res.error.message);
-		const code = new URL(res.data.redirectUri).searchParams.get("code") ?? "";
+		const approved = await h.mcp.approveConsent({
+			userId: USER,
+			clientId: CLIENT_ID,
+			scope: "mcp:read",
+			redirectUri: REDIRECT,
+			codeChallenge: challenge,
+			codeChallengeMethod: "S256",
+			resource: RESOURCE,
+		});
+		if (!approved.success) throw new Error(approved.error.message);
+		const code = new URL(approved.data.redirectUri).searchParams.get("code") ?? "";
 		return h.mcp.token(
 			tokenRequest({
 				grant_type: "authorization_code",
@@ -158,7 +185,7 @@ describe("CIMD private_key_jwt", () => {
 				jwks_uri: JWKS_URL,
 			},
 			{ token_endpoint_auth_method: "private_key_jwt", jwks: { keys: [{ ...keys.jwk, d: "x" }] } },
-			{ token_endpoint_auth_method: "private_key_jwt", jwks_uri: "http://client.example.test/j" },
+			{ token_endpoint_auth_method: "private_key_jwt", jwks_uri: "http://client.example.com/j" },
 			{
 				token_endpoint_auth_method: "private_key_jwt",
 				jwks: { keys: [keys.jwk] },

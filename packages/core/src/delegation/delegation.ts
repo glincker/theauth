@@ -3,6 +3,8 @@ import { recordAuditEvent } from "../audit/record.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { delegationChains, permissions } from "../db/schema.js";
+import { revocationRowExpiry } from "../mcp/revocation-bus.js";
+import type { McpRevocationBus } from "../mcp/revocation-types.js";
 import type { DelegateInput, DelegationChain, Permission } from "../types.js";
 import { narrowConstraints } from "./constraints.js";
 import { resolveLineage } from "./lineage.js";
@@ -11,6 +13,8 @@ import { isPermissionSubset, isResourceSubset } from "./subset.js";
 
 interface DelegationModuleConfig {
 	db: Database;
+	/** Receives every revoked link id so the shared MCP denylist and in-process caches see it. Optional. */
+	revocations?: McpRevocationBus;
 }
 
 /** Active, unexpired permissions delegated to an agent by delegators that are still live (an agent delegator that is revoked, suspended or expired lends nothing), constraints included. The one merge source shared by auth.authorize, policy.evaluate and delegate(). */
@@ -52,9 +56,15 @@ export class DelegationError extends Error {
 	}
 }
 
+/** Collects what the revocation push needs while a cascade runs. */
+interface RevokeSink {
+	expiries: Map<string, Date>;
+	rootToAgent?: string;
+}
+
 /** Create the delegation module. Handles agent-to-agent permission delegation with chain tracking. */
 export function createDelegationModule(config: DelegationModuleConfig) {
-	const { db } = config;
+	const { db, revocations } = config;
 
 	/**
 	 * Create a delegation from `input.fromAgent` to `input.toAgent`.
@@ -193,7 +203,50 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		chainId: string,
 		options: { revokedBy?: string } = {},
 	): Promise<string[]> {
-		return revokeLink(chainId, options.revokedBy ?? null, chainId, null);
+		const sink: RevokeSink = { expiries: new Map() };
+		const revoked = await revokeLink(chainId, options.revokedBy ?? null, chainId, null, sink);
+		await pushRevoked(chainId, revoked, sink, options.revokedBy);
+		return revoked;
+	}
+
+	/** Feed the revoked link ids (cascade included) to the revocation bus. Never throws: the chain rows are already revoked. */
+	async function pushRevoked(
+		rootId: string,
+		revoked: string[],
+		sink: RevokeSink,
+		revokedBy: string | undefined,
+	): Promise<void> {
+		if (!revocations || revoked.length === 0) return;
+		try {
+			const now = new Date();
+			let userId: string | undefined;
+			if (sink.rootToAgent) {
+				try {
+					userId = (await resolveLineage(db, sink.rootToAgent)).rootOwnerId;
+				} catch {
+					// The subject is optional; the denylist rows matter more.
+				}
+			}
+			await revocations.publish(
+				{
+					kind: "dlg",
+					ids: revoked,
+					revokedAt: now,
+					reason: "delegation.revoke",
+					...(userId ? { userId } : {}),
+					sourceId: rootId,
+				},
+				revoked.map((id) => ({
+					kind: "dlg" as const,
+					id,
+					expiresAt: revocationRowExpiry(sink.expiries.get(id), now),
+					reason: "delegation.revoke",
+					sourceId: revokedBy ?? rootId,
+				})),
+			);
+		} catch {
+			// The bus reports its own failures; a revoke must not fail after it committed.
+		}
 	}
 
 	async function revokeLink(
@@ -201,6 +254,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		revokedBy: string | null,
 		rootChainId: string,
 		parentChainId: string | null,
+		sink: RevokeSink,
 	): Promise<string[]> {
 		const chain = await db
 			.select()
@@ -212,6 +266,10 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 
 		const wasActive = chain[0].status === "active";
 		const revoked: string[] = wasActive ? [chainId] : [];
+		if (wasActive) {
+			sink.expiries.set(chainId, chain[0].expiresAt);
+			if (parentChainId === null) sink.rootToAgent = chain[0].toAgentId;
+		}
 
 		await db
 			.update(delegationChains)
@@ -250,7 +308,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			);
 
 		for (const child of childChains) {
-			revoked.push(...(await revokeLink(child.id, revokedBy, rootChainId, chainId)));
+			revoked.push(...(await revokeLink(child.id, revokedBy, rootChainId, chainId, sink)));
 		}
 		return revoked;
 	}

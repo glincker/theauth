@@ -1,4 +1,5 @@
 import type { JWK } from "jose";
+import type { TheAuthLogger } from "../observability/types.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import type { McpDpopConfig } from "./dpop-types.js";
 import type {
@@ -8,12 +9,28 @@ import type {
 	McpTokenExchangeConfig,
 } from "./grant-types.js";
 import type { McpProtectedHandler, RequireMcpAuthOptions } from "./require-mcp-auth.js";
-import type { DnsResolver } from "./safe-fetch.js";
+import type {
+	McpDelegationBinding,
+	McpIntrospectionConfig,
+	McpIntrospectionResponse,
+	McpRevalidate,
+	McpRevocationConfig,
+	McpSessionFreshness,
+} from "./revocation-types.js";
 import type {
 	McpClientBindings,
 	McpRegistrationConfig,
 	RequireScopesResult,
 } from "./types-auth.js";
+import type {
+	ClientDescription,
+	McpCimdAdmin,
+	McpCimdConfig,
+	McpClientBlockStore,
+	McpClientCimdSnapshot,
+} from "./types-cimd.js";
+
+export type { McpValidateOptions } from "./revocation-types.js";
 
 export type {
 	McpAuthErrorCode,
@@ -50,6 +67,10 @@ export interface McpConfig {
 	resource?: string;
 	/** Optional jti denylist. When set, revoked access tokens are refused. */
 	jtiDenylist?: McpJtiDenylist;
+	/** How resource server validations see revocation (live, cached, offline). Introspection is always live. */
+	revocation?: McpRevocationConfig;
+	/** RFC 7662 introspection endpoint. Off unless `enabled`. */
+	introspection?: McpIntrospectionConfig;
 	/** Opt in to a live delegation check: `validateAccessToken` walks the token's `act` chain against this store. */
 	delegationStore?: McpDelegationStore;
 	/** Maps each actor in the delegation chain (and the token `sub`) to the agent id used in delegation records. */
@@ -61,17 +82,7 @@ export interface McpConfig {
 	/** Refresh token family store for rotation and reuse detection. Defaults to an in-process store. */
 	tokenFamilies?: McpTokenFamilyStore;
 	/** Client ID Metadata Documents (client_id is an https URL). Off by default. */
-	clientIdMetadataDocuments?: {
-		enabled: boolean;
-		/** DNS resolver override (tests, edge runtimes). */
-		resolver?: DnsResolver;
-		/** Fetch override, for example one that pins the connection to the resolved IP. */
-		fetchImpl?: typeof fetch;
-		/** Restrict to these hostnames when set. */
-		allowedHosts?: string[];
-		/** Seconds a failed document fetch is remembered before the next attempt. Default 30; 0 disables the negative cache. */
-		negativeCacheSeconds?: number;
-	};
+	clientIdMetadataDocuments?: McpCimdConfig;
 	/** Compatibility switches for lenient MCP clients. */
 	lenientClients?: McpLenientClientsConfig;
 	/** Opt in to the `client_credentials` grant for confidential clients. Requires a `resolvePrincipal` mapping. */
@@ -171,7 +182,8 @@ export interface McpServerMetadata {
 	issuer: string;
 	authorization_endpoint: string;
 	token_endpoint: string;
-	registration_endpoint: string;
+	/** Omitted when `registration.enabled === false`. */
+	registration_endpoint?: string;
 	jwks_uri?: string;
 	scopes_supported: string[];
 	response_types_supported: string[];
@@ -185,6 +197,10 @@ export interface McpServerMetadata {
 	revocation_endpoint?: string;
 	revocation_endpoint_auth_methods_supported?: string[];
 	revocation_endpoint_auth_signing_alg_values_supported?: string[];
+	/** RFC 8414 / RFC 7662: present only when introspection is enabled (and the route is mounted). */
+	introspection_endpoint?: string;
+	introspection_endpoint_auth_methods_supported?: string[];
+	introspection_endpoint_auth_signing_alg_values_supported?: string[];
 	/** RFC 9207: the authorization response carries an `iss` parameter. */
 	authorization_response_iss_parameter_supported?: boolean;
 	client_id_metadata_document_supported?: boolean;
@@ -227,6 +243,8 @@ export interface McpClient {
 	softwareVersion: string | null;
 	clientType: "public" | "confidential";
 	disabled: boolean;
+	/** Why the client is disabled, for example "blocked" or "cimd_changed_while_bound". */
+	disabledReason?: string | null;
 	userId: string | null;
 	/** The agent this client acts as, or null/absent when unbound. Tokens issued to the client carry it as `agent_id` and the built-in delegation mapping resolves the client to it. */
 	agentId?: string | null;
@@ -234,6 +252,8 @@ export interface McpClient {
 	source?: "cimd";
 	jwks?: { keys: JWK[] };
 	jwksUri?: string;
+	/** Snapshot of the fetched Client ID Metadata Document (source "cimd" only). */
+	cimd?: McpClientCimdSnapshot;
 	createdAt: Date;
 	updatedAt: Date;
 }
@@ -365,6 +385,8 @@ export interface McpTokenPayload {
 	agent_type?: string;
 	trust_tier?: string;
 	act?: McpActorClaim;
+	/** Signed delegation binding. Absent on unbound tokens. */
+	theauth_dlg?: McpDelegationBinding;
 }
 
 /** RFC 8693 `act` claim. Each level names an actor and may nest the previous one. */
@@ -390,6 +412,12 @@ export interface McpSession {
 	dpopJkt?: string;
 	agent?: { id: string; type?: string; trustTier?: string };
 	delegationChain?: McpDelegationHop[];
+	/** The verified `theauth_dlg` claim, when the token is bound. */
+	binding?: McpDelegationBinding;
+	/** Which freshness mode checked revocation, and when. */
+	freshness?: McpSessionFreshness;
+	/** Re-run revocation and binding checks live, for long running handlers and SSE streams. */
+	revalidate?: McpRevalidate;
 }
 
 export interface McpAuthContext {
@@ -418,6 +446,26 @@ export interface McpAuthContext {
 	revokeTokenFamily?: (familyId: string) => Promise<void>;
 	/** Optional: bind a client to an agent (or clear the binding with `null`). Required for `clients.bindAgent` and `clients.unbindAgent`; the database stores provide it. */
 	setClientAgent?: (clientId: string, agentId: string | null) => Promise<void>;
+	/** Admin disable or enable of a stored client. */
+	setClientDisabled?: (
+		clientId: string,
+		disabled: boolean,
+		reason?: string | null,
+	) => Promise<void>;
+	/** Deletes the client's token rows (refresh tokens die with them) and returns the jtis so a denylist can refuse live access tokens. */
+	revokeClientTokens?: (
+		clientId: string,
+	) => Promise<{ jtis: Array<{ jti: string; expiresAt: Date }> }>;
+	/** Admin blocks for Client ID Metadata Document clients. The resolver checks it before any fetch. */
+	clientBlocks?: McpClientBlockStore;
+	/** Optional: how many stored Client ID Metadata Document clients have never been consented to (no tokens, no agent binding, not disabled). Enables the cap `clientIdMetadataDocuments.maxUnconsentedClients`. */
+	countUnconsentedCimdClients?: () => Promise<number>;
+	/** Optional: deletes unconsented CIMD clients not updated since `before`. Returns how many were removed. */
+	deleteStaleUnconsentedCimdClients?: (before: Date) => Promise<number>;
+	/** Optional: every stored CIMD client_id, so a host block can revoke the tokens of that host's clients. */
+	listCimdClientIds?: () => Promise<string[]>;
+	/** Operator diagnostics, for example the notice that CIMD fetches run without a DNS resolver. */
+	logger?: TheAuthLogger;
 	tokenFamilies?: McpTokenFamilyStore;
 	resolveUserId: (request: Request) => Promise<string | null>;
 }
@@ -442,12 +490,22 @@ export interface McpAuthModule {
 	) => Promise<Result<McpClientRegistrationResponse>>;
 	/** Bind OAuth clients to agents. A bound client's tokens carry `agent_id` and the delegation check resolves the client to that agent. */
 	clients: McpClientBindings;
+	/** Admin API for Client ID Metadata Document clients: blocks, refresh, enable, inspect. Admin only, never expose it to clients. */
+	cimd: McpCimdAdmin;
+	/** Facts the consent page must show for a client (verified host first, warnings). Resolves a CIMD client_id, so it may fetch its document. Without `redirectUri` the client's first registered one is described. */
+	describeClient: (
+		clientId: string,
+		redirectUri?: string,
+		options?: { firstUse?: boolean },
+	) => Promise<Result<ClientDescription>>;
 	authorize: (request: Request) => Promise<Result<McpAuthorizeResult>>;
 	/** Issues an authorization code after the user approves consent. */
 	approveConsent: (params: ApproveConsentParams) => Promise<Result<{ redirectUri: string }>>;
 	token: (request: Request) => Promise<Result<McpTokenResponse>>;
 	getJwks: () => Promise<{ keys: JWK[] }>;
 	revoke: (request: Request) => Promise<Result<Record<string, never>>>;
+	/** RFC 7662 introspection (client auth required, always live). */
+	introspect: (request: Request) => Promise<Result<McpIntrospectionResponse>>;
 	validateToken: (token: string, requiredScopes?: string[]) => Promise<Result<McpSession>>;
 	middleware: (request: Request) => Promise<Result<McpSession>>;
 	buildStepUpResponse: (options: {

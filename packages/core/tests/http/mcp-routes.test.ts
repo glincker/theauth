@@ -56,6 +56,27 @@ describe("MCP revoke and jwks routes", () => {
 
 		const missing = await revoke({}, { Authorization: basic });
 		expect(missing.status).toBe(400);
+		expect(unauth.headers.get("www-authenticate")).toMatch(/^Basic/);
+	});
+
+	it("serves /mcp/introspect only when the module enables it, and lists the route", async () => {
+		const { handler, get } = await setup();
+		// The harness module does not enable introspection: the route does not exist for it.
+		const off = await handler(
+			new Request(`${BASE}/mcp/introspect`, {
+				method: "POST",
+				headers: { "Content-Type": "application/x-www-form-urlencoded" },
+				body: "token=x",
+			}),
+		);
+		expect(off.status).toBe(404);
+		const meta = (await (await get("/.well-known/oauth-authorization-server")).json()) as Record<
+			string,
+			unknown
+		>;
+		expect(meta.introspection_endpoint).toBeUndefined();
+		const spec = listRoutes().find((r) => r.path === "/mcp/introspect");
+		expect(spec).toMatchObject({ method: "POST", auth: "client" });
 	});
 
 	it("answers CORS preflight on mcp and well-known paths", async () => {
@@ -116,7 +137,7 @@ describe("metadata matches the mounted set", () => {
 				signingSecret: undefined,
 				signing: { alg: "ES256", current: { kid: "k1", privateKey: key.privateKey } },
 			},
-			{ mcp: { revoke: false, jwks: false } },
+			{ mcp: { revoke: false, introspect: false, jwks: false } },
 		);
 		const meta = (await (await get("/.well-known/oauth-authorization-server")).json()) as Record<
 			string,
@@ -124,6 +145,8 @@ describe("metadata matches the mounted set", () => {
 		>;
 		expect(meta.revocation_endpoint).toBeUndefined();
 		expect(meta.revocation_endpoint_auth_methods_supported).toBeUndefined();
+		expect(meta.introspection_endpoint).toBeUndefined();
+		expect(meta.introspection_endpoint_auth_methods_supported).toBeUndefined();
 		expect(meta.jwks_uri).toBeUndefined();
 		expect(meta.token_endpoint).toBeDefined();
 		const resource = (await (await get("/.well-known/oauth-protected-resource")).json()) as Record<
@@ -134,9 +157,13 @@ describe("metadata matches the mounted set", () => {
 		expect((await get("/mcp/jwks")).status).toBe(404);
 		const rev = await handler(new Request(`${BASE}/mcp/revoke`, { method: "POST" }));
 		expect(rev.status).toBe(404);
-		expect(
-			listRoutes({ routes: { mcp: { revoke: false, jwks: false } } }).map((r) => r.path),
-		).not.toContain("/mcp/revoke");
+		const introspect = await handler(new Request(`${BASE}/mcp/introspect`, { method: "POST" }));
+		expect(introspect.status).toBe(404);
+		const unmounted = listRoutes({
+			routes: { mcp: { revoke: false, introspect: false, jwks: false } },
+		}).map((r) => r.path);
+		expect(unmounted).not.toContain("/mcp/revoke");
+		expect(unmounted).not.toContain("/mcp/introspect");
 	});
 
 	it("answers 404 for MCP routes when no module is configured or MCP is off", async () => {

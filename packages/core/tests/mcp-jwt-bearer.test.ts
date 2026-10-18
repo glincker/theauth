@@ -16,8 +16,8 @@ import {
 } from "./mcp-test-harness.js";
 
 const JB = "urn:ietf:params:oauth:grant-type:jwt-bearer";
-const IDP = "https://idp.corp.test";
-const JWKS_URI = "https://idp.corp.test/.well-known/jwks.json";
+const IDP = "https://idp.corp.example.com";
+const JWKS_URI = "https://idp.corp.example.com/.well-known/jwks.json";
 
 interface JagInit {
 	iss?: string;

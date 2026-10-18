@@ -14,6 +14,51 @@ import {
 import type { HttpRoute, RouteContext } from "../types.js";
 
 const NOT_CONFIGURED = "MCP module not configured";
+const FORM_TYPE = "application/x-www-form-urlencoded";
+
+type BoundedBody = { ok: true; request: Request } | { ok: false; response: Response };
+
+/**
+ * Read a client authentication endpoint body with a size cap and hand the module a request it can parse again.
+ * `formOnly` refuses any content type but form encoding (RFC 7662 section 2.1).
+ */
+async function boundedFormRequest(ctx: RouteContext, formOnly: boolean): Promise<BoundedBody> {
+	const { request, maxBodyBytes } = ctx;
+	const refuse = (error: string, message: string, status: number): BoundedBody => ({
+		ok: false,
+		response: mcpNoStore({ error, error_description: message }, status),
+	});
+	const contentType = request.headers.get("content-type") ?? "";
+	if (formOnly && !contentType.toLowerCase().includes(FORM_TYPE)) {
+		return refuse("invalid_request", `Content-Type must be ${FORM_TYPE}`, 400);
+	}
+	const declared = Number(request.headers.get("content-length"));
+	if (Number.isFinite(declared) && declared > maxBodyBytes) {
+		return refuse("invalid_request", "Request body is too large", 413);
+	}
+	let text: string;
+	try {
+		text = await request.text();
+	} catch {
+		return refuse("invalid_request", "Malformed request body", 400);
+	}
+	if (new TextEncoder().encode(text).length > maxBodyBytes) {
+		return refuse("invalid_request", "Request body is too large", 413);
+	}
+	const headers = new Headers(request.headers);
+	headers.delete("content-length");
+	return { ok: true, request: new Request(request.url, { method: "POST", headers, body: text }) };
+}
+
+/** 401 for a failed client authentication, with the challenge RFC 6749 section 5.2 asks for. */
+function clientAuthFailure(result: { error: { code: string; message: string } }): Response {
+	const res = mcpNoStore(
+		{ error: result.error.code.toLowerCase(), error_description: result.error.message },
+		401,
+	);
+	res.headers.set("WWW-Authenticate", 'Basic realm="theauth", charset="UTF-8"');
+	return res;
+}
 
 function serverMetadata(ctx: RouteContext): Response {
 	if (!ctx.mcp) return notFound(NOT_CONFIGURED);
@@ -28,6 +73,11 @@ function resourceMetadata(ctx: RouteContext): Response {
 async function register(ctx: RouteContext): Promise<Response> {
 	const mcp = ctx.mcp;
 	if (!mcp) return notFound(NOT_CONFIGURED);
+	// Registration turned off on the module (`registration.enabled: false`): the metadata no
+	// longer advertises the endpoint, so the route does not exist either.
+	if (mcp.getMetadata().registration_endpoint === undefined) {
+		return notFound("Dynamic client registration is disabled");
+	}
 	const body = await readJsonBody(ctx.request, ctx.maxBodyBytes);
 	if (!body.ok) {
 		const tooLarge = body.response.status === 413;
@@ -116,26 +166,62 @@ async function revoke(ctx: RouteContext): Promise<Response> {
 	const mcp = ctx.mcp;
 	if (!mcp) return notFound(NOT_CONFIGURED);
 	try {
-		const result = await mcp.revoke(ctx.request);
+		const body = await boundedFormRequest(ctx, false);
+		if (!body.ok) return body.response;
+		const result = await mcp.revoke(body.request);
 		if (!result.success) {
-			const status = result.error.code === "INVALID_CLIENT" ? 401 : 400;
+			if (result.error.code === "INVALID_CLIENT") return clientAuthFailure(result);
 			return withNonce(
 				mcpNoStore(
 					{ error: result.error.code.toLowerCase(), error_description: result.error.message },
-					status,
+					400,
 				),
 				result.error.details,
 			);
 		}
 		return mcpNoStore({});
-	} catch (err) {
-		return mcpNoStore(
-			{
-				error: "server_error",
-				error_description: err instanceof Error ? err.message : "Revocation failed",
-			},
-			500,
-		);
+	} catch {
+		return mcpNoStore({ error: "server_error", error_description: "Revocation failed" }, 500);
+	}
+}
+
+/** RFC 7662: always `Cache-Control: no-store`. A disabled endpoint does not exist (404, and the metadata does not list it). */
+async function introspect(ctx: RouteContext): Promise<Response> {
+	const mcp = ctx.mcp;
+	if (!mcp) return notFound(NOT_CONFIGURED);
+	if (!mcp.introspect || mcp.getMetadata().introspection_endpoint === undefined) {
+		return notFound("Token introspection is not enabled");
+	}
+	try {
+		const body = await boundedFormRequest(ctx, true);
+		if (!body.ok) return body.response;
+		const result = await mcp.introspect(body.request);
+		if (!result.success) {
+			const code = result.error.code;
+			if (code === "INVALID_CLIENT") return clientAuthFailure(result);
+			if (code === "RATE_LIMITED") {
+				const wait = Number(result.error.details?.retryAfter);
+				const res = mcpNoStore(
+					{ error: "slow_down", error_description: result.error.message },
+					429,
+				);
+				res.headers.set("Retry-After", String(Number.isFinite(wait) && wait > 0 ? wait : 60));
+				return res;
+			}
+			if (code === "SERVER_ERROR") {
+				return mcpNoStore(
+					{ error: "temporarily_unavailable", error_description: result.error.message },
+					503,
+				);
+			}
+			return mcpNoStore(
+				{ error: code.toLowerCase(), error_description: result.error.message },
+				400,
+			);
+		}
+		return mcpNoStore(result.data);
+	} catch {
+		return mcpNoStore({ error: "server_error", error_description: "Introspection failed" }, 500);
 	}
 }
 
@@ -205,6 +291,15 @@ export const mcpRoutes: HttpRoute[] = [
 		mcpRoute: "revoke",
 		summary: "Token revocation (RFC 7009)",
 		handle: revoke,
+	},
+	{
+		method: "POST",
+		path: "/mcp/introspect",
+		auth: "client",
+		group: "mcp",
+		mcpRoute: "introspect",
+		summary: "Token introspection (RFC 7662)",
+		handle: introspect,
 	},
 	{
 		method: "GET",

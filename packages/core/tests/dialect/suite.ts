@@ -14,6 +14,7 @@ import type { SqlExecutor } from "../../src/db/migrate/types.js";
 import { schemaV120 } from "../helpers-schema-db.js";
 import { closeDatabase, createCoreBooter } from "./core-boot.js";
 import { defineCoreInstanceTests } from "./core-instance.js";
+import { defineMcpRevocationTests } from "./core-mcp-revocation.js";
 import { defineSchemaParityTests } from "./schema-parity.js";
 
 type Provider = "postgres" | "mysql";
@@ -368,6 +369,8 @@ export function defineDialectSuite(
 				expect(literal.map((e) => e.id)).toEqual(["d"]);
 			});
 		});
+
+		defineMcpRevocationTests(() => h);
 
 		describe("core instance", () => {
 			const booter = createCoreBooter(provider, url as string);

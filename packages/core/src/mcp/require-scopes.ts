@@ -22,9 +22,25 @@ const KNOWN_CODES: ReadonlySet<string> = new Set<McpAuthErrorCode>([
 	"SERVER_ERROR",
 ]);
 
+const DELEGATION_REASONS: ReadonlySet<string> = new Set([
+	"delegation_revoked",
+	"delegation_expired",
+	"agent_revoked",
+	"agent_expired",
+]);
+
+/** True when the freshness check (`details.revocation`) says the token's delegation or agent is gone. */
+function isDelegationReason(details: Record<string, unknown> | undefined): boolean {
+	const r = details?.revocation;
+	if (typeof r !== "object" || r === null) return false;
+	const reason = (r as { reason?: unknown }).reason;
+	return typeof reason === "string" && DELEGATION_REASONS.has(reason);
+}
+
 /** Refine the validator's code with what its details say (delegation and DPoP failures share INVALID_TOKEN there). */
 function refineCode(code: string, details: Record<string, unknown> | undefined): McpAuthErrorCode {
 	if (details?.delegation) return "DELEGATION_REVOKED";
+	if (isDelegationReason(details)) return "DELEGATION_REVOKED";
 	if (details?.dpopMissing === true) return "DPOP_REQUIRED";
 	return KNOWN_CODES.has(code) ? (code as McpAuthErrorCode) : "INVALID_TOKEN";
 }

@@ -7,6 +7,9 @@ import {
 } from "./grant-types.js";
 import type { McpAuthContext, McpProtectedResourceMetadata, McpServerMetadata } from "./types.js";
 
+/** Introspection never accepts public clients, so `none` is not offered. */
+const INTROSPECTION_AUTH_METHODS = ["client_secret_basic", "client_secret_post", "private_key_jwt"];
+
 function signingAlgs(ctx: McpAuthContext): string[] {
 	const algs: string[] = [];
 	if (ctx.config.signing) algs.push(ctx.config.signing.alg);
@@ -35,7 +38,9 @@ export function getAuthorizationServerMetadata(ctx: McpAuthContext): McpServerMe
 		issuer,
 		authorization_endpoint: `${baseUrl}/mcp/authorize`,
 		token_endpoint: `${baseUrl}/mcp/token`,
-		registration_endpoint: `${baseUrl}/mcp/register`,
+		...(ctx.config.registration?.enabled === false
+			? {}
+			: { registration_endpoint: `${baseUrl}/mcp/register` }),
 		...(ctx.config.signing ? { jwks_uri: `${baseUrl}/mcp/jwks` } : {}),
 		scopes_supported: allScopes,
 		response_types_supported: ["code"],
@@ -57,6 +62,13 @@ export function getAuthorizationServerMetadata(ctx: McpAuthContext): McpServerMe
 			"none",
 		],
 		revocation_endpoint_auth_signing_alg_values_supported: CLIENT_ASSERTION_ALGS,
+		...(ctx.config.introspection?.enabled
+			? {
+					introspection_endpoint: `${baseUrl}/mcp/introspect`,
+					introspection_endpoint_auth_methods_supported: INTROSPECTION_AUTH_METHODS,
+					introspection_endpoint_auth_signing_alg_values_supported: CLIENT_ASSERTION_ALGS,
+				}
+			: {}),
 		authorization_response_iss_parameter_supported: true,
 		client_id_metadata_document_supported: ctx.config.clientIdMetadataDocuments?.enabled === true,
 		...(ctx.config.dpop ? { dpop_signing_alg_values_supported: getDpopAlgs(ctx) } : {}),
@@ -91,6 +103,8 @@ export interface McpMountedRoutes {
 	authorize: boolean;
 	token: boolean;
 	revoke: boolean;
+	/** Also needs `introspection.enabled` on the module before it is advertised or served. */
+	introspect: boolean;
 	jwks: boolean;
 }
 
@@ -100,6 +114,7 @@ export const ALL_MCP_ROUTES: McpMountedRoutes = {
 	authorize: true,
 	token: true,
 	revoke: true,
+	introspect: true,
 	jwks: true,
 };
 
@@ -126,6 +141,11 @@ export function applyMountedToServerMetadata(
 		hidden.add("revocation_endpoint");
 		hidden.add("revocation_endpoint_auth_methods_supported");
 		hidden.add("revocation_endpoint_auth_signing_alg_values_supported");
+	}
+	if (!mounted.introspect) {
+		hidden.add("introspection_endpoint");
+		hidden.add("introspection_endpoint_auth_methods_supported");
+		hidden.add("introspection_endpoint_auth_signing_alg_values_supported");
 	}
 	return Object.fromEntries(
 		Object.entries(metadata).filter(([key]) => !hidden.has(key)),

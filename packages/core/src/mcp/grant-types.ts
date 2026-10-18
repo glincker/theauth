@@ -1,5 +1,6 @@
 import type { JWK } from "jose";
 import type { SecondaryStorage } from "../storage/types.js";
+import type { McpDelegationBinding } from "./revocation-types.js";
 import type { DnsResolver } from "./safe-fetch.js";
 import type { McpClient } from "./types.js";
 
@@ -62,6 +63,8 @@ export interface McpTokenExchangeInput {
 	actor: { userId: string; clientId: string } | null;
 	scopes: string[];
 	resource: string | null;
+	/** The resolved `theauth_dlg` binding the issued token will carry. Absent when the token is unbound. */
+	binding?: McpDelegationBinding;
 }
 
 export interface McpTokenExchangeConfig {

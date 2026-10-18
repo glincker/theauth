@@ -4,6 +4,8 @@ import { generateId, randomBytes, sha256, toBase64Url } from "../crypto/web-cryp
 import type { Database } from "../db/database.js";
 import { agents, permissions } from "../db/schema.js";
 import { createDelegationModule } from "../delegation/delegation.js";
+import { revocationRowExpiry } from "../mcp/revocation-bus.js";
+import type { McpRevocationBus } from "../mcp/revocation-types.js";
 import type {
 	AgentFilter,
 	AgentIdentity,
@@ -18,6 +20,8 @@ interface AgentModuleConfig {
 	maxPerUser: number;
 	defaultPermissions: string[];
 	tokenExpiry: string;
+	/** Receives agent and cascaded delegation revocations for the shared MCP denylist. Optional. */
+	revocations?: McpRevocationBus;
 }
 
 /**
@@ -53,8 +57,8 @@ function parseTokenExpiry(expiry: string): Date {
 
 /** Create the agent identity module. Handles CRUD operations for AI agent identities. */
 export function createAgentModule(config: AgentModuleConfig) {
-	const { db, maxPerUser, tokenExpiry } = config;
-	const delegation = createDelegationModule({ db });
+	const { db, maxPerUser, tokenExpiry, revocations } = config;
+	const delegation = createDelegationModule({ db, revocations });
 
 	async function create(input: CreateAgentInput): Promise<AgentIdentity & { token: string }> {
 		// Check max agents per user
@@ -226,6 +230,34 @@ export function createAgentModule(config: AgentModuleConfig) {
 			.update(agents)
 			.set({ status: "revoked", updatedAt: new Date() })
 			.where(eq(agents.id, agentId));
+
+		// Tokens bound to this agent die now; the bound delegations are pushed by the delegation module.
+		if (revocations) {
+			const now = new Date();
+			try {
+				await revocations.publish(
+					{
+						kind: "agent",
+						ids: [agentId],
+						revokedAt: now,
+						reason: "agent.revoke",
+						userId: existing.ownerId,
+						sourceId: agentId,
+					},
+					[
+						{
+							kind: "agent",
+							id: agentId,
+							expiresAt: revocationRowExpiry(existing.expiresAt, now),
+							reason: "agent.revoke",
+							sourceId: agentId,
+						},
+					],
+				);
+			} catch {
+				// The bus reports its own failures; the agent row is already revoked.
+			}
+		}
 
 		const revokedDelegations = await delegation.revokeAllForAgent(agentId);
 		if (revokedDelegations.length > 0) {

@@ -2,10 +2,8 @@ import { createAgentModule } from "./agent/agent.js";
 import { createAgentFacade } from "./agent/facade.js";
 import { createPrivilegeAnalyzer } from "./analyzer/privilege.js";
 import { createApprovalModule } from "./approval/approval.js";
-import { createAuditModule } from "./audit/audit.js";
-import { enableAuditChain } from "./audit/chain.js";
 import { createAuditFacade } from "./audit/facade.js";
-import { setAuditWriteErrorHandler } from "./audit/record.js";
+import { createConfiguredAuditModule } from "./audit/setup.js";
 import { createHumanAuthModules } from "./auth/human-modules.js";
 import type { SignInGate } from "./auth/sign-in-gate.js";
 import { createSignInGate } from "./auth/sign-in-gate.js";
@@ -17,6 +15,7 @@ import { createDelegationModule } from "./delegation/delegation.js";
 import { createDidModule } from "./did/module.js";
 import { createExplainer } from "./explain/explain.js";
 import { createHookRuntime } from "./hooks/runtime.js";
+import { createCoreRevocationBus, withMcpSignOutRevocation } from "./mcp/revocation-wiring.js";
 import { createMcpServerRegistry } from "./mcp/server-registry.js";
 import { createObservability } from "./observability/index.js";
 import { createPermissionEngine } from "./permission/engine.js";
@@ -67,7 +66,9 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		runBeforeAuthorize: hooks.beforeAuthorize ? runBeforeAuthorize : undefined,
 	});
 
+	const revocations = createCoreRevocationBus(db, config, observability.logger);
 	const agentModule = createAgentModule({
+		revocations,
 		db,
 		maxPerUser: config.agents?.maxPerUser ?? 10,
 		defaultPermissions: config.agents?.defaultPermissions ?? [],
@@ -79,16 +80,14 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		auditAll: config.agents?.auditAll ?? true,
 	});
 
-	if (config.audit?.tamperEvident) {
-		enableAuditChain(db, { hmacKey: config.audit.hmacKey });
-	}
-	setAuditWriteErrorHandler(db, config.audit?.onAuditError);
-	const auditModule = createAuditModule({ db, hmacKey: config.audit?.hmacKey });
+	const auditModule = createConfiguredAuditModule(db, config.audit);
 
-	const delegationModule = createDelegationModule({ db });
-	const sessionManager: SessionManager | null = config.auth?.session
-		? createSessionManager(config.auth.session, db)
-		: null;
+	const delegationModule = createDelegationModule({ db, revocations });
+	const sessionManager: SessionManager | null = withMcpSignOutRevocation(
+		config.auth?.session ? createSessionManager(config.auth.session, db) : null,
+		revocations,
+		config,
+	);
 
 	// Always created. Without config, only the forced password change is active.
 	// It reads only tables whose feature is enabled, mirroring createTables feature detection.
@@ -172,8 +171,6 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		pluginContext: pluginRegistry.pluginContext,
 	});
 
-	const mcpRegistry = createMcpServerRegistry(db);
-
 	return {
 		agent: agentProxy,
 		/** User rows: idempotent `create({ email, name?, id? })` and `get(idOrEmail)`. */
@@ -188,7 +185,9 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		delegation,
 		audit: createAuditFacade(auditModule),
 		/** MCP server registration, backed by the `theauth_mcp_servers` table. */
-		mcp: mcpRegistry,
+		mcp: createMcpServerRegistry(db),
+		/** @internal Revocation bus: `createMcpModule({ auth })` subscribes its freshness cache to it. */
+		revocations,
 		/** Schema migration ledger: `schema.status()` lists applied and pending migrations. */
 		schema: createSchemaApi(db, config),
 		/** Per-feature secondary storage (rate limits, device codes, ...). */

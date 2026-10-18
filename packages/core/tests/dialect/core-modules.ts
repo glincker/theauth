@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createCostAttributionModule } from "../../src/auth/cost-attribution.js";
 import type { CoreBooter } from "./core-boot.js";
 import { defineMcpCoreTests } from "./core-mcp.js";
+import { defineMcpRevocationE2eTests } from "./core-mcp-revocation.js";
 
 const HOUR = 3_600_000;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -10,6 +11,7 @@ export function defineModuleCoreTests(booter: CoreBooter): void {
 	const { boot } = booter;
 
 	defineMcpCoreTests(booter);
+	defineMcpRevocationE2eTests(booter);
 
 	describe("approvals", () => {
 		it("consumes an approval exactly once under concurrency", async () => {

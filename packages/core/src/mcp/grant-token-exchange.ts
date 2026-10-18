@@ -1,4 +1,12 @@
 import { decodeJwt, decodeProtectedHeader } from "jose";
+import {
+	bindingActorMapper,
+	bindingStoreOf,
+	earliest,
+	readBindingClaim,
+	requireBoundChain,
+	resolveExchangeBinding,
+} from "./binding.js";
 import type { GrantClientAuth } from "./grant-common.js";
 import { authenticateGrantClient, narrowScopes } from "./grant-common.js";
 import {
@@ -7,7 +15,9 @@ import {
 	TOKEN_TYPE_ACCESS_TOKEN,
 } from "./grant-types.js";
 import { canonicalizeResource, configuredResources } from "./lenient.js";
-import { issueGrantToken } from "./token-issue.js";
+import type { McpDelegationBinding, McpMintBinding } from "./revocation-types.js";
+import { MCP_DELEGATION_CLAIM } from "./revocation-types.js";
+import { issueGrantToken, MCP_BINDING_REFUSED } from "./token-issue.js";
 import type {
 	McpActorClaim,
 	McpAuthContext,
@@ -24,14 +34,21 @@ import { validateAccessToken } from "./validate.js";
  * - a DPoP-bound token can only be exchanged with a proof from the same key;
  * - scopes can narrow, never widen;
  * - the audience can change only to a configured resource;
- * - the new token never outlives the subject token;
- * - the result carries a nested `act` claim, capped at `maxChainDepth`.
+ * - the new token never outlives the subject token, the actor token, any bound delegation link or any bound agent;
+ * - the result carries a nested `act` claim (RFC 8693 section 4.1), capped at `maxChainDepth`;
+ * - when a binding store is attached, the result also carries the signed `theauth_dlg` binding to the
+ *   exact delegation rows and agents its authority rests on (refused when a link is missing, revoked
+ *   or expired, an agent is dead, or the actor mapper throws). With no agent on the path the token is
+ *   unbound (only jti, subject and client revocation apply) unless `revocation.requireBoundChain`;
+ * - exchanged tokens never carry a refresh token.
  */
 
 interface VerifiedToken {
 	session: McpSession;
 	act: McpActorClaim | undefined;
 	agent: { agentId?: string; agentType?: string; trustTier?: string } | undefined;
+	/** The verified `theauth_dlg`, when the token is bound. */
+	binding: McpDelegationBinding | undefined;
 }
 
 function grantError(message: string): Result<never> {
@@ -61,11 +78,16 @@ async function verifyOwnToken(
 
 	// The audience read above only selects which value to verify against; the
 	// signature and issuer checks make it trustworthy.
+	// The token endpoint always checks revocation and the binding live, whatever the resource mode.
 	const result = await validateAccessToken(ctx, token, {
 		expectedAudience: aud,
 		presentedDpopJkt: bound ? proofJkt : null,
+		freshness: "live",
 	});
 	if (!result.success) return grantError(`${label} is not valid: ${result.error.message}`);
+	// Read only now that the signature verified: the claim is never trusted from anywhere else.
+	const binding = result.data.binding ?? readBindingClaim(claims[MCP_DELEGATION_CLAIM]);
+	if (binding === null) return grantError(`${label} has a malformed delegation binding`);
 
 	const act = claims.act as McpActorClaim | undefined;
 	const agentId = typeof claims.agent_id === "string" ? claims.agent_id : undefined;
@@ -84,6 +106,7 @@ async function verifyOwnToken(
 						...(trustTier !== undefined ? { trustTier } : {}),
 					}
 				: undefined,
+			binding,
 		},
 	};
 }
@@ -169,10 +192,12 @@ export async function handleTokenExchangeGrant(
 	const subject = await verifyOwnToken(ctx, data.subject_token, proofJkt, "subject_token");
 	if (!subject.success) return subject;
 	let actorSession: McpSession | null = null;
+	let actorBinding: McpDelegationBinding | undefined;
 	if (data.actor_token !== undefined) {
 		const actor = await verifyOwnToken(ctx, data.actor_token, proofJkt, "actor_token");
 		if (!actor.success) return actor;
 		actorSession = actor.data.session;
+		actorBinding = actor.data.binding;
 	}
 	const subjectSession = subject.data.session;
 
@@ -215,6 +240,16 @@ export async function handleTokenExchangeGrant(
 		};
 	}
 
+	const now = new Date();
+	const minted = await mintBinding(ctx, {
+		subject: subject.data,
+		actor: { sub: actorSub, clientId: actorClientId },
+		actorBinding,
+		now,
+	});
+	if (!minted.success) return minted;
+	const binding = minted.data.binding;
+
 	if (config.authorize) {
 		const allowed = await config.authorize({
 			client,
@@ -227,6 +262,7 @@ export async function handleTokenExchangeGrant(
 			actor: actorSession ? { userId: actorSession.userId, clientId: actorSession.clientId } : null,
 			scopes: scopes.data,
 			resource,
+			...(binding ? { binding } : {}),
 		});
 		if (!allowed) {
 			return {
@@ -236,22 +272,79 @@ export async function handleTokenExchangeGrant(
 		}
 	}
 
-	// Lifetime never exceeds the subject token's
-	const remaining = Math.floor((subjectSession.expiresAt.getTime() - Date.now()) / 1000);
-	if (remaining < 1) return grantError("subject_token is about to expire");
+	// Lifetime: min(accessTokenTtl, subject exp, actor token exp, every bound link and agent expiry)
+	const notAfter = earliest(
+		subjectSession.expiresAt,
+		actorSession?.expiresAt,
+		minted.data.capAt,
+	) as Date;
+	const remaining = Math.floor(notAfter.getTime() / 1000) - Math.floor(Date.now() / 1000);
+	if (remaining < 1) return grantError("subject_token or its delegation is about to expire");
 
-	const response = await issueGrantToken(ctx, {
-		userId: subjectSession.userId,
-		clientId: client.clientId,
-		scopes: scopes.data,
-		resource,
-		dpopJkt: proofJkt,
-		options: {
-			ttlSeconds: Math.min(ctx.config.accessTokenTtl, remaining),
-			act,
-			...(subject.data.agent ? { agent: subject.data.agent } : {}),
-		},
-		issuedTokenType: TOKEN_TYPE_ACCESS_TOKEN,
+	try {
+		const response = await issueGrantToken(ctx, {
+			userId: subjectSession.userId,
+			clientId: client.clientId,
+			scopes: scopes.data,
+			resource,
+			dpopJkt: proofJkt,
+			options: {
+				ttlSeconds: Math.min(ctx.config.accessTokenTtl, remaining),
+				expiresNotAfter: notAfter,
+				act,
+				binding: binding ?? null,
+				...(subject.data.agent ? { agent: subject.data.agent } : {}),
+			},
+			issuedTokenType: TOKEN_TYPE_ACCESS_TOKEN,
+		});
+		return { success: true, data: response };
+	} catch (error) {
+		if (error instanceof Error && error.name === MCP_BINDING_REFUSED) {
+			return grantError(error.message);
+		}
+		throw error;
+	}
+}
+
+/**
+ * Resolve the child's delegation binding. Without an attached binding store nothing changes from
+ * before bindings existed (unbound, no mapper calls), except that `requireBoundChain` refuses.
+ * An actor token that is itself bound must be live too; its authority is not merged into the child.
+ */
+async function mintBinding(
+	ctx: McpAuthContext,
+	input: {
+		subject: VerifiedToken;
+		actor: { sub: string; clientId: string };
+		actorBinding: McpDelegationBinding | undefined;
+		now: Date;
+	},
+): Promise<Result<McpMintBinding>> {
+	const required = requireBoundChain(ctx);
+	const store = bindingStoreOf(ctx);
+	if (!store) {
+		if (required) return grantError("Token exchange requires a delegation binding store");
+		return { success: true, data: { capAt: null } };
+	}
+	if (input.actorBinding) {
+		const verdict = await store.check(input.actorBinding, input.now).catch(() => null);
+		if (verdict === null) {
+			return {
+				success: false,
+				error: { code: "SERVER_ERROR", message: "Delegation binding could not be checked" },
+			};
+		}
+		if (!verdict.live)
+			return grantError(`actor_token delegation is no longer live (${verdict.reason})`);
+	}
+	const { session, act, agent, binding } = input.subject;
+	return resolveExchangeBinding(store, bindingActorMapper(ctx), {
+		...(binding ? { parent: binding } : {}),
+		subject: session.userId,
+		...(act ? { act } : {}),
+		...(agent?.agentId ? { subjectAgentId: agent.agentId } : {}),
+		actor: input.actor,
+		requireBoundChain: required,
+		now: input.now,
 	});
-	return { success: true, data: response };
 }

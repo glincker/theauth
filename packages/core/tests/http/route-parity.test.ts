@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { createTheAuthHandler, listRoutes } from "../../src/http/index.js";
+import type { McpAuthModule } from "../../src/mcp/types.js";
 import type { TheAuth } from "../../src/theauth.js";
 import { makeHarness } from "../mcp-test-harness.js";
 import { BASE, makeAuth, newAgent, sessionToken } from "./helpers.js";
@@ -271,6 +272,19 @@ const ROWS: Row[] = [
 		call: () => ({ method: "POST", path: "/mcp/revoke", body: {} }),
 	},
 	{
+		method: "POST",
+		spec: "/mcp/introspect",
+		as: "none",
+		allowed: 401,
+		unauthenticated: 401,
+		forbidden: null,
+		call: () => ({
+			method: "POST",
+			path: "/mcp/introspect",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+		}),
+	},
+	{
 		method: "GET",
 		spec: "/mcp/jwks",
 		as: "none",
@@ -315,8 +329,22 @@ beforeAll(async () => {
 	auth = await makeAuth();
 	aliceToken = await sessionToken(auth, "alice");
 	bobToken = await sessionToken(auth, "bob");
+	// Introspection is wired by the MCP module; a stub that always fails client auth is enough to
+	// pin the route's status mapping here (the behavior has its own tests).
+	const base = makeHarness().mcp;
+	const mcp: McpAuthModule = {
+		...base,
+		getMetadata: () => ({
+			...base.getMetadata(),
+			introspection_endpoint: "http://localhost/api/theauth/mcp/introspect",
+		}),
+		introspect: async () => ({
+			success: false,
+			error: { code: "INVALID_CLIENT", message: "Client authentication failed" },
+		}),
+	};
 	handler = createTheAuthHandler(auth, {
-		mcp: makeHarness().mcp,
+		mcp,
 		rateLimit: false,
 	});
 });

@@ -16,8 +16,8 @@ import { createTheAuthWith } from "../src/theauth-core.js";
 import { columnsOf, indexNames, ledgerIds, memoryDb, memoryDbV120 } from "./helpers-schema-db.js";
 
 const ALL_IDS = MIGRATIONS.map((m) => m.id);
-/** Migrations a config without the oauth feature applies (0006 needs oauth). */
-const CORE_IDS = ALL_IDS.filter((id) => id !== "0006");
+/** Migrations a config without the oauth feature applies (0006 and 0008 need oauth). */
+const CORE_IDS = ALL_IDS.filter((id) => id !== "0006" && id !== "0007" && id !== "0008");
 
 describe("migration ledger: fresh SQLite database", () => {
 	it("creates every table, records every migration and reports nothing pending", async () => {

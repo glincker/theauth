@@ -399,6 +399,7 @@
               "mcp",
               "mcp-grants",
               "mcp-client-compat",
+              "mcp-client-id-metadata",
               "conformance",
               "admin-mcp",
               "dpop",

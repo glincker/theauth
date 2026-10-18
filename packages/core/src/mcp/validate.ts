@@ -1,5 +1,13 @@
 import { checkLiveDelegation } from "./delegation-check.js";
+import type { McpFreshnessSubject } from "./freshness.js";
+import {
+	checkFreshness,
+	freshnessError,
+	parseBinding,
+	resolveFreshnessSettings,
+} from "./freshness.js";
 import { verifyAccessJwt } from "./keys.js";
+import type { McpFreshnessMode, McpValidateOptions } from "./revocation-types.js";
 import type {
 	McpActorClaim,
 	McpAuthContext,
@@ -48,6 +56,61 @@ function readDelegationChain(act: McpActorClaim | undefined): McpDelegationHop[]
 	return chain;
 }
 
+function rejectedDetail(rejected: McpRejectedToken | undefined): Record<string, unknown> {
+	return rejected ? { rejected } : {};
+}
+
+/**
+ * Revocation and binding check for a token whose signature, audience and DPoP key already verified.
+ * Succeeds with the time the check ran. A store error is `SERVER_ERROR` (fail closed, never allow).
+ * The `theauth_dlg` binding is checked by the freshness layer. The opt in `delegationStore` walk of
+ * the `act` chain additionally runs whenever a store is configured, bound token or not: a binding
+ * only names the agents resolved at mint time, the walk also maps the subject and actors through
+ * the integrator's mapper (a user mapped to a root agent), so it can see links the binding does not.
+ */
+async function runFreshness(
+	ctx: McpAuthContext,
+	subject: McpFreshnessSubject,
+	chain: McpDelegationHop[],
+	mode: McpFreshnessMode,
+	rejected: McpRejectedToken | undefined,
+): Promise<Result<Date>> {
+	const outcome = await checkFreshness(ctx, subject, mode);
+	if (!outcome.ok) {
+		return { success: false, error: freshnessError(outcome, rejectedDetail(rejected)) };
+	}
+	if (ctx.config.delegationStore && chain.length > 0) {
+		const failure = await checkLiveDelegation(ctx.config.delegationStore, subject.sub, chain, {
+			resolveActorAgentId: ctx.config.resolveActorAgentId,
+			allowUnmappedActors: ctx.config.allowUnmappedActors,
+		}).catch(() => "unavailable" as const);
+		if (failure === "unavailable") {
+			return {
+				success: false,
+				error: freshnessError({ ok: false, kind: "unavailable" }, rejectedDetail(rejected)),
+			};
+		}
+		if (failure) {
+			const detail =
+				failure.reason === "unmapped actor" || failure.reason === "mapper failed"
+					? failure.reason
+					: `${failure.reason} link`;
+			return {
+				success: false,
+				error: {
+					code: "INVALID_TOKEN",
+					message: `Delegation chain is no longer valid (${detail})`,
+					details: {
+						delegation: { from: failure.from, to: failure.to, reason: failure.reason },
+						...rejectedDetail(rejected),
+					},
+				},
+			};
+		}
+	}
+	return { success: true, data: outcome.checkedAt };
+}
+
 /**
  * Validates an MCP access token (JWT): signature (HS256, or ES256/EdDSA via the JWKS), audience,
  * revocation, scopes, and DPoP binding. A token with `cnf.jkt` is refused unless the caller passes
@@ -56,13 +119,7 @@ function readDelegationChain(act: McpActorClaim | undefined): McpDelegationHop[]
 export async function validateAccessToken(
 	ctx: McpAuthContext,
 	token: string,
-	options?: {
-		requiredScopes?: string[];
-		/** The canonical URI of this resource server. Required: a token minted for another resource must never be accepted here. */
-		expectedAudience?: string;
-		/** Thumbprint of the DPoP key whose proof the caller already verified for this request, or null/undefined for a bearer presentation. */
-		presentedDpopJkt?: string | null;
-	},
+	options?: McpValidateOptions,
 ): Promise<Result<McpSession>> {
 	if (!options?.expectedAudience) {
 		return {
@@ -126,49 +183,6 @@ export async function validateAccessToken(
 
 	const rejected = rejectedFrom(payload);
 
-	// Revocation (opt-in jti denylist)
-	if (ctx.config.jtiDenylist && (await ctx.config.jtiDenylist.isRevoked(payload.jti))) {
-		return {
-			success: false,
-			error: {
-				code: "INVALID_TOKEN",
-				message: "Token has been revoked",
-				details: { revoked: true, ...(rejected ? { rejected } : {}) },
-			},
-		};
-	}
-
-	// Live delegation check (opt-in): every link in the act chain must still be live
-	const delegationChain = readDelegationChain(payload.act);
-	if (ctx.config.delegationStore && delegationChain.length > 0) {
-		const failure = await checkLiveDelegation(
-			ctx.config.delegationStore,
-			payload.sub,
-			delegationChain,
-			{
-				resolveActorAgentId: ctx.config.resolveActorAgentId,
-				allowUnmappedActors: ctx.config.allowUnmappedActors,
-			},
-		);
-		if (failure) {
-			const detail =
-				failure.reason === "unmapped actor" || failure.reason === "mapper failed"
-					? failure.reason
-					: `${failure.reason} link`;
-			return {
-				success: false,
-				error: {
-					code: "INVALID_TOKEN",
-					message: `Delegation chain is no longer valid (${detail})`,
-					details: {
-						delegation: { from: failure.from, to: failure.to, reason: failure.reason },
-						...(rejected ? { rejected } : {}),
-					},
-				},
-			};
-		}
-	}
-
 	// Audience claim must exist (jose already matched it)
 	const audience = payload.aud;
 	if (!audience) {
@@ -217,6 +231,38 @@ export async function validateAccessToken(
 		};
 	}
 
+	// Everything above is cryptographic or in memory. Only now, with signature, issuer, audience,
+	// exp and the DPoP key verified, are `theauth_dlg` and `act` trusted and the stores read.
+	const binding = parseBinding(payload.theauth_dlg);
+	if (binding === null) {
+		return {
+			success: false,
+			error: {
+				code: "INVALID_TOKEN",
+				message: "Token delegation binding is malformed",
+				details: {
+					revocation: { reason: "invalid", id: payload.jti },
+					...rejectedDetail(rejected),
+				},
+			},
+		};
+	}
+	const delegationChain = readDelegationChain(payload.act);
+	const subject: McpFreshnessSubject = {
+		jti: payload.jti,
+		sub: payload.sub,
+		clientId: payload.client_id,
+		iat: typeof payload.iat === "number" ? payload.iat : 0,
+		exp: payload.exp,
+		...(binding ? { binding } : {}),
+		...(!binding && typeof payload.agent_id === "string" && payload.agent_id
+			? { agentId: payload.agent_id }
+			: {}),
+	};
+	const mode = options.freshness ?? resolveFreshnessSettings(ctx).mode;
+	const fresh = await runFreshness(ctx, subject, delegationChain, mode, rejected);
+	if (!fresh.success) return fresh;
+
 	const tokenScopes = payload.scope ? payload.scope.split(" ") : [];
 	const requiredScopes = options?.requiredScopes ?? [];
 
@@ -257,6 +303,17 @@ export async function validateAccessToken(
 				}
 			: {}),
 		delegationChain,
+		...(binding ? { binding } : {}),
+		freshness: { mode, checkedAt: fresh.data },
+	};
+	session.revalidate = async () => {
+		if (Date.now() >= payload.exp * 1000) {
+			return { success: false, error: { code: "TOKEN_EXPIRED", message: "Token has expired" } };
+		}
+		const again = await runFreshness(ctx, subject, delegationChain, "live", rejected);
+		if (!again.success) return again;
+		session.freshness = { mode: "live", checkedAt: again.data };
+		return { success: true, data: undefined };
 	};
 
 	return { success: true, data: session };

@@ -1,9 +1,18 @@
-import { verifyClientAssertion } from "./client-assertion.js";
-import { authenticateClient } from "./client-auth.js";
-import { resolveClient } from "./client-metadata.js";
+import { authenticateEndpointClient } from "./endpoint-client-auth.js";
+import { invalidateFreshnessCache } from "./freshness.js";
 import { verifyAccessJwt } from "./keys.js";
+import { revocationRowExpiry } from "./revocation-bus.js";
+import type { McpRevocationStore } from "./revocation-types.js";
 import type { McpAccessToken, McpAuthContext, Result } from "./types.js";
-import { extractBasicAuth, hashToken, parseRequestBody } from "./utils.js";
+import { hashToken, parseRequestBody } from "./utils.js";
+
+function isRevocationStore(value: unknown): value is McpRevocationStore {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		typeof (value as Record<string, unknown>).revokeMany === "function"
+	);
+}
 
 /**
  * Revoke one stored access token: tell the store and, when a jti denylist is configured, deny the jti until the token would have expired on its own. Without a denylist the JWT stays cryptographically valid until `exp`; see the docs for what that means for resource servers.
@@ -13,8 +22,23 @@ export async function revokeStoredAccessToken(
 	record: Pick<McpAccessToken, "accessToken" | "jti" | "expiresAt">,
 ): Promise<void> {
 	await ctx.revokeToken(record.accessToken);
-	if (ctx.config.jtiDenylist && record.jti) {
-		await ctx.config.jtiDenylist.revoke(record.jti, record.expiresAt);
+	const denylist = ctx.config.jtiDenylist;
+	if (denylist && record.jti) {
+		if (isRevocationStore(denylist)) {
+			// Shared denylist: every instance sharing the database refuses this jti on its next check.
+			await denylist.revokeMany([
+				{
+					kind: "jti",
+					id: record.jti,
+					expiresAt: revocationRowExpiry(record.expiresAt, new Date()),
+					reason: "oauth.revoke",
+				},
+			]);
+		} else {
+			await denylist.revoke(record.jti, record.expiresAt);
+		}
+		// Cached mode on this instance must not keep serving a positive verdict.
+		invalidateFreshnessCache(ctx);
 	}
 }
 
@@ -31,56 +55,36 @@ export async function revokeFamilyAndTokens(
 
 /**
  * RFC 7009 token revocation.
- * The caller must authenticate as a client and can only revoke tokens issued to that client. Unknown or foreign tokens still return success (the RFC forbids revealing whether a token exists), they just are not touched. An assertion must be addressed to the revocation endpoint (`<baseUrl>/mcp/revoke`) or the issuer, and each `jti` is accepted once across the token and revocation endpoints.
+ * The caller must authenticate as a client and can only revoke tokens issued to that client. Unknown or foreign tokens still return success (the RFC forbids revealing whether a token exists), they just are not touched. An assertion must be addressed to the revocation endpoint (`<baseUrl>/mcp/revoke`) or the issuer, and each `jti` is accepted once across the token, revocation and introspection endpoints.
  */
 export async function handleRevocation(
 	ctx: McpAuthContext,
 	request: Request,
 ): Promise<Result<Record<string, never>>> {
-	const body = await parseRequestBody(request);
-	const basic = extractBasicAuth(request);
-
-	// private_key_jwt: the signed assertion names the client.
-	let assertionVerified = false;
-	let assertedClientId: string | undefined;
-	if (body.client_assertion !== undefined) {
-		if (basic !== null || body.client_secret !== undefined) {
-			return {
-				success: false,
-				error: {
-					code: "INVALID_REQUEST",
-					message: "Only one client authentication method may be used",
-				},
-			};
-		}
-		const verified = await verifyClientAssertion(ctx, {
-			assertion: body.client_assertion,
-			assertionType: body.client_assertion_type,
-			...(body.client_id !== undefined ? { expectedClientId: body.client_id } : {}),
-			tokenEndpointUrl: `${ctx.config.baseUrl}/mcp/revoke`,
-		});
-		if (!verified.success) return verified;
-		assertedClientId = verified.data.clientId;
-		assertionVerified = true;
+	let body: Record<string, string>;
+	try {
+		body = await parseRequestBody(request);
+	} catch {
+		return {
+			success: false,
+			error: { code: "INVALID_REQUEST", message: "Malformed request body" },
+		};
 	}
 
-	const clientId = assertedClientId ?? basic?.[0] ?? body.client_id;
-	const secret = basic?.[1] ?? body.client_secret ?? null;
+	const authenticated = await authenticateEndpointClient(
+		ctx,
+		request,
+		body,
+		`${ctx.config.baseUrl}/mcp/revoke`,
+		{ allowPublicClients: true },
+	);
+	if (!authenticated.success) return authenticated;
+	const clientId = authenticated.data.clientId;
+
 	const token = body.token;
-
-	if (!clientId) {
-		return { success: false, error: { code: "INVALID_CLIENT", message: "client_id is required" } };
-	}
 	if (!token) {
 		return { success: false, error: { code: "INVALID_REQUEST", message: "token is required" } };
 	}
-
-	const client = await resolveClient(ctx, clientId);
-	if (!client || client.disabled) {
-		return { success: false, error: { code: "INVALID_CLIENT", message: "Unknown client" } };
-	}
-	const auth = await authenticateClient(ctx, client, secret, assertionVerified);
-	if (!auth.success) return auth;
 
 	const ok: Result<Record<string, never>> = { success: true, data: {} };
 	const hint = body.token_type_hint;
@@ -102,17 +106,24 @@ export async function handleRevocation(
 	}
 
 	// Treat the value as an access token JWT. Only tokens we signed count.
+	let verified: { jti: string; exp: Date } | null = null;
 	try {
 		const payload = await verifyAccessJwt(ctx, token);
-		if (payload.client_id !== clientId || typeof payload.jti !== "string") return ok;
-		const exp = typeof payload.exp === "number" ? new Date(payload.exp * 1000) : new Date();
-		await revokeStoredAccessToken(ctx, {
-			accessToken: await hashToken(token),
-			jti: payload.jti,
-			expiresAt: exp,
-		});
+		if (payload.client_id === clientId && typeof payload.jti === "string") {
+			verified = {
+				jti: payload.jti,
+				exp: typeof payload.exp === "number" ? new Date(payload.exp * 1000) : new Date(),
+			};
+		}
 	} catch {
 		// Invalid or expired token: nothing to revoke.
+	}
+	if (verified) {
+		await revokeStoredAccessToken(ctx, {
+			accessToken: await hashToken(token),
+			jti: verified.jti,
+			expiresAt: verified.exp,
+		});
 	}
 	return ok;
 }

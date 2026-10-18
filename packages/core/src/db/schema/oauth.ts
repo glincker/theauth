@@ -1,5 +1,5 @@
 import { sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { bool, json, timestampSec } from "./columns.js";
+import { bigintNumber, bool, json, timestampSec } from "./columns.js";
 import { agents, users } from "./core.js";
 
 export const oauthClients = sqliteTable("theauth_oauth_clients", {
@@ -27,8 +27,26 @@ export const oauthClients = sqliteTable("theauth_oauth_clients", {
 	jwksUri: text("jwks_uri"),
 	userId: text("user_id"),
 	source: text("source"),
+	/**
+	 * Client ID Metadata Document snapshot (migration 0008). The two epoch second columns are declared with `bigintNumber`, not `timestampSec`: the timestamp list in ddl/timestamp-columns.ts is frozen with migration 0003, so stores convert them to Date.
+	 */
+	cimdDocument: json<Record<string, unknown>>("cimd_document"),
+	cimdDigest: text("cimd_digest"),
+	cimdFetchedAt: bigintNumber("cimd_fetched_at"),
+	cimdExpiresAt: bigintNumber("cimd_expires_at"),
+	disabledReason: text("disabled_reason"),
 	createdAt: timestampSec("created_at").notNull(),
 	updatedAt: timestampSec("updated_at").notNull(),
+});
+
+/** Admin blocks on client metadata URLs or hosts (migration 0008). `created_at` is epoch seconds, declared with `bigintNumber` for the same reason as the CIMD columns above. */
+export const mcpClientBlocks = sqliteTable("theauth_mcp_client_blocks", {
+	id: text("id").primaryKey(),
+	kind: text("kind", { enum: ["url", "host"] }).notNull(),
+	value: text("value").notNull(),
+	reason: text("reason"),
+	createdBy: text("created_by"),
+	createdAt: bigintNumber("created_at").notNull(),
 });
 
 export const oauthAccessTokens = sqliteTable("theauth_oauth_access_tokens", {

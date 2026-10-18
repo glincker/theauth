@@ -1,24 +1,31 @@
 import type { Database } from "../db/database.js";
+import type { TheAuthLogger } from "../observability/types.js";
 import { handleAuthorize } from "./authorize.js";
+import { createCimdAdmin } from "./cimd-admin.js";
+import { builtInActorAgent, createClientBindings } from "./client-bindings.js";
+import { refreshCimdClient } from "./client-metadata.js";
 import { approveConsent } from "./consent.js";
+import { describeClientForConsent } from "./consent-view.js";
+import type { McpIntrospectionHooks } from "./introspect.js";
+import { handleIntrospection } from "./introspect.js";
 import { getJwks } from "./keys.js";
-import { createInMemoryTokenFamilyStore } from "./memory-stores.js";
+import { createInMemoryBlockStore, createInMemoryTokenFamilyStore } from "./memory-stores.js";
 import { getAuthorizationServerMetadata, getProtectedResourceMetadata } from "./metadata.js";
 import { registerClient } from "./registration.js";
 import { requireMcpAuth } from "./require-mcp-auth.js";
 import { requireScopes } from "./require-scopes.js";
 import { handleRevocation } from "./revocation.js";
+import type { McpRevocationBus } from "./revocation-types.js";
+import { afterRevoke, wireRevocation } from "./server-wiring.js";
 import { buildStepUpResponse } from "./step-up.js";
 import type { McpStores } from "./stores-db.js";
 import { createMcpStores } from "./stores-db.js";
 import { handleTokenExchange } from "./token.js";
 import type {
 	ApproveConsentParams,
-	McpActorAgentResolver,
 	McpAuthContext,
 	McpAuthModule,
 	McpClient,
-	McpClientBindings,
 	McpClientRegistrationRequest,
 	McpConfig,
 	Result,
@@ -41,6 +48,10 @@ type McpRequiredStores = Pick<
 /** Anything with the TheAuth database, which is what `createTheAuth` returns. */
 export interface McpModuleAuth {
 	db: Database;
+	/** The instance's revocation bus (`createTheAuth(...).revocations`). The freshness cache subscribes to it so a revoke here is seen at once. */
+	revocations?: Pick<McpRevocationBus, "subscribe">;
+	/** The instance's observability (`createTheAuth(...).observability`); its logger receives CIMD operator warnings. */
+	observability?: { logger?: TheAuthLogger };
 }
 
 /**
@@ -49,6 +60,8 @@ export interface McpModuleAuth {
 export type McpModuleParams = {
 	config: McpConfig;
 	resolveUserId: McpAuthContext["resolveUserId"];
+	/** Called after every introspection decision of an authenticated caller (caller client, jti, result, reason; never the token). Errors are swallowed. The audit log needs an agent and user row, so introspection is reported here instead. */
+	introspectionAudit?: McpIntrospectionHooks["audit"];
 } & (
 	| ({ auth: McpModuleAuth } & Partial<McpStores>)
 	| (McpRequiredStores & Partial<McpStores> & { auth?: McpModuleAuth })
@@ -103,7 +116,13 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 		throw new Error("McpConfig.signingSecret must be at least 32 characters");
 	}
 
-	if (config.tokenExchange?.enabled && !config.jtiDenylist) {
+	if (config.clientIdMetadataDocuments?.enabled && !config.consentPage) {
+		throw new Error(
+			"McpConfig.consentPage is required when clientIdMetadataDocuments is enabled: any host can publish a client document, so every authorization must be approved by the user",
+		);
+	}
+	// With `auth` (or an explicit `revocations` store) the denylist defaults to the shared one below.
+	if (config.tokenExchange?.enabled && !config.jtiDenylist && !params.auth && !params.revocations) {
 		throw new Error(
 			"McpConfig.jtiDenylist is required when tokenExchange is enabled, so revoked subject tokens are refused",
 		);
@@ -145,9 +164,22 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 		if (!fn) throw new Error(`createMcpModule needs \`auth\` or a \`${key}\` function`);
 		return fn;
 	};
+	const revocations = pick("revocations");
+	const bindings = pick("bindings");
+	// A revoke on one instance must be refused on all: default the denylist to the shared store.
+	if (!resolvedConfig.jtiDenylist && revocations) resolvedConfig.jtiDenylist = revocations;
 	const updateClientSecret = pick("updateClientSecret");
 	const revokeTokenFamily = pick("revokeTokenFamily");
 	const setClientAgent = pick("setClientAgent");
+	const setClientDisabled = pick("setClientDisabled");
+	const revokeClientTokens = pick("revokeClientTokens");
+	const listCimdClientIds = pick("listCimdClientIds");
+	const countUnconsentedCimdClients = pick("countUnconsentedCimdClients");
+	const deleteStaleUnconsentedCimdClients = pick("deleteStaleUnconsentedCimdClients");
+	const logger = params.auth?.observability?.logger;
+	const blocks =
+		pick("blocks") ??
+		(config.clientIdMetadataDocuments?.enabled ? createInMemoryBlockStore() : undefined);
 
 	// Live delegation and family stores can also come from the config, which wins.
 	if (!resolvedConfig.delegationStore && params.delegationStore) {
@@ -178,11 +210,19 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 		...(updateClientSecret ? { updateClientSecret } : {}),
 		...(revokeTokenFamily ? { revokeTokenFamily } : {}),
 		...(setClientAgent ? { setClientAgent } : {}),
+		...(setClientDisabled ? { setClientDisabled } : {}),
+		...(revokeClientTokens ? { revokeClientTokens } : {}),
+		...(blocks ? { clientBlocks: blocks } : {}),
+		...(listCimdClientIds ? { listCimdClientIds } : {}),
+		...(countUnconsentedCimdClients ? { countUnconsentedCimdClients } : {}),
+		...(deleteStaleUnconsentedCimdClients ? { deleteStaleUnconsentedCimdClients } : {}),
+		...(logger ? { logger } : {}),
 		tokenFamilies:
 			config.tokenFamilies ?? pick("tokenFamilies") ?? createInMemoryTokenFamilyStore(),
 		resolveUserId: params.resolveUserId,
 	};
 	ctxRef.current = ctx;
+	wireRevocation(ctx, { revocations, bindings, bus: params.auth?.revocations });
 
 	// Pre-register static clients
 	// Store each pre-registered client via storeClient during module
@@ -226,7 +266,10 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 	return {
 		getJwks: () => getJwks(ctx),
 
-		revoke: (request: Request) => handleRevocation(ctx, request),
+		revoke: async (request: Request) => afterRevoke(ctx, await handleRevocation(ctx, request)),
+
+		introspect: (request: Request) =>
+			handleIntrospection(ctx, request, { audit: params.introspectionAudit }),
 
 		getMetadata: () => getAuthorizationServerMetadata(ctx),
 		getProtectedResourceMetadata: () => getProtectedResourceMetadata(ctx),
@@ -235,6 +278,11 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 			registerClient(ctx, body, request),
 
 		clients: createClientBindings(ctx),
+
+		cimd: createCimdAdmin(ctx, (clientId) => refreshCimdClient(ctx, clientId)),
+
+		describeClient: (clientId, redirectUri, options) =>
+			describeClientForConsent(ctx, clientId, redirectUri, options),
 
 		authorize: (request: Request) => handleAuthorize(ctx, request),
 
@@ -257,34 +305,6 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 		requireScopes: (request: Request, scopes: string[]) => requireScopes(ctx, request, scopes),
 
 		requireMcpAuth: (handler, options) => requireMcpAuth(ctx, handler, options),
-	};
-}
-
-/** Built-in `resolveActorAgentId`: the agent the actor's client is bound to, else the actor's own id. */
-async function builtInActorAgent(
-	ctx: McpAuthContext | undefined,
-	actor: Parameters<McpActorAgentResolver>[0],
-): Promise<string> {
-	if (ctx && actor.clientId) {
-		const client = await ctx.findClient(actor.clientId);
-		if (client?.agentId) return client.agentId;
-	}
-	return actor.sub;
-}
-
-function createClientBindings(ctx: McpAuthContext): McpClientBindings {
-	const bind = async (clientId: string, agentId: string | null): Promise<void> => {
-		if (!ctx.setClientAgent) {
-			throw new Error(
-				"This MCP store cannot bind clients to agents. Pass `auth` to createMcpModule (database stores) or provide `setClientAgent`.",
-			);
-		}
-		await ctx.setClientAgent(clientId, agentId);
-	};
-	return {
-		bindAgent: (clientId, agentId) => bind(clientId, agentId),
-		unbindAgent: (clientId) => bind(clientId, null),
-		agentFor: async (clientId) => (await ctx.findClient(clientId))?.agentId ?? null,
 	};
 }
 
