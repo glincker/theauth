@@ -23,7 +23,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { theAuthAstro } from '@glinr/theauth-astro';
 
 const theauth = createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 const handlers = theAuthAstro(theauth, { authenticate });

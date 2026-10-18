@@ -23,7 +23,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { theAuthNuxt } from '@glinr/theauth-nuxt';
 
 const theauth = createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 export default theAuthNuxt(theauth, { authenticate });

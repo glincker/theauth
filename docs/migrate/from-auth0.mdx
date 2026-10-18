@@ -201,7 +201,7 @@ const agent = await theauth.agent.create({
   ],
 });
 
-// agent.token is a kv_... bearer (kv_ plus base64url of 32 random bytes).
+// agent.token is a ta_... bearer (ta_ plus base64url of 32 random bytes).
 // It is returned once and only its SHA-256 hash is stored. Hand it to the service.
 // Rotate with theauth.agent.rotate(agent.id) when you need to.
 // Revoke with theauth.agent.revoke(agent.id). Authorization decisions are audited.

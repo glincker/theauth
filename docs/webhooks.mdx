@@ -21,7 +21,7 @@ Pass an array of endpoints as `webhooks` to `createTheAuth`. Each endpoint has i
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   webhooks: [
     {
       url: 'https://myapp.com/webhooks/theauth',

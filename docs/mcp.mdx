@@ -76,7 +76,7 @@ export const mcpStore = {
 };
 
 export const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
   mcp: { enabled: true }, // creates the MCP server registry table
 });

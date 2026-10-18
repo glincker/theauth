@@ -41,7 +41,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createAgentCard, createA2AServer } from '@glinr/theauth/a2a';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 // Register an agent identity
@@ -103,7 +103,7 @@ const server = createA2AServer({
   authenticate: async (request) => {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     if (!token) return null;
-    // Agent bearer tokens (kv_...) are validated against the stored hash
+    // Agent bearer tokens (ta_...) are validated against the stored hash
     const caller = await theauth.agent.validateToken(token);
     return caller?.id ?? null;
   },

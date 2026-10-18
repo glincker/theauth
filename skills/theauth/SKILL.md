@@ -67,7 +67,7 @@ const agent = await theauth.agent.create({
   type: "autonomous", // or "delegated" | "service"
   permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
 });
-// agent.token starts with "kv_" and is shown once. Store it in a secrets manager.
+// agent.token starts with "ta_" (legacy "kv_" tokens still work) and is shown once. Store it in a secrets manager.
 
 const decision = await theauth.authorize(agent.id, { action: "read", resource: "mcp:github:repos" });
 if (!decision.allowed) throw new Error(`Denied: ${decision.reason}`);

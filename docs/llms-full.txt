@@ -1266,7 +1266,7 @@ Source: https://docs.theauth.dev/configuration
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 ```
 
@@ -1278,7 +1278,7 @@ A minimal config for local development with username and password sign-in, theAu
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: './theauth.db' },
+  database: { provider: 'sqlite-native', url: './theauth.db' },
   agents: { enabled: true },
   auth: {
     session: { secret: process.env.SESSION_SECRET! }, // at least 32 characters
@@ -1333,7 +1333,7 @@ const theauth = await createTheAuth({
 
 // SQLite (Node.js)
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: './theauth.db' },
+  database: { provider: 'sqlite-native', url: './theauth.db' },
 });
 
 // PostgreSQL
@@ -1533,7 +1533,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 export const theauth = await createTheAuth({
   database: isDev
-    ? { provider: 'sqlite', url: './theauth-dev.db' }
+    ? { provider: 'sqlite-native', url: './theauth-dev.db' }
     : { provider: 'postgres', url: process.env.DATABASE_URL! },
 
   baseUrl: process.env.THEAUTH_BASE_URL ?? 'http://localhost:3000',
@@ -2865,7 +2865,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createJwtSessionModule } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 export const jwtSessions = createJwtSessionModule({
@@ -3824,7 +3824,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { emailPassword } from '@glinr/theauth-email';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   plugins: [
     emailPassword({
       appUrl: 'https://app.example.com',
@@ -4570,7 +4570,7 @@ import { consoleOtpSender, createOtpService, otpRoutes } from '@glinr/theauth/au
 const otp = createOtpService({ senders: { email: consoleOtpSender() }, secret: process.env.OTP_SECRET });
 
 const auth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [
     otpRoutes({
@@ -5931,7 +5931,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oneTap } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   auth: { session: { secret: process.env.THEAUTH_SECRET! } }, // [!code highlight]
   plugins: [
@@ -7541,7 +7541,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, facebookProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -7625,7 +7625,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, createSpotifyProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -7940,7 +7940,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, createTwitterProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8012,7 +8012,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, tiktokProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8088,7 +8088,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, createKakaoProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8175,7 +8175,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, naverProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8248,7 +8248,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, vkProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8324,7 +8324,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, lineProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8402,7 +8402,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, wechatProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8477,7 +8477,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, createKickProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8558,7 +8558,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, robloxProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8755,7 +8755,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, createFigmaProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8821,7 +8821,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, createDropboxProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8889,7 +8889,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, createZoomProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -8956,7 +8956,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, createAtlassianProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -9029,7 +9029,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, createLinearProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -9329,7 +9329,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, salesforceProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -9403,7 +9403,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, createVercelProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -9487,7 +9487,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, railwayProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -9558,7 +9558,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, huggingfaceProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -9634,7 +9634,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, createPaypalProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -9806,7 +9806,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, polarProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
@@ -10177,7 +10177,7 @@ There are two ways to use organizations, and the `theauth.org` object used in th
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   org: { // [!code highlight]
     maxMembers: 100, // [!code highlight]
     maxOrgsPerUser: 5, // [!code highlight]
@@ -10195,7 +10195,7 @@ const org = await theauth.org?.create({ name: 'Acme', slug: 'acme', ownerId: 'us
 import { organization } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [organization({ maxMembers: 100, maxOrgsPerUser: 5, allowCustomRoles: true })],
 });
@@ -10360,7 +10360,7 @@ Configure your identity providers when creating the theAuth instance. `theauth.s
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   sso: { // [!code highlight]
     saml: [ // [!code highlight]
       {
@@ -10381,7 +10381,7 @@ const theauth = await createTheAuth({
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   sso: { // [!code highlight]
     oidc: [ // [!code highlight]
       {
@@ -10513,7 +10513,7 @@ Pass an `admin` config when creating your theAuth instance. `theauth.admin` is `
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: { session: { secret: process.env.SESSION_SECRET! } }, // needed for impersonation
   admin: { // [!code highlight]
     adminUserIds: [process.env.ADMIN_USER_ID!], // [!code highlight]
@@ -10534,7 +10534,7 @@ To expose HTTP endpoints, add the `admin()` plugin (from `@glinr/theauth/auth`) 
 import { admin } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [admin({ adminUserIds: [process.env.ADMIN_USER_ID!] })],
 });
@@ -10656,7 +10656,7 @@ Source: https://docs.theauth.dev/auth/api-keys
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   apiKeys: { // [!code highlight]
     prefix: 'kos_',          // default // [!code highlight]
     defaultExpiryDays: 90,   // default: 365 // [!code highlight]
@@ -10730,7 +10730,7 @@ Add the `apiKeys()` plugin (from `@glinr/theauth/auth`) to expose HTTP endpoints
 import { apiKeys } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [apiKeys({ prefix: 'kos_' })],
 });
@@ -12450,7 +12450,7 @@ const signals = sharedSignals({
 });
 
 const theauth = await createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
   plugins: [signals],
 });
 ```
@@ -12799,7 +12799,7 @@ The default is 10 active agents per user. Raise at initialization:
 
 ```ts
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   agents: {
     enabled: true,
     maxPerUser: 50,
@@ -12863,7 +12863,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createEphemeralSessionModule } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 const ephemeral = createEphemeralSessionModule({
@@ -13312,7 +13312,7 @@ import { createTheAuth, tokenVault } from "@glinr/theauth";
 import { createGithubProvider } from "@glinr/theauth/auth";
 
 const theauth = await createTheAuth({
-  database: { provider: "sqlite", url: "./auth.db" },
+  database: { provider: "sqlite-native", url: "./auth.db" },
   baseUrl: "https://app.example.com",
   secondaryStorage: "database", // shared lock store, use Redis for multi-node
   agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true, tokenExpiry: "24h" },
@@ -13703,7 +13703,7 @@ Use the policy engine when you need to make authorization decisions that depend 
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 const engine = theauth.policy;
@@ -13788,7 +13788,7 @@ A permitted action can still need a human. Pass typed risk attributes as `contex
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   agents: { enabled: true },
   policy: {
     policyVersion: '2026-10-15',
@@ -13843,7 +13843,7 @@ Or pass config directly through `createTheAuth()`:
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   policy: {
     cache: {
       maxEntries: 5000,
@@ -13911,7 +13911,7 @@ Every `evaluate()` call with an `agentId` in the subject writes one audit row to
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   policy: {
     audit: true,           // default; set false to disable entirely
     auditSampleRate: 0.1,  // write audit rows for 10% of evaluations
@@ -14031,7 +14031,7 @@ theAuth ships a built-in ReBAC engine that works with agents as first-class subj
 ```typescript
 import { createReBACModule, createDatabase, createTables } from '@glinr/theauth';
 
-const db = await createDatabase({ provider: 'sqlite', url: 'theauth.db' });
+const db = await createDatabase({ provider: 'sqlite-native', url: 'theauth.db' });
 await createTables(db, 'sqlite');
 
 const rebac = createReBACModule({}, db);
@@ -15564,7 +15564,7 @@ import { createTheAuth } from '@glinr/theauth';
 const violations = new Map<string, number>();
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     onViolation: async ({ agentId, type, resource, reason }) => {
       const count = (violations.get(agentId) ?? 0) + 1;
@@ -15724,7 +15724,7 @@ Pass approval config to `createTheAuth`:
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   approval: {
     ttl: 600,                                          // 10-minute window (seconds)
     webhookUrl: 'https://your-app.com/webhooks/approval',
@@ -15736,7 +15736,7 @@ Or use a custom handler for full control over delivery:
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   approval: {
     ttl: 300,
     onApprovalNeeded: async (request) => {
@@ -17067,7 +17067,7 @@ The device flow lets a program with no browser (a CLI, a headless agent, an MCP 
 import { createTheAuth, deviceAuth } from "@glinr/theauth";
 
 const theauth = await createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },
   secondaryStorage: "database", // device codes must survive restarts and reach every instance
   plugins: [deviceAuth({ verificationUri: "https://app.example.com/device" })],
@@ -17497,7 +17497,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createCostAttributionModule } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 // Standalone module: it is not attached to the theauth instance
@@ -18625,7 +18625,7 @@ export const mcpStore = {
 };
 
 export const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
   mcp: { enabled: true }, // creates the MCP server registry table
 });
@@ -19784,7 +19784,7 @@ Create it in the gateway's SQLite file. Keep `agent.token`.
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: './theauth.db' },
+  database: { provider: 'sqlite-native', url: './theauth.db' },
   agents: { enabled: true },
 });
 
@@ -19920,7 +19920,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createGateway } from '@glinr/theauth-gateway';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   agents: { enabled: true },
 });
 
@@ -20112,7 +20112,7 @@ import { createMcpModule } from '@glinr/theauth/mcp';
 import { mcpStore } from './mcp-store.js'; // storage callbacks, see the MCP page
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
 });
 
@@ -20329,7 +20329,7 @@ import { createMcpModule } from '@glinr/theauth/mcp';
 import { mcpStore } from './mcp-store.js'; // storage callbacks, see the MCP page
 
 export const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: { enabled: true }, // creates the MCP tables
 });
@@ -20449,7 +20449,7 @@ import { mcpStore } from './mcp-store.js'; // storage callbacks, see the MCP pag
 import { theAuthHono } from '@glinr/theauth-hono';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
   mcp: { enabled: true }, // creates the MCP tables
 });
@@ -24352,7 +24352,7 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     import { theAuthHono } from '@glinr/theauth-hono';
 
     const theauth = await createTheAuth({
-      database: { provider: 'sqlite', url: 'theauth.db' },
+      database: { provider: 'sqlite-native', url: 'theauth.db' },
     });
 
     const app = new Hono();
@@ -26343,7 +26343,7 @@ const mcpStore = {
 };
 
 export const theauth = await createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
   baseUrl: "https://auth.yourapp.com",
   mcp: { enabled: true },
 });
@@ -26868,7 +26868,7 @@ Pass a `hooks` object to `createTheAuth`:
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async beforeAuthorize({ agentId, action, resource }) {
       // Example: block calls outside business hours
@@ -26895,7 +26895,7 @@ const theauth = await createTheAuth({
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async afterAuthorize({ agentId, action, resource, result }) {
       if (!result.allowed) {
@@ -26918,7 +26918,7 @@ The `result.auditId` links this log line to the audit entry, so you can correlat
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async beforeAgentCreate(input) {
       // Require sandbox metadata on all autonomous agents
@@ -26941,7 +26941,7 @@ The `onViolation` hook fires for every denial returned by `theauth.authorize()` 
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async onViolation({ type, agentId, action, resource, reason }) {
       // Send to your alerting system
@@ -26969,7 +26969,7 @@ import { createDiscoveryModule } from '@glinr/theauth-plugin-discovery';
 let discovery: ReturnType<typeof createDiscoveryModule>;
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     async onAgentRevoke(agentId) {
       // Remove the agent's discovery card. The discovery module is the separate
@@ -27074,7 +27074,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createBeforeAuthorizeHook } from 'your-integration';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     beforeAuthorize: createBeforeAuthorizeHook({ timeoutMs: 2000 }),
   },
@@ -27226,7 +27226,7 @@ Pass an array of endpoints as `webhooks` to `createTheAuth`. Each endpoint has i
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   webhooks: [
     {
       url: 'https://myapp.com/webhooks/theauth',
@@ -27427,7 +27427,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createEventStreamModule } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 const stream = createEventStreamModule({
@@ -27734,7 +27734,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { customSession } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: {
     session: { secret: process.env.SESSION_SECRET! },
   },
@@ -27866,7 +27866,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { additionalFields } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   plugins: [
     additionalFields({
       user: {
@@ -28101,7 +28101,7 @@ import { magicLink } from '@glinr/theauth/auth';
 const templates = createEmailTemplates({ appName: 'MyApp', appUrl: 'https://myapp.com' });
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [
     magicLink({
@@ -28405,7 +28405,7 @@ Configure your domain first:
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   did: {
     web: { domain: 'auth.example.com', path: 'agents' },
   },
@@ -33059,7 +33059,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createAgentCard, createA2AServer } from '@glinr/theauth/a2a';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 // Register an agent identity

@@ -12,7 +12,7 @@ Pass an `admin` config when creating your theAuth instance. `theauth.admin` is `
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: { session: { secret: process.env.SESSION_SECRET! } }, // needed for impersonation
   admin: { // [!code highlight]
     adminUserIds: [process.env.ADMIN_USER_ID!], // [!code highlight]
@@ -33,7 +33,7 @@ To expose HTTP endpoints, add the `admin()` plugin (from `@glinr/theauth/auth`) 
 import { admin } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   auth: { session: { secret: process.env.SESSION_SECRET! } },
   plugins: [admin({ adminUserIds: [process.env.ADMIN_USER_ID!] })],
 });

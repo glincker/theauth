@@ -68,7 +68,6 @@ theAuth implements OAuth 2.1 with PKCE, DPoP, MCP authorization and OpenID Conne
   &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Expo"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/expo-dark.svg"><img src="docs/brand-icons/works-with/expo.svg" alt="Expo" height="32" width="32"></picture></a>
   &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Electron"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/electron-dark.svg"><img src="docs/brand-icons/works-with/electron.svg" alt="Electron" height="32" width="32"></picture></a>
   &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="PostgreSQL"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/postgresql-dark.svg"><img src="docs/brand-icons/works-with/postgresql.svg" alt="PostgreSQL" height="32" width="32"></picture></a>
-  &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="MySQL"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/mysql-dark.svg"><img src="docs/brand-icons/works-with/mysql.svg" alt="MySQL" height="32" width="32"></picture></a>
   &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="SQLite"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/sqlite-dark.svg"><img src="docs/brand-icons/works-with/sqlite.svg" alt="SQLite" height="32" width="32"></picture></a>
   &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="MCP"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/modelcontextprotocol-dark.svg"><img src="docs/brand-icons/works-with/modelcontextprotocol.svg" alt="MCP" height="32" width="32"></picture></a>
   &nbsp;&nbsp;<a href="https://docs.theauth.dev/works-with" title="Go"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand-icons/works-with/go-dark.svg"><img src="docs/brand-icons/works-with/go.svg" alt="Go" height="32" width="32"></picture></a>
@@ -105,13 +104,13 @@ const agent = await auth.agent.create({
   type: "autonomous",
   permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
 });
-console.log(agent.token); // "kv_..." shown once
+console.log(agent.token); // "ta_..." shown once
 
 const { allowed } = await auth.authorize(agent.id, { action: "read", resource: "mcp:github:repos" });
 console.log(allowed); // true
 ```
 
-Agent tokens start with `kv_`. The prefix predates the rename from Kavach and stays so issued tokens keep working ([RENAME-MAP.md](RENAME-MAP.md)).
+Agent tokens start with `ta_`. Tokens issued by earlier releases start with `kv_` and are still accepted ([RENAME-MAP.md](RENAME-MAP.md)).
 
 To mount it over HTTP, pick an adapter such as `@glinr/theauth-hono` or `@glinr/theauth-nextjs` (framework snippets below). To add email and password, install `@glinr/theauth-email`. Full walkthrough: [docs.theauth.dev/quickstart](https://docs.theauth.dev/quickstart). Or scaffold an app: `npm create @glinr/theauth-app`.
 
@@ -119,7 +118,7 @@ To mount it over HTTP, pick an adapter such as `@glinr/theauth-hono` or `@glinr/
 
 | Area | What you get | Docs |
 |---|---|---|
-| Agent identity | `kv_` bearer tokens, wildcard permissions, delegation chains with depth limits, budget policies, denial-based trust score, CIBA-style approvals, audit trail per action | [Agents](https://docs.theauth.dev/agents) |
+| Agent identity | `ta_` bearer tokens (legacy `kv_` still accepted), wildcard permissions, delegation chains with depth limits, budget policies, denial-based trust score, CIBA-style approvals, audit trail per action | [Agents](https://docs.theauth.dev/agents) |
 | Agent tool guard | `guardTool` in front of any tool, single use approvals, provenance labels for tool arguments, policy shrink, signed audit checkpoints and receipts | [Guard agent tools](https://docs.theauth.dev/agent-tools), [Taint guard](https://docs.theauth.dev/taint-guard), [Policy shrink](https://docs.theauth.dev/policy-shrink), [Audit checkpoints](https://docs.theauth.dev/audit-checkpoints) |
 | MCP OAuth 2.1 server | Authorization code with PKCE S256, dynamic client registration, resource indicators, metadata (RFC 7591, 8707, 8414, 9728) | [MCP](https://docs.theauth.dev/mcp) |
 | DPoP | Sender-constrained tokens for MCP resource servers | [DPoP](https://docs.theauth.dev/dpop) |
@@ -135,7 +134,7 @@ The token policy, RFC 9396 rich authorization requests and ID-JAG pieces live in
 
 ## Frameworks and adapters
 
-Hono, Next.js, SvelteKit, Nuxt, Express, Fastify, Astro, NestJS, SolidStart, TanStack Start, plus clients for React, Vue, Svelte, Expo and Electron. Databases: SQLite, PostgreSQL, MySQL, Cloudflare D1, and Prisma through `@glinr/theauth-prisma`.
+Hono, Next.js, SvelteKit, Nuxt, Express, Fastify, Astro, NestJS, SolidStart, TanStack Start, plus clients for React, Vue, Svelte, Expo and Electron. Databases: SQLite, PostgreSQL (the `pg` driver), Cloudflare D1, and Prisma through `@glinr/theauth-prisma`. MySQL support is in progress.
 
 <details>
 <summary>Next.js (App Router)</summary>

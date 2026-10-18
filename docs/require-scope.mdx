@@ -3,7 +3,7 @@ title: requireScope
 description: Protect an endpoint for agents with one line in the Hono, Next.js, or Express adapter.
 ---
 
-`requireScope(theauth, { action, resource })` guards a route so only agents holding that permission reach your handler. It reads `Authorization: Bearer kv_...`, calls `authorizeByToken`, and either answers the request itself or continues with the agent identity attached.
+`requireScope(theauth, { action, resource })` guards a route so only agents holding that permission reach your handler. It reads `Authorization: Bearer ta_...`, calls `authorizeByToken`, and either answers the request itself or continues with the agent identity attached.
 
 ## Behavior
 

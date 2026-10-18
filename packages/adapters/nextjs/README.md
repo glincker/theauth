@@ -23,7 +23,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { theAuthNextjs } from '@glinr/theauth-nextjs';
 
 const theauth = createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 const handlers = theAuthNextjs(theauth, { authenticate });

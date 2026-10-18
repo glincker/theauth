@@ -32,7 +32,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createEventStreamModule } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 const stream = createEventStreamModule({

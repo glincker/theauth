@@ -14,7 +14,7 @@ Configure your identity providers when creating the theAuth instance. `theauth.s
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   sso: { // [!code highlight]
     saml: [ // [!code highlight]
       {
@@ -35,7 +35,7 @@ const theauth = await createTheAuth({
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   sso: { // [!code highlight]
     oidc: [ // [!code highlight]
       {

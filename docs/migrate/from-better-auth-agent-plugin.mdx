@@ -29,7 +29,7 @@ theAuth treats an agent as a primary database entity with its own lifecycle:
 |---|---|
 | `agentPlugin()` added to `betterAuth` | Built into `createTheAuth`. No plugin needed for the core agent surface. |
 | `auth.api.createAgent({ userId, scopes })` | `theauth.agent.create({ ownerId, name, type, permissions })` |
-| `agent.accessToken` | `agent.token` (`kv_` followed by base64url of 32 random bytes, returned once, SHA-256 hashed at rest) |
+| `agent.accessToken` | `agent.token` (`ta_` followed by base64url of 32 random bytes, returned once, SHA-256 hashed at rest) |
 | `agent.scopes: string[]` | `agent.permissions: Permission[]` (resource patterns + actions + constraints) |
 | `agent.kind: 'service' \| 'user-agent'` | `agent.type: 'autonomous' \| 'delegated' \| 'service'` |
 | `auth.api.verifyAgentToken(token)` | `theauth.agent.validateToken(token)` (returns the agent or `null`) or `theauth.authorizeByToken(token, req)` |
@@ -101,7 +101,7 @@ const agent = await theauth.agent.create({
   ],
 });
 
-// agent.token (kv_ plus base64url of 32 random bytes) is the bearer. Returned once,
+// agent.token (ta_ plus base64url of 32 random bytes) is the bearer. Returned once,
 // only its SHA-256 hash is stored. Rotate with theauth.agent.rotate(agent.id) to cut
 // a new one; the old token stops validating as soon as the new hash is written.
 ```
@@ -220,7 +220,7 @@ export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthNextjs(theauth, { mc
 
 ## Data migration
 
-Agent rows in better-auth live in whatever table the plugin writes to (check the plugin's schema migration). theAuth stores agents in `theauth_agents` and their permissions in `theauth_permissions`, and it keeps only the SHA-256 hash of the full `kv_...` token. A better-auth token hash cannot be reused: the bearer would have to be a `kv_` token whose SHA-256 matches, which no old token is. So do not copy token hashes with SQL. Recreate each agent through the API and hand the owner a new token:
+Agent rows in better-auth live in whatever table the plugin writes to (check the plugin's schema migration). theAuth stores agents in `theauth_agents` and their permissions in `theauth_permissions`, and it keeps only the SHA-256 hash of the full `ta_...` token. A better-auth token hash cannot be reused: the bearer would have to be a `ta_` token whose SHA-256 matches, which no old token is. So do not copy token hashes with SQL. Recreate each agent through the API and hand the owner a new token:
 
 ```ts
 // scripts/import-agents.ts
@@ -272,7 +272,7 @@ Keep the better-auth agent plugin wired for at least one rotation cycle after th
 
 1. Re-enable the `agent()` plugin in `lib/auth.ts`.
 2. Point services back at `auth.api.verifyAgentToken`.
-3. theAuth agent rows remain, they just stop being read. Old better-auth bearers keep working on better-auth because you never revoked them there, new `kv_` tokens only work against theAuth.
+3. theAuth agent rows remain, they just stop being read. Old better-auth bearers keep working on better-auth because you never revoked them there, new `ta_` tokens only work against theAuth.
 
 ## Runnable example
 

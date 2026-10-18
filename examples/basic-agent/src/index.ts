@@ -219,7 +219,7 @@ async function main(): Promise<void> {
 	ok("CSV export", `${csvLines.length - 1} rows  (first col: ${csvLines[0]?.split(",")[0] ?? ""})`);
 
 	// Step 7: Token-based authorization
-	// Agents receive an opaque bearer token (prefix: kv_) at creation time.
+	// Agents receive an opaque bearer token (prefix: ta_) at creation time.
 	// Token validation is fast: it hashes the incoming token and does a single
 	// DB lookup. No JWTs, no network round-trips.
 	// Use auth.authorizeByToken() when the caller only has the raw token
@@ -235,7 +235,7 @@ async function main(): Promise<void> {
 		ok("authorizeByToken → read mcp:github:repos", "allowed");
 	}
 
-	const badTokenResult = await auth.authorizeByToken("kv_totally_fake_token_1234567890", {
+	const badTokenResult = await auth.authorizeByToken("ta_totally_fake_token_1234567890", {
 		action: "read",
 		resource: "mcp:github:repos",
 	});

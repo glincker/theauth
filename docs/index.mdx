@@ -93,7 +93,7 @@ const res = await theauth.plugins.handleRequest(request);
 **Ten adapters** for Node, edge, Workers, Deno, Bun.
 </div>
 <div>
-**Four databases**: SQLite, Postgres, MySQL, Cloudflare D1.
+**Three databases**: SQLite, Postgres, Cloudflare D1. MySQL is in progress.
 </div>
 <div>
 **Web Crypto only** in core, no Node-specific APIs.
@@ -153,7 +153,7 @@ theAuth includes human auth, but you do not have to use it. If you already run C
 
 <CardGroup cols={2}>
   <Card title="Agent identity" icon="robot" href="/agents">
-    Bearer tokens (`kv_...`, a prefix kept from before the rename), rotation, expiry. SHA-256 hashed at rest.
+    Bearer tokens (`ta_...`, a prefix kept from before the rename), rotation, expiry. SHA-256 hashed at rest.
   </Card>
   <Card title="Permission engine" icon="shield-halved" href="/permissions">
     Resource wildcards, rate limits, time windows, IP allowlists, approval gates.
@@ -197,7 +197,7 @@ New releases land on [GitHub](https://github.com/glincker/theauth/releases) ever
     Spec-compliant authorization server for Model Context Protocol tool servers.
   </Card>
   <Card title="Database setup" href="/database" icon="database">
-    SQLite, Postgres, MySQL, and Cloudflare D1 configuration.
+    SQLite, Postgres, and Cloudflare D1 configuration. MySQL is in progress.
   </Card>
   <Card title="Standards alignment" href="/standards" icon="book-open">
     IETF draft claims theAuth tracks and emits on agent JWTs.

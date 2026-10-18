@@ -26,7 +26,7 @@ import { createMcpModule } from '@glinr/theauth/mcp';
 import { mcpStore } from './mcp-store.js'; // storage callbacks, see the MCP page
 
 export const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   baseUrl: process.env.AUTH_BASE_URL!,
   mcp: { enabled: true }, // creates the MCP tables
 });
@@ -146,7 +146,7 @@ import { mcpStore } from './mcp-store.js'; // storage callbacks, see the MCP pag
 import { theAuthHono } from '@glinr/theauth-hono';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
   mcp: { enabled: true }, // creates the MCP tables
 });

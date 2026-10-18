@@ -55,7 +55,7 @@ curl -X POST $BASE/auth/agent-registration/tokens \
 curl -X POST $BASE/auth/agent-registration/register \
   -H "Authorization: Bearer kvr_..." -H "content-type: application/json" \
   -d '{"name":"ci-nightly"}'
-# => { "agent_id": "...", "token": "kv_...", "permissions": [...] }
+# => { "agent_id": "...", "token": "ta_...", "permissions": [...] }
 ```
 
 Mint body fields: `permissions` (required), `owner_id`, `label`, `agent_type`, `name_prefix`, `expires_in` (seconds), `agent_ttl_seconds`.

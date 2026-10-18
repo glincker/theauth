@@ -21,7 +21,7 @@ import { createTheAuth } from "@glinr/theauth";
 import { theAuthTanStack } from "@glinr/theauth-tanstack";
 
 const theauth = createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
 });
 
 // Mount in your TanStack Start API routes

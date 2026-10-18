@@ -10,4 +10,4 @@ Upgrade notes:
 - Inside the plugin the request body is no longer parsed by Fastify (the handler reads it itself). Your own routes outside the plugin are unaffected.
 - Removed the deprecated `authFastify` and `AuthFastifyOptions`. Use `theAuthFastify` and `TheAuthFastifyOptions`.
 - `POST /authorize/token` answers 401 for `invalid_token`, `agent_not_found`, `agent_revoked` and `agent_expired`, and 403 for every other denial.
-- The client IP no longer falls back to the socket address. Set `trustedProxy` to resolve it from forwarded headers.
+- The client IP now comes from the socket peer address, or from forwarded headers when `trustedProxy` is set.

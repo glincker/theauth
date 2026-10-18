@@ -10,4 +10,4 @@ Upgrade notes:
 - Removed the deprecated `AuthModule`, `AuthModuleOptions`, `AuthNestjsOptions`, `authMiddleware` and `buildAuthRouter`. Use `TheAuthModule`, `TheAuthModuleOptions`, `TheAuthNestjsOptions` and `theAuthMiddleware`.
 - `buildTheAuthRouter(auth, mcp?, options?)` now returns a middleware function instead of an Express `Router`. Mount it with `app.use(path, ...)` as before.
 - `POST /authorize/token` answers 401 for `invalid_token`, `agent_not_found`, `agent_revoked` and `agent_expired`, and 403 for every other denial.
-- The client IP no longer falls back to `req.ip`. Set `trustedProxy` to resolve it from forwarded headers.
+- The client IP now comes from the socket peer address, or from forwarded headers when `trustedProxy` is set.

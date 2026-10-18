@@ -8,7 +8,7 @@ icon: code
 All REST endpoints are mounted by the framework adapter (Hono, Express, Next.js, etc.). Paths below are relative to the mount path. The Next.js, Astro, Fastify, and NestJS adapters default to `/api/theauth` (set with their `basePath` or `prefix` option); with Hono and Express you pick the mount path yourself, for example `app.route('/api/theauth', theAuthHono(theauth, { authenticate }))`.
 
 <Note>
-  The agent, delegation, audit and dashboard routes (`/agents`, `/delegations`, `/audit`, `/dashboard`) and `POST /authorize` require an authenticated caller. Pass `authenticate` to the adapter, or configure `auth.session` so the adapter accepts any signed-in user. With neither, the adapter throws when you create it, unless you set `allowUnauthenticated: true` (local development only). Unauthenticated requests get `401 UNAUTHORIZED`. See [Framework adapters](/adapters#authenticate-the-management-routes). `POST /authorize/token` is checked by the agent's own `kv_` bearer token, and the MCP, password reset and email verification routes carry their own checks.
+  The agent, delegation, audit and dashboard routes (`/agents`, `/delegations`, `/audit`, `/dashboard`) and `POST /authorize` require an authenticated caller. Pass `authenticate` to the adapter, or configure `auth.session` so the adapter accepts any signed-in user. With neither, the adapter throws when you create it, unless you set `allowUnauthenticated: true` (local development only). Unauthenticated requests get `401 UNAUTHORIZED`. See [Framework adapters](/adapters#authenticate-the-management-routes). `POST /authorize/token` is checked by the agent's own `ta_` bearer token, and the MCP, password reset and email verification routes carry their own checks.
 </Note>
 
 Successful responses wrap the payload as `{ "data": ... }`. Errors use `{ "error": { "code": "...", "message": "..." } }` with codes such as `BAD_REQUEST` (400), `UNAUTHORIZED` (401), `NOT_FOUND` (404), and `INTERNAL_ERROR` (500). Examples below show the payload inside `data`. Dates are ISO 8601 strings and IDs are UUIDs (the `agt_...` IDs in the examples are illustrative). The MCP OAuth endpoints are the exception: they return bare OAuth JSON.
@@ -54,7 +54,7 @@ Creates a new agent identity.
   "ownerId": "user_01abc",
   "name": "GitHub Automation",
   "type": "autonomous",
-  "token": "kv_...",
+  "token": "ta_...",
   "status": "active",
   "permissions": [...],
   "expiresAt": "2026-12-31T23:59:59.000Z",
@@ -63,7 +63,7 @@ Creates a new agent identity.
 }
 ```
 
-The `token` (`kv_` followed by 43 base64url characters) is returned only here and from the rotate endpoint. Every other endpoint returns `"token": ""`. Validation failures return `400`.
+The `token` (`ta_` followed by 43 base64url characters) is returned only here and from the rotate endpoint. Every other endpoint returns `"token": ""`. Validation failures return `400`.
 
 ### List agents
 
@@ -189,7 +189,7 @@ For an unknown or inactive agent the response is also `403`, with an empty `audi
 
 ```
 POST /authorize/token
-Authorization: Bearer kv_...
+Authorization: Bearer ta_...
 ```
 
 Same check, but the agent is identified by its bearer token instead of `agentId`. The body takes `action`, `resource`, and optional `arguments`. A missing or malformed `Authorization` header returns `401 UNAUTHORIZED`. An invalid, revoked, or expired token returns `403` with `reason: "Invalid or expired agent token"`. This path checks only the agent's own permissions, not delegated ones.

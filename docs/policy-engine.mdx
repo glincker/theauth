@@ -19,7 +19,7 @@ Use the policy engine when you need to make authorization decisions that depend 
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 const engine = theauth.policy;
@@ -104,7 +104,7 @@ A permitted action can still need a human. Pass typed risk attributes as `contex
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   agents: { enabled: true },
   policy: {
     policyVersion: '2026-10-15',
@@ -159,7 +159,7 @@ Or pass config directly through `createTheAuth()`:
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   policy: {
     cache: {
       maxEntries: 5000,
@@ -227,7 +227,7 @@ Every `evaluate()` call with an `agentId` in the subject writes one audit row to
 
 ```typescript
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   policy: {
     audit: true,           // default; set false to disable entirely
     auditSampleRate: 0.1,  // write audit rows for 10% of evaluations

@@ -292,7 +292,7 @@ curl http://localhost:${PORT}/api/audit</code>
 
 async function main(): Promise<void> {
 	const auth = await createTheAuth({
-		database: { provider: "sqlite", url: "theauth.db" },
+		database: { provider: "sqlite-native", url: "theauth.db" },
 		agents: {
 			enabled: true,
 			maxPerUser: 50,

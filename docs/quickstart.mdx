@@ -17,11 +17,64 @@ theAuth does two jobs, and you can use either one alone or both together. Pick t
   </Card>
 </CardGroup>
 
-Want a full app instead? `pnpm create @glinr/theauth-app` scaffolds a Next.js SaaS with theAuth wired up (also `npm create`, `yarn create`, `bun create`). The CLI asks for a directory, a template, a package manager and a database driver; the Next.js SaaS and Hono MCP templates are available.
+Want a full app instead? `pnpm create @glinr/theauth-app` scaffolds a Next.js SaaS, a Hono MCP server or a Cloudflare Worker with theAuth wired up (also `npm create`, `yarn create`, `bun create`). The CLI asks for a directory, a template, a package manager and a database driver. It writes a `.env` with generated secrets and adds a `doctor` script. The generated code creates the owner with `theauth.user.create` and stores data in a SQLite file. The Hono MCP template still keeps MCP clients, codes and tokens in memory, because database backed MCP stores are not available yet.
 
 <Frame caption="Your app, the theAuth handler, a session cookie and a protected route.">
   <img src="/images/diagrams/theauth-add-to-existing-app.jpg" alt="Your app mounts the theAuth handler, theAuth issues a session cookie, and protected routes read that session." />
 </Frame>
+
+## Fastest start: theauth init
+
+In an existing project, `theauth init` writes a working server, creates the owner user and a demo agent, and prints the next steps. It reads `package.json` to pick the framework (Hono, Express, Fastify, Next.js, SvelteKit or Nuxt) and the package manager, and it stores data in a SQLite file so it survives restarts.
+
+```bash title="terminal"
+npx theauth init --yes
+```
+
+```text title="output"
+TheAuth init
+Framework: hono, database: sqlite
+
+created     src/theauth.ts
+created     src/seed.ts
+created     src/server.ts
+created     .env.example
+created     .gitignore
+created     .env (generated secrets, gitignored)
+
+Note: Detected hono from package.json.
+
+Next steps
+
+  1. Install dependencies:
+       npm install @glinr/theauth @glinr/theauth-hono better-sqlite3 hono @hono/node-server zod
+       npm install -D tsx
+  2. Start the server (it creates the owner user and a demo agent on boot):
+       npx tsx --env-file=.env src/server.ts
+  3. List agents through the mounted routes:
+       curl -s -H "Authorization: Bearer $(grep '^ADMIN_API_KEY=' .env | cut -d= -f2)" http://localhost:3000/api/theauth/agents
+  4. Check the setup, including the running server:
+       theauth doctor --live http://localhost:3000/api/theauth
+
+Docs: https://theauth.dev/docs
+```
+
+After you install and start the server:
+
+```text title="server log"
+Owner user: owner@example.com (50005a21-0612-4ca0-a085-0c6f0ea04706)
+Demo agent created: 72bab466-1fc7-41ad-93f9-502e02b56c23
+Agent token (shown once, store it safely): ta_x8tSbjRs7NnH21WA1_-yGKZRqmucw7a_u4Yo0wkhKjU
+Listening on http://localhost:3000
+```
+
+The curl from step 3 returns the demo agent:
+
+```json title="response"
+{"data":[{"id":"72bab466-1fc7-41ad-93f9-502e02b56c23","ownerId":"50005a21-0612-4ca0-a085-0c6f0ea04706","name":"demo-agent","type":"autonomous","token":"","permissions":[{"resource":"documents","actions":["read","write"]}],"status":"active", ...}]}
+```
+
+The same call without the `Authorization` header answers 401. The seed creates the owner with `theauth.user.create` before the agent, so the foreign key on `owner_id` holds. Running `init` again skips every file that exists, so it never overwrites your edits (pass `--force` to replace the generated files; `.env` is only ever created). See [CLI tools](/cli-tools#init) for every flag. The two tracks below show the same calls by hand.
 
 ## Track A: Add agent auth
 
@@ -51,7 +104,7 @@ Every agent has an owner: a user ID that exists as a row in `theauth_users` (the
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: ':memory:' }, // use a file path to keep data
+  database: { provider: 'sqlite-native', url: './theauth.db' }, // a file on disk, kept across runs
   agents: { enabled: true, maxPerUser: 10, auditAll: true, tokenExpiry: '24h' },
 });
 
@@ -87,7 +140,7 @@ const agent = await theauth.agent.create({
   ],
 });
 
-// agent.token is the bearer token. Agent tokens start with "kv_".
+// agent.token is the bearer token. Agent tokens start with "ta_".
 console.log(agent.token);
 ```
 
@@ -95,7 +148,7 @@ console.log(agent.token);
 The token is shown once, at creation. Store it in your secrets manager or hand it straight to the agent. It cannot be recovered, only rotated.
 </Warning>
 
-The `kv_` prefix is intentional: it predates the rename from Kavach to theAuth and was kept so tokens already issued keep working (see [RENAME-MAP.md](https://github.com/glincker/theauth/blob/main/RENAME-MAP.md)).
+New agent tokens start with `ta_`. Tokens issued by earlier versions start with `kv_` (the old Kavach name) and keep working until you rotate them (see [RENAME-MAP.md](https://github.com/glincker/theauth/blob/main/RENAME-MAP.md)).
 
 There are three agent types:
 
@@ -307,7 +360,7 @@ console.log(r3.allowed);  // true
 
 // Rotate: old token is immediately invalid
 const rotated = await theauth.agent.rotate(agent.id);
-console.log(rotated.token);  // new kv_... token
+console.log(rotated.token);  // new ta_... token
 
 // Delegate a subset to a sub-agent
 const sub = await theauth.agent.create({

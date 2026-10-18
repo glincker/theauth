@@ -11,7 +11,7 @@ icon: gear
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 ```
 
@@ -23,7 +23,7 @@ A minimal config for local development with username and password sign-in, theAu
 import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: './theauth.db' },
+  database: { provider: 'sqlite-native', url: './theauth.db' },
   agents: { enabled: true },
   auth: {
     session: { secret: process.env.SESSION_SECRET! }, // at least 32 characters
@@ -78,7 +78,7 @@ const theauth = await createTheAuth({
 
 // SQLite (Node.js)
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: './theauth.db' },
+  database: { provider: 'sqlite-native', url: './theauth.db' },
 });
 
 // PostgreSQL
@@ -278,7 +278,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 export const theauth = await createTheAuth({
   database: isDev
-    ? { provider: 'sqlite', url: './theauth-dev.db' }
+    ? { provider: 'sqlite-native', url: './theauth-dev.db' }
     : { provider: 'postgres', url: process.env.DATABASE_URL! },
 
   baseUrl: process.env.THEAUTH_BASE_URL ?? 'http://localhost:3000',

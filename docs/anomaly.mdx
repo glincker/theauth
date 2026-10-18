@@ -70,7 +70,7 @@ import { createTheAuth } from '@glinr/theauth';
 const violations = new Map<string, number>();
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   hooks: {
     onViolation: async ({ agentId, type, resource, reason }) => {
       const count = (violations.get(agentId) ?? 0) + 1;

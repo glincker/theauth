@@ -21,7 +21,7 @@ import { createTheAuth } from "@glinr/theauth";
 import { theAuthSolidStart } from "@glinr/theauth-solidstart";
 
 const theauth = createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
 });
 
 // Mount in your SolidStart API routes

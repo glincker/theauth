@@ -370,7 +370,7 @@ if (session) {
 
 |  | Human sessions | Agent tokens |
 |---|---|---|
-| Format | Signed JWT in `httpOnly` cookie | `kv_...` bearer token |
+| Format | Signed JWT in `httpOnly` cookie | `ta_...` bearer token |
 | Lifetime | 7 days (configurable) | 24 hours (configurable) |
 | Storage | Database row | SHA-256 hash in database |
 | Revocation | Per-session or per-user bulk | Per-agent |
@@ -378,7 +378,7 @@ if (session) {
 | Freshness guard | Yes, for sensitive operations | N/A |
 | Action budget | No | Yes (ephemeral sessions) |
 
-Agent tokens use a `kv_` prefix and are stored only as a SHA-256 hash. The raw token is shown once at creation and cannot be recovered. If a token is lost, issue a new one.
+Agent tokens use a `ta_` prefix and are stored only as a SHA-256 hash. The raw token is shown once at creation and cannot be recovered. If a token is lost, issue a new one.
 
 ---
 

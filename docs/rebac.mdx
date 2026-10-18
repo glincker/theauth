@@ -17,7 +17,7 @@ theAuth ships a built-in ReBAC engine that works with agents as first-class subj
 ```typescript
 import { createReBACModule, createDatabase, createTables } from '@glinr/theauth';
 
-const db = await createDatabase({ provider: 'sqlite', url: 'theauth.db' });
+const db = await createDatabase({ provider: 'sqlite-native', url: 'theauth.db' });
 await createTables(db, 'sqlite');
 
 const rebac = createReBACModule({}, db);

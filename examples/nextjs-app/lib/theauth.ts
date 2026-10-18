@@ -22,7 +22,7 @@ export function getTheAuth(): Promise<TheAuthInstance> {
 	if (!theAuthPromise) {
 		theAuthPromise = createTheAuth({
 			database: {
-				provider: "sqlite",
+				provider: "sqlite-native",
 				url: process.env.THEAUTH_DB_URL ?? "theauth.db",
 			},
 			agents: {

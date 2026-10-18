@@ -335,6 +335,7 @@
             "pages": [
               "permissions",
               "policy-engine",
+              "policy-testing",
               "rebac",
               "policies/templates"
             ]
@@ -410,6 +411,7 @@
             "icon": "puzzle-piece",
             "pages": [
               "adapters/index",
+              "adapters/routes",
               {
                 "group": "Server frameworks",
                 "icon": "server",

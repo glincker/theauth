@@ -66,7 +66,7 @@ What to do:
 `theauth_audit_logs` gains a nullable `decision_code TEXT` column and an index on `(agent_id, decision_code)`. See [Database](/database#upgrading-the-audit-table).
 
 - `createTables()` adds both on startup. Old rows keep a NULL code, and `audit.query()` reports them with `code` undefined.
-- If you run with `database.skipMigrations: true`, apply `packages/core/src/db/migrations/0002_add_audit_decision_code.sql` before deploying. Without the column, audit reads and writes fail.
+- If you run with `database.skipMigrations: true`, apply the `decision_code` migration (generate it with `theauth db sql --dialect <yours>`, see [Schema ledger and skipMigrations](#schema-ledger-and-skipmigrations)) before deploying. Without the column, audit reads and writes fail.
 - The column is not part of the audit hash, so existing chains and the Go verifier keep verifying.
 - `audit.query()` accepts `codes: DecisionCode[]`, and entries carry `code`.
 
@@ -81,3 +81,90 @@ The delegation page said a delegating agent could not re-delegate permissions it
 ## A revoked or expired delegator no longer lends permissions
 
 Delegated permissions, lineage and the chain handed to `beforeAuthorize` used to check only the delegation link, never the status or `expiresAt` of the agent that created it. An intermediate agent that was revoked, suspended or expired, without its links being revoked, still lent permissions to the agents below it. Now a link counts only while its delegator agent is `active` and unexpired and, if it was itself delegated to, at least one of its own inbound links traces back to a live delegator. Chains that passed before can now fail with the usual permission-denied code. No new decision code was added. To restore access, re-activate or extend the delegator, or delegate again from a live agent. The same check now applies to token vault use (`getAccessToken` is refused when the consent runs through a revoked or expired intermediate agent) and to `loadGrants`/`analyzeUsage` in policy-shrink. One carve-out: an active delegator whose inbound links are all dead keeps the onward links that grant only permissions it holds directly.
+
+## Unified HTTP handler and adapter options
+
+Every framework adapter now wraps one core handler, `createTheAuthHandler` from `@glinr/theauth/http`, so all of them serve the same routes with the same status codes. See the [route reference](/adapters/routes).
+
+What changed:
+
+- Each adapter's options type is now the core `TheAuthHandlerOptions` (`mcp`, `basePath`, `routes`, `maxBodyBytes`, plus the shared security options). Existing option names keep working.
+- Every adapter now serves `POST /mcp/revoke`, `GET /mcp/jwks` and `POST /explain`. Request bodies over 1 MiB get 413.
+- Deprecated aliases were removed: `authExpress`, `authFastify`, `AuthFastifyOptions`, `authHono`, `authNextjs`, `AuthNextjsOptions`, `AuthNextjsHandlers`, `authNuxt`, `AuthNuxtOptions`, `authAstro`, `AuthAstroOptions`, `AuthAstroHandlers`, `authSolidStart`, `AuthSolidStartOptions`, `AuthSolidStartHandlers`, `authSvelteKit`, `AuthSvelteKitOptions`, `AuthSvelteKitHandlers`, `authTanStack`, `AuthTanStackOptions`, `AuthTanStackHandlers`, `AuthModule`, `AuthModuleOptions`, `AuthNestjsOptions`, `authMiddleware` and `buildAuthRouter`.
+
+What to do:
+
+- Rename each removed name to its `theAuth` form, for example `authHono` to `theAuthHono` and `AuthNextjsOptions` to `TheAuthNextjsOptions`. For NestJS, use `TheAuthModule`, `TheAuthModuleOptions`, `TheAuthNestjsOptions` and `theAuthMiddleware`.
+- Check any route you proxy by hand against the [route reference](/adapters/routes), since the adapter now serves more paths.
+
+## 401 for bad agents, 403 for other denials
+
+`POST /authorize/token` changed its status codes, and the denial body for `requireScope` changed shape.
+
+What changed:
+
+- The endpoint answers 401 for `invalid_token`, `agent_not_found`, `agent_revoked` and `agent_expired`, and 403 for every other denial. Before, both groups answered 403.
+- A known path with the wrong method answers 405 with an `Allow` header. Unexpected errors answer a fixed 500 message, not the exception text.
+- `requireScope` and `requireAgent` denial bodies are `{ error: { code, message } }`, where `code` is the decision code (for example `no_permission`). They used to be `UNAUTHORIZED` or `FORBIDDEN`.
+
+What to do:
+
+- If a client, retry rule or alert treats 403 as "agent is revoked", treat 401 as well.
+- Replace checks on the `UNAUTHORIZED` or `FORBIDDEN` body codes with decision codes. See [Errors](/errors#decision-codes).
+
+## Audit export refuses another user's userId
+
+`GET /audit/export?userId=<other user>` by a caller limited to their own resources now answers 403 with `{ error: { code, message } }`. Before, it returned the caller's rows without saying so.
+
+What changed:
+
+- A `userId` that is not the caller's is refused. The `audit` and `agents` list routes already did this.
+- `userId` set to the caller's own id, or left out, still returns 200.
+
+What to do:
+
+- If a script relies on the silent fallback, drop the `userId` parameter or send the caller's own id.
+
+## Client IP comes from the socket peer
+
+The adapters no longer take the client IP from the framework's `req.ip` or from forwarded headers by default.
+
+What changed:
+
+- Without `trustedProxy`, rate limits, `ipAllowlist` and `clientIp` use the socket peer address recorded when the request enters the handler. Forwarded headers are ignored.
+- With `trustedProxy` set, the IP comes from the proxy headers, and it is null when they are absent.
+- Fastify `requireScope` matches `ipAllowlist` against the socket peer by default.
+
+What to do:
+
+- Direct deployments (no proxy in front) need no change, and per-IP limits now apply.
+- Behind a load balancer or reverse proxy, set `trustedProxy` so limits and allowlists see the real client IP.
+
+## Schema ledger and skipMigrations
+
+theAuth now records every schema change in a ledger table, `theauth_schema_migrations`, and runs pending migrations at startup. `auth.schema.status()` reports the state. The 1.x tables are migration `0000`, and the audit and policy columns are `0001` to `0003`.
+
+What changed:
+
+- With `database.skipMigrations: true`, `createTheAuth` throws `SchemaOutdatedError` and lists the pending ids. Before, the failure showed up on the first write.
+- An applied migration whose SQL no longer matches its checksum stops startup with `SchemaChecksumError`.
+- Databases with 1.x tables but no ledger are adopted: the tables are stamped as applied, only missing migrations run, and rows are untouched.
+
+What to do:
+
+- Run `theauth db status` to list pending migrations.
+- Run `theauth db up` in your deploy step, or with `skipMigrations: true`, generate the SQL with `theauth db sql --dialect <yours>` and apply it with your own tooling before deploying. On a 1.x database, add `--from 0002`. Each generated file ends by recording itself in the ledger.
+
+## NestJS router is now middleware
+
+`buildTheAuthRouter` no longer returns an Express `Router`.
+
+What changed:
+
+- `buildTheAuthRouter(auth, mcp?, options?)` returns a middleware function. `basePath` defaults to where you mount it.
+- The NestJS module and middleware serve every core route, as the other adapters do.
+
+What to do:
+
+- Mount the result with `app.use(path, buildTheAuthRouter(...))`, as before.
+- Remove any code that calls `Router` methods on the result, such as `.get()` or `.use()`.

@@ -10,4 +10,4 @@ Upgrade notes:
 - Removed the deprecated `authExpress` alias. Use `theAuthExpress`.
 - `POST /authorize/token` answers 401 for `invalid_token`, `agent_not_found`, `agent_revoked` and `agent_expired`, and 403 for every other denial. A known path with the wrong method answers 405.
 - `requireScope` now uses the core `requireAgent` decision-code mapping. Denial bodies are `{ error: { code, message } }` with the decision code (for example `no_permission`) instead of `UNAUTHORIZED` or `FORBIDDEN`. `getAgent(res)` no longer returns the token.
-- The client IP no longer falls back to `req.ip`. Set `trustedProxy` to resolve it from forwarded headers.
+- The client IP now comes from the socket peer address, or from forwarded headers when `trustedProxy` is set.

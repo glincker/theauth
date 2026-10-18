@@ -15,7 +15,7 @@ import { createTheAuth, tokenVault } from "@glinr/theauth";
 import { createGithubProvider } from "@glinr/theauth/auth";
 
 const theauth = await createTheAuth({
-  database: { provider: "sqlite", url: "./auth.db" },
+  database: { provider: "sqlite-native", url: "./auth.db" },
   baseUrl: "https://app.example.com",
   secondaryStorage: "database", // shared lock store, use Redis for multi-node
   agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true, tokenExpiry: "24h" },

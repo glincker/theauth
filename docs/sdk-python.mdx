@@ -20,11 +20,11 @@ pip install "theauth[dpop]"
 from theauth import TheAuthClient, TheAuthSyncClient
 
 # async
-async with TheAuthClient(base_url="https://api.myapp.com/api/theauth", token="kv_...") as client:
+async with TheAuthClient(base_url="https://api.myapp.com/api/theauth", token="ta_...") as client:
     agents = await client.agents.list()
 
 # sync
-with TheAuthSyncClient(base_url="https://api.myapp.com/api/theauth", token="kv_...") as client:
+with TheAuthSyncClient(base_url="https://api.myapp.com/api/theauth", token="ta_...") as client:
     agents = client.agents.list()
 ```
 

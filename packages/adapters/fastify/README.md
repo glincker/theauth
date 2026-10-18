@@ -24,7 +24,7 @@ import { theAuthFastify } from '@glinr/theauth-fastify';
 const app = Fastify();
 
 const theauth = createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 // Register all TheAuth routes under /api/theauth

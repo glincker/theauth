@@ -123,7 +123,7 @@ describe("hono-server example", () => {
 			data: { id: string; token: string; name: string };
 		};
 		expect(created.data.name).toBe("example-agent");
-		expect(created.data.token).toMatch(/^kv_/);
+		expect(created.data.token).toMatch(/^ta_/);
 
 		const listRes = await fetch(`${app.baseUrl}/api/agents?userId=user-1`);
 		expect(listRes.status).toBe(200);

@@ -81,7 +81,7 @@ When `THEAUTH_DASHBOARD_SECRET` is set, the dashboard shows a password prompt be
     import { theAuthHono } from '@glinr/theauth-hono';
 
     const theauth = await createTheAuth({
-      database: { provider: 'sqlite', url: 'theauth.db' },
+      database: { provider: 'sqlite-native', url: 'theauth.db' },
     });
 
     const app = new Hono();

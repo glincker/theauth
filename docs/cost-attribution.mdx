@@ -18,7 +18,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { createCostAttributionModule } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
 });
 
 // Standalone module: it is not attached to the theauth instance

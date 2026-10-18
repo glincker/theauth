@@ -25,7 +25,7 @@ import { createTheAuth } from '@glinr/theauth';
 import { oauth, polarProvider } from '@glinr/theauth/auth';
 
 const theauth = await createTheAuth({
-  database: { provider: 'sqlite', url: 'theauth.db' },
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
   secret: process.env.THEAUTH_SECRET!,
   baseUrl: 'https://your-app.com/api/theauth',
   auth: { session: { secret: process.env.THEAUTH_SECRET! } },

@@ -75,7 +75,7 @@ const signals = sharedSignals({
 });
 
 const theauth = await createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
   plugins: [signals],
 });
 ```

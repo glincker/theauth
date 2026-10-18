@@ -57,7 +57,7 @@ for (const route of listRoutes({ routes: { explain: false } })) {
 | Level | Meaning |
 |---|---|
 | `admin` | A signed-in user (cookie or `Authorization: Bearer <session token>`), or the principal your `authenticate` option returns. With the default session resolver a user only sees and changes their own agents, delegations and audit rows. |
-| `agent` | An agent bearer token (`Authorization: Bearer kv_...`). |
+| `agent` | An agent bearer token (`Authorization: Bearer ta_...`). |
 | `client` | An OAuth client. Credentials travel in the request (client secret, `private_key_jwt` assertion). |
 | `public` | No credentials. The route validates its own input. |
 

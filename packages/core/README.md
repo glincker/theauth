@@ -83,7 +83,7 @@ const result = await theauth.authorize(agent.id, {
 <td width="50%">
 
 ### Agent identity
-- Cryptographic bearer tokens (`kv_...`)
+- Cryptographic bearer tokens (`ta_...`, legacy `kv_...` still accepted)
 - Wildcard permission matching (`mcp:github:*`)
 - Delegation chains with depth limits
 - Audit trail with an optional tamper evident hash chain
@@ -191,7 +191,7 @@ Works with every major framework:
 
 ## Databases
 
-SQLite, PostgreSQL, MySQL, Cloudflare D1, libSQL (Turso). Tables are auto-created on first run.
+SQLite, PostgreSQL, Cloudflare D1, libSQL (Turso). MySQL support is in progress. Tables are auto-created on first run.
 
 ```typescript
 // Cloudflare Workers + D1
@@ -212,7 +212,7 @@ import {
 } from "@glinr/theauth/auth";
 
 createTheAuth({
-  database: { provider: "sqlite", url: "theauth.db" },
+  database: { provider: "sqlite-native", url: "theauth.db" },
   plugins: [emailPassword(), magicLink({ sendMagicLink }), passkey(), totp()],
 });
 ```
