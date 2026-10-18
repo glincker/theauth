@@ -40,6 +40,8 @@ theAuth is auth for products where AI agents act on behalf of people. Each agent
 
 It runs on Node, Bun, Deno and Cloudflare Workers with four runtime dependencies (`drizzle-orm`, `jose`, `sql.js`, `zod`). No hosted service is required. The project was called kavachOS until 2026, see the [rename map](RENAME-MAP.md) if you have older code.
 
+Devices and robots use the same model. A sensor, gateway or machine can hold its own credentials (a pre shared key, a signing key or a TLS client certificate), enroll with a claim code or a bulk token, and be revoked live. For ROS 2, `theauth ros2 export` writes the SROS2 and DDS Security files from the robot's permissions, and a gate node asks theAuth before a hazardous command is published. theAuth is not a safety system, so emergency stops stay in the robot's safety controller.
+
 ## Quickstart
 
 Needs Node 20 or newer. This runs as pasted, with an in-memory SQLite database.
@@ -189,6 +191,7 @@ app.route("/api/theauth", theAuthHono(auth, { authenticate }));
 - [MCP OAuth 2.1 server](https://docs.theauth.dev/mcp) and [MCP revocation](https://docs.theauth.dev/mcp-revocation)
 - [Delegation](https://docs.theauth.dev/delegation), [guards](https://docs.theauth.dev/guards) and [hooks](https://docs.theauth.dev/hooks)
 - [Observability](https://docs.theauth.dev/observability), [audit trail](https://docs.theauth.dev/audit-trail) and [audit receipts](https://docs.theauth.dev/audit-receipts)
+- [IoT devices](https://docs.theauth.dev/iot-devices) and [robotics and ROS 2](https://docs.theauth.dev/robotics-ros2)
 - [Upgrading to 2.0](https://docs.theauth.dev/upgrading-to-2) for people on 1.x
 - [Works with](https://docs.theauth.dev/works-with), [migrating from another library](https://docs.theauth.dev/migrate/choose-a-path) and the [API reference](https://docs.theauth.dev/api)
 - [Security policy](SECURITY.md)

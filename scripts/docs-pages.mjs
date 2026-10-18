@@ -5,7 +5,7 @@ import { join } from "node:path";
 export const SITE_URL = "https://docs.theauth.dev";
 
 /** Collect page slugs from a docs.json navigation node, in nav order. */
-function collectSlugs(node, out) {
+export function collectSlugs(node, out) {
 	if (typeof node === "string") {
 		out.push(node);
 		return;

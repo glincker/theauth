@@ -96,7 +96,15 @@ const res = await theauth.plugins.handleRequest(request);
 <div>
 **Web Crypto only** in core, no Node-specific APIs.
 </div>
+<div>
+**Devices** with their own credentials, enrollment, live revocation and signed offline policy bundles.
+</div>
+<div>
+**Robotics** with ROS 2 permissions exported to SROS2 and DDS Security files, plus a gate node for hazardous commands.
+</div>
 </Columns>
+
+Devices and robots use the same model as agents. A sensor, gateway or machine is a principal with its own credentials, permissions and audit rows, so one policy and one audit trail cover people, agents and hardware. Start with [IoT devices](/iot-devices) or [robotics and ROS 2](/robotics-ros2).
 
 ## How it fits with your stack
 
@@ -13431,6 +13439,8 @@ Invalid delegations:
 { resource: 'mcp:slack:*', actions: ['read'] }     // resource not held by parent
 ```
 
+The subset test is the runtime matcher applied to the child: a parent `mcp:github` does not allow delegating `mcp:github:read`, because `authorize()` would not let the parent use it either. With [path matching](/permissions#path-matching-opt-in), a parent `ros2:/fleet/*` can delegate `ros2:/fleet/r1`.
+
 ### Constraints carry over
 
 Constraints on the permissions you delegate are stored on the chain and enforced by `authorize()`, `authorizeByToken()` and `policy.evaluate()`. They are narrowed against the permission the parent holds, so a child can only be tighter:
@@ -13610,6 +13620,270 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
   Use delegation with MCP-authenticated agents. Tokens from token exchange are bound to their delegation, so revoking a link rejects them on the next request. See [MCP token revocation](/mcp-revocation).
 </Card>
 </CardGroup>
+
+---
+
+# IoT devices
+
+Source: https://docs.theauth.dev/iot-devices
+
+A device in theAuth is a principal like an agent. It has an owner, groups, permissions with constraints, delegation from agents, audit rows and revocation. Under the hood each device is backed by an agent row of type `device`, so the permission engine, the delegation chain, the revocation bus and the hash chained audit log all apply without a second rule system.
+
+What a device gets that an agent does not:
+
+- Credentials made for hardware: a pre shared key, a public key that signs short assertions, or a TLS client certificate thumbprint.
+- Enrollment by claim code (one device, typed by a person) or bulk token (a factory line, with a use limit).
+- An attestation hook for evidence such as an EAT (RFC 9711) at enrollment.
+- A signed offline policy bundle for devices that cannot call home on every decision.
+- Suspend and resume, separate from permanent revoke.
+
+## Turn it on
+
+Devices need `agents`. Add `devices` to your config:
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "file:./theauth.db" },
+  agents: { enabled: true },
+  devices: {
+    // Optional. Signs offline policy bundles. Use ES256 or EdDSA, keep the private key in your secret store.
+    bundleSigning: { alg: "ES256", kid: "bundle-2026-10", privateKey: JSON.parse(process.env.DEVICE_BUNDLE_KEY!) },
+  },
+  // Assertion replay cache and attestation nonces. Use "database" or Redis with more than one server.
+  secondaryStorage: { deviceAuth: "database" },
+});
+```
+
+Migration `0010-devices` adds three tables (`theauth_devices`, `theauth_device_credentials`, `theauth_device_enrollments`). It runs on the next boot, or apply it with `theauth db up`.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `maxPerOwner` | 10000 | Devices per owner that are not revoked. Devices do not count against `agents.maxPerUser`. |
+| `audience` | `"theauth"` | `aud` a device assertion must carry. |
+| `issuer` | `"theauth"` | `iss` of offline bundles. |
+| `bundleSigning` | none | `{ alg, kid, privateKey, previous? }`. Without it bundles are refused. |
+| `bundleTtlSeconds` | 3600 | Bundle lifetime. Capped at 86400. |
+| `attestation` | none | `{ required?, verify? }`. Evidence without a `verify` function is refused. |
+| `clientCertThumbprint` | none | `(request) => x5t#S256 or null`, for mTLS terminated at your proxy. |
+
+## A runnable example
+
+```ts
+import { createTheAuth, evaluateDeviceBundle, verifyDeviceBundle } from "@glinr/theauth";
+import { exportJWK, generateKeyPair } from "jose";
+
+const signing = await generateKeyPair("ES256", { extractable: true });
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true },
+  devices: { bundleSigning: { alg: "ES256", kid: "k1", privateKey: await exportJWK(signing.privateKey) } },
+});
+await theauth.user.create({ id: "owner-1", email: "owner@example.com" });
+const devices = theauth.device!;
+
+// Register a thermostat with a pre shared key. The secret is returned once.
+const { device, credential } = await devices.register({
+  ownerId: "owner-1",
+  name: "thermostat-hall",
+  kind: "sensor",
+  hardwareId: "SN-0042",
+  groups: ["hvac"],
+  permissions: [
+    { resource: "mqtt:sensors:temp:*", actions: ["publish"] },
+    { resource: "coap:valve:hall", actions: ["put"], constraints: { requireApproval: true } },
+  ],
+  credential: { kind: "psk" },
+});
+console.log("psk", credential?.secret);
+
+// Online decision: same engine as agents, audit row marked theauthPrincipal = { type: "device" }.
+console.log(await devices.authorize(device.id, { action: "publish", resource: "mqtt:sensors:temp:hall" }));
+
+// Offline: sign a bundle, verify it on the device side, decide without the server.
+const bundle = await devices.issueBundle(device.id);
+const checked = await verifyDeviceBundle(bundle.token, { keys: devices.jwks(), deviceId: device.id });
+if (checked.ok) {
+  console.log(evaluateDeviceBundle(checked.claims, { action: "publish", resource: "mqtt:sensors:temp:hall" }));
+  // requireApproval cannot be met offline, so this one is denied.
+  console.log(evaluateDeviceBundle(checked.claims, { action: "put", resource: "coap:valve:hall" }));
+}
+
+// Kill it. The backing agent is revoked too, which reaches every server through the revocation bus.
+await devices.revoke(device.id, "returned to vendor");
+```
+
+## Credentials
+
+| Kind | Stored | The device sends |
+| --- | --- | --- |
+| `psk` | SHA-256 of the secret and a 16 character lookup prefix | `Authorization: Bearer tdk_...` |
+| `jwk` | the public key and its RFC 7638 thumbprint | a device assertion JWT as `Authorization: Bearer <jwt>` |
+| `x509` | the `x5t#S256` thumbprint (RFC 8705 section 3.1) | its TLS client certificate; your proxy passes the thumbprint through `clientCertThumbprint` |
+
+Accepted keys are EC P-256, EC P-384 and Ed25519. A private key or an RSA key is refused at registration. A device can hold several credentials, so rotate by adding the new one and revoking the old one:
+
+```ts
+const next = await devices.addCredential(device.id, { kind: "jwk", jwk: newPublicJwk });
+await devices.revokeCredential(device.id, oldCredentialId);
+```
+
+### Device assertions
+
+A device with a key signs a short JWT for each connection or request. The layout follows RFC 7523 section 3, the replay rules follow DPoP (RFC 9449):
+
+```jsonc
+// header
+{ "alg": "ES256", "typ": "device-assertion+jwt", "kid": "<RFC 7638 thumbprint of the device key>" }
+// payload
+{ "iss": "<deviceId>", "sub": "<deviceId>", "aud": "theauth", "iat": 1760000000, "exp": 1760000060, "jti": "<16+ random chars>" }
+```
+
+The server checks the signature with the registered key (the algorithm is pinned to the key type), `iss` and `sub` equal the device id, `aud`, a lifetime of at most 300 seconds, `iat` no more than 30 seconds ahead, and a `jti` it has not seen for this device. In Node:
+
+```ts
+import { SignJWT, importJWK } from "jose";
+
+const key = await importJWK(devicePrivateJwk, "ES256");
+const jwt = await new SignJWT({ jti: crypto.randomUUID() })
+  .setProtectedHeader({ alg: "ES256", typ: "device-assertion+jwt", kid: deviceKeyThumbprint })
+  .setIssuer(deviceId)
+  .setSubject(deviceId)
+  .setAudience("theauth")
+  .setIssuedAt()
+  .setExpirationTime("60s")
+  .sign(key);
+```
+
+## Enrollment
+
+Ship devices without per device secrets and bind them on first boot.
+
+```ts
+// One device, a person types the code from a label or app: XXXXX-XXXXX, 15 minutes, single use.
+const claim = await devices.createEnrollmentToken({ ownerId: "owner-1", kind: "claim", groups: ["hvac"] });
+
+// A factory line: long token, use limit, 24 hours by default (30 days max).
+const bulk = await devices.createEnrollmentToken({
+  ownerId: "owner-1",
+  kind: "bulk",
+  maxUses: 500,
+  permissions: [{ resource: "mqtt:sensors:*", actions: ["publish"] }],
+});
+```
+
+The device then enrolls itself:
+
+```bash
+curl -X POST https://auth.example.com/api/theauth/device/enroll \
+  -H 'content-type: application/json' \
+  -d '{"token":"7KQ2M-9XR4T","name":"thermostat-hall","hardwareId":"SN-0042","credential":{"kind":"psk"}}'
+```
+
+Codes and tokens are stored as hashes. A use is claimed with one conditional UPDATE, so two devices racing for the last use cannot both win. A bad credential in the request is refused before a use is spent. Each device records the token that created it (`enrollmentId`), so if a bulk token leaks you can list and suspend exactly the devices it made: `devices.list({ enrollmentId })`.
+
+<Warning>
+`POST /device/enroll` and `POST /device/attestation-nonce` take no credentials. Keep the adapter rate limiter on for them.
+</Warning>
+
+### Attestation
+
+Set `attestation.verify` to check evidence (for example an EAT from a secure element) before the device is created. The device first asks for a nonce and binds it into its evidence, so old evidence cannot be replayed:
+
+```ts
+devices: {
+  attestation: {
+    required: true,
+    verify: async ({ evidence, nonce, hardwareId }) => {
+      const claims = await myEatVerifier(evidence); // your RATS Verifier (RFC 9334)
+      if (claims.eat_nonce !== nonce) return { ok: false, reason: "stale evidence" };
+      return { ok: true, claims: { ueid: claims.ueid } };
+    },
+  },
+}
+```
+
+A verifier that throws counts as a refusal. The claims you return are stored on the device as `attestation`.
+
+## Authorization, delegation and revocation
+
+- `devices.authorize(id, request)` checks the device state first (`device_suspended`, `device_revoked`, `device_expired`, `device_not_found`), then runs the same pipeline as agents: `beforeAuthorize` hooks, own and delegated permissions, constraints, approvals and audit.
+- Every audit row for a device has `parameters.theauthPrincipal = { type: "device", id }`. Keys starting with `theauth` are reserved, so a device cannot plant that marker through arguments.
+- `devices.delegate({ fromAgent, deviceId, permissions, expiresAt })` lets an agent hand a subset of its permissions to a device. Revoking the agent revokes the chain.
+- `devices.suspend(id)` is reversible. `devices.revoke(id)` is permanent, revokes the backing agent and cascades its delegations.
+- Device backing agents are hidden from `agent.list()` unless you pass `type: "device"`, and their bearer token can never be used or rotated.
+
+## Offline policy bundles
+
+A bundle is a compact JWS with `typ: device-policy+jwt`, signed with `bundleSigning`:
+
+```json
+{
+  "iss": "theauth", "sub": "<deviceId>", "aud": "<deviceId>",
+  "iat": 1760000000, "nbf": 1760000000, "exp": 1760003600, "jti": "...",
+  "seq": 1760000000123, "owner": "owner-1", "groups": ["hvac"],
+  "perms": [{ "resource": "mqtt:sensors:temp:*", "actions": ["publish"] }]
+}
+```
+
+Rules on the device, as implemented by `verifyDeviceBundle` and `evaluateDeviceBundle`:
+
+1. Verify the signature against `GET /device/jwks`, `typ`, `iss`, and that `sub` and `aud` are this device. Respect `nbf` and `exp` with 30 seconds of skew.
+2. Keep the highest `seq` accepted and refuse a lower one, so an old and wider bundle cannot be replayed.
+3. Match permissions the same way the server does.
+4. `requireApproval` always denies offline. `maxCallsPerHour` denies unless you pass the local call count. Time windows use the device clock.
+
+`perms` is the device's own permissions plus active delegations at issue time. A revocation reaches online checks at once but reaches an offline device only when its bundle expires, so pick the TTL as the longest stale window you accept. One hour is the default.
+
+## HTTP routes
+
+Management routes need a signed in owner and only show that owner's devices:
+
+| Method | Path | |
+| --- | --- | --- |
+| GET | `/devices` | list (`ownerId`, `status`, `group`, `enrollmentId`, `limit`, `offset`) |
+| POST | `/devices` | register |
+| GET, PATCH, DELETE | `/devices/:id` | get with credentials, update, revoke |
+| POST | `/devices/:id/suspend`, `/devices/:id/resume` | pause and resume |
+| POST, DELETE | `/devices/:id/credentials[/:credentialId]` | add, revoke a credential |
+| POST | `/devices/:id/bundle` | issue a bundle |
+| POST, DELETE | `/devices/enrollment-tokens[/:id]` | create, revoke an enrollment token |
+
+Device facing routes (turn them off with `routes: { devices: false }`):
+
+| Method | Path | Auth |
+| --- | --- | --- |
+| POST | `/device/enroll` | enrollment token in the body |
+| POST | `/device/attestation-nonce` | none |
+| POST | `/device/authorize` | device credential; 401 bad credential, 403 denied |
+| GET | `/device/bundle` | device credential |
+| GET | `/device/jwks` | none |
+
+`/auth/device/*` is a different thing: the RFC 8628 flow where a person signs in on a TV or CLI.
+
+## Resource names for device protocols
+
+Resources are colon separated, and `*` matches the rest:
+
+- MQTT topic `sensors/temp/42` is `mqtt:sensors:temp:42`, actions `publish` and `subscribe`. The filter `sensors/#` is `mqtt:sensors:*`. `+` has no direct equivalent, so a broker plugin should expand or deny it.
+- CoAP `/actuators/valve` is `coap:actuators:valve`, actions `get`, `put`, `post`, `delete`, `observe`.
+- ROS 2 topics follow [Robotics and ROS 2](/robotics-ros2).
+
+## CLI
+
+```bash
+theauth device register --config ./theauth.config.mjs --owner owner-1 --name gw-1 --psk \
+  --perm "mqtt:sensors:*=publish" --group yard
+theauth device list --config ./theauth.config.mjs --status active
+theauth device enroll-token --config ./theauth.config.mjs --owner owner-1 --kind bulk --max-uses 200
+theauth device suspend <deviceId> --config ./theauth.config.mjs --reason "battery swap"
+theauth device revoke <deviceId> --config ./theauth.config.mjs
+```
+
+## What is not here yet
+
+CWT and COSE encoding of bundles for very small devices, a built in EAT verifier, uploading decisions a device made offline into the audit chain, and a dashboard page.
 
 ---
 
@@ -13809,6 +14083,36 @@ Common actions in MCP contexts:
 | `delete` | Permanent removal of resources |
 
 An authorization check passes when an agent has a permission with: a matching resource pattern, the requested action in that permission's `actions` array, and all constraints satisfied. Only the first permission whose resource and action match is evaluated: if its constraints fail, later matching permissions are not tried.
+
+## Path matching (opt in)
+
+Resources that are paths, such as ROS 2 names (`ros2:/fleet/robot1/cmd_vel`), have no way to say "one level" or "anything below" with the colon rules, because a `*` inside a segment is plain text. Turn on path matching and `/` becomes a separator inside each colon segment:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  resourceMatching: "path", // default is "colon"
+});
+```
+
+| Pattern | Matches | Does not match |
+| --- | --- | --- |
+| `ros2:/fleet/*` | `ros2:/fleet/r1` | `ros2:/fleet/r1/cmd`, `ros2:/fleet` |
+| `ros2:/fleet/**` | `ros2:/fleet/r1`, `ros2:/fleet/r1/cmd` | `ros2:/fleet`, `ros2:/fleetx/a` |
+| `ros2:/fleet/*/cmd` | `ros2:/fleet/r1/cmd` | `ros2:/fleet/r1/x/cmd` |
+| `mqtt:a:*:b` | `mqtt:a:x:b` | `mqtt:a:x:c`, `mqtt:a:x:y:z` |
+
+The rules, in full:
+
+- `*` matches exactly one path segment, `**` matches one or more. Only a whole segment is a wildcard, `r*` is literal text.
+- A wildcard never matches an empty segment, `.` or `..`, so `ros2:/fleet/a/../../admin` cannot slip through `ros2:/fleet/**`.
+- A path wildcard never crosses a `:`. Matching is case sensitive and nothing is percent decoded.
+- A colon segment that is exactly `*` and comes last keeps its old meaning (it covers the rest). Before the last segment it now matches exactly one segment, so `mqtt:a:*:b` no longer grants `mqtt:a:x:anything`.
+- MQTT `+` and `#` are not aliases. A topic level is a colon segment, see the device resource names in [IoT devices](/iot-devices).
+
+The mode applies to `authorize()`, delegation checks, the policy engine and its taint rules, `simulate`, `explain`, device bundles (the signed bundle carries the mode, so an offline device decides like the server) and the token vault. `policy.resourceMatching` overrides the top level value for the unified policy engine alone. Leave both unset and nothing changes: every existing grant matches exactly as before. Patterns without a `*` or `**` path segment behave the same in both modes.
+
+Delegation uses the same matcher: a child resource is a subset of a parent resource when the parent pattern matches it, so `ros2:/fleet/*` can delegate `ros2:/fleet/r1` but not `ros2:/fleet/**`.
 
 ## Constraints
 
@@ -15389,6 +15693,45 @@ Rows written before this format (`hash_version` null or 1) hash the raw ids, so 
 
 A pseudonym is linkable by whoever holds the key, so this is pseudonymization, not anonymization. Destroying the key is not implemented. The erasure path rewrites rows with SQLite-specific statements.
 
+### Input provenance
+
+Each audit row can say where the inputs of the call came from. Declare the sources on the request context and `authorize`, `authorizeByToken` and `policy.evaluate` record them in `input_provenance`:
+
+```ts
+await theauth.authorize(agent.id, { action: "execute", resource: "mcp:github:create_issue" }, {
+  inputs: [
+    { kind: "user_message", id: "msg_123", content: userText },
+    { kind: "retrieved_document", id: "doc_9", content: documentText },
+  ],
+});
+```
+
+The kinds are `user_message`, `tool_output`, `retrieved_document` and `agent`. Only a hash of the content is stored: an HMAC-SHA-256 under a subkey derived from the audit key (pass `content` and it is hashed and dropped, or pass a `hash` you computed), plus the optional `id`. The record is `{ sources: [{ kind, id?, hash, hv? }], keys: ["<kind>:<hash>"] }`, where `hv` is 2 for the keyed hash and absent on older rows with a plain SHA-256 and merges with the taint labels when a policy supplies them. On version 2 rows it is covered by the chain hash. For tools, `guardTool(theauth, { inputs: (args) => [...] }, tool)` does the same on every call.
+
+Provenance is read only from the trusted context, never from tool arguments. The argument name `inputProvenance` is reserved (see the reserved key rules in `src/audit/reserved.ts`), so an argument cannot plant or forge a source.
+
+Filter on it with the audit query:
+
+```ts
+const rows = await theauth.audit.query({
+  provenance: { kind: "retrieved_document", content: documentText },
+});
+```
+
+`kind`, `hash` and `content` can be combined or used alone. `content` is hashed by the server with the audit key and matches both keyed and older plain hashes. `hash` must be 64 lowercase hex characters, exactly as stored. See [input provenance](/input-provenance) for the HTTP header, gateway, MCP and CLI forms. Verification, replay and export carry the record unchanged.
+
+### Rotating pseudonyms
+
+By default a subject has one stable pseudonym, which the key holder can link across all time. Set `audit.pseudonymRotation` to change that:
+
+```ts
+audit: { tamperEvident: true, pseudonymRotation: { periodDays: 30, retainPeriods: 1 } }
+```
+
+Each period (whole days since the epoch) gets its own random secret in `theauth_audit_secrets`, and the pseudonyms on a row are keyed by that secret and stamped with the period number. One subject therefore has a different pseudonym in every period. The period secret is not derived from `audit.hmacKey`, because that would let the key holder recompute every period. The first write of a new period deletes the secrets older than `retainPeriods` periods behind it (default 1). After that nobody, the operator included, can link a subject across those periods. `shredPseudonymPeriods(db, currentPeriod, retainPeriods)` does the same on demand.
+
+The chain hash covers the stored pseudonyms, not the secrets, so shredding keeps the chain valid, and `verifyAuditChain` and exports work as before. The tradeoff is that a raw id still present on a row of a shredded period can no longer be compared with its pseudonym. Rows written before rotation was turned on keep their stable pseudonym.
+
 ### Migration
 
 `createTables` adds the three nullable columns and the unique index to an existing `theauth_audit_logs` table. The statements are idempotent (Postgres uses `ADD COLUMN IF NOT EXISTS`, SQLite and MySQL tolerate "already exists"). If you run with `skipMigrations: true`, apply this yourself:
@@ -15486,7 +15829,8 @@ Both exit 1 when the chain is broken. `--db <url>` overrides `DATABASE_URL`. The
 - Anyone holding `hmacKey` and database write access can forge a chain. Keep the key outside the database host.
 - Retention cleanup and GDPR erasure remove or rewrite rows. Cleanup leaves a checkpoint row and erasure leaves an `audit.erasure` record. Rewriting a row in the middle by other means is flagged.
 - A pseudonym is linkable by whoever holds the key (`audit.hmacKey` or the stored secret).
-- `input_provenance` comes from labels you supply. The SDK does not infer it.
+- `input_provenance` records the sources you declare (`context.inputs`, or the `inputs` option of `guardTool`) as kind, id and content hash. The SDK does not infer where an input came from. Hashes written before the keyed hash are plain SHA-256, so short or guessable text in those rows can be confirmed by anyone who guesses it.
+- Under pseudonym rotation, a raw id that is still present in a period whose secret was shredded cannot be checked against its pseudonym. The chain hash is still verified.
 - Audit writes for policy decisions, delegation, approval and SCIM events are best effort. Failures are counted and followed by an `audit.write_failed` row (with the count and the first and last failure times), but a write that fails is not retried.
 
 ## Related
@@ -15495,6 +15839,145 @@ Both exit 1 when the chain is broken. `--db <url>` overrides `DATABASE_URL`. The
 - [Tutorial: verifiable agent receipts](/tutorials/verifiable-agent-receipts)
 - [Taint aware tool guard](/taint-guard): fills `input_provenance`.
 - [Find and remove unused permissions](/policy-shrink): reads these rows.
+
+---
+
+# Input provenance
+
+Source: https://docs.theauth.dev/input-provenance
+
+## The threat
+
+Prompt injection works because the model cannot tell an instruction from the user apart from text it read on a web page or in a file. [OWASP LLM01](https://genai.owasp.org/llmrisk/llm01-prompt-injection/) lists segregating and marking external content as a mitigation, and notes there is no complete prevention. So some injections will get through. When one does, you need to answer three questions fast: which document carried it, which calls did it influence, and which of those did damage.
+
+Input provenance is the record that answers them. Each audit row can list the inputs the caller says were in context: a kind, an optional id and a hash of the content. The content is never stored. Given a suspect document, you hash it, search the audit log, and get every call that had it in context.
+
+This is evidence for investigation, not a guard. The server records what the caller declares and does not check that a source is real or complete. For blocking calls based on where arguments came from, see the [taint guard](/taint-guard).
+
+## What is recorded
+
+| Field | Meaning |
+| --- | --- |
+| `kind` | `user_message`, `tool_output`, `retrieved_document` or `agent` |
+| `id` | Optional identifier you choose, such as a message id, a URL or a tool call id |
+| `hash` | 64 hex characters, computed from the content |
+| `hv` | `2` for the keyed hash. Absent on rows written before the keyed hash |
+
+The kinds map onto the provenance model in [W3C PROV](https://www.w3.org/TR/prov-overview/): an input is an entity, the call is an activity that used it. The same idea appears in the [OpenTelemetry GenAI conventions](https://github.com/open-telemetry/semantic-conventions-genai), which keep message content off by default because it often holds personal data. Here the default is the same: hash, never content.
+
+## The hash is keyed
+
+A plain SHA-256 of a short message can be confirmed by anyone who reads the audit table and guesses the text. So the stored hash is an HMAC-SHA-256 under a subkey derived with HKDF ([RFC 5869](https://www.rfc-editor.org/rfc/rfc5869)) from the audit key (`audit.hmacKey`, or the installation secret when you set none). The chain key itself is never used to hash content.
+
+Because the hash is keyed, a client cannot compute it. To look something up, send the content to the server and let it hash with its key. The query API, the HTTP route and the CLI all take `content` for this reason. Rows written before the keyed hash keep their plain hash (no `hv`), and a content query matches both forms.
+
+## Record inputs in code
+
+```ts
+await theauth.authorize(
+  agent.id,
+  { action: "execute", resource: "mcp:github:create_issue" },
+  {
+    inputs: [
+      { kind: "user_message", id: "msg_123", content: userText },
+      { kind: "retrieved_document", id: "https://example.org/page", content: pageText },
+    ],
+  },
+);
+```
+
+For guarded tools, pass `inputs` to `guardTool`. Find every call that had a document in context:
+
+```ts
+const rows = await theauth.audit.query({
+  provenance: { kind: "retrieved_document", content: pageText },
+});
+for (const row of rows) console.log(row.timestamp, row.agentId, row.resource, row.inputs);
+```
+
+## Send inputs over HTTP
+
+`POST /authorize` and `POST /authorize/token` accept an `inputs` array in the body, with the same fields as above. A header form exists for proxies and gateways that cannot rewrite bodies: `TheAuth-Inputs` holds the base64url encoding of the same JSON array, up to 8192 characters and 32 inputs. Prefer entries with a `hash` over `content` in a header, since proxies log headers. A malformed header is ignored and never blocks the request. When both are present, the body wins.
+
+```ts
+import { encodeInputsHeader } from "@glinr/theauth";
+
+await fetch(`${base}/authorize/token`, {
+  method: "POST",
+  headers: {
+    authorization: `Bearer ${agentToken}`,
+    "content-type": "application/json",
+    "theauth-inputs": encodeInputsHeader([{ kind: "tool_output", id: "call_7", content: toolResult }]),
+  },
+  body: JSON.stringify({ action: "read", resource: "mcp:github:issues" }),
+});
+```
+
+Query the audit log with `GET /audit?provenanceKind=retrieved_document&provenanceContent=...`. `provenanceHash` takes a stored hash. Each entry carries `inputs` (kind, id, hash, hv).
+
+## Gateway
+
+The [gateway](/gateway) reads `TheAuth-Inputs` on each request and records it on the permission check and the audit entry, then removes the header before forwarding to your upstream. An agent framework that fetches through the gateway can attach the documents it has in context without touching the upstream service.
+
+## Admin MCP server
+
+Clients of the admin MCP server pass inputs in the tool call `_meta`, under the key `io.theauth/inputs` (MCP reserves unprefixed names, so the key carries a reverse DNS prefix):
+
+```json
+{
+  "name": "revoke_agent",
+  "arguments": { "id": "agent_1", "reason": "suspected injection" },
+  "_meta": {
+    "io.theauth/inputs": [{ "kind": "user_message", "id": "ticket-88", "content": "Please revoke agent_1" }]
+  }
+}
+```
+
+The server writes them into the audit event for that call. `query_audit` takes `provenanceKind`, `provenanceContent` and `provenanceHash`.
+
+## CLI
+
+```bash
+# every call that had this page in context
+theauth audit query --input-content "$(cat suspect.html)" --provenance retrieved_document
+
+# every call with any retrieved document, last 100
+theauth audit query --provenance retrieved_document --limit 100
+
+# by stored hash, from a row you already looked at
+theauth audit query --provenance retrieved_document:3f2a...c9
+```
+
+Set `THEAUTH_AUDIT_HMAC_KEY` if your app runs with `audit.hmacKey`, or the CLI cannot reproduce the keyed hash.
+
+## Dashboard
+
+The audit page shows an Inputs column with one chip per recorded input: the kind, then the id or the first eight hash characters. Retrieved documents are amber, since they are the usual injection carrier. A filter narrows the page to one kind.
+
+## Hold risky calls after untrusted input
+
+With `policy.taint.inputLabels` on, the kinds in `context.inputs` become call level labels named `input:<kind>`, and a [taint rule](/taint-guard) can forbid them. This holds `tool:exec` for human approval whenever a retrieved document was in context:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  policy: {
+    taint: {
+      inputLabels: true,
+      rules: [{ resource: "tool:exec", forbid: ["input:retrieved_document"] }],
+    },
+  },
+});
+```
+
+The effect defaults to `escalate`, which opens an approval request. After a person approves it, the retry with the `approvalId` passes. Use `effect: "deny"` to refuse outright. The option is off by default, so existing rules see the same labels as before. It rests on the caller declaring its inputs, so it reduces risk and is not a boundary against a caller that hides a document.
+
+## What it does not do
+
+- It does not verify the claim. A caller that leaves out a poisoned document leaves it out of the record.
+- It does not follow data through the model. It says what was in context, not what the model used.
+- A caller supplied `hash` is stored as given and is only as private as the caller's hashing. Use `content` where you can.
+- Rows from before the keyed hash can have their short content guessed by someone who reads the table. Newer rows cannot, without the key.
 
 ---
 
@@ -15684,11 +16167,60 @@ Erasure works as in Go: a row whose raw id is blank while its pseudonym is set c
 
 What is not checked:
 
-- **Truncation.** A chain cut at its tail still verifies. Only a signed checkpoint or an externally kept head detects that.
+- **Truncation by the chain check alone.** A chain cut at its tail still verifies, since every remaining row links to the one before it. Pair it with a signed head checkpoint, described next.
 - **Keys.** The Go chain is plain SHA-256, with no HMAC mode, so anyone who can write the table can rewrite a suffix and recompute every hash. This verifier cannot change that, and it has no HMAC support because there is nothing to support. Without `pseudonymSecret` the pseudonyms are trusted as exported (`pseudonymsUnchecked` counts those rows).
 - **Fields outside the hash.** `event`, `recordedAtUs` and the native columns of a database are not hashed.
 - **Numbers beyond 2^53** inside `metadata` or `inputProvenance`: JavaScript parses them as floats, so the rebuilt text can differ from Go's. Metadata with such values reports `hash_mismatch`.
 - **Storage.** It checks an export, not that the export matches the database.
+
+### Rotating pseudonyms
+
+When theauth-go runs with audit pseudonym rotation, a row's pseudonyms look like `r1:<period>:<hex>` instead of plain hex. The period is a whole number of days since the Unix epoch, and the hex is `HMAC-SHA256(periodSecret, "theauth.audit.pseudonym.v2:p<period>:" + id)`. The chain hash covers the stored text, so the hash check needs no secret. To also compare the raw ids still on a row with their pseudonyms, pass the secret of each period:
+
+```ts
+const result = await verifyGoAuditChain(rows, {
+  pseudonymSecret: stableSecretHex,
+  periodSecrets: { "20370": hexOfPeriod20370, "20371": hexOfPeriod20371 },
+});
+```
+
+`periodSecrets` is an object or a `Map` keyed by period number, with raw bytes or hex values. A rotated pseudonym is never compared under `pseudonymSecret`. If its period has no entry (the secret was shredded, or you did not export it) the pseudonym is trusted as stored and the row is counted in `pseudonymsUnchecked`, the same as Go's own check. A raw id on a row of a shredded period can therefore be edited without detection. Older rows with plain hex pseudonyms keep using `pseudonymSecret`, and both forms verify in one export. From a shell: `--period-secrets periods.json` with `{"20370": "<hex>", ...}`. The fixture `tests/fixtures/go-e2e-head-vectors.json` was written by the real Go code and covers stable rows, rotated rows, an erased row and a shredded period.
+
+### Catching tail truncation with a head checkpoint
+
+theauth-go can sign the last position of every chain: `checkpoint.CreateHeadCheckpoint` writes `{version, alg, keyId, timestamp, heads: [{chainKey, seq, hash}], signature}`, signed with Ed25519 (RFC 8032). Keep that file somewhere the log's writer cannot rewrite. `verifyGoHeadCheckpoint` checks the signature and then asks whether each signed chain still reaches its signed `seq` with the signed hash. It is the same idea as a Certificate Transparency monitor holding a signed tree head (RFC 6962 section 3.5) and checking the log against it.
+
+```ts
+import { verifyGoAuditChain, verifyGoHeadCheckpoint } from "@glinr/theauth";
+
+const chain = await verifyGoAuditChain(rows, { pseudonymSecret: secretHex });
+const head = await verifyGoHeadCheckpoint(headCheckpoint, [publicKey], rows);
+if (!chain.ok || !head.valid) console.error(chain.firstFailure, head);
+// head: { valid: true } or { valid: false, reason, chainKey? }
+```
+
+`publicKey` is `{ keyId, publicKey: { kty: "OKP", crv: "Ed25519", x } }`, the same shape as for Merkle checkpoints, and you can pass several keys for rotation. Leave `rows` out to check the signature alone (`verifyGoHeadSignature` does the same).
+
+| Reason | Meaning |
+|---|---|
+| `malformed` | Wrong version, unsorted or repeated `chainKey`, a `seq` below 1, a hash that is not 64 lowercase hex characters |
+| `unsupported_alg` | `alg` is not `Ed25519`, or the key is not an Ed25519 OKP key |
+| `unknown_key` | No supplied key carries the head's `keyId` |
+| `bad_signature` | The signature does not verify, or is not strict unpadded base64url |
+| `chain_truncated` | A signed chain is missing from the rows or ends below its signed `seq` (`chainKey` names it) |
+| `head_mismatch` | The row at the signed `seq` has another hash, is absent, or two rows claim that `seq` with different hashes |
+
+Rows and chains added after the head was signed are fine. The check looks only at the signed positions, so run `verifyGoAuditChain` on the same rows too, and give it every chain from the signed `seq` up: an export window that stops early reports `chain_truncated`. The signed bytes are the domain string `theauth.audit.head.v1` and a newline, followed by the canonical JSON of the other fields. Chain keys are ordered by UTF-8 bytes, as Go orders them, not by JavaScript string order.
+
+From a shell:
+
+```sh
+theauth audit verify-go export.json --head head.json --head-key public-key.json
+```
+
+`public-key.json` holds one key object, a list of them, or `{"keys": [...]}`. The command prints one line for the chain and one for the head, and exits 1 if either fails (2 if a file cannot be read). With `--json` the head result is added under `head`.
+
+The head vectors are `packages/core/tests/fixtures/go-head-checkpoint-vectors.json`. Go wrote and signed every case (with the RFC 8032 section 7.1 test 1 key) and the expected result of each case comes from the Go verifier, so the TypeScript tests fail if the two ever disagree. The generator and the steps to rerun it are in `scripts/go-head-vectors/`.
 
 The conformance vectors are `packages/core/tests/fixtures/go-audit-chain-vectors.json`, produced by running the real Go hashing code. The generator source and the steps to rerun it are in `scripts/go-chain-vectors/`.
 
@@ -16426,7 +16958,7 @@ theAuth supports this with a permission constraint called `requireApproval`. Whe
 The flow is async. The agent does not block waiting. The human can respond minutes or hours later, within the request's TTL.
 
 <Warning>
-  An approval only unlocks an action when the call carries its id. A permission with `requireApproval: true` is still denied every time unless you pass `approvalId` to `authorize()` or `policy.evaluate()`. Note that `approve()` does not check `expiresAt`; the TTL is applied when the approval is spent (an expired request is refused) and when you call `cleanup()`, which marks overdue pending requests as `expired`.
+  An approval only unlocks an action when the call carries its id. A permission with `requireApproval: true` is still denied every time unless you pass `approvalId` to `authorize()` or `policy.evaluate()`. `approve()`, `deny()` and `decide()` refuse a request past its `expiresAt` and mark it `expired`. `cleanup()` marks every overdue pending request as `expired`.
 </Warning>
 
 <Info>
@@ -16481,15 +17013,48 @@ When the matched permission requires approval (or `policy.evaluate` would escala
 
 If the approval cannot be spent, the call is denied with one of these reasons:
 
-| Code | Meaning |
-| --- | --- |
-| `APPROVAL_NOT_FOUND` | No request has this id. |
-| `APPROVAL_NOT_APPROVED` | The request is pending or denied. |
-| `APPROVAL_MISMATCH` | The request is for another agent, action or resource. |
-| `APPROVAL_EXPIRED` | The request passed its `expiresAt`. |
-| `APPROVAL_ALREADY_USED` | The request was already spent. |
+| `reason` | `code` | Meaning |
+| --- | --- | --- |
+| `APPROVAL_NOT_FOUND` | `approval_not_found` | No request has this id. |
+| `APPROVAL_PENDING` | `approval_pending` | Nobody has answered yet. |
+| `APPROVAL_DENIED` | `approval_denied` | A human denied the request. |
+| `APPROVAL_MISMATCH` | `approval_mismatch` | The request is for another agent, action or resource. |
+| `APPROVAL_ARGUMENTS_MISMATCH` | `approval_arguments_mismatch` | The call's arguments differ from the ones the human approved. |
+| `APPROVAL_EXPIRED` | `approval_expired` | The request passed its `expiresAt`, answered or not. |
+| `APPROVAL_ALREADY_USED` | `approval_already_used` | The request was already spent. |
+
+The approval is bound to a hash of the action, resource and arguments. Reserved keys such as `approvalId` are stripped from the arguments before hashing, and a request stored without arguments only covers a call without arguments. The canonical form is the one theauth-go hashes, so the same request has the same hash in both libraries for JSON shaped arguments (object keys sorted by UTF-8 bytes, Go's string escaping including `<`, `>` and `&`, float64 number text). An argument that cannot be hashed, such as `NaN`, `Infinity` or a reference cycle, never matches an approval. An integer beyond 2^53 only matches across languages when the TypeScript side passes a `bigint`, because a JavaScript number has already lost its low digits. A successful spend returns `allowed: true` with code `approval_consumed`. The generic `approval_invalid` code is no longer returned.
 
 The allow is audited with `approver_id` set to the request's `respondedBy` and the approval id in the row's `parameters.approvalId`. Upgrading adds a nullable `consumed_at` column to `theauth_approval_requests` automatically.
+
+## Requesting and deciding
+
+```typescript
+const req = await theauth.approval.request({
+  agentId,
+  userId: ownerId,
+  action: "execute",
+  resource: "mcp:payments:refund",
+  arguments: { amount: 10 },
+});
+
+// The owner's inbox: pending and not yet expired.
+const inbox = await theauth.approval.listPending(ownerId);
+
+await theauth.approval.decide(req.id, { decision: "approve", decidedBy: ownerId });
+// or: theauth.approval.approve(id, by), theauth.approval.deny(id, by)
+```
+
+Every step writes an audit row (`approval.request`, `approval.approve`, `approval.deny`, `approval.expire`). When `observability.onDecision` is set, each step also emits a decision event with `source: "approval"`:
+
+| Step | `decision` | `code` |
+| --- | --- | --- |
+| request | `escalate` | `approval_pending` |
+| approve | `allow` | `approval_granted` |
+| deny | `deny` | `approval_denied` |
+| expire | `deny` | `approval_expired` |
+
+Spending the approval in `authorize()` emits the usual event with code `approval_consumed`.
 
 ## ApprovalRequest fields
 
@@ -16538,6 +17103,10 @@ const theauth = await createTheAuth({
 ```
 
 Both `webhookUrl` and `onApprovalNeeded` fire asynchronously (not awaited) so the `request()` call is not delayed by notification latency. If both are set, both fire.
+
+## The approval.pending webhook
+
+When `webhooks` is configured, a new pending request also sends `approval.pending` to endpoints that subscribe to it. The payload carries `approvalId`, `agentId`, `userId`, `action`, `resource`, `argumentsHash`, `expiresAt` and `createdAt`. It never carries the raw arguments, so fetch them with `approval.get(approvalId)` when your approver needs to see them.
 
 ## How webhooks work
 
@@ -16659,6 +17228,10 @@ if (request?.status === 'approved') {
 }
 ```
 
+## Requiring a fresh passkey or TOTP code
+
+For risky actions you can require that the person approving just proved who they are. Set `approval.requireAcr`, `approval.maxAuthAge` or an `approval.stepUp` callback, or pass `stepUp` to `request()`. The rule is stored on the request and enforced when someone approves it. See [step-up authentication](/step-up-auth).
+
 ## Next steps
 
 <CardGroup cols={2}>
@@ -16672,6 +17245,257 @@ if (request?.status === 'approved') {
   Denials caused by requireApproval are written to the audit log as denied. An allow that spends an approval is audited with the approver's id in `approver_id`. Creating a request (`approval.request`) and approving or denying it (`approval.approve`, `approval.deny`) also write audit entries.
 </Card>
 </CardGroup>
+
+---
+
+# Step-up authentication
+
+Source: https://docs.theauth.dev/step-up-auth
+
+A session that logged in with a password this morning is fine for reading a dashboard. It is not enough to approve a wire transfer an agent asked for. Step-up authentication is the pattern for that gap: the resource says "I need a stronger or more recent sign-in", and the user proves themselves again.
+
+theAuth implements it in three places:
+
+- Sessions remember how and when the user proved who they are (`session.auth`).
+- Approvals can demand a fresh passkey or TOTP code from the person approving.
+- The MCP OAuth server honors `acr_values` and `max_age`, puts `acr`, `amr` and `auth_time` in access tokens, and `requireMcpAuth` can answer with the `insufficient_user_authentication` challenge from [RFC 9470](https://www.rfc-editor.org/rfc/rfc9470).
+
+## What a session knows
+
+Every session built by `createSessionManager` carries an `auth` object:
+
+```ts
+const session = await theauth.auth.session?.validate(token);
+session?.auth;
+// {
+//   acr: "urn:theauth:acr:mfa",
+//   amr: ["mfa", "otp", "pwd"],
+//   authTime: 1800000000,               // epoch seconds of the newest proof
+//   events: [{ method: "totp", at: 1800000000 }, { method: "password", at: 1799990000 }],
+// }
+```
+
+`events` holds one entry per method, the last time it was proven. The other fields are derived from it.
+
+| Method | Recorded when | `amr` values |
+| --- | --- | --- |
+| `password` | Username and password sign-in | `pwd` |
+| `otp` | Magic link, email OTP, phone OTP, a backup code | `otp` |
+| `totp` | Sign-in gate second factor, `POST /auth/2fa/verify` | `otp` |
+| `passkey` | Passkey assertion with user verification | `swk`, `user` (plus `mfa`) |
+| `passkey_presence` | Passkey assertion without user verification | `swk`, `user` |
+| `federated` | Social sign-in (OAuth callback and the native app exchange) | `fed`, plus any hints from the provider |
+
+One tap, SIWE and device sign-ins record nothing. A session that started that way reports `acr: "urn:theauth:acr:none"` until the user proves something theAuth can rate. A session created before this feature, or by your own code without `authMethods`, reports the same.
+
+A social sign-in counts as one factor (`single-factor`). A TOTP code or a passkey on top of it is a second, different kind of proof, so the session reaches `mfa`. When the provider returns an ID token with an `amr` claim (RFC 8176), the registered values are added to the session `amr` so you can see what the provider said. They are hints only. theAuth cannot check what the provider really did, so they never raise `acr`, and `mfa` from a provider is dropped. The hints are read from the ID token that came straight from the token endpoint (OpenID Connect Core section 3.1.3.7). They are not kept when the sign-in goes through a second factor challenge or the native app code exchange.
+
+The classes are ordered, weakest first:
+
+| `acr` | Reached when |
+| --- | --- |
+| `urn:theauth:acr:none` | No recorded proof |
+| `urn:theauth:acr:single-factor` | One proof, or two proofs of the same kind (two codes) |
+| `urn:theauth:acr:mfa` | A knowledge factor plus a possession factor, for example password plus TOTP |
+| `urn:theauth:acr:phishing-resistant` | A passkey with user verification |
+
+The ordering is a theAuth rule: a stronger class satisfies a request for a weaker one. RFC 9470 itself treats `acr` values as opaque strings. The constants are exported as `ACR` and the list as `ACR_ORDER`.
+
+### Freshness is judged per class
+
+`max_age` does not look only at the newest event. A password typed a minute ago must not make a passkey from last week look fresh. With a maximum age, the class needs a recent event that can vouch for it:
+
+- single factor: any recent event
+- multi factor: a recent TOTP code or passkey (a password alone does not count)
+- phishing resistant: a recent passkey
+
+So a user who logged in with a password two hours ago and entered a TOTP code ten seconds ago passes "multi factor within five minutes". A user who typed their password ten seconds ago after a passkey two hours ago does not pass "phishing resistant within five minutes".
+
+### Recording a step-up
+
+`POST /auth/2fa/verify` and `POST /auth/2fa/otp/verify` record the proof on the session that made the request, when the code is correct. The headless handlers (`theauth.totp.handleRequest` for `/auth/2fa/verify`, `theauth.passkey.handleRequest` for `/auth/passkey/login/verify`) do the same when the request carries a session of that user.
+
+A passkey sign-in at `/auth/passkey/authenticate/verify` creates a new session. To step up the session the user already has, call the step-up pair instead. Both need a signed-in user:
+
+```ts
+// 1. Options limited to the signed-in user's own credentials.
+const options = await fetch("/auth/passkey/step-up/options", { method: "POST" }).then((r) => r.json());
+// 2. Run navigator.credentials.get(options), then post the result.
+const res = await fetch("/auth/passkey/step-up/verify", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ response: assertion }),
+});
+// { verified: true, recorded: true, userVerified: true }
+```
+
+The credential must belong to the signed-in user. Another user's passkey answers 401 and records nothing, and a proof is only ever recorded on a session of the same user. A passkey with user verification lifts the session to `phishing-resistant`; a presence only assertion counts as `passkey_presence`.
+
+If you verify a proof yourself, record it after the check:
+
+```ts
+const sessions = theauth.auth.session;
+if (!sessions) throw new Error("sessions are not configured");
+
+const { valid } = await theauth.totp!.verify(userId, code);
+if (valid) await sessions.recordAuth(session.id, "totp");
+```
+
+`recordAuth` refreshes `authTime` and can raise `acr`. Call it only after the proof was verified. If you use the session cookie cache, call its `clear` helper afterwards so the cached copy does not hide the step-up for up to its `maxAge`.
+
+A session refresh keeps its stored events. Refreshing never makes a login look newer.
+
+## Approvals that need a strong approver
+
+An approval is a human saying yes to an agent action. When the action is risky, you can require that the human just proved who they are.
+
+```ts
+import { ACR, createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "./theauth.db" },
+  agents: { enabled: true },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  approval: {
+    // Every approval needs a multi factor sign-in no older than 10 minutes.
+    requireAcr: ACR.mfa,
+    maxAuthAge: 600,
+    // Wire transfers need a passkey from the last two minutes.
+    stepUp: (request) =>
+      request.action === "wire:send"
+        ? { acr: ACR.phishingResistant, maxAge: 120 }
+        : undefined, // fall back to the defaults above
+  },
+});
+```
+
+The rule is stored on the request (`requiredAcr`, `maxAuthAge`), so the approval UI can tell the user what to do before they click. A single request can also carry its own rule, which beats both settings above:
+
+```ts
+const request = await theauth.approval.request({
+  agentId,
+  userId,
+  action: "wire:send",
+  resource: "account:ops",
+  stepUp: { acr: ACR.phishingResistant, maxAge: 120 },
+});
+```
+
+Deciding passes the approver's session assertion:
+
+```ts
+import { StepUpRequiredError } from "@glinr/theauth";
+
+try {
+  await theauth.approval.approve(request.id, approver.id, session.auth);
+} catch (error) {
+  if (error instanceof StepUpRequiredError) {
+    // error.failure.acr and error.failure.maxAge say what to ask the user for.
+    return redirectToReauth(error.failure);
+  }
+  throw error;
+}
+```
+
+- Approving without an assertion, or with a weak or old one, throws `StepUpRequiredError`. The request stays pending.
+- Denying never needs step-up. Saying no is always safe.
+- The audit row for the approval records `approverAcr`, `approverAmr` and `approverAuthTime`.
+- `approval.decide(id, { decision, decidedBy, authContext })` takes the same assertion.
+
+The admin API (`adminApi`) enforces the same rule on `POST /approvals/:id/approve`. A refused approval answers `401` with `WWW-Authenticate: Bearer error="insufficient_user_authentication", acr_values="...", max_age="..."` and the body error code `STEP_UP_REQUIRED`. It reads the approver's assertion from the session behind the Bearer token, or from `resolveApproverAuth` if you sign admins in another way. With neither, a request that has a rule cannot be approved there.
+
+### Risk tiers
+
+Risk tiers in the policy engine can name the rule. A tier with `require: "step_up"` and no explicit rule asks for multi factor within five minutes:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  policy: {
+    risk: {
+      tiers: [
+        { tier: "high", when: { minAmount: 10_000 }, require: "step_up" },
+        {
+          tier: "wire",
+          when: { minAmount: 500, currency: "USD" },
+          require: "approval",
+          stepUp: { acr: ACR.phishingResistant, maxAge: 120 },
+        },
+      ],
+    },
+  },
+});
+```
+
+`policy.evaluate(input, { openApproval: true })` opens the approval with the tier's rule. When the agent retries with `approvalId`, spending the approval checks that it was granted under a rule at least as strong as the tier demands. An ordinary approval cannot stand in for a step-up one: the call is denied with `approval_step_up_insufficient`.
+
+## The MCP OAuth server
+
+Give the module a way to read the signed-in user's `session.auth`:
+
+```ts
+import { createMcpModule } from "@glinr/theauth/mcp";
+
+const mcp = createMcpModule({
+  auth: theauth,
+  config: {
+    enabled: true,
+    issuer: "https://auth.example.com",
+    baseUrl: "https://auth.example.com/api/auth",
+    signingSecret: process.env.MCP_SIGNING_SECRET!,
+    resource: "https://mcp.example.com",
+    loginPage: "https://app.example.com/login",
+  },
+  resolveUserId: async (request) => (await sessionOf(request))?.userId ?? null,
+  resolveAuthContext: async (request) => (await sessionOf(request))?.auth ?? null,
+});
+```
+
+With `resolveAuthContext` set:
+
+- The authorization endpoint accepts `acr_values` (space separated, any one acceptable) and `max_age`.
+- If the session already meets them, the code is issued. If not, the answer is `LOGIN_REQUIRED` and the built-in routes redirect to `loginPage` with `returnTo`, `acr_values`, `max_age` and `prompt=login`. Your login page asks for the missing proof, records it (see above) and sends the user back to `returnTo`.
+- If the server cannot judge, or every `acr_values` entry is unknown to it, the answer is `unmet_authentication_requirements` (RFC 9470 section 5). That stops a client from looping on a token the resource would refuse.
+- `max_age` below 30 seconds is raised to 30, so the round trip to the login page cannot loop.
+- Access tokens carry `acr`, `amr` and `auth_time`. A refreshed token keeps the original values. Introspection returns them as top-level members.
+- The authorization server metadata lists `acr_values_supported`.
+
+Without `resolveAuthContext` nothing changes, except that a request that asks for `acr_values` or `max_age` gets `unmet_authentication_requirements` instead of being ignored.
+
+If you use a consent page, read the user's `session.auth` on the server when you approve and pass it to `approveConsent({ ..., auth: { acr, amr, authTime } })`. Never take it from the request.
+
+### Asking from the resource side
+
+`requireMcpAuth` and `requireScopes` can demand more than scopes:
+
+```ts
+const wire = mcp.requireMcpAuth(
+  async (request, principal) => Response.json({ ok: true, acr: principal.auth?.acr }),
+  { requiredScopes: ["bank:write"], requireAcr: ACR.phishingResistant, maxAge: 300 },
+);
+
+// or, without the wrapper
+const check = await mcp.requireScopes(request, ["bank:write"], { acr: ACR.mfa, maxAge: 300 });
+if (!check.authorized) return check.response;
+```
+
+When the login behind the token is too weak or too old, the response is `401` with:
+
+```http
+WWW-Authenticate: Bearer error="insufficient_user_authentication",
+  error_description="A stronger authentication is required",
+  acr_values="urn:theauth:acr:phishing-resistant", max_age="300",
+  resource_metadata="https://auth.example.com/api/auth/.well-known/oauth-protected-resource"
+```
+
+A client that understands RFC 9470 sends the user through the authorization endpoint again with the same `acr_values` and `max_age` and retries with the new token. A token without an `acr` claim, such as one from the client credentials grant, never satisfies a requirement. Agents acting alone cannot pass a human step-up.
+
+## Things to know
+
+- The `acr` and `auth_time` in a token describe the login that produced it. They do not change while the token lives. A resource that needs a recent login should set `maxAge`, and clients get a new token by going through authorize again.
+- RFC 9470 says a client must not read these claims out of an access token. Only the resource server does.
+- `acr_values` can leak what you require. Do not put anything sensitive in a custom class name.
+- Passkeys count as phishing resistant only when the assertion had the user verified flag. Set `userVerification: "required"` in the passkey config if you rely on it.
 
 ---
 
@@ -17537,6 +18361,289 @@ if (result.status === "approved") {
 - A LangGraph graph needs a checkpointer for interrupts. This is a LangGraph requirement.
 - A resumed LangGraph node restarts from the top, so the policy check runs again and can open a second pending request. The first interrupt's id is the one spent. The extra request expires on its own.
 - A call whose arguments carry a blocked taint label is denied before any approval opens. Guard options such as `tracker` and `provenance` pass through. See [Taint guard](/taint-guard).
+
+---
+
+# Vercel AI SDK helper
+
+Source: https://docs.theauth.dev/integrations/vercel-ai-sdk
+
+`guardAiSdkTools` takes the tool map you pass to `generateText` or `streamText` and returns a copy where every `execute` calls `authorize` first. It has no runtime dependency on `ai`: the tool type is structural.
+
+A refused call does not throw. It resolves to a `ToolDenial` with the decision code, so the model reads the refusal as the tool result and stops. For the throwing variant built on the policy engine, see [Vercel AI SDK](/vercel-ai-sdk).
+
+```bash
+npm install @glinr/theauth
+```
+
+## Runnable snippet
+
+```ts
+import { generateText, tool } from "ai";
+import { z } from "zod";
+import { createTheAuth } from "@glinr/theauth";
+import { guardAiSdkTools, isToolDenial } from "@glinr/theauth/integrations";
+
+const auth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true },
+});
+
+const agent = await auth.agent.create({
+  ownerId: "user-alice",
+  name: "support-agent",
+  type: "autonomous",
+  permissions: [{ resource: "tool:lookupInvoice", actions: ["execute"] }],
+});
+
+const tools = guardAiSdkTools(
+  {
+    lookupInvoice: tool({
+      description: "Read an invoice",
+      inputSchema: z.object({ id: z.string() }),
+      execute: async ({ id }) => ({ id, status: "paid" }),
+    }),
+    refund: tool({
+      description: "Refund an invoice",
+      inputSchema: z.object({ id: z.string() }),
+      execute: async ({ id }) => ({ id, refunded: true }),
+    }),
+  },
+  { authorize: auth.authorize, agentId: agent.id },
+);
+
+// lookupInvoice runs. refund resolves to:
+// { ok: false, denied: true, toolName: "refund", code: "no_permission", reason, approvalRequired: false, auditId }
+const result = await tools.refund.execute({ id: "inv_1" }, {} as never);
+console.log(isToolDenial(result) ? result.code : "ran");
+```
+
+Pass `tools` to `generateText({ model, tools, prompt })` as usual.
+
+## Options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `authorize` | required | `theauth.authorize`, or any function with the same shape |
+| `agentId` | required | Agent id, or a function from the per-call context to an id |
+| `action` | `execute` | Action checked |
+| `resource` | `tool:<name>` | Resource checked, from the tool name and arguments |
+| `requestApproval` | none | Called on `approval_required`. Return an approved request id to retry once |
+| `contextOf` | the AI SDK call options | Pick the per-call context passed to `agentId` |
+| `onDecision` | none | Log each outcome. Errors thrown here are ignored |
+
+If `authorize` throws, the call is refused with code `guard_error`. The guard fails closed.
+
+## Approval
+
+```ts
+const tools = guardAiSdkTools(rawTools, {
+  authorize: auth.authorize,
+  agentId: agent.id,
+  requestApproval: async ({ agentId, action, resource }) => {
+    // Open a request, wait for a human, return the approved id.
+    return await waitForApprovedRequestId({ agentId, action, resource });
+  },
+});
+```
+
+The approved id is spent on a single retry. If the function returns `undefined`, the model gets a denial with `approvalRequired: true`.
+
+---
+
+# OpenAI Agents SDK helper
+
+Source: https://docs.theauth.dev/integrations/openai-agents-sdk
+
+`guardFunctionTool` wraps a function tool definition (a `name` plus `execute(input, context)`) so `authorize` runs before `execute`. It does not import `@openai/agents`.
+
+`tool()` returns an object that exposes `invoke`, not `execute`, so guard the plain definition first and pass the result to `tool()`. For the throwing variant built on the policy engine, see [OpenAI Agents SDK](/openai-agents-sdk).
+
+```bash
+npm install @glinr/theauth
+```
+
+## Runnable snippet
+
+```ts
+import { Agent, run, tool } from "@openai/agents";
+import { z } from "zod";
+import { createTheAuth } from "@glinr/theauth";
+import { guardFunctionTool } from "@glinr/theauth/integrations";
+
+const auth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true },
+});
+
+const theauthAgent = await auth.agent.create({
+  ownerId: "user-alice",
+  name: "billing-agent",
+  type: "autonomous",
+  permissions: [{ resource: "tool:lookupInvoice", actions: ["execute"] }],
+});
+
+const lookupInvoice = guardFunctionTool(
+  {
+    name: "lookupInvoice",
+    description: "Read an invoice",
+    parameters: z.object({ id: z.string() }),
+    execute: async ({ id }: { id: string }) => ({ id, status: "paid" }),
+  },
+  { authorize: auth.authorize, agentId: theauthAgent.id },
+);
+
+const agent = new Agent({
+  name: "Billing",
+  instructions: "Answer billing questions.",
+  tools: [tool(lookupInvoice)],
+});
+
+const result = await run(agent, "Is invoice inv_1 paid?");
+console.log(result.finalOutput);
+```
+
+## Denials
+
+A refused call returns a `ToolDenial` object as the tool result, which the SDK serializes for the model:
+
+```json
+{
+  "ok": false,
+  "denied": true,
+  "toolName": "refund",
+  "code": "approval_required",
+  "reason": "approval required for tool:refund",
+  "approvalRequired": true,
+  "auditId": "..."
+}
+```
+
+Use `formatDenial` to return text instead:
+
+```ts
+guardFunctionTool(definition, {
+  authorize: auth.authorize,
+  agentId: theauthAgent.id,
+  formatDenial: (d) => `Refused (${d.code}). ${d.approvalRequired ? "Ask the user." : "Do not retry."}`,
+});
+```
+
+`agentId` may be a function of the run context, the second argument of `execute`. `requestApproval`, `action`, `resource` and `onDecision` work as in the [Vercel AI SDK helper](/integrations/vercel-ai-sdk). Use `guardFunctionTools(definitions, options)` for a list.
+
+---
+
+# LangGraph and CrewAI
+
+Source: https://docs.theauth.dev/integrations/langgraph-crewai
+
+LangGraph and CrewAI are Python frameworks, so there is no Python package in this repo. Any process that can make an HTTP call can ask theAuth before running a tool. This page has a REST recipe for Python and a TypeScript guard, `createHttpGuard`, for Node orchestrators such as LangGraph.js.
+
+## The endpoint
+
+Mount the theAuth handler (for example at `/api/auth`) and call it with the agent bearer token.
+
+```bash
+curl -s -X POST https://YOUR_HOST/api/auth/authorize/token \
+  -H "authorization: Bearer $AGENT_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"action":"execute","resource":"tool:refund","arguments":{"amount":40}}'
+```
+
+| Status | Meaning |
+| --- | --- |
+| 200 | Allowed. Body `{ "data": { "allowed": true, "auditId": "..." } }` |
+| 401 | Bad, revoked or expired token. Body `{ "error": { "code", "message" } }` or `data.code` of `invalid_token`, `agent_revoked`, `agent_expired` |
+| 403 | Denied. Body `{ "data": { "allowed": false, "code", "reason", "auditId" } }` |
+
+`data.code` is the decision code, for example `no_permission`, `rate_limited` or `approval_required`. Treat any non 200 answer, and any network error, as a denial.
+
+## Python recipe (LangGraph)
+
+```python
+import os
+import requests
+
+AUTH_URL = os.environ["THEAUTH_URL"]  # e.g. https://YOUR_HOST/api/auth
+AGENT_TOKEN = os.environ["THEAUTH_AGENT_TOKEN"]
+
+def authorize(tool_name, arguments):
+    try:
+        res = requests.post(
+            f"{AUTH_URL}/authorize/token",
+            headers={"authorization": f"Bearer {AGENT_TOKEN}"},
+            json={"action": "execute", "resource": f"tool:{tool_name}", "arguments": arguments},
+            timeout=5,
+        )
+        body = res.json()
+    except Exception as exc:
+        return {"denied": True, "code": "guard_error", "reason": str(exc)}
+    data = body.get("data") or {}
+    if res.status_code == 200 and data.get("allowed") is True:
+        return None
+    return {
+        "denied": True,
+        "code": data.get("code") or (body.get("error") or {}).get("code", "guard_error"),
+        "reason": data.get("reason") or (body.get("error") or {}).get("message", "denied"),
+        "approval_required": data.get("code") == "approval_required",
+    }
+
+def guarded(tool_name, fn):
+    def run(**kwargs):
+        refusal = authorize(tool_name, kwargs)
+        return refusal if refusal else fn(**kwargs)
+    return run
+```
+
+With LangGraph, return the refusal dict as the tool message content so the graph continues:
+
+```python
+from langchain_core.tools import StructuredTool
+
+def refund(order_id: str, amount: float) -> dict:
+    return {"order_id": order_id, "refunded": amount}
+
+refund_tool = StructuredTool.from_function(
+    func=guarded("refund", refund), name="refund", description="Refund an order"
+)
+```
+
+## Python recipe (CrewAI)
+
+```python
+from crewai.tools import tool
+
+@tool("refund")
+def refund_tool(order_id: str, amount: float) -> str:
+    """Refund an order."""
+    refusal = authorize("refund", {"order_id": order_id, "amount": amount})
+    if refusal:
+        return f"Refused ({refusal['code']}): {refusal['reason']}"
+    return f"Refunded {amount} on {order_id}"
+```
+
+## TypeScript guard for Node orchestrators
+
+```ts
+import { createHttpGuard } from "@glinr/theauth/integrations";
+
+const guard = createHttpGuard({
+  baseUrl: process.env.THEAUTH_URL!, // e.g. https://YOUR_HOST/api/auth
+  token: () => process.env.THEAUTH_AGENT_TOKEN!,
+  timeoutMs: 5000,
+});
+
+const refund = guard.guard("refund", async (args: { orderId: string; amount: number }) => {
+  return { orderId: args.orderId, refunded: args.amount };
+});
+
+const out = await refund({ orderId: "ord_1", amount: 40 });
+// A refusal resolves to { ok: false, denied: true, toolName, code, reason, approvalRequired }.
+```
+
+Use `guard.check(toolName, args)` when you want the denial without wrapping a function: it returns `null` when allowed. The guard never throws. Network errors, timeouts and server errors resolve to a denial with code `guard_error`.
+
+Both authorize routes accept an optional `approvalId` in the body, which spends an approved request once when the action, resource and arguments match. `createHttpGuard` does not send one itself. For a retry after approval, call the route yourself with the approved id, or run the check in a Node service that holds `theauth.authorize` and use the `requestApproval` option of the [Vercel AI SDK helper](/integrations/vercel-ai-sdk).
 
 ---
 
@@ -21446,7 +22553,7 @@ const theauth = await createTheAuth({
 
 Source: https://docs.theauth.dev/dpop
 
-A bearer token works for whoever holds it. If an agent's token leaks from a log or a proxy, the thief can call your tools. DPoP closes that gap: the token carries the thumbprint of a key the client holds, and every request has to include a short-lived proof signed with that key.
+A bearer token works for whoever holds it. (Agent tokens, the `ta_` strings, can be bound too: see [sender constrained agent tokens](/dpop-agent-tokens).) If an agent's token leaks from a log or a proxy, the thief can call your tools. DPoP closes that gap: the token carries the thumbprint of a key the client holds, and every request has to include a short-lived proof signed with that key.
 
 DPoP is opt-in. Without `dpop` in your MCP config nothing changes.
 
@@ -21618,6 +22725,201 @@ The adapters' MCP CORS headers also allow the `DPoP` request header and expose `
 - The replay cache is only as strict as its store. Cloudflare KV is not atomic, so two simultaneous replays can both pass. Use Redis or the database store when that matters.
 - The `dpop_jkt` authorization request parameter (binding the code to a key up front) is not implemented. The binding starts at the token request.
 - Unbound refresh tokens issued before you enabled DPoP are bound to whatever key first refreshes them. Rotate them out by setting `required` after a refresh cycle.
+
+---
+
+# Sender constrained agent tokens
+
+Source: https://docs.theauth.dev/dpop-agent-tokens
+
+An agent token (`ta_...`) is a bearer credential. Whoever holds the string can use it. Binding it to a key fixes that: the token stores the thumbprint of a key the agent holds, and every request must carry a short-lived proof signed with that key. A token copied out of a log file stops working.
+
+This page covers the REST authorize route and `requireAgent`. For tokens issued by the MCP OAuth server, see [DPoP and requireMcpAuth](/dpop). Both use the same proof format and the same `cnf` claim ([RFC 7800](https://www.rfc-editor.org/rfc/rfc7800)).
+
+Binding is opt-in per agent. A token without a binding behaves exactly as before.
+
+## Turn it on
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
+  agents: {
+    enabled: true,
+    confirmation: {
+      dpop: {
+        // requireNonce: true,   // server nonces (RFC 9449 section 8 and 9)
+        // resourceUrl: (req) => `https://api.example.com${new URL(req.url).pathname}`,
+      },
+      // required: true,         // refuse agent tokens that are not bound
+    },
+  },
+  secondaryStorage: "database", // shared replay cache and nonces across instances
+});
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `dpop.algs` | ES256, ES384, EdDSA, PS256 | Accepted proof algorithms. |
+| `dpop.proofMaxAgeSeconds` | 300 | Oldest accepted proof `iat`. |
+| `dpop.clockSkewSeconds` | 30 | Skew allowed in either direction. |
+| `dpop.requireNonce` | false | Proofs must carry a server nonce. |
+| `dpop.nonceTtlSeconds` | 300 | Nonce lifetime. |
+| `dpop.storage` | the `nonces` secondary storage | Replay cache and nonces. |
+| `dpop.resourceUrl` | `request.url` | The URL clients sign as `htu`. Set it behind a proxy. |
+| `methods` | none | Extra proofs of possession, such as a certificate thumbprint. See below. |
+| `required` | false | Refuse agent tokens that carry no binding. |
+
+With more than one instance, point `secondaryStorage` at the database or Redis. Otherwise the replay cache lives in each process and a proof could be replayed against another instance.
+
+## Bind a token to a key
+
+Pass `cnf` when you create the agent. The value is the RFC 7638 thumbprint of the agent's public key:
+
+```ts
+import { createDPoPClient } from "@glinr/theauth-client";
+
+const dpop = await createDPoPClient(); // P-256 key pair in WebCrypto
+const jkt = await dpop.thumbprint();
+
+const agent = await theauth.agent.create({
+  ownerId: user.id,
+  name: "invoice-bot",
+  type: "autonomous",
+  permissions: [{ resource: "invoices", actions: ["read"] }],
+  cnf: { jkt },
+});
+// agent.token is bound to that key.
+```
+
+Over HTTP, send the same member in the body of `POST /agents`:
+
+```json
+{ "ownerId": "user_1", "name": "invoice-bot", "type": "autonomous",
+  "permissions": [{ "resource": "invoices", "actions": ["read"] }],
+  "cnf": { "jkt": "NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs" } }
+```
+
+The agent identity returned by `agent.get` and `agent.list` shows `cnf`. It is part of the public identity, not a secret.
+
+Rotating a token keeps its binding by default, so a leaked token is replaced by one the thief cannot use either. To move the agent to a new key, or drop the binding:
+
+```ts
+await theauth.agent.rotate(agent.id);                      // same key
+await theauth.agent.rotate(agent.id, { cnf: { jkt: next } }); // new key
+await theauth.agent.rotate(agent.id, { cnf: null });          // plain bearer token again
+```
+
+`POST /agents/:id/rotate` takes the same `cnf` in an optional JSON body. `PATCH /agents/:id` does not change a binding.
+
+## Call with a proof
+
+The agent sends `Authorization: DPoP <token>` and a `DPoP` header. The client helper does both and retries once when the server asks for a nonce:
+
+```ts
+const res = await dpop.fetch(
+  "https://api.example.com/api/theauth/authorize/token",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "read", resource: "invoices" }),
+  },
+  { accessToken: agent.token },
+);
+```
+
+In your own routes, `requireAgent` does the same checks:
+
+```ts
+import { requireAgent } from "@glinr/theauth/http";
+
+export async function handler(request: Request): Promise<Response> {
+  const result = await requireAgent(theauth, request, { action: "read", resource: "invoices" });
+  if (!result.ok) return result.response;
+  return Response.json({ agent: result.agent.id });
+}
+```
+
+### What gets checked
+
+- The proof: `typ` is `dpop+jwt`, the algorithm is on the allow list, the header holds a public `jwk`, the signature verifies, `htm` and `htu` match the request (query and fragment ignored), `iat` is inside the window, `ath` is the SHA-256 of the token, and the `jti` has not been seen before.
+- The binding: the thumbprint of the proof key equals `cnf.jkt` on the agent.
+- A bound token sent as `Bearer` with no proof is refused. A bound token is never usable as a plain bearer token.
+- A token with no binding ignores any proof header and works as before (unless `required` is set).
+
+The binding check also sits inside `authorizeByToken`, not only in the HTTP layer. A caller who skips the HTTP handler and calls `theauth.authorizeByToken(token, request)` on a bound token gets `confirmation_required`. Pass the proofs your own transport verified through the context:
+
+```ts
+await theauth.authorizeByToken(token, { action: "read", resource: "invoices" }, {
+  confirmation: { jkt: verifiedThumbprint },
+});
+```
+
+Only set `confirmation` from data you verified yourself.
+
+### Errors
+
+| Situation | Status | Where |
+| --- | --- | --- |
+| Bound token, no proof | 401, code `confirmation_required` | `WWW-Authenticate: DPoP error="invalid_token", algs="..."` |
+| Proof is valid but for another key | 401, code `confirmation_failed` | same challenge |
+| Proof is malformed, stale, replayed, wrong `htm`, `htu` or `ath` | 401, `error: "invalid_dpop_proof"` | `WWW-Authenticate: DPoP error="invalid_dpop_proof"` |
+| `DPoP` scheme without a proof header | 401, `invalid_dpop_proof` | same |
+| Nonce missing or stale | 401, `use_dpop_nonce` | `DPoP-Nonce` header carries the new value |
+| `required` is on and the token is not bound | 401, code `confirmation_required` | |
+
+Refused bound tokens are written to the audit log with the decision code, so a pattern of stolen-token attempts is visible.
+
+## Introspection
+
+`POST /agents/introspect` with `{ "token": "ta_..." }` answers in the shape of RFC 7662 and includes `cnf`, so a resource server that checks tokens itself can verify the proof:
+
+```json
+{ "data": { "active": true, "token_type": "DPoP", "sub": "user_1",
+  "agent_id": "ag_123", "agent_type": "autonomous", "exp": 1800086400, "iat": 1800000000,
+  "cnf": { "jkt": "NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs" } } }
+```
+
+The route needs a signed-in caller and only reveals agents inside that caller's scope. A token that is unknown, revoked, expired or out of scope answers `{ "active": false }`. In code: `await theauth.agent.introspect(token)`. Introspection does not see your request, so the resource server still has to verify the proof itself.
+
+## Client certificates and other proofs
+
+The binding is a map. `jkt` is the DPoP member. `x5t#S256` is the member for mutual TLS (RFC 8705): the thumbprint of the client certificate. theAuth does not terminate TLS, so you tell it how to read the proof from a request. Typically your proxy forwards the verified certificate thumbprint in a header:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  agents: {
+    enabled: true,
+    confirmation: {
+      methods: {
+        // Your reverse proxy sets this header after it verified the client certificate.
+        // Strip it from incoming requests at the edge, or anyone can forge it.
+        "x5t#S256": (request) => request.headers.get("x-client-cert-sha256"),
+      },
+    },
+  },
+});
+
+await theauth.agent.create({
+  // ...
+  cnf: { "x5t#S256": certificateThumbprint },
+});
+```
+
+- When a token is bound to several members, every one must match. A token with `jkt` and `x5t#S256` needs both a DPoP proof and the certificate.
+- A token bound to a member that has no extractor is always refused.
+- An extractor that throws counts as proof of nothing.
+- A damaged `cnf` value in the database is treated as a binding nobody can satisfy. It never turns into an unbound token.
+
+This is also the hook the device features use for IoT clients: a device that holds a certificate or a key can be bound the same way.
+
+## Limits
+
+- DPoP protects against a copied token. It does not help if the attacker can run code inside the agent process and use the key through it (RFC 9449 section 11).
+- Without nonces, a stolen key can pre-sign proofs with future `iat` values inside the skew window. Use `requireNonce` and short token lifetimes if that is in your threat model.
+- FAPI 2.0 asks authorization servers to issue only sender constrained tokens and offers DPoP or mutual TLS for it. `required: true` plus either method gives you that property for agent tokens. It does not by itself make a deployment FAPI conformant.
 
 ---
 
@@ -21949,6 +23251,337 @@ Only `requireMcpAuth` and `getProtectedResourceMetadata` are used, so a shared-k
 - **Rate limits are in memory, per process.**
 - **HTTP only.** No TLS or WebSocket. The legacy stdio transport is out of scope.
 - **Not tested with a real MCP client.** Unit and local socket tests only. Add headers missing from the default list to `cors.headers`.
+
+---
+
+# Robotics and ROS 2 authorization
+
+Source: https://docs.theauth.dev/robotics-ros2
+
+A robot is an agent in theAuth. Its permissions say which topics it may publish and subscribe to, which services it may call or answer, and which actions it may send or execute. theAuth uses that one list in two places:
+
+1. **The DDS layer.** `theauth ros2 export` writes the files SROS2 and DDS Security read, so the middleware refuses what the policy refuses.
+2. **A gate node.** For things DDS cannot express (human approval, step up, rate limits, time windows, argument checks) a node asks theAuth before it publishes the command.
+
+theAuth is not a safety system and nothing here makes a machine compliant with ISO 10218, ISO/TS 15066 or IEC 62443. An emergency stop must be a hardware or safety controller function that works with the network down. See [Safety stops](#safety-stops).
+
+## Resource names
+
+| Resource | Meaning | Actions |
+| --- | --- | --- |
+| `ros2:/cmd_vel` | topic | `publish`, `subscribe` |
+| `ros2:srv:/reset` | service | `call` (the client), `reply` (the server) |
+| `ros2:action:/navigate_to_pose` | action | `call` (the client), `execute` (the server) |
+| `ros2:*` or `*` | every topic, service and action | any |
+| `ros2:srv:*`, `ros2:action:*` | every service, every action | any |
+
+The action `*` means every verb of that kind. Names must be absolute (`/scan`, not `scan` or `~/scan`) and made of letters, digits and underscores.
+
+With the default matching, a `*` works only as a whole colon segment. `ros2:/fleet/*` is not a pattern: theAuth's policy engine would never match it at runtime, so the exporter lists it as skipped instead of writing a DDS rule the runtime check disagrees with. List exact names, or turn on [path matching](/permissions#path-matching-opt-in) (`resourceMatching: "path"` on the server, `--resource-matching path` on the export):
+
+- `ros2:/fleet/**` exports as the DDS glob `rt/fleet/*`.
+- `ros2:/fleet/*` (exactly one level) is skipped. A DDS permissions topic is an fnmatch pattern whose `*` also crosses `/`, so the grant would reach `/fleet/a/b` while theAuth denies it. Use `**`, list exact names, or pass `--single-level widen` to export the wider DDS grant on purpose. The runtime gate still enforces one level.
+
+```typescript
+import { createTheAuth } from '@glinr/theauth';
+import { ros2Action, ros2Service, ros2Topic } from '@glinr/theauth/robotics';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite-native', url: './theauth.db' },
+  agents: { enabled: true },
+});
+
+const robot = await theauth.agent.create({
+  ownerId: 'user-1',
+  name: 'robot1-nav',
+  type: 'autonomous',
+  permissions: [
+    { resource: ros2Topic('/scan'), actions: ['subscribe'] },
+    { resource: ros2Topic('/odom'), actions: ['publish'] },
+    { resource: ros2Service('/reset_costmap'), actions: ['call'] },
+    { resource: ros2Action('/navigate_to_pose'), actions: ['execute'] },
+    // Hazardous: a person approves each use.
+    {
+      resource: ros2Topic('/cmd_vel'),
+      actions: ['publish'],
+      constraints: { requireApproval: true },
+    },
+  ],
+});
+```
+
+## Export to SROS2 and DDS Security
+
+```bash
+theauth ros2 export \
+  --robot <agent-id> --server https://auth.example.com/api/auth \
+  --enclave /fleet/robot1/nav --out ./robot1-nav
+```
+
+You need to be logged in as an admin (`theauth login`). To work offline, pass `--permissions perms.json` (an array of permissions, or an object with a `permissions` array) instead of `--robot`.
+
+Four files are written:
+
+| File | What it is |
+| --- | --- |
+| `policy.xml` | SROS2 policy format 0.2.0. Input for `ros2 security create_permission`. |
+| `permissions.xml` | DDS Security 1.1 permissions grant, unsigned. |
+| `governance.xml` | DDS Security 1.1 domain governance, unsigned. Encrypted discovery and data, unauthenticated participants refused. |
+| `theauth-export.json` | Rules written, permissions gated, permissions skipped and why. |
+
+The output is deterministic: sorted, no timestamps except the validity window you pass. Re-export after a policy change and `git diff` shows what moved.
+
+### How permissions map to DDS
+
+The mapping is the one SROS2 uses in its `permissions.xsl`. A topic `/cmd_vel` becomes the DDS topic `rt/cmd_vel`. A service client publishes `rq/<name>Request` and subscribes to `rr/<name>Reply`, and the server does the reverse. An action client publishes the three `_action` request topics and subscribes to the three replies plus `feedback` and `status`. The grant ends in `<default>DENY</default>`, so anything not listed is refused.
+
+DDS Security evaluates rules in document order and the first match wins. The exporter writes allow rules only, so order never changes the outcome.
+
+### Gated permissions
+
+A permission with any constraint (`requireApproval`, `requireAcr`, `maxCallsPerHour`, `timeWindow`, `ipAllowlist`, `allowedArgPatterns`) cannot be written into a static DDS grant. Exporting it as a plain allow would drop the constraint without a word. So by default the exporter leaves it out and reports it under `gated`. The robot's own enclave then cannot publish `/cmd_vel` at all.
+
+That is the intended shape. Give the grant to the gate node instead, whose enclave is exported with `--gated include`, and let nothing else publish to the actuation topic:
+
+```bash
+# Planner and drivers: gated permissions left out (default).
+theauth ros2 export --robot <planner-agent> --enclave /fleet/robot1/planner --out ./planner
+
+# The gate: gated permissions granted, because the gate is where they are enforced.
+theauth ros2 export --robot <gate-agent> --enclave /fleet/robot1/gate --gated include --out ./gate
+```
+
+`--gated include` on a normal participant is a weaker setup: anything holding that enclave's key can publish without the runtime check. Use it only for the gate.
+
+### Sign and install
+
+theAuth never sees your permissions CA key, so signing is yours. The usual route uses the ROS tooling, which also validates the policy against the schema:
+
+```bash
+export ROS_SECURITY_KEYSTORE=~/keystore
+ros2 security create_keystore "$ROS_SECURITY_KEYSTORE"          # once
+ros2 security create_enclave "$ROS_SECURITY_KEYSTORE" /fleet/robot1/nav
+ros2 security create_permission "$ROS_SECURITY_KEYSTORE" /fleet/robot1/nav ./robot1-nav/policy.xml
+```
+
+Run `create_enclave` first: `create_permission` reads the enclave certificate to set the validity window. The result is `permissions.xml` and `permissions.p7s` in the enclave directory. Note that this regenerates `permissions.xml` from `policy.xml`. The exported `permissions.xml` is the same content for a DDS stack without the ROS tooling, and it uses the validity window you gave to `theauth ros2 export` (`--not-before`, `--not-after`, default one year). Keep that window inside the enclave certificate's.
+
+To sign `permissions.xml` and `governance.xml` yourself, with OpenSSL (detached S/MIME, SHA-256, the same form `ros2 security` writes):
+
+```bash
+openssl smime -sign -text -in permissions.xml -out permissions.p7s \
+  -signer permissions_ca.cert.pem -inkey permissions_ca.key.pem -md sha256
+openssl smime -sign -text -in governance.xml -out governance.p7s \
+  -signer permissions_ca.cert.pem -inkey permissions_ca.key.pem -md sha256
+
+# Check a signature:
+openssl smime -verify -in permissions.p7s -CAfile permissions_ca.cert.pem -out /dev/null
+```
+
+Then run the robot with security enforced:
+
+```bash
+export ROS_SECURITY_ENABLE=true
+export ROS_SECURITY_STRATEGY=Enforce
+export ROS_SECURITY_KEYSTORE=~/keystore
+ros2 run my_pkg nav_node --ros-args --enclave /fleet/robot1/nav
+```
+
+Without `Enforce`, ROS 2 falls back to permissive mode and an unlisted participant still starts. Each process needs its own enclave, because DDS Security grants are per participant.
+
+The subject in `permissions.xml` has to equal the enclave certificate's subject exactly, otherwise DDS ignores the grant. `ros2 security create_enclave` issues `CN=<enclave path>`, which is the default here. Pass `--subject` if yours differs.
+
+## Gate hazardous commands at runtime
+
+The gate sits between whatever decides to move and the topic that moves the machine. It calls `POST /authorize/token` with the robot's agent token and publishes only on an explicit `allowed: true`.
+
+```typescript
+import { guardRobotCommand, ros2Topic } from '@glinr/theauth/robotics';
+
+const options = {
+  baseUrl: 'https://auth.example.com/api/auth',
+  token: () => process.env.THEAUTH_ROBOT_TOKEN ?? '',
+  timeoutMs: 1000,
+  // Exact resources that run without asking. Software stop commands only.
+  safetyStops: [ros2Topic('/e_stop')],
+};
+
+const result = await guardRobotCommand(
+  options,
+  { action: 'publish', resource: ros2Topic('/cmd_vel') },
+  () => publishVelocity(0.4),
+);
+
+if (!result.ok) {
+  // result.code: no_permission, approval_required, step_up_required, guard_error, ...
+  // result.approvalRequired is true when a person (or a step up) would let it through.
+  logRefusal(result.code, result.reason);
+}
+```
+
+It fails closed. A timeout, a refused connection, a 500, a body that is not JSON, or anything other than `allowed: true` returns `{ ok: false }` and the command does not run. Errors thrown by your own command function are not caught.
+
+When the answer is `approval_required`, create the approval as described in [Approvals](/approval), and pass the granted id as `approvalId` on the retry.
+
+### rclpy: a gate node
+
+This node listens on `/cmd_vel_request`, asks theAuth, and republishes to `/cmd_vel`. Give the planner an enclave that may publish `/cmd_vel_request` only, and give this node the only grant for `/cmd_vel`. It uses only the Python standard library for HTTP.
+
+```python
+import json
+import os
+import time
+import urllib.error
+import urllib.request
+
+import rclpy
+from geometry_msgs.msg import Twist
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.node import Node
+
+AUTHORIZE_URL = os.environ["THEAUTH_URL"].rstrip("/") + "/authorize/token"
+TOKEN = os.environ["THEAUTH_ROBOT_TOKEN"]
+TIMEOUT_S = float(os.environ.get("THEAUTH_TIMEOUT_S", "1.0"))
+# How long an "allowed" answer is reused. 0 asks every time. A revoked robot keeps moving
+# for up to this long, so keep it short.
+ALLOW_TTL_S = float(os.environ.get("THEAUTH_ALLOW_TTL_S", "0.5"))
+
+def authorize(action, resource):
+    """Return (allowed, code). Any failure is a refusal."""
+    body = json.dumps({"action": action, "resource": resource}).encode()
+    request = urllib.request.Request(
+        AUTHORIZE_URL,
+        data=body,
+        method="POST",
+        headers={"content-type": "application/json", "authorization": "Bearer " + TOKEN},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
+            data = json.load(response).get("data", {})
+    except urllib.error.HTTPError as err:
+        try:
+            data = json.load(err).get("data", {})
+        except ValueError:
+            data = {}
+    except Exception:
+        return False, "guard_error"
+    return data.get("allowed") is True, data.get("code", "guard_error")
+
+def is_stop(msg):
+    """A command that only asks for zero motion needs no permission."""
+    return all(v == 0.0 for v in (
+        msg.linear.x, msg.linear.y, msg.linear.z,
+        msg.angular.x, msg.angular.y, msg.angular.z,
+    ))
+
+class CommandGate(Node):
+    def __init__(self):
+        super().__init__("command_gate")
+        group = ReentrantCallbackGroup()
+        self.pub = self.create_publisher(Twist, "/cmd_vel", 10)
+        self.sub = self.create_subscription(
+            Twist, "/cmd_vel_request", self.on_request, 10, callback_group=group
+        )
+        self.allowed_until = 0.0
+
+    def on_request(self, msg):
+        if is_stop(msg):
+            self.pub.publish(msg)
+            return
+        now = time.monotonic()
+        if now >= self.allowed_until:
+            allowed, code = authorize("publish", "ros2:/cmd_vel")
+            if not allowed:
+                self.get_logger().warn("cmd_vel refused: " + code)
+                return
+            self.allowed_until = now + ALLOW_TTL_S
+        self.pub.publish(msg)
+
+def main():
+    rclpy.init()
+    node = CommandGate()
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
+    executor.spin()
+
+if __name__ == "__main__":
+    main()
+```
+
+Put a watchdog on the actuation side too: if `/cmd_vel` stops arriving, the motor controller should drop to zero velocity. Then a dead gate stops the robot instead of leaving the last command running.
+
+### rclcpp: the same idea, as a sketch
+
+This is a sketch, not a tested package. `http_post_json` stands for whichever HTTP client you already link (libcurl, cpp-httplib). Run it off the executor thread, and treat every failure as a refusal.
+
+```cpp
+#include <chrono>
+#include <geometry_msgs/msg/twist.hpp>
+#include <rclcpp/rclcpp.hpp>
+
+// Returns true only for HTTP 200 with {"data":{"allowed":true}}.
+// Returns false on timeout, transport error, bad JSON, or any other status.
+bool theauth_allows(const std::string &action, const std::string &resource);
+
+class CommandGate : public rclcpp::Node {
+ public:
+  CommandGate() : Node("command_gate") {
+    pub_ = create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+    sub_ = create_subscription<geometry_msgs::msg::Twist>(
+        "/cmd_vel_request", 10,
+        [this](geometry_msgs::msg::Twist::ConstSharedPtr msg) { on_request(*msg); });
+  }
+
+ private:
+  static bool is_stop(const geometry_msgs::msg::Twist &m) {
+    return m.linear.x == 0 && m.linear.y == 0 && m.linear.z == 0 &&
+           m.angular.x == 0 && m.angular.y == 0 && m.angular.z == 0;
+  }
+
+  void on_request(const geometry_msgs::msg::Twist &msg) {
+    if (!is_stop(msg) && !theauth_allows("publish", "ros2:/cmd_vel")) {
+      RCLCPP_WARN(get_logger(), "cmd_vel refused");
+      return;
+    }
+    pub_->publish(msg);
+  }
+
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr pub_;
+  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr sub_;
+};
+```
+
+## Safety stops
+
+An emergency stop must not wait for a network, a DDS graph, a process or theAuth. That belongs in hardware or a certified safety controller, under the standards for your machine (ISO 13850 covers emergency stop principles).
+
+`safetyStops` in `guardRobotCommand` exists for a narrower reason: a software stop command should not become slower, or refusable, because the auth server is down. Listed resources run immediately with no request. Matching is exact on purpose. `ros2:*`, a prefix, or a typo will not match, so the bypass cannot widen by accident. Keep the list to commands that only stop motion. Pass `onSafetyStop` to record that a bypass happened. It is never awaited and errors in it are swallowed.
+
+Revocation shortens how long a stolen robot token or enclave key keeps working. It does not stop a robot that is already moving.
+
+## Compare two policies
+
+```bash
+theauth ros2 diff before.json after.json
+```
+
+Prints the DDS topics that would be added or removed and the permissions that became or stopped being gated. Exit code 0 means no change, 2 means the exported policy differs, 1 is an error. Use it in review before rolling a policy change to a fleet.
+
+## What is not covered
+
+- **Zenoh.** There is no Zenoh `access_control` exporter. rmw_zenoh's key expressions carry more than the topic name, and a config that looks right but matches nothing is worse than none. The `zenoh_security_tools` package from the rmw_zenoh repository generates Zenoh access control from an SROS2 policy file, so feed it the exported `policy.xml`.
+- **micro-ROS.** A microcontroller does not run a full DDS participant. Check eProsima's documentation for how the Micro XRCE-DDS agent and its client link are secured, and treat the agent as the trust boundary.
+- **Delegated permissions.** `--robot` exports the robot's own permissions and the live permissions delegated to it (`GET /agents/:id?include=delegated`).
+- **Certificate lifetimes.** DDS Security validity windows are absolute dates. Pass `--enclave-cert <pem>` and the grant window defaults to the certificate's own window; a `--not-before` or `--not-after` outside it is refused. Re-export and re-sign on a schedule shorter than the window.
+- **Per node policy inside one process.** DDS Security grants apply per participant, and ROS 2 uses one participant per process, so two composed nodes share one grant.
+
+## Sources
+
+- OMG DDS Security 1.1 (formal/18-04-01), permissions and governance documents.
+- SROS2 source and schemas, `github.com/ros2/sros2` (`permissions.xsl`, `policy.xsd`, default governance).
+- ROS 2 design article, "ROS 2 DDS-Security integration".
+- Zenoh manual, access control.
 
 ---
 
@@ -25375,6 +27008,34 @@ err := client.Request(ctx, theauth.RequestOptions{
 
 `client.Do(ctx, method, path, query, body, &out)` is the short form without path parameters.
 
+## Devices
+
+`client.Devices` is the registry and needs a user or admin token. `client.Device` is what a device calls as itself.
+
+```go
+signer, _ := theauth.NewDeviceAssertionSigner("") // the key first, the id after registering
+spec, _ := theauth.JWKCredential(signer.PublicJWK())
+reg, err := client.Devices.Register(ctx, theauth.RegisterDeviceInput{
+    OwnerID:     "user-123",
+    Name:        "Pump 4",
+    Permissions: []theauth.Permission{{Resource: "mqtt:plant/a/pump4/#", Actions: []string{"publish"}}},
+    Credential:  &spec,
+})
+_ = signer.Bind(reg.Device.ID)
+
+res, err := client.Device.Authorize(ctx, signer, theauth.AuthorizeRequest{
+    Action: "publish", Resource: "mqtt:plant/a/pump4/temp",
+})
+```
+
+The signer makes a new `device-assertion+jwt` for every call, because the server accepts each `jti` once. A `DevicePSK` or `DeviceToken` works as the credential too.
+
+## Step-up and bound tokens
+
+A 401 with `error="insufficient_user_authentication"` (RFC 9470) returns `*theauth.ErrStepUpRequired`. `err.Challenge.AuthorizeParams()` gives the `acr_values` and `max_age` for the new authorization request. `ACRSatisfies` and `AuthIsFresh` check a token before you call.
+
+Set `Cnf: theauth.DPoPConfirmation(prover)` on `CreateAgentInput` to bind an agent token to a DPoP key (RFC 7800). `Agents.Rotate` keeps the binding and `Agents.RotateWith(ctx, id, theauth.RotateOptions{Unbind: true})` removes it. `AuthorizeRequest.Inputs` records what the model had in context for the audit log; the server hashes the content and does not store it.
+
 ## Errors
 
 | Check | Meaning |
@@ -25510,6 +27171,52 @@ with TheAuthSyncClient(base_url=BASE, token=access_token, auth=auth) as client:
 `DPoPAuth` is a plain `httpx.Auth`, so you can also pass it to your own `httpx.Client` or `httpx.AsyncClient`. The `cryptography` package is imported lazily and a clear error is raised if it is missing.
 </Note>
 
+## Devices
+
+`client.devices` is the registry and needs a user or admin token. `client.device` is what a device calls as itself: enroll, authorize, fetch an offline policy bundle.
+
+```python
+from theauth import (
+    CredentialSpec, DeviceAssertionSigner, RegisterDeviceInput, TheAuthSyncClient,
+)
+from theauth.types import AuthorizeRequest, Permission
+
+signer = DeviceAssertionSigner()  # the key first, the id after registering
+with TheAuthSyncClient(base_url=BASE, token=admin_token) as client:
+    reg = client.devices.register(
+        RegisterDeviceInput(
+            owner_id="user-123",
+            name="Pump 4",
+            permissions=[Permission("mqtt:plant/a/pump4/#", ["publish"])],
+            credential=CredentialSpec.from_jwk(signer.public_jwk),
+        )
+    )
+    signer.bind(reg.device.id)
+    result = client.device.authorize(signer, AuthorizeRequest("publish", "mqtt:plant/a/pump4/temp"))
+    client.devices.suspend(reg.device.id, "stolen")
+```
+
+`DeviceAssertionSigner` signs the `device-assertion+jwt` the server verifies. It makes a new assertion for every call because the server accepts each `jti` once. It needs the `cryptography` extra, like DPoP.
+
+## Step-up
+
+A 401 with `error="insufficient_user_authentication"` (RFC 9470) raises `StepUpRequiredError`, a subclass of `AuthenticationError`. `error.challenge.authorize_params()` gives the `acr_values` and `max_age` for the new authorization request.
+
+```python
+from theauth import StepUpRequiredError
+
+try:
+    client.approvals.approve(approval_id)
+except StepUpRequiredError as err:
+    print(err.challenge.authorize_params() if err.challenge else {})
+```
+
+`acr_satisfies` and `auth_is_fresh` check a token's `acr` and `auth_time` before you call.
+
+## Bound tokens and input provenance
+
+Pass `cnf=dpop_confirmation(prover)` to `CreateAgentInput` to bind an agent token to a DPoP key (RFC 7800). `client.agents.rotate(id)` keeps the binding, `rotate(id, cnf=None)` removes it. `AuthorizeRequest(inputs=[ProvenanceInput("user_message", content=text)])` records what the model had in context; the server hashes the content and does not store it.
+
 ## Errors
 
 All exceptions inherit from `TheAuthError` and carry `code`, `message` and `status_code`.
@@ -25517,6 +27224,7 @@ All exceptions inherit from `TheAuthError` and carry `code`, `message` and `stat
 | Class | When |
 |---|---|
 | `AuthenticationError` | 401 |
+| `StepUpRequiredError` | 401 with a step-up challenge, has `challenge` |
 | `PermissionError` | 403 |
 | `NotFoundError` | 404 |
 | `ValidationError` | 400 or 422 with `issues` |
@@ -28379,6 +30087,116 @@ Source: https://docs.theauth.dev/owasp-agentic-mapping
 
 ---
 
+# Security doctor
+
+Source: https://docs.theauth.dev/security-doctor
+
+`theauth doctor --security` reads a theauth config file and reports unsafe settings. It does not open a database or call a server, so it runs in CI before deploy. For the setup and live server checks, see [CLI tools](/cli-tools).
+
+```sh
+theauth doctor --security
+theauth doctor --security --config ./config/theauth.json --json --fail-on high
+```
+
+## Options
+
+| Option | Meaning |
+| --- | --- |
+| `--config <file>` | JSON or ES module config. Default: `theauth.config.mjs`, `.js` or `.json` in `--cwd`. |
+| `--cwd <dir>` | Directory to look in. |
+| `--json` | Print `{ ok, failOn, findings }`. |
+| `--fail-on <level>` | Lowest severity that exits 1: `high` (default), `medium` or `low`. |
+
+Exit codes: 0 no finding at or above the threshold, 1 at least one, 2 usage error or a config that cannot be loaded.
+
+## Output
+
+```json
+{
+  "ok": false,
+  "failOn": "high",
+  "findings": [
+    {
+      "id": "sec.lockout.off",
+      "severity": "high",
+      "message": "Login lockout is turned off, so one account can be guessed without limit",
+      "fix": "Add rateLimit() to plugins, or confirm the handler or a gateway in front enforces limits.",
+      "docs": "/security-doctor#sec-lockout-off"
+    }
+  ]
+}
+```
+
+Finding ids never change once released, so you can suppress or alert on them. Findings are sorted high first.
+
+## Findings
+
+The linter reads the real `createTheAuth` config (`TheAuthConfig`). Settings that live outside that object cannot be read, so they are not linted: the `createTheAuthHandler` options (`cors`, `rateLimit`, `trustedOrigins`), the cookie flags of the session cookie, the options a plugin factory such as `rateLimit()` closes over, the `resolveUser` dependency of a handler, a stateless session manager, and the audit anchors you store outside the database.
+
+<a id="sec-session-secret-weak"></a>
+### sec.session.secret_weak (high)
+`secret`, `auth.session.secret`, `mcp.signingSecret` (or `THEAUTH_SECRET`) is under 32 characters, repeats few distinct characters, or contains a word such as `secret`, `password`, `example` or `changeme`. Generate one with `theauth secret`.
+
+<a id="sec-cookie-secure-off"></a>
+### sec.cookie.secure_off (high)
+`redirects.cookie.secure` is `false` while `baseUrl` is not localhost. The redirect chain cookie is the only cookie whose flags `TheAuthConfig` carries. The session cookie is `Secure` by default on every runtime (it no longer depends on `NODE_ENV`), and its flags are not config options.
+
+<a id="sec-cookie-samesite-none"></a>
+### sec.cookie.samesite_none (high)
+`redirects.cookie.sameSite` is `none`. Use `lax` or `strict` unless you embed the app cross-site on purpose.
+
+<a id="sec-cookie-host-prefix-missing"></a>
+### sec.cookie.host_prefix_missing (low)
+`auth.session` is set, `baseUrl` is not localhost, and `auth.session.cookieName` (default `theauth_session`) does not start with `__Host-`. The prefix stops a sibling subdomain from overwriting the cookie. Fires on the default name.
+
+<a id="sec-password-pbkdf2-low"></a>
+### sec.password.pbkdf2_low (high)
+`username.pbkdf2Iterations`, `passwordReset.pbkdf2Iterations` or `THEAUTH_PBKDF2_ITERATIONS` resolves below 600000 (the core default) for a flow that is configured.
+
+<a id="sec-rate-limit-off"></a>
+### sec.rate_limit.off (medium)
+`username`, `passwordReset`, `magicLink`, `emailOtp` or `phone` is configured and `plugins` has no `rateLimit()` plugin (id `theauth-rate-limit`). A limit you disable inside `rateLimit()` is not visible to the linter, and neither are the `createTheAuthHandler` limits, so this checks that the plugin is registered. Ignore it when the handler or a gateway enforces limits.
+
+<a id="sec-lockout-off"></a>
+### sec.lockout.off (high)
+`username.lockout` is `false`, or `THEAUTH_LOGIN_LOCKOUT_DISABLED` is `1` or `true`, while `username` is configured. One account can then be guessed without limit.
+
+<a id="sec-hosts-wildcard"></a>
+### sec.hosts.wildcard (high)
+`allowedHosts` contains a bare `*` or `**` (optionally with a scheme), so any `Host` header is accepted when building callback and magic link URLs. Use exact hosts or a suffix pattern such as `*.example.com`. This replaces the earlier `sec.cors.wildcard`, which read options that are not part of the config.
+
+<a id="sec-redirect-allowlist-empty"></a>
+### sec.redirect.allowlist_empty (medium)
+`redirects` is set but `redirects.allowedOrigins` is empty or missing, so only same-origin return URLs work.
+
+<a id="sec-mcp-revocation-offline"></a>
+### sec.mcp.revocation_offline (medium)
+`mcp.enabled` with `mcp.revocation.mode` `offline` (or `THEAUTH_MCP_REVOCATION_MODE=offline`). Revoked tokens then stay valid until they expire. Use `live` or `cached`. When neither the config nor the env sets a mode, core picks `live` if the module has a database, so the linter stays quiet.
+
+<a id="sec-org-no-auth"></a>
+### sec.org.no_auth (high)
+`org.trustedServerUse` is `true`. The org `handleRequest` then acts on ids in the request without resolving a caller. Pass a `resolveUser` dependency and remove the flag, unless your own code authorizes every call first.
+
+<a id="sec-api-keys-no-auth"></a>
+### sec.api_keys.no_auth (high)
+`apiKeys.trustedServerUse` is `true`. Same risk and fix as the org handler.
+
+## Dropped checks
+
+- `sec.session.stateless_no_ban_check`: the stateless session manager is created in code, not in `TheAuthConfig`, and its ban check (`db` or `isBanned`) cannot be read from a config file.
+- `sec.audit.anchors_missing`: anchors come from `audit.checkpoint()` and are stored outside the config, so no option says whether they exist. See [audit checkpoints](/audit-checkpoints).
+- `sec.cors.wildcard`: replaced by `sec.hosts.wildcard`. CORS is an option of `createTheAuthHandler`, not of the config.
+
+## CI
+
+```yaml
+- run: npx theauth doctor --security --fail-on high
+```
+
+The linter reads only the `TheAuthConfig` fields named above. A field it does not know is ignored, and a rule fires only on the unsafe value, so an unset optional field stays quiet unless the table says it fires when missing.
+
+---
+
 # Protect an MCP server with OAuth 2.1
 
 Source: https://docs.theauth.dev/use-cases/mcp-server-behind-oauth
@@ -28940,7 +30758,7 @@ hooks: {
 | `rate_limited` | `rate_limited` |
 | `ip_blocked` | `ip_not_allowed` (the request IP is missing or not in the permission's `ipAllowlist`) |
 | `time_restricted` | `time_restricted` (outside the permission's `timeWindow`) |
-| `approval_required` | `approval_required`, `approval_invalid` |
+| `approval_required` | `approval_required` and every `approval_*` denial |
 | `permission_denied` | every other code |
 
 A `beforeAuthorize` deny reports code `hook_denied`, so its `type` is `permission_denied` whatever the reason text says. A timeout reports `hook_timeout` and an error `hook_error`, also `permission_denied`. An escalate verdict reports `approval_required`. See [Errors](/errors#decision-codes) for the full list of codes.
@@ -31865,6 +33683,134 @@ Revoking a delegation, an agent, a user's sessions or a token now reaches MCP ac
 
 `observability.onDecision(event)` receives one typed event per `authorize`, `authorizeByToken` and `policy.evaluate` decision, and `logger` receives hook timeout and listener warnings. Nothing changes unless you set them. Events carry no tokens or raw arguments, and `observability.redactResource` rewrites the resource string. The dashboard audit page now sends `codes` to your audit endpoint and calls `/api/explain`, so mount the HTTP handler at `/api`. See [Observability](/observability).
 
+## Approval denials carry specific codes
+
+`approval_invalid` is gone from `authorize()`, `authorizeByToken()` and `policy.evaluate()`. A failed spend returns one of `approval_not_found`, `approval_pending`, `approval_denied`, `approval_expired`, `approval_already_used`, `approval_mismatch` or `approval_arguments_mismatch`, and all of them still map to `onViolation.type` `approval_required`. The `reason` string `APPROVAL_NOT_APPROVED` is split into `APPROVAL_PENDING` and `APPROVAL_DENIED`, and a pending request past its expiry reports `APPROVAL_EXPIRED`. Branch on `code` instead of `approval_invalid`. `approval.approve()` and `approval.deny()` now throw for an expired request and mark it `expired`, and `approval.listPending()` leaves out expired ones. New: `approval.decide()`, the `approval.pending` webhook event, and decision events with `source: "approval"`. See [Approval flows](/approval).
+
+## Stateless and JWT sessions refuse banned users
+
+The database session manager already refused a banned user. The JWT session module and the stateless session manager did not, so a banned user could still get tokens or cookies on those paths.
+
+- `createJwtSessionModule(...).createSession` now returns `USER_BANNED` for a banned user (an expired ban no longer counts) and writes a denied `sign_in` audit row. `refreshSession` goes through the same check, so a ban stops refresh token rotation. Access tokens already issued stay valid until `accessTokenTtl`.
+- `createStatelessSessions` has no database, so the check is opt in. Pass `db` to run the same check against the `users` table (the identity `sub` must be your local user id), or pass `isBanned(identity)` for a store of your own. `createSession` then returns `USER_BANNED`, and with `isBanned` set `getSession` returns null for a banned user, which ends sessions already issued.
+- Before: a banned user could sign in through these managers. After: `USER_BANNED`, with the same generic message as the other sign-in paths.
+- Action: pass `db` or `isBanned` to `createStatelessSessions`. Handle the `USER_BANNED` code where you call `createSession`.
+
+## Org and API key handlers fail closed
+
+`org.handleRequest` and `apiKeys.handleRequest` used to act on any request, trusting the `userId`, `ownerId` and `invitedBy` in the body. They now answer 401 unless the caller is authenticated.
+
+- Through `createTheAuth` nothing to wire: the handlers use your auth adapter, then the session token, like the TOTP and passkey handlers.
+- For a module built on its own (`createOrgModule(config, db, { resolveUser })`, `createApiKeyManagerModule(config, db, { resolveUser })`), pass a `resolveUser` that returns `{ id }` or null. With no resolver every route answers 401.
+- With a resolver, API key routes only reach the caller's own keys (403 otherwise). Org routes need membership to read and the `owner` or `admin` role to change anything. A member may remove themselves. `ownerId`, `invitedBy` and the accepting user are taken from the session, and a body value for another user is a 403.
+- Owner level stays with owners. Only an owner can grant the `owner` role (add, invite or role change), change or remove another owner, or delete the org. An admin who tries gets 403.
+- An invitation can only be accepted by the signed-in user whose email it was sent to (compared without case). Anyone else holding the invitation id gets 403. `GET /auth/org/:orgId/invitations` needs `owner` or `admin`, because the ids it returns work as join links.
+- `acceptInvitation` claims the invitation with one conditional write, so a second accept of the same invitation fails with "not pending" even when both run at once.
+- Opt out for trusted server code that has already authenticated and authorized the caller: `org: { trustedServerUse: true }` or `apiKeys: { trustedServerUse: true }`. The handler then trusts ids in the request, as before. A configured resolver always wins over the flag.
+- Before: unauthenticated requests could create orgs, add members and mint API keys for any user. After: 401, or 403 for another user's data.
+
+## Single use codes and tokens are claimed atomically
+
+Several redemptions read a row, checked it, then marked it used with a separate write. Two requests that arrived together could both pass the check. Each one is now a single conditional `UPDATE` or `DELETE`, and only the caller whose statement changed the row continues.
+
+- OIDC provider: an authorization code exchanged twice at once yields one token set. The other call gets `CODE_ALREADY_USED`. A refresh token used twice at once yields one rotation, the other gets `REFRESH_TOKEN_REVOKED`.
+- JWT sessions: `refreshSession` called twice with one refresh token creates one session. The other call gets `REFRESH_TOKEN_USED`.
+- Passkeys: a registration or authentication challenge is spent by one request. A concurrent second request gets `CHALLENGE_NOT_FOUND`.
+- Action: none, unless your client retries a refresh in parallel. Send one refresh at a time and reuse its result.
+
+## Authorization code grant refuses another user's agent client
+
+A client bound to an agent with `mcp.clients.bindAgent` now only gets a code, and only redeems one, for the agent's owner. Before, any signed-in user could authorize that client and receive tokens carrying the agent's identity.
+
+- The authorization endpoint returns `ACCESS_DENIED`, and the token endpoint returns `INVALID_GRANT`, both with `details.decisionCode` set to `owner_mismatch` and the message "This client is bound to an agent owned by another user and cannot act for you". The refusal is also written to the audit log under the agent.
+- Without `auth` (no database stores) there is no agent store and nothing changes.
+- Action: bind a client to an agent only when the users who authorize it own that agent. For shared service clients, bind them with a service account that owns the agent.
+
+## `inputProvenance` is a reserved audit argument name
+
+Tool arguments named `inputProvenance` are now dropped from audit `parameters`, like `approvalId` and the `theauth*` names, because input provenance is recorded only from the trusted `context.inputs` (kind, id and content hash, never content).
+
+- Action: if a tool takes an argument called `inputProvenance`, rename it, or it will not appear in the audit row.
+- Pseudonym rotation (`audit.pseudonymRotation`) is opt in. Without it nothing changes.
+
+## Input provenance uses a keyed hash
+
+`hashInputContent(content)` is now `hashInputContent(content, auditKey)` and returns an HMAC-SHA-256 under a subkey derived from the audit key, so a reader of the audit table cannot confirm a guess at short content. The old unkeyed function is `hashInputContentPlain(content)`.
+
+- Rows recorded with `context.inputs` now carry `hv: 2` on each source. Rows written before keep the plain hash and no `hv`, and still match queries by content.
+- `audit.query({ provenance: { hash } })` still works for a stored hash. To look up content, use `provenance: { content }`: the server hashes it for you, so nothing needs the key on the client.
+- Action: if you computed `hashInputContent(text)` yourself to filter, switch to `provenance: { content: text }`. Hashes you pass as `hash` in `inputs` are stored as given.
+- `AuditEntry` gains an optional `inputs` list (kind, id, hash, hv). `POST /authorize` and `POST /authorize/token` accept `inputs`, and `GET /audit` takes `provenanceKind`, `provenanceHash` and `provenanceContent`.
+
+## `generateOpenAPISpec` is generated from the route table
+
+The OpenAPI document is no longer hand written. It is built from the handler's routes and the core result shapes, and `sdks/openapi.json` is the checked-in copy.
+
+- `servers[0].url` is now `baseUrl` plus `basePath` (default `/api/theauth`). Before, `baseUrl` was used as is, so pass the origin only.
+- Paths match what the handler serves: `POST /authorize` takes `agentId` in the body, and `POST /authorize/token` is the bearer token form. The old `/agents/{id}/authorize` entry did not exist on the server.
+- `AuthorizeResult` has a required `code` (a decision code). `ExplainResult`, the delegation chain fields (`rootOwnerId`, `path`), approvals and `/mcp/introspect` are described.
+- `POST /authorize` and `POST /authorize/token` accept `approvalId`. Before, the HTTP body schema dropped it, so an approved request could not be spent over HTTP.
+- Action: regenerate any client you built from the old document, and pass the origin as `baseUrl`.
+
+## Agent type `device` and the IoT device tables
+
+IoT devices are backed by agent rows of the new type `device` (see [IoT devices](/iot-devices)). Nothing changes unless you set `devices` in the config, but the types widen.
+
+- `AgentIdentity["type"]`, `AgentFilter["type"]` and `CreateAgentInput["type"]` now include `"device"` (exported as `AgentType`). A `switch` over agent types that assumes three cases needs a `device` branch or a default.
+- `agent.create({ type: "device" })` throws. Devices are created with `theauth.device.register` or enrollment.
+- `agent.list()` leaves device agents out unless you pass `type: "device"`, and they do not count against `agents.maxPerUser`. `agent.rotate` refuses a device agent.
+- Agent registration tokens accept only `autonomous`, `delegated` and `service` as `agentType` (`agent_type` over HTTP). Before, any string was stored and became the agent type.
+- New decision codes: `device_not_found`, `device_suspended`, `device_revoked`, `device_expired`. `statusForDecisionCode` maps the first, third and fourth to 401.
+- Migration `0010-devices` creates `theauth_devices`, `theauth_device_credentials` and `theauth_device_enrollments` when agents are enabled. With `database.skipMigrations`, apply it with `theauth db sql --dialect <sqlite|postgres|mysql> --from 0010`.
+- `/devices` is now a protected adapter path, and the handler serves the device facing routes under `/device/*` unless you set `routes: { devices: false }`. They answer 404 while `devices` is not configured.
+- Action: add a `device` case where you branch on agent type. If you mount your own routes under `/devices` or `/device`, move them or turn the device routes off.
+
+## Step-up authentication and sender constrained agent tokens
+
+Sessions now remember how the user proved who they are, approvals can demand a fresh passkey or TOTP code, the MCP server honors `acr_values` and `max_age`, and agent tokens can be bound to a DPoP key or a client certificate. See [step-up authentication](/step-up-auth) and [sender constrained agent tokens](/dpop-agent-tokens). Everything is opt in, but some types and behaviors changed.
+
+- New decision codes: `confirmation_required`, `confirmation_failed` (both 401 from `statusForDecisionCode`) and `approval_step_up_insufficient`. A `switch` over `DecisionCode` that is exhaustive needs the new cases.
+- `SessionManager` has a new method, `recordAuth(sessionId, method)`. A custom implementation of the interface must add it. `Session` gains an optional `auth` object, and `CreateSessionOptions` gains `authMethods`.
+- A risk tier with `require: "step_up"` could never be satisfied before: the call always escalated. Now an approval spends it, provided the approval was opened under a rule at least as strong as the tier (default: multi factor within 5 minutes). If you relied on the tier to block those calls for good, keep it blocked with a `deny` hook.
+- `approval.approve(id, by)` throws `StepUpRequiredError` when the request carries a step-up rule and no assertion is passed. Requests opened without a rule behave as before.
+- `approval.approve`, `deny` and `decide` now change a request with one conditional update. Before, two concurrent decisions could both succeed and the last one won.
+- `AgentIdentity` gains an optional `cnf`. `RequestContext` gains `confirmation`. `agent.rotate(id)` keeps the binding, and takes `{ cnf }` to change it.
+- `POST /agents/introspect` is a new route, so a custom route table that mirrors `listRoutes()` needs it. `POST /authorize/token` and `requireAgent` also accept `Authorization: DPoP <token>`.
+- `passkey.verifyAuthentication` returns `userVerified` next to `userId` and `credential`.
+- The MCP `McpAuthModule.requireScopes` takes an optional third argument, and `McpPrincipal` has an `auth` field. `McpAuthErrorCode` gains `INSUFFICIENT_USER_AUTHENTICATION`.
+- Migrations: `0009-step-up-and-confirmation` adds `cnf` to `theauth_agents` and `required_acr` and `max_auth_age` to `theauth_approval_requests` (agents enabled). `0011-oauth-auth-evidence` adds `auth_acr`, `auth_amr` and `auth_time` to the OAuth code and token tables (OAuth enabled). All columns are nullable. With `database.skipMigrations`, apply them with `theauth db sql --dialect <sqlite|postgres|mysql> --from 0009`.
+- Action: add the new decision codes where you branch on them, add `recordAuth` to custom session managers, and run `theauth db up`.
+
+## The approval hash now equals theauth-go's
+
+`hashApprovalAction`, the `argumentsHash` in the `approval.pending` webhook and the check that binds an approval to its arguments now use the canonical form of theauth-go (`packages/core/src/approval/canonical.ts`). The hash of an ordinary request (ASCII text, integers, plain objects) does not change. It changes for arguments that contain `<`, `>`, `&`, U+2028 or U+2029 in a string or key, object keys that sort differently by UTF-8 bytes than by UTF-16 units (an astral character against U+E000 to U+FFFF), `-0`, or a lone surrogate. A pending request is compared by recomputing both sides, so in flight approvals keep working. Only a hash you stored from an old webhook payload for such arguments no longer matches a fresh one.
+
+Arguments that cannot be hashed now fail closed. `NaN` and `Infinity` used to hash as `null`, so an approval for `{ amount: null }` covered `{ amount: NaN }`. They now throw, and the call is denied with `approval_arguments_mismatch`. A function or symbol value is refused the same way.
+
+## Delegation subset check follows the runtime matcher, and path matching is opt in
+
+`delegate()` used to accept a child resource that was longer than an exact parent resource: a parent holding `tool:db` could delegate `tool:db:secrets` or `tool:db:*`, although the parent itself could not use either (`authorize()` matches `tool:db` only against `tool:db`). The child therefore held access the parent never had. The check now uses the same matcher as `authorize()`, so that delegation is refused with `DELEGATION_PERMISSION_SUBSET`. Delegations already stored are not rewritten. If you relied on it, give the parent a `tool:db:*` grant.
+
+New and opt in: `resourceMatching: "path"` (see [Path matching](/permissions#path-matching-opt-in)). The default is unchanged. With the default, `devices.register` and `devices.update` now refuse a device permission whose `*` is not the last segment (`mqtt:a:*:b`), because the default matcher lets a middle `*` swallow the rest of the resource. Existing devices keep working. In path mode a middle `*` means exactly one segment and is accepted.
+
+## Self service API keys are capped, and OIDC refresh reuse revokes the family
+
+A signed in user used to be able to create an API key with any permissions, including `*`. `POST /auth/api-keys` now checks the request against what the user holds and answers 403 `permissions_not_grantable` with the denied list. Tell the module what a user holds:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  apiKeys: {
+    grantablePermissions: async (userId) => loadPermissionsFor(userId),
+    adminOverride: async (userId) => isPlatformAdmin(userId),
+  },
+});
+```
+
+`*` covers everything, `agents:*` covers `agents:read` and `agents:read:own`. Without `grantablePermissions`, a self service request can only ask for an empty permission list, so keys with permissions stop working until you configure it. `theauth.apiKeys.create()` in your own server code and modules built with `trustedServerUse` are not capped. Rotating a key keeps the permissions it already has.
+
+OIDC provider refresh tokens now belong to a family (RFC 9700 section 4.14.2). Presenting a refresh token that was already rotated, or losing a rotation race with it, revokes every token in the family. Access tokens already issued stay valid until they expire. Migration `0012-oidc-refresh-family` adds a nullable `family_id` column to `theauth_oidc_refresh_tokens`. With `database.skipMigrations`, apply it with `theauth db sql --dialect <sqlite|postgres|mysql> --from 0012`. Refresh tokens issued before the migration have no family, so reuse of one revokes all refresh tokens of that user and client.
+
 ---
 
 # Pick a migration path
@@ -34771,15 +36717,16 @@ These forward the request to `theauth.passwordReset` and `theauth.emailVerificat
 
 Source: https://docs.theauth.dev/openapi
 
-`generateOpenAPISpec` returns an OpenAPI 3.1 document describing the agent, authorization, audit and delegation REST endpoints. Feed it to a code generator to produce a client for Python, Java, Rust or any other language.
+`generateOpenAPISpec` returns an OpenAPI 3.1 document describing the REST endpoints `createTheAuthHandler` serves. It is generated from the handler's route table and the typed result shapes in core, so it cannot lag behind the routes. The same document is checked in as `sdks/openapi.json`, and a test fails when the two differ. Feed it to a code generator to produce a client for Python, Java, Rust or any other language.
 
 ```ts title="openapi.ts"
 import { generateOpenAPISpec } from '@glinr/theauth';
 import { writeFileSync } from 'node:fs';
 
 const spec = generateOpenAPISpec({
-  baseUrl: 'https://auth.example.com/api/theauth', // default http://localhost:3000
-  version: '1.0.0',                                // default 0.0.1
+  baseUrl: 'https://auth.example.com', // origin, default http://localhost:3000
+  basePath: '/api/theauth',            // where the handler is mounted, default /api/theauth
+  version: '2.0.0',                    // contract version, default 2.0.0
 });
 
 writeFileSync('theauth-openapi.json', JSON.stringify(spec, null, 2));
@@ -34799,16 +36746,30 @@ The function is pure, so you can expose it from any route:
 app.get('/openapi.json', (c) => c.json(generateOpenAPISpec({ baseUrl: new URL(c.req.url).origin })));
 ```
 
+## Options
+
+| Option | Default | Effect |
+|---|---|---|
+| `baseUrl` | `http://localhost:3000` | Origin in `servers[0].url` |
+| `basePath` | `/api/theauth` | Mount path appended to `baseUrl` |
+| `version` | `2.0.0` | `info.version` |
+| `handler` | all routes | Pass your `TheAuthHandlerOptions`, and routes the handler would not serve (`routes.explain: false`, `routes.mcp: false`) are left out |
+| `adminApi` | `true` | Include the approval routes of the admin API plugin |
+
 ## What it covers
 
-| Path | Purpose |
-|---|---|
-| `/agents`, `/agents/{id}`, `/agents/{id}/rotate` | Create, read, update, revoke and rotate agents |
-| `/authorize`, `/authorize/token` | Authorization checks by agent ID or bearer token |
-| `/audit` | Query the audit trail |
-| `/delegations` | Delegation chains |
+Every route in the handler's route table: agents, `/authorize` and `/authorize/token`, `/explain`, delegations, audit, dashboard aggregates and the MCP OAuth endpoints (including `/mcp/introspect`). The admin API approval routes (`/approvals`) are added unless you set `adminApi: false`.
 
-Requests authenticate with a bearer token (`BearerAuth` security scheme). The spec describes the core agent API only. Endpoints that plugins register (email, OAuth, passkeys and so on) are not included; see [Writing plugins](/plugins) for how those are mounted.
+`AuthorizeResult` carries `code`, one of the decision codes, and a denied call (403, or 401 for an identity failure) returns the same `{ data }` result as an allowed one. `ExplainResult` includes the delegation chain (`delegation.path`, `links`, `inbound`), the constraint checks and near misses.
+
+## Regenerating `sdks/openapi.json`
+
+```bash
+pnpm --filter @glinr/theauth exec jiti scripts/generate-openapi.ts          # write
+pnpm --filter @glinr/theauth exec jiti scripts/generate-openapi.ts check  # exit 1 when stale
+```
+
+Requests authenticate with a bearer token (`BearerAuth` for signed-in callers, `AgentToken` for `/authorize/token`, `ClientBasic` for OAuth client endpoints). Endpoints that other plugins register (email, OAuth, passkeys and so on) are not included; see [Writing plugins](/plugins) for how those are mounted.
 
 ---
 
@@ -35095,7 +37056,14 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 | `time_restricted` | Outside the permission's `timeWindow`. | `time_restricted` |
 | `argument_rejected` | An argument failed `allowedArgPatterns`, or a pattern is not a valid regex. | `permission_denied` |
 | `approval_required` | The permission has `requireApproval` and no approval id was given, or a `beforeAuthorize` hook returned `escalate`. | `approval_required` |
-| `approval_invalid` | The approval id is unknown, not approved, already used, or for another call. | `approval_required` |
+| `approval_not_found` | No approval request has this id. | `approval_required` |
+| `approval_pending` | The approval request has no answer yet. | `approval_required` |
+| `approval_denied` | A human denied the approval request. | `approval_required` |
+| `approval_expired` | The approval request passed its `expiresAt`. | `approval_required` |
+| `approval_already_used` | The approval was already spent. | `approval_required` |
+| `approval_mismatch` | The approval is for another agent, action or resource. | `approval_required` |
+| `approval_arguments_mismatch` | The arguments differ from the ones the human approved. | `approval_required` |
+| `approval_granted` | Lifecycle event only: a human approved a request. Never returned by `authorize()`. | none |
 | `agent_not_found` | No agent with that id. | `permission_denied` |
 | `agent_revoked` | The agent is revoked. | `permission_denied` |
 | `agent_expired` | The agent is expired. | `permission_denied` |
