@@ -18,6 +18,8 @@ function decision(
 		allowed: kind === "allow",
 		decision: kind,
 		effect: kind === "allow" ? "permit" : kind,
+		code:
+			kind === "allow" ? "allowed" : kind === "escalate" ? "approval_required" : "no_permission",
 		reason: kind === "deny" ? "POLICY_DENIED" : "ok",
 		cacheHit: false,
 		durationMs: 0,
