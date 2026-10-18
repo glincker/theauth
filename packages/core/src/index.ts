@@ -26,6 +26,20 @@ export * from "./crypto/web-crypto.js";
 // (DatabaseConfig is already exported below from types.ts, skip it here.)
 export type { D1DatabaseBinding, Database } from "./db/database.js";
 export { createDatabase, createDatabaseSync } from "./db/database.js";
+export type {
+	Dialect as SchemaDialect,
+	Migration as SchemaMigration,
+	MigrationRunResult as SchemaMigrationRunResult,
+	MigrationStatus as SchemaMigrationStatus,
+} from "./db/migrate/index.js";
+export {
+	getSchemaStatus,
+	MIGRATIONS as SCHEMA_MIGRATIONS,
+	migrationSql,
+	runMigrations as runSchemaMigrations,
+	SchemaChecksumError,
+	SchemaOutdatedError,
+} from "./db/migrate/index.js";
 export { createTables } from "./db/migrations.js";
 // Schema tables (export all except apiKeys which conflicts with the auth plugin name)
 export {

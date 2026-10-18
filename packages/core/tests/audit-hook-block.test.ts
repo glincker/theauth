@@ -279,6 +279,8 @@ describe("decision_code migration", () => {
 		await db.run(sql.raw("DROP INDEX IF EXISTS theauth_audit_logs_code"));
 		await db.run(sql.raw("DROP TABLE theauth_audit_logs"));
 		await db.run(sql.raw(OLD_DDL));
+		// A database from before the ledger: drop the ledger so the upgrade path is exercised.
+		await db.run(sql.raw("DROP TABLE theauth_schema_migrations"));
 		const now = new Date();
 		await db
 			.insert(users)

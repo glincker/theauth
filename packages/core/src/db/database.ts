@@ -28,7 +28,7 @@ interface D1ExecResult {
 }
 
 /**
- * The fully-typed SQLite Drizzle database. Postgres and MySQL connections are represented as `AnyDatabase` at the adapter boundary because drizzle-orm exposes separate schema builders (pg-core / mysql-core) that are incompatible with the SQLite schema defined in schema.ts. Full multi-dialect Drizzle schema support is planned for v0.2.0.
+ * The fully-typed SQLite Drizzle database. Postgres and MySQL connections are cast to this type at the adapter boundary: TheAuth queries them through the SQLite schema in `schema/*.ts`, and the per dialect DDL (`ddl/*.ts`, applied by the migration runner) gives the tables the column types each driver needs.
  */
 export type Database = BaseSQLiteDatabase<"sync" | "async", Record<string, unknown>, typeof schema>;
 
@@ -172,7 +172,7 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 		const { drizzle } = await import("drizzle-orm/node-postgres");
 
 		const pool = new Pool({ connectionString: config.url });
-		// Cast to Database for API compatibility; full pg schema arrives in v0.2.0.
+		// Cast to Database for API compatibility (see the Database type).
 		// biome-ignore lint/suspicious/noExplicitAny: adapter boundary - cast pg drizzle to sqlite-typed Database
 		return drizzle(pool) as any as Database;
 	}
@@ -188,7 +188,7 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 		const { drizzle } = await import("drizzle-orm/mysql2");
 
 		const pool = mysql2.createPool(config.url);
-		// Cast to Database for API compatibility; full mysql-core schema arrives in v0.2.0.
+		// Cast to Database for API compatibility (see the Database type).
 		// biome-ignore lint/suspicious/noExplicitAny: adapter boundary - cast mysql drizzle to sqlite-typed Database
 		return drizzle(pool) as any as Database;
 	}

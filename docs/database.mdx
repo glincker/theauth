@@ -139,7 +139,7 @@ theAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
 
 ## Auto-migration
 
-By default, theAuth calls `CREATE TABLE IF NOT EXISTS` at startup for the tables your config needs. This is safe to run on every start, but it only creates missing tables, it does not alter existing ones. There is no manual migration step for a new project.
+By default, theAuth migrates the database at startup: it creates the tables your config needs (`CREATE TABLE IF NOT EXISTS`) and applies any pending versioned migration, recording each one in the `theauth_schema_migrations` ledger (see [Schema migrations](#schema-migrations)). This is safe to run on every start, and there is no manual migration step for a new project or an upgrade.
 
 Tables are created per feature, so a small config gives you a small schema. Users and the secondary storage table are always created. Everything else depends on the config:
 
@@ -165,7 +165,60 @@ database: {
 ```
 
 <Warning>
-  When `skipMigrations: true`, you are responsible for keeping the schema in sync. theAuth will fail at runtime if expected tables or columns are missing.
+  When `skipMigrations: true`, you apply the schema yourself, and theAuth checks the ledger at startup. If migrations are pending it throws `SchemaOutdatedError` listing their ids, instead of failing on the first write. See [Using skipMigrations](#using-skipmigrations).
+</Warning>
+
+## Schema migrations
+
+theAuth keeps a ledger table, `theauth_schema_migrations`, with one row per applied migration: `id`, `name`, `checksum` and `applied_at`. Migrations are numbered and append only:
+
+| Id | Name | What it does |
+|----|------|--------------|
+| `0000` | `baseline` | Every table theAuth had when the ledger was introduced (the 1.x schema). |
+| `0001` | `relation-and-cache-hit` | `theauth_permissions.relation` and `theauth_audit_logs.cache_hit`. |
+| `0002` | `audit-decision-code` | `theauth_audit_logs.decision_code` and the index `theauth_audit_logs_code`. |
+| `0003` | `audit-recorded-at-ms` | `theauth_audit_logs.recorded_at_ms`, a backfill from `timestamp`, and the index `theauth_audit_logs_order`. |
+
+On startup theAuth runs every migration that is not in the ledger yet, in order, and records it. Rules that make this safe on an existing database:
+
+- **A database from before the ledger is adopted, not rebuilt.** If the tables exist but the ledger does not, theAuth probes the columns, treats `0000` (and `0001`, when its columns are present) as already applied, records them, and runs the rest. Your rows are untouched.
+- **Reruns are no-ops.** Applied migrations are skipped. Statements tolerate "already exists", so a half finished upgrade can be resumed.
+- **Applied migrations cannot change.** The ledger stores a checksum of each migration's SQL. If it no longer matches the code, startup fails with `SchemaChecksumError` rather than guessing.
+- **Features still decide which tables exist.** A migration that touches the audit table only applies when your config creates it. Enable the feature later and the next start creates the table and applies the migrations that were waiting.
+- **The audit hash does not change.** `decision_code` and `recorded_at_ms` are not part of the hashed payload, so existing chains and the Go verifier keep verifying.
+
+Read the ledger from code:
+
+```typescript
+const status = await theauth.schema.status();
+// { applied: [{ id: '0000', name: 'baseline', appliedAt: Date }, ...],
+//   pending: [], baselineStamped: false, mismatched: [], unknown: [] }
+```
+
+Or from the shell, with the CLI:
+
+```bash
+theauth db status                      # applied and pending, exit 1 when behind
+theauth db up                          # apply pending migrations
+theauth db up --dry-run                # print the statements, change nothing
+theauth db sql --dialect postgres      # print the SQL for a dialect
+theauth db sql --dialect mysql --from 0002
+```
+
+`--db <url>` (or `DATABASE_URL`) picks the database; `--config <file>` loads your config module so only the tables your features need are considered. Add `--json` for machine readable output.
+
+### Using skipMigrations
+
+With `skipMigrations: true` theAuth never changes the schema, but it still reads the ledger and throws `SchemaOutdatedError` when migrations are pending. To keep the schema in step with the SDK:
+
+1. Generate the SQL for your dialect: `theauth db sql --dialect postgres > theauth-schema.sql`. On a database that already has the 1.x tables, start at the first pending id instead, for example `--from 0002`. That output first creates the ledger and stamps the earlier migrations as applied.
+2. Review it and run it with your own tooling (Flyway, Liquibase, `psql`). Each migration ends with an `INSERT` into the ledger, so theAuth sees it as applied.
+3. Deploy the new SDK version. If anything is still pending the process fails at startup and names the ids.
+
+The same SQL ships in the repository as generated files, `packages/core/src/db/migrations/sql/<dialect>/<id>.sql`. A test fails when they drift from the TypeScript migrations.
+
+<Warning>
+  Upgrading to 2.0 with `skipMigrations: true`: apply `0002` and `0003` (or run `theauth db sql --dialect <yours> --from 0002`) before deploying. The audit queries select `decision_code` and `recorded_at_ms`, and startup now fails with `SchemaOutdatedError` until the ledger shows them applied.
 </Warning>
 
 ## Schema overview
@@ -202,9 +255,7 @@ The full set of tables theAuth can create is below. Which ones exist in your dat
 
 ### Upgrading the audit table
 
-`createTables()` adds `decision_code TEXT` and the index `theauth_audit_logs_code (agent_id, decision_code)` to an existing audit table on startup, and does nothing when they already exist. Old rows keep a NULL code. If you set `database.skipMigrations: true`, run `packages/core/src/db/migrations/0002_add_audit_decision_code.sql` yourself before deploying 2.0, because the audit queries select that column. On MySQL use the prefixed index shown in the file. The column is not covered by the audit hash, so existing hash chains and the Go verifier keep verifying.
-
-`createTables()` also adds `recorded_at_ms` (`INTEGER` on SQLite, `BIGINT` on Postgres and MySQL) and the index `theauth_audit_logs_order`, and backfills existing rows from their second-resolution `timestamp` (migration `0003_add_audit_recorded_at_ms.sql`; reruns are no-ops). Audit reads order by it so rows written in the same second keep their write order. If you set `database.skipMigrations: true`, apply that file first and use the Postgres, MySQL or SQLite variants in its comments. The column is not covered by the audit hash, so existing chains and the Go verifier keep verifying.
+Migrations `0002` and `0003` add `decision_code TEXT` (with the index `theauth_audit_logs_code`) and `recorded_at_ms` (`INTEGER` on SQLite, `BIGINT` on Postgres and MySQL, with the index `theauth_audit_logs_order`). Old rows keep a NULL code, and `recorded_at_ms` is backfilled from the second-resolution `timestamp`. Audit reads order by `recorded_at_ms`, so rows written in the same second keep their write order. Neither column is covered by the audit hash, so existing hash chains and the Go verifier keep verifying. If you use `skipMigrations`, see [Using skipMigrations](#using-skipmigrations).
 
 All table and column names use `snake_case`. IDs are `text`. In the SQLite schema, timestamps are stored as integers.
 

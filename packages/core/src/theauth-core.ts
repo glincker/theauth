@@ -12,7 +12,7 @@ import { createSignInGate } from "./auth/sign-in-gate.js";
 import type { ResolvedUser } from "./auth/types.js";
 import { createAuthorizePipeline } from "./authorize/pipeline.js";
 import type { Database } from "./db/database.js";
-import { createTables } from "./db/migrations.js";
+import { createSchemaApi, ensureSchema } from "./db/migrations.js";
 import { createDelegationModule } from "./delegation/delegation.js";
 import { createDidModule } from "./did/module.js";
 import { createExplainer } from "./explain/explain.js";
@@ -50,10 +50,8 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 
 	const db = await openDatabase(config.database);
 
-	// CREATE TABLE IF NOT EXISTS keeps this safe on every startup.
-	if (!config.database.skipMigrations) {
-		await createTables(db, config.database.provider, config);
-	}
+	// Migrates, or with skipMigrations throws SchemaOutdatedError when the schema is behind.
+	await ensureSchema(db, config);
 
 	// The policy engine can open approval requests, so the approval module is created first.
 	const approvalModule = createApprovalModule(config.approval ?? {}, db);
@@ -189,6 +187,8 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		audit: createAuditFacade(auditModule),
 		/** MCP server registration, backed by the `theauth_mcp_servers` table. */
 		mcp: mcpRegistry,
+		/** Schema migration ledger: `schema.status()` lists applied and pending migrations. */
+		schema: createSchemaApi(db, config),
 		/** Per-feature secondary storage (rate limits, device codes, ...). */
 		secondaryStorage,
 		/** Least-privilege analyzer: compares granted permissions against audit log usage. */

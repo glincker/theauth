@@ -9,10 +9,12 @@ import { AUDIT_HELP, openAuditModule, parseAuditArgs, runAudit } from "./audit-c
 import { AUTH_HELP, parseAuthArgs, runLogin, runLogout, runWhoami } from "./auth-commands.js";
 import { CODEMOD_HELP, formatSummary, parseCodemodArgs, runRenameCodemod } from "./codemod-run.js";
 import { startDashboardServer } from "./dashboard-server.js";
+import { runDbCommand } from "./db-commands.js";
 import { startDemoServer } from "./demo-server.js";
 import { DEV_HELP, parseDevArgs, runDev } from "./dev-command.js";
 import { runInit } from "./init.js";
 import { MIGRATE_HELP, parseMigrateArgs, runMigrate } from "./migrate-commands.js";
+import { runPolicyCommand } from "./policy-commands.js";
 import {
 	parseSimulateArgs,
 	runPermissions,
@@ -55,6 +57,8 @@ Commands:
   logout        Revoke and forget the saved login
   whoami        Show the signed-in user
   audit         Verify the audit hash chain, replay an agent (verify, replay)
+  db            Schema migrations ledger (status, up, sql)
+  policy        Test policy suites against explain(): theauth policy test <suite>
   simulate      Ask what an agent could do, no side effects (--json)
   permissions   Show an agent's effective permissions (--json)
   doctor        Check your setup for common mistakes (--json)
@@ -384,6 +388,12 @@ async function main(): Promise<void> {
 		case "simulate":
 		case "permissions":
 			await handleSimulate(command);
+			break;
+		case "db":
+			await runDbCommand(argv.slice(3));
+			break;
+		case "policy":
+			await runPolicyCommand(argv.slice(3));
 			break;
 		default:
 			stdout.write(`Unknown command: ${command}\n\n`);

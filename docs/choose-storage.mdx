@@ -29,11 +29,27 @@ The default for the second one is process memory, which is correct on a laptop a
 
 **`postgres`.** The default recommendation for anything with more than one instance or any real traffic. Needs the `pg` package. Use a pooler on serverless.
 
-**`mysql`.** Choose it when MySQL is what your team already runs. Needs `mysql2`. Behavior is the same as Postgres for theAuth's purposes.
+**`mysql`.** Choose it when MySQL is what your team already runs. Needs `mysql2`. See [What is tested per database](#what-is-tested-per-database) before you pick it.
 
 **`d1`.** Cloudflare D1 through a Worker binding. Use it when the app lives on Workers. Pass the binding instead of a URL.
 
 Setup snippets for each are on [Database setup](/database).
+
+## What is tested per database
+
+All providers share one versioned schema (`theauth_schema_migrations`, see [Database setup](/database#schema-migrations)). What the repository tests on each:
+
+| Provider | Core test suite | Schema and migrations |
+|----------|-----------------|-----------------------|
+| `sqlite`, `sqlite-native` | Every test file, on every change | Fresh create, upgrade from the 1.2.0 schema, stamped baseline, rerun, checksum mismatch, `skipMigrations` |
+| `postgres` | Not yet | The dialect suite (`packages/core/tests/dialect`) runs against a real server when `THEAUTH_TEST_PG_URL` is set: fresh create, upgrade from 1.2.0, ledger, indexes, and a raw SQL round trip of timestamp, JSON and boolean columns on the core tables |
+| `mysql` | Not yet | The same suite, when `THEAUTH_TEST_MYSQL_URL` is set |
+| `d1` | Not yet | The generated SQLite SQL (`theauth db sql --dialect sqlite`), applied with `skipMigrations: true` |
+
+<Warning>
+  Treat Postgres and MySQL as beta. The core modules run their queries through Drizzle table definitions written for SQLite, which store timestamps as epoch seconds. On a real Postgres server the first write (for example `user.create`) is rejected for that reason, and MySQL will also refuse the baseline DDL as written (`TEXT` columns used as primary keys, unique keys and foreign keys need a bounded type there). The opt-in core instance tests (`THEAUTH_TEST_DIALECT_CORE=1`) reproduce this today. The schema and ledger are tested; the module queries on top are not yet.
+</Warning>
+
 
 ## Secondary storage, in one paragraph each
 
