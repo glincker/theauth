@@ -8,7 +8,8 @@
  * - times out, with one budget that covers the headers and the body (slow-drip bodies are aborted);
  * - sends `cache: "no-store"`, no credentials, no referrer, minimal headers;
  * - returns generic errors; detail goes only to `onEvent`;
- * - fails closed: every error becomes an `{ ok: false }` result. Residual risk: the platform `fetch` resolves the name again when it connects, so a DNS rebinding attacker with a very short TTL can still win the race between our check and the connection.
+ * - on Node and Bun (node:https through a guarded dynamic import, see safe-fetch-node.ts) the connection is pinned to the addresses that were vetted, so the name is never resolved a second time and DNS rebinding at connect is closed. Proxy environment variables are not used on that path;
+ * - fails closed: every error becomes an `{ ok: false }` result. Residual risk on runtimes without a controllable connection (Workers, Deno) and with a custom `fetchImpl`: the platform `fetch` resolves the name again when it connects, so a DNS rebinding attacker with a very short TTL can still win the race between our check and the connection.
  */
 
 /** `signal` aborts when the fetch budget ends; resolvers that can cancel should honor it. */
@@ -16,8 +17,15 @@ export type DnsResolver = (hostname: string, signal?: AbortSignal) => Promise<st
 
 import { isPublicIp, screenHostname } from "./cimd-url.js";
 import { DeadlineError, defaultDnsResolver, loadNodeDns, withDeadline } from "./safe-fetch-dns.js";
+import {
+	loadNodeHttps,
+	PinnedConnectRefused,
+	pinnedHttpsGet,
+	publicVetter,
+} from "./safe-fetch-node.js";
 
 export { defaultDnsResolver, setNodeDnsForTests } from "./safe-fetch-dns.js";
+export { setNodeHttpsForTests } from "./safe-fetch-node.js";
 
 /** Resolver selection: a function, "auto" (node:dns when importable, otherwise fails closed), or "none" (names only). */
 export type SafeFetchResolver = DnsResolver | "auto" | "none";
@@ -41,8 +49,12 @@ export interface SafeFetchOptions {
 	onEvent?: (event: SafeFetchEvent) => void;
 	/** TEST ONLY. Lets http, any port and loopback hosts through so a local server can be used. Never set in production. */
 	allowLoopbackForTests?: boolean;
-	/** Fetch implementation. Defaults to global fetch. */
+	/** Fetch implementation. Defaults to global fetch. Setting it turns the pinned connect off (the supplied function owns the connection). */
 	fetchImpl?: typeof fetch;
+	/** "auto" (default): on Node and Bun connect through node:https pinned to the vetted addresses; elsewhere use fetch. "off": always use fetch. Pinned requests ignore HTTP_PROXY, HTTPS_PROXY and NO_PROXY on purpose, so an unvetted proxy can never carry the request. */
+	pinnedConnect?: "auto" | "off";
+	/** TEST ONLY. PEM CA added to the pinned connection's trust store so a local self signed server validates. */
+	caForTests?: string;
 	/** Maximum response body size in bytes. Default 5120. */
 	maxBytes?: number;
 	/** Timeout in milliseconds. Default 5000. */
@@ -316,6 +328,9 @@ async function run(
 	setEventUrl(`${url.origin}${url.pathname}`);
 	const host = url.hostname.toLowerCase().replace(/\.$/, "");
 	const isTestLoopback = loopbackOk && LOOPBACK_TEST_HOSTS.has(host);
+	let pinAddresses: string[] | null = isTestLoopback
+		? [host === "localhost" ? "127.0.0.1" : host.replace(/^\[|\]$/g, "")]
+		: null;
 
 	const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
 	const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -374,7 +389,17 @@ async function run(
 		if (addresses?.some((a) => typeof a !== "string" || !isPublicIp(a))) {
 			return fail("blocked_host", "host resolves to a non-public address");
 		}
+		pinAddresses = addresses ?? null;
 	}
+
+	// Pinned connect: only where the connection is ours to control and the addresses were vetted.
+	const pinnedHttps =
+		options.fetchImpl === undefined &&
+		options.pinnedConnect !== "off" &&
+		pinAddresses !== null &&
+		url.protocol === "https:"
+			? await withDeadline(loadNodeHttps(), deadline).catch(() => null)
+			: null;
 
 	const fetchImpl = options.fetchImpl ?? fetch;
 	const controller = new AbortController();
@@ -382,21 +407,34 @@ async function run(
 	try {
 		let response: Response;
 		try {
+			const headers = { Accept: "application/json", "User-Agent": "theauth-cimd/1" };
 			response = await withDeadline(
-				fetchImpl(url.toString(), {
-					method: "GET",
-					headers: { Accept: "application/json", "User-Agent": "theauth-cimd/1" },
-					redirect: "manual",
-					credentials: "omit",
-					cache: "no-store",
-					referrer: "",
-					referrerPolicy: "no-referrer",
-					signal: controller.signal,
-				}),
+				pinnedHttps && pinAddresses
+					? pinnedHttpsGet(pinnedHttps, {
+							url,
+							addresses: pinAddresses,
+							vet: publicVetter(isTestLoopback),
+							signal: controller.signal,
+							headers,
+							...(options.caForTests !== undefined ? { ca: options.caForTests } : {}),
+						})
+					: fetchImpl(url.toString(), {
+							method: "GET",
+							headers,
+							redirect: "manual",
+							credentials: "omit",
+							cache: "no-store",
+							referrer: "",
+							referrerPolicy: "no-referrer",
+							signal: controller.signal,
+						}),
 				deadline,
 			);
 		} catch (err) {
 			controller.abort();
+			if (err instanceof PinnedConnectRefused) {
+				return fail("blocked_host", `connection refused: ${err.message}`);
+			}
 			if (
 				err instanceof DeadlineError ||
 				(err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError"))
