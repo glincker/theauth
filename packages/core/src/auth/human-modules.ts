@@ -70,7 +70,9 @@ export function createHumanAuthModules(
 		? createPasskeyModule(config.passkey, db, moduleDeps)
 		: null;
 
-	const orgModule: OrgModule | null = config.org ? createOrgModule(config.org, db) : null;
+	const orgModule: OrgModule | null = config.org
+		? createOrgModule(config.org, db, moduleDeps)
+		: null;
 
 	// SAML request ids and the assertion replay cache live in secondary storage (feature "nonces").
 	const ssoModule: SsoModule | null = config.sso
@@ -90,7 +92,7 @@ export function createHumanAuthModules(
 		: null;
 
 	const apiKeyManagerModule: ApiKeyManagerModule | null = config.apiKeys
-		? createApiKeyManagerModule(config.apiKeys, db)
+		? createApiKeyManagerModule(config.apiKeys, db, moduleDeps)
 		: null;
 
 	const usernameModule: UsernameAuthModule | null =

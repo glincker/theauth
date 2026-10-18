@@ -37,6 +37,7 @@ import { generateId, randomBytesHex, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { jwtRefreshTokens } from "../db/schema.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
+import { refuseBannedUser } from "../session/banned.js";
 import type { AgentType, TrustTier } from "../standards/claims.js";
 import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
 
@@ -89,7 +90,7 @@ export interface VerifiedSession {
 }
 
 export interface JwtSessionModule {
-	/** Issues an access and refresh token pair. The refresh token is stored hashed and returned only once. */
+	/** Issues an access and refresh token pair. Fails with `USER_BANNED` for a banned user (also on refresh). The refresh token is stored hashed and returned only once. */
 	createSession(user: SessionUser): Promise<Result<SessionTokens>>;
 
 	/** Verifies an access token without touching the database. Fails on expiry, bad signature, or issuer/audience mismatch. */
@@ -193,6 +194,13 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 		}
 
 		try {
+			// Same check as the database session manager. Refresh goes through here too, so a ban stops token rotation.
+			if (await refuseBannedUser(db, user.id)) {
+				return {
+					success: false,
+					error: makeError("USER_BANNED", "Sign-in is not available for this account."),
+				};
+			}
 			const key = await getSigningKey();
 			const now = Math.floor(Date.now() / 1000);
 

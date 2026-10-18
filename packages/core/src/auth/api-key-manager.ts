@@ -22,8 +22,11 @@ import { eq } from "drizzle-orm";
 import { generateId, randomBytesHex, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { apiKeys as apiKeysTable } from "../db/schema.js";
+import type { HandlerGuardConfig } from "./handler-guard.js";
+import { forbidden, resolveHandlerActor } from "./handler-guard.js";
+import type { ModuleRequestDeps } from "./request-user.js";
 
-export interface ApiKeyManagerConfig {
+export interface ApiKeyManagerConfig extends HandlerGuardConfig {
 	/** Prefix for API keys (default: "kos_") */
 	prefix?: string;
 	/** Default expiry in days (default: 365) */
@@ -94,6 +97,7 @@ function rowToApiKey(row: ApiKeyRow): ApiKey {
 export function createApiKeyManagerModule(
 	config: ApiKeyManagerConfig,
 	db: Database,
+	deps: ModuleRequestDeps = {},
 ): ApiKeyManagerModule {
 	const prefix = config.prefix ?? "kos_";
 	const defaultExpiryDays = config.defaultExpiryDays ?? 365;
@@ -219,9 +223,23 @@ export function createApiKeyManagerModule(
 	}
 
 	async function handleRequest(request: Request): Promise<Response | null> {
+		const { pathname } = new URL(request.url);
+		if (pathname !== "/auth/api-keys" && !pathname.startsWith("/auth/api-keys/")) return null;
+		const actor = await resolveHandlerActor(request, deps, config);
+		if (actor.kind === "denied") return actor.response;
+		return route(request, actor.kind === "user" ? actor.userId : null);
+	}
+
+	/** `actorId` is the authenticated user, or null for trusted server use. A user only touches their own keys. */
+	async function route(request: Request, actorId: string | null): Promise<Response | null> {
 		const url = new URL(request.url);
 		const { pathname } = url;
 		const { method } = request;
+		const ownsKey = async (keyId: string): Promise<boolean> => {
+			if (actorId === null) return true;
+			const mine = await list(actorId);
+			return mine.some((k) => k.id === keyId);
+		};
 
 		const json = (data: unknown, status = 200) =>
 			new Response(JSON.stringify(data), {
@@ -244,6 +262,7 @@ export function createApiKeyManagerModule(
 			) {
 				return json({ error: "Missing required fields: userId, name, permissions" }, 400);
 			}
+			if (actorId !== null && b.userId !== actorId) return forbidden();
 			const expiresAt = b.expiresAt ? new Date(b.expiresAt as string) : undefined;
 			const result = await create({
 				userId: b.userId,
@@ -257,6 +276,7 @@ export function createApiKeyManagerModule(
 		const listMatch = /^\/auth\/api-keys\/([^/]+)$/.exec(pathname);
 		if (method === "GET" && listMatch) {
 			const userId = decodeURIComponent(listMatch[1] ?? "");
+			if (actorId !== null && userId !== actorId) return forbidden();
 			const keys = await list(userId);
 			return json(keys);
 		}
@@ -264,6 +284,7 @@ export function createApiKeyManagerModule(
 		const deleteMatch = /^\/auth\/api-keys\/([^/]+)$/.exec(pathname);
 		if (method === "DELETE" && deleteMatch) {
 			const keyId = decodeURIComponent(deleteMatch[1] ?? "");
+			if (!(await ownsKey(keyId))) return forbidden();
 			await revoke(keyId);
 			return json({ success: true });
 		}
@@ -271,6 +292,7 @@ export function createApiKeyManagerModule(
 		const rotateMatch = /^\/auth\/api-keys\/([^/]+)\/rotate$/.exec(pathname);
 		if (method === "POST" && rotateMatch) {
 			const keyId = decodeURIComponent(rotateMatch[1] ?? "");
+			if (!(await ownsKey(keyId))) return forbidden();
 			try {
 				const result = await rotate(keyId);
 				return json(result);

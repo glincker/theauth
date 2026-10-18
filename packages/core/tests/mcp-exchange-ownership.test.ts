@@ -67,17 +67,16 @@ describe("token exchange refuses agents the subject user is not entitled to", ()
 		const subject = await userToken(w.asU, "plain");
 		const vActor = await userToken(w.asV, "zc");
 		await refused(w.asU, "plain", subject.access_token, vActor.access_token);
-		// U's own token through V's client is no better as an actor token.
-		const uViaZc = await userToken(w.asU, "zc");
-		await refused(w.asU, "plain", subject.access_token, uViaZc.access_token);
+		// U cannot even obtain a token through V's client: the authorization endpoint refuses first.
+		await expect(userToken(w.asU, "zc")).rejects.toThrow(/bound to an agent owned by another user/);
 	});
 
-	it("a subject token already bound to V's agent cannot be exchanged by anyone", async () => {
+	it("U cannot obtain a token bound to V's agent through V's client", async () => {
 		const w = await world();
-		const uViaZc = await userToken(w.asU, "zc");
-		expect(dlgOf(uViaZc.access_token)?.agt).toEqual([w.fV]);
-		await refused(w.asU, "plain", uViaZc.access_token);
-		await refused(w.asU, "app", uViaZc.access_token);
+		await expect(userToken(w.asU, "zc")).rejects.toThrow(/bound to an agent owned by another user/);
+		// V's own token through the same client still works and names V's agent.
+		const vToken = await userToken(w.asV, "zc");
+		expect(dlgOf(vToken.access_token)?.agt).toEqual([w.fV]);
 	});
 
 	it("U's agent token cannot be extended to V's agent without a delegation", async () => {

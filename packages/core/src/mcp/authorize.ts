@@ -1,4 +1,5 @@
 import { looksLikeCimdClientId } from "./cimd-url.js";
+import { checkClientAgentOwner } from "./client-agent-owner.js";
 import { resolveClient } from "./client-metadata.js";
 import { filterRequestedScopes, redirectUriAllowed, resolveResource } from "./lenient.js";
 import type { McpAuthContext, McpAuthorizationCode, McpAuthorizeResult, Result } from "./types.js";
@@ -140,6 +141,14 @@ export async function handleAuthorize(
 
 	userId ??= await ctx.resolveUserId(request);
 	if (!userId) return loginRequired(ctx, request);
+
+	// A client an admin bound to someone else's agent never gets a code for this user.
+	const owner = await checkClientAgentOwner(
+		ctx,
+		{ clientId, agentId: client.agentId, userId },
+		"ACCESS_DENIED",
+	);
+	if (!owner.success) return owner;
 
 	// Consent page redirect
 	// When a consent page is configured, redirect the user to it instead

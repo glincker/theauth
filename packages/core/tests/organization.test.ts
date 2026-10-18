@@ -28,7 +28,7 @@ describe("OrgModule", () => {
 
 	beforeEach(async () => {
 		db = await createTestDb();
-		mod = createOrgModule({}, db);
+		mod = createOrgModule({ trustedServerUse: true }, db);
 		await seedUser(db, ownerId, "owner@example.com");
 		await seedUser(db, memberId, "member@example.com");
 		await seedUser(db, guestId, "guest@example.com");

@@ -22,7 +22,9 @@ import type { SignInGate, SignInMethod } from "../auth/sign-in-gate-types.js";
 import type { SecretRingConfig } from "../crypto/secrets.js";
 import { SecretRing } from "../crypto/secrets.js";
 import { fromBase64Url, hmacSha256Raw, randomBytes, toBase64Url } from "../crypto/web-crypto.js";
+import type { Database } from "../db/database.js";
 import type { Result } from "../mcp/types.js";
+import { refuseBannedUser } from "./banned.js";
 import type { CookieOptions } from "./cookie.js";
 import { parseCookies } from "./cookie.js";
 import type { ChunkedCookieOptions } from "./cookie-chunks.js";
@@ -73,6 +75,12 @@ export interface StatelessSessionsConfig {
 	expirySkewMs?: number;
 	/** Exchange a refresh token for new tokens at your IdP. Without it, `getAccessToken` fails once the access token expires. */
 	refreshAccessToken?: (refreshToken: string) => Promise<Result<StatelessTokens>>;
+	/**
+	 * Database holding your `users` table. When set, `createSession` refuses a banned user (identity `sub` is treated as the local user id) with `USER_BANNED` and writes a denied `sign_in` audit row, the same check the database session manager runs, and `getSession` returns null for a banned user so a ban also ends sessions already issued (one indexed read per request). Without it no ban check runs: this manager has no database of its own. Use `isBanned` for a custom store.
+	 */
+	db?: Database;
+	/** Custom ban check for apps that keep users outside the SDK database. Runs in `createSession` and `getSession`, so a ban also ends sessions already issued. Return true to refuse. */
+	isBanned?: (identity: StatelessIdentity) => Promise<boolean>;
 	/** Optional revocation check, e.g. a denylist keyed by `sub` or `sid`. */
 	isRevoked?: (identity: StatelessIdentity) => Promise<boolean>;
 	/**
@@ -123,6 +131,10 @@ const DEFAULT_SKEW_MS = 30_000;
 
 function fail<T>(code: string, message: string): Result<T> {
 	return { success: false, error: { code, message } };
+}
+
+function bannedFailure<T>(): Result<T> {
+	return fail("USER_BANNED", "Sign-in is not available for this account.");
 }
 
 export function createStatelessSessions(config: StatelessSessionsConfig): StatelessSessions {
@@ -234,6 +246,8 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		context?: StatelessCreateContext,
 	): Promise<Result<{ session: StatelessSession; headers: string[] }>> {
 		if (!identity.sub) return fail("INVALID_IDENTITY", "Identity requires a sub claim.");
+		if (config.db && (await refuseBannedUser(config.db, identity.sub))) return bannedFailure();
+		if (config.isBanned && (await config.isBanned(identity))) return bannedFailure();
 		if (config.signInGate) {
 			const decision = await config.signInGate.evaluate({
 				userId: identity.sub,
@@ -301,6 +315,8 @@ export function createStatelessSessions(config: StatelessSessionsConfig): Statel
 		if (!session?.identity?.sub || typeof session.expiresAt !== "number") return null;
 		if (session.expiresAt <= Date.now()) return null;
 		if (config.isRevoked && (await config.isRevoked(session.identity))) return null;
+		if (config.db && (await refuseBannedUser(config.db, session.identity.sub))) return null;
+		if (config.isBanned && (await config.isBanned(session.identity))) return null;
 		return session;
 	}
 

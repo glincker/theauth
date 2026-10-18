@@ -31,6 +31,7 @@
  */
 
 import { and, eq } from "drizzle-orm";
+import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { sessions as sessionsTable } from "../db/schema.js";
 import type { CookieOptions } from "./cookie.js";
@@ -237,7 +238,7 @@ export function createCookieSessionManager(
 
 		const row = rows[0];
 		if (!row) return null;
-		if (row.expiresAt <= new Date()) return null;
+		if (row.expiresAt.getTime() <= (config.now?.() ?? Date.now())) return null;
 
 		// Issue the new session first so a create failure leaves the user logged
 		// in, then delete the old one. The delete reports whether this call
@@ -248,11 +249,11 @@ export function createCookieSessionManager(
 			row.metadata ?? undefined,
 			{ replacing: sessionId },
 		);
-		const removed = await db
-			.delete(sessionsTable)
-			.where(eq(sessionsTable.id, sessionId))
-			.returning({ id: sessionsTable.id });
-		if (removed.length === 0) {
+		const removed = await claimCount(
+			db.delete(sessionsTable).where(eq(sessionsTable.id, sessionId)),
+			{ id: sessionsTable.id },
+		);
+		if (removed === 0) {
 			await db.delete(sessionsTable).where(eq(sessionsTable.id, newSession.id));
 			return null;
 		}

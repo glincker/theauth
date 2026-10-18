@@ -1,12 +1,31 @@
+import { forbidden, resolveHandlerActor } from "./handler-guard.js";
 import { errorResponse, jsonResponse } from "./organization-helpers.js";
-import type { OrgModule, OrgRole } from "./organization-types.js";
+import type { OrgConfig, OrgModule, OrgRole } from "./organization-types.js";
+import type { ModuleRequestDeps } from "./request-user.js";
 
-/** HTTP request routing for the organization module. */
+/** What the HTTP layer needs beyond the module functions. */
+export interface OrgHandlerGuard {
+	deps: ModuleRequestDeps;
+	config: OrgConfig;
+	/** Org that owns an invitation, so invite revocation can be limited to that org's admins. */
+	invitationOrgId: (invitationId: string) => Promise<string | null>;
+}
+
+const ADMIN_ROLES = new Set(["owner", "admin"]);
+
+/**
+ * HTTP request routing for the organization module.
+ * Fails closed: without an authenticate resolver (and without `trustedServerUse`) every route answers 401.
+ * With a resolver, the caller must be a member of the org to read it and an owner or admin to change it, and ids
+ * the caller could otherwise forge (owner, inviter, accepting user) are bound to the authenticated user.
+ */
 export function createOrgHandlers(
 	ctx: Omit<OrgModule, "handleRequest">,
+	guard: OrgHandlerGuard,
 ): Pick<OrgModule, "handleRequest"> {
 	const {
 		get,
+		getMember,
 		addMember,
 		create,
 		list,
@@ -24,7 +43,20 @@ export function createOrgHandlers(
 		revokeInvitation,
 	} = ctx;
 
-	async function handleRequest(request: Request): Promise<Response | null> {
+	/** Null when allowed. `actor` null means trusted server use. */
+	async function denyUnlessMember(
+		orgId: string,
+		actor: string | null,
+		admin: boolean,
+	): Promise<Response | null> {
+		if (actor === null) return null;
+		const member = await getMember(orgId, actor);
+		if (!member) return forbidden();
+		if (admin && !ADMIN_ROLES.has(member.role)) return forbidden();
+		return null;
+	}
+
+	async function handleRequest(request: Request, actor: string | null): Promise<Response | null> {
 		const url = new URL(request.url);
 		const { pathname } = url;
 		const method = request.method.toUpperCase();
@@ -37,6 +69,10 @@ export function createOrgHandlers(
 					ownerId: string;
 					metadata?: Record<string, unknown>;
 				};
+				if (actor !== null) {
+					if (body.ownerId !== undefined && body.ownerId !== actor) return forbidden();
+					body.ownerId = actor;
+				}
 				const org = await create(body);
 				return jsonResponse(org, 201);
 			} catch (err) {
@@ -48,6 +84,7 @@ export function createOrgHandlers(
 		if (method === "GET" && userOrgMatch) {
 			const userId = userOrgMatch[1];
 			if (!userId) return errorResponse("Missing userId", 400);
+			if (actor !== null && userId !== actor) return forbidden();
 			const orgs = await list(userId);
 			return jsonResponse(orgs);
 		}
@@ -60,6 +97,12 @@ export function createOrgHandlers(
 		if (!orgId) return null;
 
 		const subPath = orgBaseMatch[2] ?? "";
+
+		// Reads need membership. Changes need owner or admin. A member may remove themselves.
+		const isRead = method === "GET";
+		const selfRemoval = method === "DELETE" && subPath === `/members/${actor}`;
+		const denied = await denyUnlessMember(orgId, actor, !isRead && !selfRemoval);
+		if (denied) return denied;
 
 		if (method === "GET" && subPath === "") {
 			const org = await get(orgId);
@@ -131,6 +174,7 @@ export function createOrgHandlers(
 					role: string;
 					invitedBy: string;
 				};
+				if (actor !== null) body.invitedBy = actor;
 				const invitation = await invite({ orgId, ...body });
 				return jsonResponse(invitation, 201);
 			} catch (err) {
@@ -174,7 +218,7 @@ export function createOrgHandlers(
 	// are matched inside handleRequest via a secondary pass when orgId catches "invite"
 	// We need a top-level check before the orgId route for invite-specific paths.
 
-	async function handleRequestWithInviteRoutes(request: Request): Promise<Response | null> {
+	async function route(request: Request, actor: string | null): Promise<Response | null> {
 		const url = new URL(request.url);
 		const { pathname } = url;
 		const method = request.method.toUpperCase();
@@ -184,8 +228,10 @@ export function createOrgHandlers(
 			const invitationId = acceptMatch[1];
 			if (!invitationId) return errorResponse("Missing invitationId", 400);
 			try {
-				const body = (await request.json()) as { userId: string };
-				const member = await acceptInvitation(invitationId, body.userId);
+				const body = (await request.json()) as { userId?: string };
+				if (actor !== null && body.userId !== undefined && body.userId !== actor)
+					return forbidden();
+				const member = await acceptInvitation(invitationId, actor ?? body.userId ?? "");
 				return jsonResponse(member, 201);
 			} catch (err) {
 				return errorResponse(err instanceof Error ? err.message : "Unknown error", 400);
@@ -196,14 +242,28 @@ export function createOrgHandlers(
 		if (method === "DELETE" && revokeMatch) {
 			const invitationId = revokeMatch[1];
 			if (!invitationId) return errorResponse("Missing invitationId", 400);
+			if (actor !== null) {
+				const owningOrg = await guard.invitationOrgId(invitationId);
+				if (!owningOrg) return errorResponse("Invitation not found", 404);
+				const denied = await denyUnlessMember(owningOrg, actor, true);
+				if (denied) return denied;
+			}
 			await revokeInvitation(invitationId);
 			return jsonResponse({ success: true });
 		}
 
-		return handleRequest(request);
+		return handleRequest(request, actor);
+	}
+
+	async function guarded(request: Request): Promise<Response | null> {
+		const { pathname } = new URL(request.url);
+		if (pathname !== "/auth/org" && !pathname.startsWith("/auth/org/")) return null;
+		const actor = await resolveHandlerActor(request, guard.deps, guard.config);
+		if (actor.kind === "denied") return actor.response;
+		return route(request, actor.kind === "user" ? actor.userId : null);
 	}
 
 	return {
-		handleRequest: handleRequestWithInviteRoutes,
+		handleRequest: guarded,
 	};
 }
