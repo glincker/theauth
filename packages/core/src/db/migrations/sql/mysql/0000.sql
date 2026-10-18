@@ -498,7 +498,7 @@ CREATE TABLE IF NOT EXISTS theauth_refresh_tokens (
   id          TEXT    NOT NULL PRIMARY KEY,
   family_id   TEXT    NOT NULL REFERENCES theauth_refresh_token_families(id) ON DELETE CASCADE,
   token_hash  TEXT    NOT NULL UNIQUE,
-  used        TINYINT(1) NOT NULL DEFAULT 0,
+  used        BIGINT NOT NULL DEFAULT 0,
   expires_at  BIGINT   NOT NULL,
   created_at  BIGINT   NOT NULL
 );
@@ -737,4 +737,4 @@ CREATE INDEX IF NOT EXISTS theauth_federation_tokens_agent
 CREATE INDEX IF NOT EXISTS theauth_federation_tokens_source
   ON theauth_federation_tokens (source_instance_id);
 
-INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0000', 'baseline', '29073715361115b1761f03ddd2e88fcd10165b9f87c7b9b193568661b9616571', NOW(3));
+INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0000', 'baseline', 'beaa394868672447bd5cf359c35f36ee91abf9a23a1854442fc5f392a495d6b4', NOW(3));

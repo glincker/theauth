@@ -1,5 +1,5 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { bool, flag01, json, timestampMs, timestampSec } from "./columns.js";
+import { bigintNumber, bool, flag01, json, timestampMs, timestampSec } from "./columns.js";
 import { users } from "./core.js";
 
 interface TotpBackupCode {
@@ -171,8 +171,8 @@ export const refreshTokens = sqliteTable("theauth_refresh_tokens", {
 		.references(() => refreshTokenFamilies.id, { onDelete: "cascade" }),
 	/** SHA-256 hash of the opaque token, never store the raw token. */
 	tokenHash: text("token_hash").notNull().unique(),
-	/** 0 = unused, 1 = already consumed (one-time use). */
-	used: flag01("used").notNull().default(0),
+	/** 0 = unused, otherwise the consumption time in epoch seconds (drives the reuse grace window). Not a flag: a 0/1 column would lose the timestamp. */
+	used: bigintNumber("used").notNull().default(0),
 	expiresAt: timestampSec("expires_at").notNull(),
 	createdAt: timestampSec("created_at").notNull(),
 });

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { agents } from "../../src/db/schema.js";
+import { agents, refreshTokens } from "../../src/db/schema.js";
 import { createTokenFamilyStore } from "../../src/session/token-family.js";
 import { defineAuditCoreTests } from "./core-audit.js";
 import type { CoreBooter } from "./core-boot.js";
@@ -74,6 +74,27 @@ export function defineCoreInstanceTests(booter: CoreBooter): void {
 			expect((await store.consumeToken(t1.rawToken)).status).toBe("reuse");
 			expect((await store.consumeToken(t2.rawToken)).status).toBe("revoked");
 			expect((await store.consumeToken("missing")).status).toBe("not_found");
+		});
+
+		it("accepts a refresh token replay inside the reuse grace window and stores the consume time", async () => {
+			const { auth } = await boot();
+			const user = await auth.user.create({ email: "grace@example.com" });
+			const store = createTokenFamilyStore(auth.db, { reuseGraceMs: 10_000 });
+			const family = await store.createFamily(user.id, new Date(Date.now() + 24 * HOUR));
+			const t1 = await store.issueToken(family.id, HOUR);
+			const before = Math.floor(Date.now() / 1000);
+			expect((await store.consumeToken(t1.rawToken)).status).toBe("ok");
+			const [row] = await auth.db
+				.select()
+				.from(refreshTokens)
+				.where(eq(refreshTokens.familyId, family.id));
+			expect(row?.used).toBeGreaterThanOrEqual(before);
+			const replay = await store.consumeToken(t1.rawToken);
+			expect(replay.status).toBe("ok");
+			expect(replay.graceReplay).toBe(true);
+			expect(replay.family?.revoked).toBe(false);
+			expect((await store.consumeToken(t1.rawToken, { graceMs: 0 })).status).toBe("reuse");
+			expect((await store.consumeToken(t1.rawToken)).status).toBe("revoked");
 		});
 	});
 

@@ -2,7 +2,7 @@ import type { DdlTypes, TaggedStatement } from "./types.js";
 
 /** Baseline DDL for the "human" domain. */
 export function humanDdl(t: DdlTypes): TaggedStatement[] {
-	const { isPostgres, ts, tsNull, json, bool, ifne } = t;
+	const { isPostgres, ts, tsNull, big, json, bool, ifne } = t;
 
 	return [
 		{
@@ -205,7 +205,7 @@ export function humanDdl(t: DdlTypes): TaggedStatement[] {
   id          TEXT    NOT NULL PRIMARY KEY,
   family_id   TEXT    NOT NULL REFERENCES theauth_refresh_token_families(id) ON DELETE CASCADE,
   token_hash  TEXT    NOT NULL UNIQUE,
-  used        ${bool} NOT NULL DEFAULT ${isPostgres ? "FALSE" : "0"},
+  used        ${big} NOT NULL DEFAULT 0,
   expires_at  ${ts}   NOT NULL,
   created_at  ${ts}   NOT NULL
 )`,
