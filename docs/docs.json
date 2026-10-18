@@ -386,7 +386,8 @@
               "tutorials/prompt-injection-tool-guard",
               "tutorials/agent-delegation-e2e",
               "tutorials/remove-unused-agent-permissions",
-              "tutorials/verifiable-agent-receipts"
+              "tutorials/verifiable-agent-receipts",
+              "tutorials/live-revocation"
             ]
           }
         ]

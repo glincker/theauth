@@ -6,7 +6,7 @@ icon: ban
 
 An MCP access token is a signed JWT. A resource server can check the signature and `exp` and never talk to theAuth again, which is fast and also means a token outlives the thing that justified it. This page explains how theAuth closes that gap, how to choose a freshness mode, and what it does not cover.
 
-The short version: with a database and the default settings, revoking a delegation link, an agent, a user's sessions or a single token makes the next MCP request that carries an affected token fail on every theAuth instance that shares the database. A request that already passed validation finishes.
+The short version: with a database and the default settings, revoking a delegation link, an agent, a single token or a refresh token family makes the next MCP request that carries an affected token fail on every theAuth instance that shares the database. Signing a user out everywhere, banning, deleting or erasing a user, and deprovisioning through SCIM do the same for that user's tokens, and the token endpoint refuses to mint new ones from refresh tokens or authorization codes issued before the revoke. Some paths are not covered, and the Limits section lists them. A request that already passed validation finishes.
 
 ## What a token carries
 
@@ -29,9 +29,9 @@ A token minted by [token exchange](/mcp-grants) keeps the RFC 8693 `act` claim, 
 
 The claim is signed, so a resource server can trust it only after verifying the signature. It holds ids and nothing else: no permissions, no names.
 
-Tokens are bound when their authority resolves to agent rows: token exchange, and authorization code, refresh, client credentials and jwt-bearer tokens that carry `agent_id` (these get the agent's live inbound path up to its root, `agt: [root, ..., agentId]` with one `lnk` per hop, or `agt: [agentId]` and an empty `lnk` when nobody delegated to it). A token with no agent behind it, such as a plain user to service token, is unbound. Only token, subject and client revocation apply to it, because there is no delegation record to revoke.
+Tokens are bound when their authority resolves to agent rows: token exchange, and authorization code, refresh, client credentials and jwt-bearer tokens that carry `agent_id`. An ordinary token gets the agent's live inbound path up to its root, `agt: [root, ..., agentId]` with one `lnk` per hop, or `agt: [agentId]` and an empty `lnk` when nobody delegated to it. The path is capped at 8 hops above the agent, and the validator still checks the root's own inbound link live. Because every link is in the claim, revoking a delegation above the agent is seen in cached mode and on `revalidate()` in offline mode, not only in live mode. A token with no agent behind it, such as a plain user to service token, is unbound. Only token, subject and client revocation apply to it, because there is no delegation record to revoke.
 
-A token also never outlives its sources. At mint time `exp` is the earliest of the configured lifetime, the parent token's expiry, every link's expiry and every agent's expiry. This holds in all three modes.
+A token also never outlives its sources. At mint time `exp` is the earliest of the configured lifetime, the subject and actor token expiry, every link's expiry and every agent's expiry on the path. That is a cap on `exp`, so it applies whatever freshness mode you run. It is not a revocation: revoking the parent token is a separate rule, covered by `theauth_pjti` above.
 
 ## Freshness modes
 
@@ -51,15 +51,15 @@ const mcp = createMcpModule({
 
 | Mode | What validation reads | Staleness after a revoke | Cost per request |
 | --- | --- | --- | --- |
-| `live` | The revocation table (1 query) and the binding check (up to 3) | None on any instance sharing the database | 1 to 4 indexed queries |
-| `cached` | A per process cache keyed by `jti` | None on the revoking process. Other instances usually within `pollIntervalMs`, never longer than `maxStalenessMs` | One small query per instance per `pollIntervalMs` |
-| `offline` | Signature, `exp` and `jtiDenylist` if you set one | Up to the token's `exp` | None |
+| `live` | The revocation table and the binding check (one read per agent and link on the path, plus the walk up from the root) | None on any instance sharing the database | A few indexed reads. There is no fixed bound: it grows with the path length |
+| `cached` | A per process cache keyed by `jti` | None on the instance that performs the revoke, which clears its cache when it pushes. Other instances usually within `pollIntervalMs`, never longer than `maxStalenessMs` | One small query per instance per `pollIntervalMs`, plus a live read on a cache miss |
+| `offline` | Signature, `exp` and the `jtiDenylist` read for the token's own `jti` | Up to the token's `exp`. A revoked parent token, link, agent or user is not seen until you call `revalidate()` | One read of the denylist when one is configured (it is by default with `auth`), none otherwise |
 
 The default is `live` when you pass `auth` to `createMcpModule` (a shared database), and `offline` when you pass your own stores, because there is nothing shared to read. The environment variable `THEAUTH_MCP_REVOCATION_MODE` sets the mode when the config does not.
 
-Three things hold in every mode. The token endpoint (exchange, refresh and authorization code redemption) always checks live: a refresh token or code whose `jti`, subject, client or bound agent was revoked is refused with `invalid_grant`, and a store error fails closed with `server_error`. Introspection always checks live. Expiry is always honored at mint time.
+Three things hold in every mode. The token endpoint checks live for the refresh token and authorization code grants: a refresh token or code whose `jti`, subject (sign out everywhere, ban, delete), client (CIMD block) or bound agent was revoked is refused with `invalid_grant`, and a store error fails closed with `server_error`. Token exchange validates the subject and actor tokens live. Introspection always checks live. Expiry is always honored at mint time. The `client_credentials` and `jwt-bearer` grants do not read the revocation table before they mint (see Limits).
 
-Live mode costs one to four primary key or indexed lookups on requests that are usually tool calls, so most deployments should leave it on. Move to `cached` above roughly a thousand validations per second per instance:
+Live mode costs a handful of primary key or indexed lookups on requests that are usually tool calls, so most deployments should leave it on. Move to `cached` above roughly a thousand validations per second per instance:
 
 ```ts
 revocation: {
@@ -78,9 +78,15 @@ revocation: {
 | `cacheMax` | `THEAUTH_MCP_REVOCATION_CACHE_MAX` | 10000 |
 | `revokeOnSignOutEverywhere` | none | `true` |
 | `requireBoundChain` | none | `false` |
+| `clockSkewMs` | `THEAUTH_MCP_REVOCATION_SKEW_MS` | 0 (opt in) |
+| `pruneIntervalMs` | `THEAUTH_MCP_REVOCATION_PRUNE_INTERVAL_MS` | 60000 |
 | `onRevoked` | none | none |
 
-In cached mode a process that performs the revoke clears its cache at once. Other instances compare a fingerprint of the revocation table (row count and newest timestamp) on each poll and clear when it changes. If a revocation row failed to write, or an agent expiry was shortened by hand, the cache entry still dies at `maxStalenessMs`.
+`revokeOnSignOutEverywhere`, `clockSkewMs` and `onRevoked` are read from the `mcp` config you pass to `createTheAuth`, because the revocation bus and the database store are built there. If you pass `mcp` only to `createMcpModule`, no `sub` rows are written and sign out everywhere does nothing for MCP tokens. Pass the same config object to both, as the [MCP page](/mcp) does.
+
+`clockSkewMs` widens the `sub` and `client` watermark by that many milliseconds, so a revoker whose clock lags still kills tokens minted just before the revoke. The cost is that a token minted within that window after a revoke is also refused. It defaults to 0, which assumes your instances keep NTP time. Set it (2000 is a reasonable value) if they do not.
+
+In cached mode a process that performs the revoke clears its cache at once. Other instances compare a fingerprint of the revocation table (the newest `revoked_at_ms` and the number of rows near it) on each poll and clear when it changes. If a revocation row failed to write, or an agent expiry was shortened by hand, the cache entry still dies at `maxStalenessMs`.
 
 In offline mode, shorten `accessTokenTtl` (300 seconds is a reasonable start). Exchanged tokens cannot be refreshed, so the lifetime is the whole bound.
 
@@ -94,11 +100,13 @@ Revocations are rows in `theauth_mcp_revocations`, created by migration `0007`. 
 | --- | --- | --- |
 | `jti` | One token | The token's `exp` |
 | `dlg` | Every token bound to that delegation link | The link's expiry |
-| `agent` | Every token bound to that agent | The agent's expiry, or 30 days |
-| `sub` | Every token of a user minted at or before the revoke | `accessTokenTtl` plus 60 seconds |
-| `client` | Every token of a client minted at or before the revoke | `accessTokenTtl` plus 60 seconds |
+| `agent` | Every token bound to that agent | The agent's expiry, or 7 days when it has none |
+| `sub` | Every token of a user minted at or before the revoke | 7 days |
+| `client` | Every token of a client minted at or before the revoke | `accessTokenTtl` plus 60 seconds for a CIMD block |
 
-`sub` and `client` rows are watermarks on `iat`. Validation reads both kinds (a hit reports `client_revoked`). `mcp.cimd.block` writes a `client` row for the blocked client when the denylist is the shared store, so its tokens are refused at once in live mode on every instance (see [Client ID Metadata Documents](/mcp-client-id-metadata)). You can also write one yourself through the store. A token minted in the same second as the revoke also dies, which fails closed. Rows are pruned lazily, 500 at a time, at most once a minute per instance. The delegation and agent tables stay the source of truth for live checks. The rows exist to speed up the fail path and to drive cache invalidation across instances.
+A row never expires less than 60 seconds after it is written, so a row for an already expired link outlives clock skew. Rows for things with no expiry last 7 days unless `THEAUTH_MCP_REVOCATION_RETENTION_MS` sets another value. A `jti` row is skipped when the token expired more than a minute ago.
+
+`sub` and `client` rows are watermarks on `iat`. Validation reads both kinds (a hit reports `client_revoked`). `mcp.cimd.block` writes a `client` row for the blocked client when the denylist is the shared store, so its tokens are refused at once in live mode on every instance (see [Client ID Metadata Documents](/mcp-client-id-metadata)). You can also write one yourself through the store. A token minted in the same second as the revoke also dies, which fails closed. Expired rows are pruned after writes, in batches of 500 and at most four batches per run, and at most once per `pruneIntervalMs` per instance (60 seconds by default). There are no timers, so pruning only happens on an instance that writes. For a cron job or a read only instance, call `auth.revocations.prune()`, which deletes expired rows now and resolves to the number deleted. The delegation and agent tables stay the source of truth for live checks. The rows exist to speed up the fail path and to drive cache invalidation across instances.
 
 With `auth`, `config.jtiDenylist` defaults to this shared store, so a token revoked on one instance is refused on all of them. An explicit `jtiDenylist` always wins. With `createInMemoryJtiDenylist()` the denylist is per process.
 
@@ -108,10 +116,16 @@ With `auth`, `config.jtiDenylist` defaults to this shared store, so a token revo
 | --- | --- |
 | `auth.delegation.revoke(id)`, including every link in the cascade | `dlg` for each revoked link |
 | `auth.agent.revoke(id)` | `agent` for the agent, `dlg` for the links it cut |
-| `session.revokeAll(userId)` (sign out everywhere, ban) | `sub`, unless `revokeOnSignOutEverywhere: false` |
-| `POST /mcp/revoke` (RFC 7009) and refresh token reuse | `jti` (one row for the token, and one for each live access token of the refresh token family) |
+| `session.revokeAll(userId)` (sign out everywhere) | `sub`, unless `revokeOnSignOutEverywhere: false` |
+| `admin.banUser`, `admin.deleteUser`, `gdpr.deleteUser`, SCIM deactivation or deprovisioning | `sub` for the user and `agent` for each agent they own |
+| `POST /mcp/revoke` (RFC 7009) of an access token | `jti` for that token |
+| `POST /mcp/revoke` of a refresh token, and refresh token reuse detection | `jti` for the token and for each live access token of the refresh token family |
 
-Revoking a single session does not touch MCP tokens, because they are not tied to a session. If a `dlg` or `agent` row fails to write, the failure is logged and the revoke continues: the link or agent row is already revoked, so live mode still sees it and cached mode falls back to its staleness bound. If the row for an explicit token revoke fails to write, the revoke call fails (the HTTP route answers 500 `server_error`) instead of reporting success, because that row is the only record.
+The `sub` row is a watermark on `iat`. `admin.unbanUser` does not bring back tokens issued before the ban, and the owner's agents stay revoked.
+
+Revoking a single session does not touch MCP tokens, because they are not tied to a session. Signing out does not delete refresh token families either. The live check at the token endpoint is what stops a refresh token after a sign out everywhere.
+
+A push is retried once. If the retry also fails, the failure is logged with the revoked ids (never a token) and counted: `auth.revocations.stats()` reports `pushFailures` for pushes that failed after the retry and `attemptFailures` for every failed attempt. The revoke itself continues: the link or agent row is already revoked, so live mode still sees it and cached mode falls back to its staleness bound. The instance clears its own cache before it writes and again after. If the row for an explicit token revoke fails to write, the revoke call fails (the HTTP route answers 503 `temporarily_unavailable`, described below) instead of reporting success, because that row is the only record. Pushes work on runtimes without `process`, such as Cloudflare Workers without `nodejs_compat` and Deno.
 
 An agent whose `expiresAt` passes is not pushed. Expiry is read from the agent row on live checks and capped into `exp` at mint.
 
@@ -145,11 +159,11 @@ Who sees what:
 
 A caller is entitled when it is the token's own `client_id`, or a `resourceServers` entry whose `audiences` include the token's `aud`. A resource server that is not listed learns nothing about why a token is dead, and cannot tell a revoked token from one it was never entitled to see.
 
-Each call writes an `mcp.introspect` audit row with the caller, the `jti` and the result. The token is never stored.
+There is no default audit row. Pass `introspectionAudit` to `createMcpModule` to receive the caller client, the `jti`, the result and the reason after each decision of an authenticated caller. The token is never passed to it.
 
 ## Shared Signals events
 
-Pass `onRevoked` to forward revocations to a Shared Signals transmitter:
+Pass `onRevoked` in the `mcp.revocation` config of `createTheAuth` to forward revocations to a Shared Signals transmitter:
 
 ```ts
 revocation: {
@@ -167,7 +181,9 @@ By default a token exchange whose actors resolve to no agent row mints an unboun
 revocation: { requireBoundChain: true }
 ```
 
-Exchange also refuses a chain where two consecutive agent actors have no live delegation link between them, whatever this setting says.
+When a binding store is attached (the default with `auth`), exchange also refuses a chain where two consecutive agent actors have no live delegation link between them, whatever this setting says. With custom stores and no binding store, nothing is checked.
+
+Exchange also checks ownership. Every agent the child token names must be one the subject user owns, or one reached over live delegation links from an agent they own. Otherwise exchange answers `invalid_grant` and writes a denied `mcp.token_exchange` audit row under the refused agent.
 
 ## Long running handlers
 
@@ -195,9 +211,13 @@ These are the places revocation does not reach. Plan around them.
 
 - **Offline resource servers.** A server that verifies the JWT itself, or that caches introspection answers, sees a revoke when its cache ends or the token expires. Only live validation and uncached introspection are immediate.
 - **Calls in progress.** A request validated before the revoke commits completes. Streams and long handlers are cut off only if they call `revalidate()`.
+- **Offline and cached freshness.** Offline mode trusts the token until `exp`, apart from a `jti` row in the denylist. It does not see a revoked parent token, link, agent or user until you call `revalidate()`. Cached mode has the poll delay described above.
+- **Sign out and refresh tokens.** Signing out does not delete refresh token families. The live check at the token endpoint refuses the refresh, but the family rows stay until they expire.
+- **client_credentials and jwt-bearer.** These grants mint without reading the revocation table. A `sub` or `client` watermark kills tokens minted before it, and does not stop these grants minting a new token afterward. An agent bound client is still refused once its agent is revoked or expired.
+- **Authorization code and another user's agent.** The authorization code path refuses a revoked or expired agent, but it does not yet refuse a client that an admin bound to another user's agent. This is an open policy decision.
 - **Unbound tokens.** A token whose actors are not theAuth agents has no delegation to revoke. Use `requireBoundChain` if that is not acceptable.
 - **Tokens minted before the upgrade.** They carry no `theauth_dlg`. With `act` and no `delegationStore` they are trusted until `exp`; tokens with an `agent_id` get a single agent status check. Exchanged tokens cannot refresh, so the gap closes within `accessTokenTtl`, one hour by default.
-- **HS256 shares the secret.** With `signingSecret`, any resource server that holds the secret can sign a token, including one with a forged `theauth_dlg` or none. Use RS256 or ES256 signing keys (see the MCP page) for resource servers you do not fully control, and give them the public key only.
+- **HS256 shares the secret.** With `signingSecret`, any resource server that holds the secret can sign a token, including one with a forged `theauth_dlg` or none. Use RS256 or ES256 signing keys (see the MCP page) for resource servers you do not fully control, and give them the public key only. Setting signing keys is not enough: a server that still has `signingSecret` configured accepts HS256 tokens, so remove it from those servers.
 - **No push on expiry.** A shortened expiry is seen by live and cached modes and not by offline. Nothing is pushed when an agent simply expires.
 - **Replicas lag.** Live checks must read the primary. Pointing them at a lagging read replica adds the lag to every bound above.
 - **Custom stores.** With your own stores and no database, or with the in-memory denylist, there is no cross instance freshness.

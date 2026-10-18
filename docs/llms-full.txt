@@ -4,7 +4,7 @@
 
 Source: https://docs.theauth.dev/
 
-**Auth for AI agents and for the humans behind them.** theAuth gives every agent its own identity, checks permissions at call time and writes an audit row for every decision. It also ships human auth: 14 methods (email and password, magic link, passkeys, TOTP and more) and 48 OAuth providers. Use either half alone, or both. Runs on Node, edge, Workers, Deno and Bun.
+**Auth for AI agents and for the humans behind them.** theAuth gives every agent its own identity, checks permissions at call time and writes an audit row for every decision. It also ships human auth: email and password, magic link, passkeys, TOTP and more, plus 48 OAuth providers. Use either half alone, or both. Runs on Node, edge, Workers, Deno and Bun.
 
 <Note>Building in Go? See the [theAuth Go library docs](/go/getting-started/overview).</Note>
 
@@ -22,20 +22,18 @@ Source: https://docs.theauth.dev/
 ### Agent auth in one screen
 
 ```ts
-import { createTheAuth, users } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' },
+  agents: { enabled: true },
 });
 
-// The owner must exist in theauth_users (human auth creates these for you).
-theauth.db.insert(users).values({
-  id: 'user-123', email: 'owner@example.com', name: 'Owner',
-  createdAt: new Date(), updatedAt: new Date(),
-}).run();
+// The owner must exist (human auth creates these for you).
+const owner = await theauth.user.create({ email: 'owner@example.com', name: 'Owner' });
 
 const agent = await theauth.agent.create({
-  ownerId: 'user-123',
+  ownerId: owner.id,
   name: 'code-reviewer',
   type: 'autonomous',
   permissions: [{ resource: 'mcp:github:*', actions: ['read'] }],
@@ -78,13 +76,13 @@ const res = await theauth.plugins.handleRequest(request);
 **Resource wildcards** with rate limits, time windows, and IP allowlists.
 </div>
 <div>
-**Delegation chains** with depth, expiry, and cascading revocation.
+**Delegation chains** with depth, expiry, and revocation that takes effect on the next call.
 </div>
 <div>
 **Audit log** of every decision, with JSON and CSV export.
 </div>
 <div>
-**MCP OAuth 2.1** authorization server, PKCE and DCR built in.
+**MCP OAuth 2.1** authorization server, PKCE, DCR and revocation-bound tokens.
 </div>
 <div>
 **Trust scoring** per agent from audit history, plus budget policies.
@@ -93,7 +91,7 @@ const res = await theauth.plugins.handleRequest(request);
 **Ten adapters** for Node, edge, Workers, Deno, Bun.
 </div>
 <div>
-**Three databases**: SQLite, Postgres, Cloudflare D1. MySQL is in progress.
+**Databases**: SQLite and Postgres, plus Cloudflare D1. MySQL is not supported. See [what is tested](/choose-storage#what-is-tested-per-database).
 </div>
 <div>
 **Web Crypto only** in core, no Node-specific APIs.
@@ -155,7 +153,7 @@ theAuth includes human auth, but you do not have to use it. If you already run C
     Resource wildcards, rate limits, time windows, IP allowlists, approval gates.
   </Card>
   <Card title="Delegation" icon="link" href="/delegation">
-    Orchestrator delegates a subset to a sub-agent with depth and expiry. Revocation cascades.
+    Orchestrator delegates a subset to a sub-agent with depth and expiry. A revoked delegator stops lending permissions.
   </Card>
   <Card title="Audit trail" icon="scroll" href="/audit">
     Every `authorize()` writes agent, user, resource, action, result, duration.
@@ -193,7 +191,7 @@ New releases land on [GitHub](https://github.com/glincker/theauth/releases) ever
     Spec-compliant authorization server for Model Context Protocol tool servers.
   </Card>
   <Card title="Database setup" href="/database" icon="database">
-    SQLite, Postgres, and Cloudflare D1 configuration. MySQL is in progress.
+    SQLite, Postgres, and Cloudflare D1 configuration. MySQL is not supported.
   </Card>
   <Card title="Standards alignment" href="/standards" icon="book-open">
     IETF draft claims theAuth tracks and emits on agent JWTs.
@@ -957,7 +955,7 @@ Browser, mobile, desktop and extension surfaces use the same server.
 
 ## Databases and ORMs
 
-Pick the store you already run.
+Pick the store you already run. SQLite and Postgres are supported, D1 is for Workers, and MySQL is not supported in this release. What is tested on each is on [choose storage](/choose-storage#what-is-tested-per-database).
 
 <div className="flex flex-wrap gap-3 my-4">
   <a href="/database" className="flex w-24 flex-col items-center gap-2 rounded-xl border border-zinc-200 p-3 no-underline dark:border-zinc-800"><img src="/brand-icons/works-with/sqlite.svg" alt="" className="block dark:hidden h-8 w-8 object-contain" /><img src="/brand-icons/works-with/sqlite-dark.svg" alt="" className="hidden dark:block h-8 w-8 object-contain" /><span className="text-xs text-center leading-tight">SQLite</span></a>
@@ -1523,6 +1521,10 @@ auth: {
 When `auth` is omitted, `theauth.auth.resolveUser()` always returns `null` (manual user management mode).
 
 Built-in adapters exported from `@glinr/theauth/auth` include `betterAuthAdapter`, `authJsAdapter`, `clerkAdapter`, `bearerAuth`, `cookieAuth`, `headerAuth`, `apiKeyAdapter`, and `customAuth`.
+
+## Secret rotation
+
+Secrets that sign or encrypt data accept a list so you can rotate without invalidating what is already issued: `secret: [current, ...previous]`. The first entry signs and encrypts, every entry verifies and decrypts. Add the new secret at the front and deploy, then remove the old one after the longest lifetime of anything it signed. Entries can also be `{ id, secret }`, and the id is emitted with the signature (`X-TheAuth-Key-Id` for webhooks, a cookie field for sessions) so verifiers try that key first. Entries must be at least 32 bytes, and empty or duplicate entries throw at startup. The list form is supported by webhook endpoint `secret` (see [Webhooks](/webhooks)), `createStatelessSessions` and `createSessionCookieCache` (see [Session hardening](/session-hardening)). `auth.session.secret` and `McpConfig.signingSecret` remain single strings.
 
 ## Session config
 
@@ -2695,6 +2697,8 @@ Environment overrides, used when the option is not set in code: `THEAUTH_SESSION
 
 **Remember me.** `rememberMe: true` uses `rememberMeMaxAge` (default 30 days) as the absolute lifetime, never more than `rememberMeMaxAgeCap` (default 90 days). `rememberMe: false` keeps the normal lifetime and, through the cookie manager or `buildSessionCookie(name, token, session)`, sends a cookie with no `Max-Age`, so the browser drops it on close. Leaving it unset keeps the old behavior (persistent cookie for `maxAge`). The choice is kept when a session is refreshed. If you build the cookie yourself from `createTheAuth` sessions, use `buildSessionCookie` so `rememberMe: false` is honored.
 
+**Remember me on the sign in routes.** The built in sign in paths accept an optional `rememberMe` choice and pass it to `create`. Username sign in reads `rememberMe` (boolean) from the JSON body. Passkey verify (`/auth/passkey/authenticate/verify`) and the two-factor and password-change completions of the sign in gate read it from the JSON body too. The magic link verify route reads `?rememberMe=true|false`, and `/auth/oauth/authorize/:provider` reads the same query parameter and carries it to the callback in a short lived cookie. Routes that set the session cookie (passkey, OAuth callback, gate completions) send a browser session cookie for `false` and a persistent cookie until `expiresAt` for `true`. The username and magic link modules return JSON, so they report the choice as `session.rememberMe` for the code that sets your cookie. A value that is not a boolean counts as absent, and with no choice every route keeps the old persistent cookie and the normal lifetime. `true` never exceeds `rememberMeMaxAgeCap`. Email OTP, phone, one tap and anonymous sign in do not read the option yet.
+
 The activity stamp and the remember me flag live in the session `metadata` JSON (no schema change). They are hidden from `session.metadata` and exposed as `session.lastActiveAt` and `session.rememberMe`. The stamp write re-reads the row first, but a metadata write landing in the same few milliseconds can still be overwritten by it, and the next activity repairs the stamp.
 
 ## JWT sessions
@@ -3168,6 +3172,8 @@ const { session, setCookieHeader, cacheCookieHeaders } = await sessions.createSe
 const deletions = sessions.buildLogoutCookies(request.headers.get("cookie") ?? "");
 ```
 
+Rotating the cache secret: `createSessionCookieCache` and `createStatelessSessions` take `secret: string | string[]` (or entries shaped `{ id, secret }`). With an array, the first entry signs and every entry verifies, so cookies issued before a rotation keep working. Add the new secret first and deploy, then remove the old one once the longest cookie lifetime (`maxAge`) has passed. Each secret must be at least 32 bytes, and empty or duplicate entries throw at construction. `createCookieSessionManager` still passes its single `secret` string to the cache.
+
 The cookie is signed, not encrypted, and tied to the session token it was issued for. Payloads past about 3.6 KB are chunked; oversized ones fall back to database reads.
 
 ## Refresh token reuse grace
@@ -3323,7 +3329,7 @@ Default cookies are host-only. Set `cookieOptions.domain: '.your-domain.com'` (w
 </Accordion>
 
 <Accordion title="User signed out after every deploy" icon="bug">
-You are probably changing the session `secret`. Session tokens are signed with it, and a new secret invalidates existing cookies. The `secret` option takes a single string, so keep it stable across deploys. theAuth does not support a list of secrets for rotation.
+You are probably changing the session `secret`. Session tokens are signed with it, and a new secret invalidates existing cookies. The session manager `secret` option takes a single string, so keep it stable across deploys. The stateless session cookies and the session cookie cache do support rotation: pass `secret: [newSecret, oldSecret]` (first signs, all verify) and remove the old entry after the cookie lifetime has passed. See [Session hardening](/session-hardening).
 </Accordion>
 
 <Accordion title="SameSite=Lax rejected by a mobile webview" icon="bug">
@@ -15379,7 +15385,7 @@ Timestamps are hashed at one-second precision, because that is what the SQLite c
 
 Rows with `hash_version` 2 hash keyed pseudonyms of `user_id`, `agent_id`, `subject_id`, `actor_id` and `approver_id` instead of the raw ids, and store the pseudonyms on the row. The key is `audit.hmacKey` when set, otherwise a random secret stored in `theauth_audit_secrets`. GDPR erasure (`deleteUser`) can then blank or replace the raw ids and the row hash still verifies.
 
-Rows written before this format (`hash_version` null or 1) hash the raw ids, so rewriting them would break the hash. For those rows, and for rows deleted outright, erasure writes an `audit.erasure` record naming each affected row with its stored hash. `verifyAuditChain` reports them in an `erased` count instead of as tampering.
+Rows written before this format (`hash_version` null or 1) hash the raw ids, so rewriting them would break the hash. For those rows, and for rows deleted outright, erasure appends an `audit.erasure` record to the chain naming each affected row with its stored hash, and signs each entry with the audit key. `verifyAuditChain` reports them in an `erased` count instead of as tampering. A record without a valid signature, or one that is not on the chain, is reported as `erasure_forged` or `erasure_unchained` and excuses nothing.
 
 A pseudonym is linkable by whoever holds the key, so this is pseudonymization, not anonymization. Destroying the key is not implemented. The erasure path rewrites rows with SQLite-specific statements.
 
@@ -15411,7 +15417,7 @@ if (result.success && !result.data.ok) {
 }
 ```
 
-Break reasons: `hash_mismatch` (a row was edited), `seq_gap` (a row was deleted), `prev_hash_mismatch` (rows were reordered or relinked), `missing_hash`, `truncated`, and `pseudonym_mismatch` (a raw id was edited after the row was written). The result also reports `unchained` and `erased` counts. Retention cleanup (`audit.cleanup`) writes an `audit.checkpoint` row recording where the chain was cut, so removing the oldest rows on purpose does not read as a break.
+Break reasons: `hash_mismatch` (a row was edited), `seq_gap` (a row was deleted), `prev_hash_mismatch` (rows were reordered or relinked), `missing_hash`, `truncated`, `pseudonym_mismatch` (a raw id was edited after the row was written), `truncated_prefix` (the oldest rows are gone with no signed anchor), `anchor_mismatch`, `erasure_unchained`, `erasure_forged` and `version_downgrade` (see [audit receipts](/audit-receipts)). The result also reports `unchained` and `erased` counts. Retention cleanup (`audit.cleanup`) writes a signed `audit.checkpoint` row recording where the chain was cut, so removing the oldest rows on purpose does not read as a break. For a chain cut some other way, run `theauth.audit.checkpoint()` once to anchor its current start.
 
 Deleting the newest rows of a chain leaves a shorter chain that still verifies. To catch that, keep a chain head somewhere the database owner cannot edit (an export manifest works) and pass it back:
 
@@ -15642,6 +15648,49 @@ Check order for a chain: `prev` equals the previous row's `hash` (`null` for the
 | `drop_row` | Remove a row (truncation in the middle or at the start) | `prev_hash_mismatch` |
 
 A chain cut off at its tail still verifies row by row. Detecting that needs a signed checkpoint or an `expectedHeads` anchor, which is why checkpoints exist.
+
+The vectors above test the row hash only. `verifyAuditChain` on a live database also checks where each chain starts. The oldest remaining row must be seq 1 with `prev = null`, or be explained by an `audit.checkpoint` row: either the one retention cleanup writes (`throughSeq` and `lastHash` match the first row's link) or the anchor `theauth.audit.checkpoint()` writes (`firstSeq`, `firstId` and `firstHash` name the first row). Both are chained rows and carry a `mac`: `hex(HMAC-SHA256(key, "theauth.audit.anchor.v1:" + canonicalJson(fields)))`, with the same key as the pseudonyms. Otherwise the result is `truncated_prefix`. `checkpoint()` also returns the anchors and heads, so you can keep them outside the database and pass them back as `anchors` and `expectedHeads`; a pinned anchor whose row is gone gives `truncated_prefix`, one whose hash differs gives `anchor_mismatch`. It anchors chains as they are when called, so verify first. `allowUnanchoredPrefix: true` turns the start check off.
+
+`audit.erasure` records follow the same rule. They are chained rows, and each entry is MACed under `"theauth.audit.erasure.v1:"` over the erased row's id, agent, seq, hash, `prevHash`, `hashVersion`, reason (`anonymized` or `deleted`) and, for an anonymized version 1 row, the hash of the row as erasure left it. A record that is not on a chain gives `erasure_unchained`, an entry with a bad MAC gives `erasure_forged`, and a row whose `hash_version` went back to 1 (or NULL) gives `version_downgrade`.
+
+## Verifying a Go export from TypeScript
+
+`verifyGoAuditChain(rows, options?)` recomputes the hash chain of rows exported by theauth-go. It is a separate verifier from `verifyAuditChain`, because the Go chain is a different format (see the table at the top). It is pure and runs on Web Crypto only, so it works in a browser, a worker or Node.
+
+```ts
+import { verifyGoAuditChain } from "@glinr/theauth";
+
+const result = await verifyGoAuditChain(rows, { pseudonymSecret: secretHex });
+if (!result.ok) console.error(result.firstFailure); // { reason, chainKey, rowId, seq, index }
+```
+
+From a shell: `theauth audit verify-go export.json [--secret-hex <hex>] [--partial] [--json]` (a JSON array, `{"rows": [...]}` or NDJSON). It reads the file and nothing else.
+
+Rows use the JSON of Go's `models.AuditEvent` (`id`, `organizationId`, `action`, `createdAt`, `chainSeq`, `prevHash`, `hash`, and so on). The four hashed pseudonyms are not part of that struct, so the export must add `actorUserPseudonym`, `subjectPseudonym`, `actorPseudonym` and `approverPseudonym` (empty or absent for ids that were never set). Without them you must pass `pseudonymSecret` (the 32 raw bytes as `Uint8Array`, or hex), and erased rows can then not be verified.
+
+What is checked, per chain key (the organization id, or `""` for global events), in this order, stopping at the first failure:
+
+| Check | Reason on failure |
+|---|---|
+| Row shape (`id`, `action`, `createdAt` as RFC 3339, `chainSeq` >= 1, `hash`) | `malformed_row` |
+| `hashVersion` absent or `1` | `unsupported_hash_version` |
+| `chainSeq` continues from 1 without a repeat or gap, rows in order | `seq_duplicate`, `seq_gap` |
+| `prevHash` equals the previous row's `hash` (empty at seq 1) | `prev_hash_mismatch` |
+| SHA-256 of the rebuilt `json.Marshal` bytes equals `hash` | `hash_mismatch` |
+| Pseudonym inputs are present | `missing_pseudonym_input` |
+| With `pseudonymSecret`: each raw id still present matches its pseudonym | `pseudonym_mismatch` |
+
+Erasure works as in Go: a row whose raw id is blank while its pseudonym is set counts as erased and still verifies through the pseudonym. Rows with no hash are skipped and counted as `unchained`. Interleaved chains are fine. `allowPartialStart` trusts the first row of each chain, for an export window.
+
+What is not checked:
+
+- **Truncation.** A chain cut at its tail still verifies. Only a signed checkpoint or an externally kept head detects that.
+- **Keys.** The Go chain is plain SHA-256, with no HMAC mode, so anyone who can write the table can rewrite a suffix and recompute every hash. This verifier cannot change that, and it has no HMAC support because there is nothing to support. Without `pseudonymSecret` the pseudonyms are trusted as exported (`pseudonymsUnchecked` counts those rows).
+- **Fields outside the hash.** `event`, `recordedAtUs` and the native columns of a database are not hashed.
+- **Numbers beyond 2^53** inside `metadata` or `inputProvenance`: JavaScript parses them as floats, so the rebuilt text can differ from Go's. Metadata with such values reports `hash_mismatch`.
+- **Storage.** It checks an export, not that the export matches the database.
+
+The conformance vectors are `packages/core/tests/fixtures/go-audit-chain-vectors.json`, produced by running the real Go hashing code. The generator source and the steps to rerun it are in `scripts/go-chain-vectors/`.
 
 ## Running both libraries
 
@@ -17807,6 +17856,17 @@ When the limit is exceeded, the response is `429` with this body, plus `Retry-Af
 
 Requests under the limit pass through without rate limit headers.
 
+## Adapter admission and unknown client IPs
+
+Every framework adapter runs an admission step before authentication: tiered rate limits (`strict` for `/mcp/token`, `/mcp/register` and authorize, `mutation`, `read`) and a cross-site check for cookie writes. It keys on the client IP.
+
+Hono, Next.js, SvelteKit, Astro, Nuxt, SolidStart and TanStack never see the socket peer, so without `trustedProxy` the IP is unknown. In that case requests fall into three fixed buckets per tier: `anonymous` (no credentials), `cookie` and `authorization`. The bucket never depends on the value of the header, so a random `Cookie` or `Authorization` cannot mint a fresh bucket. The consequence is that **limits are not per client**: all anonymous callers share one budget. The first such request logs a one-time warning through your `logger`.
+
+To get per-client limits, do one of:
+
+- Set `trustedProxy` (`trustedHeader` for an edge that overwrites a header such as `cf-connecting-ip`, or `trustedProxyCount`).
+- Pass `rateLimit.key` with your own function, for example one built on `resolveClientIp`, or on a verified OAuth `client_id`.
+
 ## When the counter store fails
 
 Shared counters can fail (Redis down, database timeout). By default every limiter **fails open**: the request is let through, so a store outage never takes sign-in and sign-up down with it. The cost is that an attacker who can break the store can also switch throttling off. Each limiter logs a startup warning through the TheAuth logger (`config.logger`) while it fails open.
@@ -18113,6 +18173,7 @@ Re-running `init` is safe: files that exist are reported as `skipped` and left a
 npx theauth doctor
 npx theauth doctor --json                                       # for CI
 npx theauth doctor --live http://localhost:3000/api/theauth     # also call the running server
+npx theauth doctor --fail-on warn                               # exit 1 on warnings too
 ```
 
 Reads the process environment plus `.env` and `.env.local` in the current directory (the process environment wins), then checks:
@@ -18168,12 +18229,21 @@ When `theauth.config.mjs` or `theauth.config.js` is present, the doctor reads it
 | `hooks.timeout_disabled` | warn | a `beforeAuthorize` or `beforeAgentCreate` hook runs with `timeoutMs` 0 |
 | `audit.hmac_key_missing` | warn | `audit.tamperEvident` is on without `audit.hmacKey` |
 | `audit.tamper_evident_off` | info | `audit.tamperEvident` is not on, so audit rows are not hash-chained |
+| `audit.secrets_table_collision` | warn | `theauth_audit_secrets` in the database (`DATABASE_URL` or the config url) has the layout theauth-go creates (integer `id`, binary `secret`), so both libraries share one database and TheAuth refuses to migrate it |
 
-Fixes for each id are in the `fix` field of the output.
+`audit.secrets_table_collision` is the one rule that reads the database. It runs a dry run of the migrator, which checks the table layout first and writes nothing, and it is left out when there is no database url, the SQLite file does not exist yet, or the database cannot be read (`schema` reports that). Fixes for each id are in the `fix` field of the output.
 
 ### Exit code and JSON
 
-Exit code is 1 when any check fails. Warnings do not fail the run. With `--json` the output is:
+Exit code is 1 when any check reaches the `--fail-on` severity, and 0 otherwise. Severities order as `info` < `warn` < `fail`:
+
+| `--fail-on` | Exit 1 when |
+|-------------|-------------|
+| `fail` (default) | a check failed. Warnings and info findings do not fail the run |
+| `warn` | a check warned or failed. Info findings do not fail |
+| `info` | any check is not a pass, info findings included |
+
+A check counts as its `severity` when it has one (config rules and some live checks), otherwise as its `status`. A value other than `info`, `warn` or `fail` is a usage error (exit 1, help text printed). With `--json` the `ok` field is false exactly when the exit code would be 1. The default is unchanged, so existing CI that runs `theauth doctor` behaves as before. With `--json` the output is:
 
 ```json
 {
@@ -19564,6 +19634,241 @@ A receipt proves less than it might seem to.
 
 ---
 
+# Revoke an agent's MCP access and watch it fail on the next request
+
+Source: https://docs.theauth.dev/tutorials/live-revocation
+
+A signed token is valid until it expires. That is the problem with giving an agent one: you cannot take it back. theAuth ties each delegated MCP token to the delegation records it rests on, so revoking the delegation kills the token on the next request.
+
+This tutorial runs that end to end in one process with in memory SQLite. There is no server, no model and no API key. The script is in [`examples/mcp-revocation-demo`](https://github.com/glincker/theauth/tree/main/examples/mcp-revocation-demo). For the reference behind it, see [MCP token revocation](/mcp-revocation).
+
+```bash
+pnpm --filter @glinr/theauth build
+npx tsx examples/mcp-revocation-demo/demo.ts
+```
+
+Run both from the repo root. The example directory has no `package.json`, so it imports the built package by relative path. In your own project, import from `@glinr/theauth` and `@glinr/theauth/mcp`.
+
+## What you build
+
+| Step | What happens | Result |
+| --- | --- | --- |
+| 1 | An assistant delegates read only to a sub-agent, which gets a narrowed token | Token with `mcp:read` |
+| 2 | Call `read_report` | Allowed |
+| 3 | Call `delete_report`, then ask `explain()` why | 403, with a near miss hint |
+| 4 | Decode the token | `act`, `agent_id`, `theauth_dlg` |
+| 5 | Revoke the parent delegation | One `delegation.revoke` audit row |
+| 6 | Call `read_report` again | 401 `DELEGATION_REVOKED` |
+| 7 | Repeat in `cached` and `offline` mode | A short delay, then no effect until `exp` |
+| 8 | Introspect the dead token | `delegation_revoked` for an entitled caller |
+
+## 1. Create the agents, the delegation and the token
+
+Alice owns an assistant that can read and write reports. The assistant delegates read only to a sub-agent, which has no permissions of its own.
+
+```typescript
+const assistant = await auth.agent.create({
+  ownerId, name: "alice-assistant", type: "autonomous",
+  permissions: [{ resource: "mcp:reports:*", actions: ["read", "write"] }],
+});
+const subAgent = await auth.agent.create({
+  ownerId, name: "alice-sub-agent", type: "delegated", permissions: [],
+});
+const chain = await auth.delegate({
+  fromAgent: assistant.id,
+  toAgent: subAgent.id,
+  permissions: [{ resource: "mcp:reports:*", actions: ["read"] }],
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  maxDepth: 1,
+});
+```
+
+Delegation links connect agents, but OAuth tokens belong to clients. So each agent gets an OAuth client, bound once with `mcp.clients.bindAgent(clientId, agentId)`. Alice approves the assistant app through the authorization code flow, which gives a token for `mcp:read mcp:write` whose `agent_id` is the assistant. The sub-agent app then trades that token for a narrower one with RFC 8693 token exchange:
+
+```typescript
+const exchanged = await mcp.token(form(subAppAuthHeader, {
+  grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+  subject_token: assistantToken,
+  subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
+  scope: "mcp:read",
+  resource: RESOURCE,
+}));
+```
+
+Exchange can only narrow. The exchanging client is bound to the sub-agent, so theAuth looks up the live link from the assistant to the sub-agent and writes its id into the token. That link id is what revocation will pull on later. Exchange also checks ownership: every agent the new token names must be one Alice owns, or one reached over live links from an agent she owns. Otherwise it answers `invalid_grant`.
+
+The MCP module reads revocation state in one of three modes. The default with a database is `live`, and this script runs the issuing module that way.
+
+## 2. A call inside the scope
+
+The helper `callTool` is what an MCP server does for each request: `mcp.requireScopes(request, [scope])`, then one audit row for the outcome.
+
+```typescript
+const check = await mcp.requireScopes(request, [TOOL_SCOPES[tool]]);
+if (!check.authorized) {
+  // check.status is 401 or 403, check.error.code says why
+  if (check.rejected?.agentId) await recordAuditEvent(auth.db, { /* denied row */ });
+  return check.response;
+}
+```
+
+`read_report` needs `mcp:read`, which the token has, so the answer is 200.
+
+## 3. A call outside the scope, and why
+
+`delete_report` needs `mcp:write`. The token was narrowed to `mcp:read`, so `requireScopes` answers 403 `INSUFFICIENT_SCOPE` and the tool never runs.
+
+`auth.explain()` then says why the sub-agent could not do this, without writing an audit row. The sub-agent holds one delegated grant, read on `mcp:reports:*`. Nothing matches a write, so the decision is `deny` with code `no_permission`. The useful part is `nearMisses[0]`: the delegated grant matched the resource and failed only on the action, and the hint says so in one sentence. See [Explain a decision](/explain).
+
+## 4. Read the token
+
+The script decodes the JWT payload and prints the parts that matter. It never prints the raw token.
+
+- `act` is the RFC 8693 actor claim. Here it holds one entry, and its `sub` is the OAuth client id of the sub-agent app. The script labels it for you.
+- `agent_id` is the sub-agent, the acting agent and the last entry of `agt`.
+- `theauth_dlg` lists `agt`, the agents on the authority path with the root first (assistant, then sub-agent), and `lnk`, the delegation link between them. This signed claim is the binding. It holds ids only, no permissions or names.
+- `theauth_pjti` lists the jtis of the token this one was exchanged from. The script does not print it. Revoking the assistant's token would revoke this one too.
+
+## 5. Revoke the parent delegation
+
+```typescript
+await auth.delegation.revoke(chain.id, { revokedBy: "alice" });
+```
+
+The token has not expired and its signature is still valid. Nothing was sent to the agent. The revoke marks the link as revoked, writes a `delegation.revoke` audit row that names Alice, and records the link in the shared revocation table.
+
+## 6. The next request fails
+
+Same token, same tool. The resource server checks the signature, then the binding: is every agent in `agt` still active, and is every link in `lnk` still live? The link is revoked, so the answer is 401 `DELEGATION_REVOKED`.
+
+The script prints the audit rows for Alice's two agents in write order: the allowed read, the denied write, the revoke, and the denied read after it. `audit.query` returns newest first, so the script reverses the list.
+
+One detail in that trail: the denial rows land under the sub-agent, because the server attributes a rejection to `check.rejected.agentId`, which comes from the token's `agent_id` claim. The `delegation.revoke` row is on the delegate's chain, which is also the sub-agent.
+
+## 7. The honest tradeoff: cached and offline
+
+Live mode reads the database on every request. That is a handful of indexed queries, and the count grows with the length of the delegation path. Two other modes skip some or all of that, and the script shows what you give up.
+
+**Cached.** The script builds a second MCP module with `revocation: { mode: "cached", pollIntervalMs: 200, maxStalenessMs: 1000 }`. It is given only the database handle, with no in process revocation bus, so it learns about a revoke the way a separate server instance would: by polling the shared table. The call right after the revoke still answers 200, because the cache holds the earlier verdict. The script then retries until the poll lands and the answer turns into 401. The documented bound is `maxStalenessMs`, which defaults to 5000 and was lowered here so the run is short. The process that performs the revoke clears its own cache at once, so you only see this gap on other instances.
+
+**Offline.** A third module with `mode: "offline"` checks the signature and `exp` and nothing else. The script revokes, waits 1.5 seconds, and the call still answers 200. The token stays good for about 60 minutes, because `accessTokenTtl` is 3600 seconds here. Nothing shortens that, and a server in this mode would not see a revoked parent token, agent or user either, unless the handler calls `revalidate()`. If you use offline mode, set `accessTokenTtl` to a few minutes. The script then sends the same token to the live module, which refuses it.
+
+Pick the mode by what a stale answer costs. The table in [MCP token revocation](/mcp-revocation#freshness-modes) has the numbers.
+
+## 8. Ask the issuer
+
+A resource server that does not want to trust the JWT alone can call the introspection endpoint (RFC 7662). It always reads live state, in any mode. The caller must be a confidential client. The module config lists which clients may introspect which audiences:
+
+```typescript
+introspection: {
+  enabled: true,
+  resourceServers: [{ clientId: "orders-api", audiences: [RESOURCE] }],
+},
+```
+
+The listed server `orders-api` gets `{"active":false,"theauth_inactive_reason":"delegation_revoked"}`. A caller that is not listed gets `{"active":false}` and nothing else, so it cannot tell a revoked token from one it was never meant to see.
+
+## Expected output
+
+```text
+=== 1. Setup: owner, assistant, sub-agent, delegation, MCP client, token exchange
+    # alice owns an assistant (read, write). The assistant delegates read only to a sub-agent.
+    assistant            alice-assistant (read, write on mcp:reports:*)
+    sub-agent            alice-sub-agent (no permissions of its own)
+    delegation           assistant to sub-agent, read on mcp:reports:*
+    # The user approves the assistant app (mcp:read mcp:write). The sub-agent app narrows that token (RFC 8693).
+    token minted         scope mcp:read, bound to the delegation (raw token not printed)
+
+=== 2. Call read_report (needs mcp:read)
+    read_report          HTTP 200 OK
+
+=== 3. Call delete_report (needs mcp:write), then ask explain() why
+    delete_report        HTTP 403 INSUFFICIENT_SCOPE
+                         Token is missing required scope: mcp:write
+    explain decision     deny (code no_permission)
+    explain reason       No permission grants agent "alice-sub-agent" access to "write" on "mcp:reports:delete_report"
+    near miss            delegation grant mcp:reports:* [read]
+    mismatch             action
+    hint                 action "write" is not granted (grant holds: read)
+
+=== 4. What the token says about who is acting (decoded, not raw)
+    scope                mcp:read
+    sub (the user)       alice
+    act chain            sub-agent app (OAuth client bound to the sub-agent) (outermost is the current actor)
+    agent_id             sub-agent
+    theauth_dlg.agt      assistant, sub-agent
+    theauth_dlg.lnk      the delegation above
+
+=== 5. alice revokes the delegation. The token is unexpired and its signature is valid
+    revoked              the assistant to sub-agent delegation
+
+=== 6. Very next request with the same token (live mode)
+    read_report          HTTP 401 DELEGATION_REVOKED
+                         Delegation has been revoked
+    # Audit rows for alice's agents, in write order:
+    allowed              mcp.tools.call mcp:reports:read_report
+                         reason: scope mcp:read granted
+    denied               mcp.tools.call mcp:reports:delete_report
+                         reason: INSUFFICIENT_SCOPE: Token is missing required scope: mcp:write
+    allowed              delegation.revoke delegation:<id> revokedBy=alice
+    denied               mcp.tools.call mcp:reports:read_report
+                         reason: DELEGATION_REVOKED: Delegation has been revoked
+
+=== 7a. cached mode: a second server instance learns by polling (poll 200ms, bound 1000ms)
+    before revoke        HTTP 200 OK
+    right after revoke   HTTP 200 OK
+    after the poll       HTTP 401 DELEGATION_REVOKED
+                         Delegation has been revoked
+    within the bound     yes (under maxStalenessMs plus timer slack)
+    # The window above is the price of skipping a database read on every request.
+
+=== 7b. offline mode: signature and exp only
+    before revoke        HTTP 200 OK
+    1.5s after revoke    HTTP 200 OK
+    still valid for      about 60 minutes (until exp), nothing can cut that short
+    # Offline is fine when accessTokenTtl is a few minutes. Here it is 3600 seconds on purpose.
+    # The live module still refuses this same token:
+    same token, live     HTTP 401 DELEGATION_REVOKED
+                         Delegation has been revoked
+
+=== 8. Introspection of the revoked token (RFC 7662, always live)
+    orders-api (listed)  {"active":false,"theauth_inactive_reason":"delegation_revoked"}
+    stranger-api         {"active":false}
+    # Only a caller entitled to the audience learns why. Everyone else sees active false.
+    # Done. Revoke the delegation, and the next live request fails. No token list, no redeploy.
+```
+
+IDs and timestamps are left out, so two runs print the same text. The cached step takes a few hundred milliseconds. The offline step waits 1.5 seconds on purpose.
+
+## Where this stops
+
+- Offline mode trusts the token until `exp`. Cached mode has the poll delay you saw in step 7a.
+- Banning or deleting a user, and signing out everywhere, revoke that user's tokens too, and the token endpoint refuses their refresh tokens and authorization codes. Signing out does not delete refresh token families. The live check at the token endpoint is what stops the refresh.
+- `client_credentials` and `jwt-bearer` tokens are not covered by the user and client watermarks, because those grants do not read the revocation table before minting. Agent bound tokens are still refused once the agent is revoked.
+- The authorization code path does not yet refuse a client that an admin bound to another user's agent. This is an open policy decision.
+- A request that passed validation before the revoke commits finishes. For long handlers, call `principal.session.revalidate()` between steps.
+- A server that verifies the JWT itself, or caches introspection answers, sees the revoke when that cache ends or the token expires.
+- The raw token in the script is a bearer token. Revocation does not stop replay while the token is live. [DPoP](/dpop) does.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="MCP token revocation" href="/mcp-revocation">
+  Freshness modes, the shared denylist and where revocation stops short.
+</Card>
+  <Card title="Delegation chains" href="/delegation">
+  Depth limits, constraints and cascading revocation.
+</Card>
+  <Card title="Explain a decision" href="/explain">
+  Matched grants, near misses and constraint checks.
+</Card>
+  <Card title="Delegate a scoped token" href="/tutorials/agent-delegation-e2e">
+  The longer walkthrough with hooks and an HTTP server.
+</Card>
+</CardGroup>
+
+---
+
 # MCP OAuth 2.1
 
 Source: https://docs.theauth.dev/mcp
@@ -20341,7 +20646,7 @@ Source: https://docs.theauth.dev/mcp-revocation
 
 An MCP access token is a signed JWT. A resource server can check the signature and `exp` and never talk to theAuth again, which is fast and also means a token outlives the thing that justified it. This page explains how theAuth closes that gap, how to choose a freshness mode, and what it does not cover.
 
-The short version: with a database and the default settings, revoking a delegation link, an agent, a user's sessions or a single token makes the next MCP request that carries an affected token fail on every theAuth instance that shares the database. A request that already passed validation finishes.
+The short version: with a database and the default settings, revoking a delegation link, an agent, a single token or a refresh token family makes the next MCP request that carries an affected token fail on every theAuth instance that shares the database. Signing a user out everywhere, banning, deleting or erasing a user, and deprovisioning through SCIM do the same for that user's tokens, and the token endpoint refuses to mint new ones from refresh tokens or authorization codes issued before the revoke. Some paths are not covered, and the Limits section lists them. A request that already passed validation finishes.
 
 ## What a token carries
 
@@ -20350,18 +20655,23 @@ A token minted by [token exchange](/mcp-grants) keeps the RFC 8693 `act` claim, 
 ```json
 {
   "act": { "sub": "agent-b", "act": { "sub": "agent-a" } },
-  "theauth_dlg": { "v": 1, "agt": ["agent-a", "agent-b"], "lnk": ["chain_01H..."] }
+  "agent_id": "agent-b",
+  "theauth_dlg": { "v": 1, "agt": ["agent-a", "agent-b"], "lnk": ["chain_01H..."] },
+  "theauth_pjti": ["jti-of-the-subject-token"]
 }
 ```
 
 - `agt` lists the agent ids on the authority path, root first. Every one must stay `active` and unexpired.
 - `lnk` lists the delegation link id for each consecutive pair in `agt`.
+- `agent_id` (and `principal.agent`) is the acting agent, the last entry of `agt`. A bound token whose `agent_id` is not in `agt` is invalid.
+- `theauth_pjti` (exchanged tokens only) lists the jtis of the subject token lineage, root first. Revoking any of those tokens, or the refresh family behind one, revokes this token too: on the next live call, within the poll window in cached mode, and on the next `revalidate()` in offline mode.
+- Exchange refuses (`invalid_grant`) a child naming an agent the subject user neither owns nor reaches over live delegation links from an agent they own.
 
 The claim is signed, so a resource server can trust it only after verifying the signature. It holds ids and nothing else: no permissions, no names.
 
-Tokens are bound when their authority resolves to agent rows: token exchange, and authorization code, refresh, client credentials and jwt-bearer tokens that carry `agent_id` (these get `agt: [agentId]` and an empty `lnk`). A token with no agent behind it, such as a plain user to service token, is unbound. Only token, subject and client revocation apply to it, because there is no delegation record to revoke.
+Tokens are bound when their authority resolves to agent rows: token exchange, and authorization code, refresh, client credentials and jwt-bearer tokens that carry `agent_id`. An ordinary token gets the agent's live inbound path up to its root, `agt: [root, ..., agentId]` with one `lnk` per hop, or `agt: [agentId]` and an empty `lnk` when nobody delegated to it. The path is capped at 8 hops above the agent, and the validator still checks the root's own inbound link live. Because every link is in the claim, revoking a delegation above the agent is seen in cached mode and on `revalidate()` in offline mode, not only in live mode. A token with no agent behind it, such as a plain user to service token, is unbound. Only token, subject and client revocation apply to it, because there is no delegation record to revoke.
 
-A token also never outlives its sources. At mint time `exp` is the earliest of the configured lifetime, the parent token's expiry, every link's expiry and every agent's expiry. This holds in all three modes.
+A token also never outlives its sources. At mint time `exp` is the earliest of the configured lifetime, the subject and actor token expiry, every link's expiry and every agent's expiry on the path. That is a cap on `exp`, so it applies whatever freshness mode you run. It is not a revocation: revoking the parent token is a separate rule, covered by `theauth_pjti` above.
 
 ## Freshness modes
 
@@ -20381,15 +20691,15 @@ const mcp = createMcpModule({
 
 | Mode | What validation reads | Staleness after a revoke | Cost per request |
 | --- | --- | --- | --- |
-| `live` | The revocation table (1 query) and the binding check (up to 3) | None on any instance sharing the database | 1 to 4 indexed queries |
-| `cached` | A per process cache keyed by `jti` | None on the revoking process. Other instances usually within `pollIntervalMs`, never longer than `maxStalenessMs` | One small query per instance per `pollIntervalMs` |
-| `offline` | Signature, `exp` and `jtiDenylist` if you set one | Up to the token's `exp` | None |
+| `live` | The revocation table and the binding check (one read per agent and link on the path, plus the walk up from the root) | None on any instance sharing the database | A few indexed reads. There is no fixed bound: it grows with the path length |
+| `cached` | A per process cache keyed by `jti` | None on the instance that performs the revoke, which clears its cache when it pushes. Other instances usually within `pollIntervalMs`, never longer than `maxStalenessMs` | One small query per instance per `pollIntervalMs`, plus a live read on a cache miss |
+| `offline` | Signature, `exp` and the `jtiDenylist` read for the token's own `jti` | Up to the token's `exp`. A revoked parent token, link, agent or user is not seen until you call `revalidate()` | One read of the denylist when one is configured (it is by default with `auth`), none otherwise |
 
 The default is `live` when you pass `auth` to `createMcpModule` (a shared database), and `offline` when you pass your own stores, because there is nothing shared to read. The environment variable `THEAUTH_MCP_REVOCATION_MODE` sets the mode when the config does not.
 
-Three things hold in every mode. The token endpoint (exchange and refresh) always checks live. Introspection always checks live. Expiry is always honored at mint time.
+Three things hold in every mode. The token endpoint checks live for the refresh token and authorization code grants: a refresh token or code whose `jti`, subject (sign out everywhere, ban, delete), client (CIMD block) or bound agent was revoked is refused with `invalid_grant`, and a store error fails closed with `server_error`. Token exchange validates the subject and actor tokens live. Introspection always checks live. Expiry is always honored at mint time. The `client_credentials` and `jwt-bearer` grants do not read the revocation table before they mint (see Limits).
 
-Live mode costs one to four primary key or indexed lookups on requests that are usually tool calls, so most deployments should leave it on. Move to `cached` above roughly a thousand validations per second per instance:
+Live mode costs a handful of primary key or indexed lookups on requests that are usually tool calls, so most deployments should leave it on. Move to `cached` above roughly a thousand validations per second per instance:
 
 ```ts
 revocation: {
@@ -20408,9 +20718,15 @@ revocation: {
 | `cacheMax` | `THEAUTH_MCP_REVOCATION_CACHE_MAX` | 10000 |
 | `revokeOnSignOutEverywhere` | none | `true` |
 | `requireBoundChain` | none | `false` |
+| `clockSkewMs` | `THEAUTH_MCP_REVOCATION_SKEW_MS` | 0 (opt in) |
+| `pruneIntervalMs` | `THEAUTH_MCP_REVOCATION_PRUNE_INTERVAL_MS` | 60000 |
 | `onRevoked` | none | none |
 
-In cached mode a process that performs the revoke clears its cache at once. Other instances compare a fingerprint of the revocation table (row count and newest timestamp) on each poll and clear when it changes. If a revocation row failed to write, or an agent expiry was shortened by hand, the cache entry still dies at `maxStalenessMs`.
+`revokeOnSignOutEverywhere`, `clockSkewMs` and `onRevoked` are read from the `mcp` config you pass to `createTheAuth`, because the revocation bus and the database store are built there. If you pass `mcp` only to `createMcpModule`, no `sub` rows are written and sign out everywhere does nothing for MCP tokens. Pass the same config object to both, as the [MCP page](/mcp) does.
+
+`clockSkewMs` widens the `sub` and `client` watermark by that many milliseconds, so a revoker whose clock lags still kills tokens minted just before the revoke. The cost is that a token minted within that window after a revoke is also refused. It defaults to 0, which assumes your instances keep NTP time. Set it (2000 is a reasonable value) if they do not.
+
+In cached mode a process that performs the revoke clears its cache at once. Other instances compare a fingerprint of the revocation table (the newest `revoked_at_ms` and the number of rows near it) on each poll and clear when it changes. If a revocation row failed to write, or an agent expiry was shortened by hand, the cache entry still dies at `maxStalenessMs`.
 
 In offline mode, shorten `accessTokenTtl` (300 seconds is a reasonable start). Exchanged tokens cannot be refreshed, so the lifetime is the whole bound.
 
@@ -20424,11 +20740,13 @@ Revocations are rows in `theauth_mcp_revocations`, created by migration `0007`. 
 | --- | --- | --- |
 | `jti` | One token | The token's `exp` |
 | `dlg` | Every token bound to that delegation link | The link's expiry |
-| `agent` | Every token bound to that agent | The agent's expiry, or 30 days |
-| `sub` | Every token of a user minted at or before the revoke | `accessTokenTtl` plus 60 seconds |
-| `client` | Every token of a client minted at or before the revoke | `accessTokenTtl` plus 60 seconds |
+| `agent` | Every token bound to that agent | The agent's expiry, or 7 days when it has none |
+| `sub` | Every token of a user minted at or before the revoke | 7 days |
+| `client` | Every token of a client minted at or before the revoke | `accessTokenTtl` plus 60 seconds for a CIMD block |
 
-`sub` and `client` rows are watermarks on `iat`. Validation reads both kinds, but nothing in theAuth writes a `client` row today, so use it only from your own code through the store. A token minted in the same second as the revoke also dies, which fails closed. Rows are pruned lazily, 500 at a time, at most once a minute per instance. The delegation and agent tables stay the source of truth for live checks. The rows exist to speed up the fail path and to drive cache invalidation across instances.
+A row never expires less than 60 seconds after it is written, so a row for an already expired link outlives clock skew. Rows for things with no expiry last 7 days unless `THEAUTH_MCP_REVOCATION_RETENTION_MS` sets another value. A `jti` row is skipped when the token expired more than a minute ago.
+
+`sub` and `client` rows are watermarks on `iat`. Validation reads both kinds (a hit reports `client_revoked`). `mcp.cimd.block` writes a `client` row for the blocked client when the denylist is the shared store, so its tokens are refused at once in live mode on every instance (see [Client ID Metadata Documents](/mcp-client-id-metadata)). You can also write one yourself through the store. A token minted in the same second as the revoke also dies, which fails closed. Expired rows are pruned after writes, in batches of 500 and at most four batches per run, and at most once per `pruneIntervalMs` per instance (60 seconds by default). There are no timers, so pruning only happens on an instance that writes. For a cron job or a read only instance, call `auth.revocations.prune()`, which deletes expired rows now and resolves to the number deleted. The delegation and agent tables stay the source of truth for live checks. The rows exist to speed up the fail path and to drive cache invalidation across instances.
 
 With `auth`, `config.jtiDenylist` defaults to this shared store, so a token revoked on one instance is refused on all of them. An explicit `jtiDenylist` always wins. With `createInMemoryJtiDenylist()` the denylist is per process.
 
@@ -20438,16 +20756,22 @@ With `auth`, `config.jtiDenylist` defaults to this shared store, so a token revo
 | --- | --- |
 | `auth.delegation.revoke(id)`, including every link in the cascade | `dlg` for each revoked link |
 | `auth.agent.revoke(id)` | `agent` for the agent, `dlg` for the links it cut |
-| `session.revokeAll(userId)` (sign out everywhere, ban) | `sub`, unless `revokeOnSignOutEverywhere: false` |
-| `POST /mcp/revoke` (RFC 7009) and refresh token reuse | `jti` |
+| `session.revokeAll(userId)` (sign out everywhere) | `sub`, unless `revokeOnSignOutEverywhere: false` |
+| `admin.banUser`, `admin.deleteUser`, `gdpr.deleteUser`, SCIM deactivation or deprovisioning | `sub` for the user and `agent` for each agent they own |
+| `POST /mcp/revoke` (RFC 7009) of an access token | `jti` for that token |
+| `POST /mcp/revoke` of a refresh token, and refresh token reuse detection | `jti` for the token and for each live access token of the refresh token family |
 
-Revoking a single session does not touch MCP tokens, because they are not tied to a session. If a `dlg` or `agent` row fails to write, the failure is logged and the revoke continues: the link or agent row is already revoked, so live mode still sees it and cached mode falls back to its staleness bound. If the row for an explicit token revoke fails to write, the revoke call fails (the HTTP route answers 500 `server_error`) instead of reporting success, because that row is the only record.
+The `sub` row is a watermark on `iat`. `admin.unbanUser` does not bring back tokens issued before the ban, and the owner's agents stay revoked.
+
+Revoking a single session does not touch MCP tokens, because they are not tied to a session. Signing out does not delete refresh token families either. The live check at the token endpoint is what stops a refresh token after a sign out everywhere.
+
+A push is retried once. If the retry also fails, the failure is logged with the revoked ids (never a token) and counted: `auth.revocations.stats()` reports `pushFailures` for pushes that failed after the retry and `attemptFailures` for every failed attempt. The revoke itself continues: the link or agent row is already revoked, so live mode still sees it and cached mode falls back to its staleness bound. The instance clears its own cache before it writes and again after. If the row for an explicit token revoke fails to write, the revoke call fails (the HTTP route answers 503 `temporarily_unavailable`, described below) instead of reporting success, because that row is the only record. Pushes work on runtimes without `process`, such as Cloudflare Workers without `nodejs_compat` and Deno.
 
 An agent whose `expiresAt` passes is not pushed. Expiry is read from the agent row on live checks and capped into `exp` at mint.
 
 ## Introspection and revocation endpoints
 
-`POST /mcp/revoke` is RFC 7009. A client may revoke its own tokens, and a `client_id` mismatch answers 200 without doing anything, as the RFC asks.
+`POST /mcp/revoke` is RFC 7009. A client may revoke its own tokens, and a `client_id` mismatch answers 200 without doing anything, as the RFC asks. An unknown token also answers 200. When the revocation store cannot record the revoke, the endpoint answers 503 with `Retry-After` and `{ "error": "temporarily_unavailable" }` (RFC 7009 section 2.2.1) instead of a 500. This instance still treats the token as revoked locally (its freshness cache is dropped), but other instances learn about it only after a successful retry, so the client should retry.
 
 `POST /mcp/introspect` is RFC 7662, for resource servers that cannot or should not trust the JWT alone. It is off until you enable it:
 
@@ -20475,11 +20799,11 @@ Who sees what:
 
 A caller is entitled when it is the token's own `client_id`, or a `resourceServers` entry whose `audiences` include the token's `aud`. A resource server that is not listed learns nothing about why a token is dead, and cannot tell a revoked token from one it was never entitled to see.
 
-Each call writes an `mcp.introspect` audit row with the caller, the `jti` and the result. The token is never stored.
+There is no default audit row. Pass `introspectionAudit` to `createMcpModule` to receive the caller client, the `jti`, the result and the reason after each decision of an authenticated caller. The token is never passed to it.
 
 ## Shared Signals events
 
-Pass `onRevoked` to forward revocations to a Shared Signals transmitter:
+Pass `onRevoked` in the `mcp.revocation` config of `createTheAuth` to forward revocations to a Shared Signals transmitter:
 
 ```ts
 revocation: {
@@ -20497,7 +20821,9 @@ By default a token exchange whose actors resolve to no agent row mints an unboun
 revocation: { requireBoundChain: true }
 ```
 
-Exchange also refuses a chain where two consecutive agent actors have no live delegation link between them, whatever this setting says.
+When a binding store is attached (the default with `auth`), exchange also refuses a chain where two consecutive agent actors have no live delegation link between them, whatever this setting says. With custom stores and no binding store, nothing is checked.
+
+Exchange also checks ownership. Every agent the child token names must be one the subject user owns, or one reached over live delegation links from an agent they own. Otherwise exchange answers `invalid_grant` and writes a denied `mcp.token_exchange` audit row under the refused agent.
 
 ## Long running handlers
 
@@ -20525,9 +20851,13 @@ These are the places revocation does not reach. Plan around them.
 
 - **Offline resource servers.** A server that verifies the JWT itself, or that caches introspection answers, sees a revoke when its cache ends or the token expires. Only live validation and uncached introspection are immediate.
 - **Calls in progress.** A request validated before the revoke commits completes. Streams and long handlers are cut off only if they call `revalidate()`.
+- **Offline and cached freshness.** Offline mode trusts the token until `exp`, apart from a `jti` row in the denylist. It does not see a revoked parent token, link, agent or user until you call `revalidate()`. Cached mode has the poll delay described above.
+- **Sign out and refresh tokens.** Signing out does not delete refresh token families. The live check at the token endpoint refuses the refresh, but the family rows stay until they expire.
+- **client_credentials and jwt-bearer.** These grants mint without reading the revocation table. A `sub` or `client` watermark kills tokens minted before it, and does not stop these grants minting a new token afterward. An agent bound client is still refused once its agent is revoked or expired.
+- **Authorization code and another user's agent.** The authorization code path refuses a revoked or expired agent, but it does not yet refuse a client that an admin bound to another user's agent. This is an open policy decision.
 - **Unbound tokens.** A token whose actors are not theAuth agents has no delegation to revoke. Use `requireBoundChain` if that is not acceptable.
 - **Tokens minted before the upgrade.** They carry no `theauth_dlg`. With `act` and no `delegationStore` they are trusted until `exp`; tokens with an `agent_id` get a single agent status check. Exchanged tokens cannot refresh, so the gap closes within `accessTokenTtl`, one hour by default.
-- **HS256 shares the secret.** With `signingSecret`, any resource server that holds the secret can sign a token, including one with a forged `theauth_dlg` or none. Use RS256 or ES256 signing keys (see the MCP page) for resource servers you do not fully control, and give them the public key only.
+- **HS256 shares the secret.** With `signingSecret`, any resource server that holds the secret can sign a token, including one with a forged `theauth_dlg` or none. Use RS256 or ES256 signing keys (see the MCP page) for resource servers you do not fully control, and give them the public key only. Setting signing keys is not enough: a server that still has `signingSecret` configured accepts HS256 tokens, so remove it from those servers.
 - **No push on expiry.** A shortened expiry is seen by live and cached modes and not by offline. Nothing is pushed when an agent simply expires.
 - **Replicas lag.** Live checks must read the primary. Pointing them at a lagging read replica adds the lag to every bound above.
 - **Custom stores.** With your own stores and no database, or with the in-memory denylist, there is no cross instance freshness.
@@ -20791,7 +21121,7 @@ await mcp.cimd.block({ kind: "host", value: "example.net", reason: "domain sold"
 
 A URL block must be the canonical `client_id`. A host block takes a bare host name (a leading `*.` is accepted and means the same thing) and covers subdomains.
 
-The two kinds behave differently. A URL block stops new authorizations, deletes the client's stored tokens so refresh stops, adds its access token ids to `jtiDenylist` when one is set, and marks the stored client as disabled (reason `blocked`). A host block is checked on every authorize and token call, so clients on that host stop working at once. It does not disable their stored rows. When the store can list CIMD clients it also deletes their tokens, so unblocking the host later does not bring old refresh tokens back. Unblocking never turns a disabled client back on: run `mcp.cimd.enable(clientId)` for that. Remove a block with `mcp.cimd.unblock(id)`, list blocks with `mcp.cimd.listBlocks()`, and read a stored client with its document snapshot through `mcp.cimd.inspect(clientId)`.
+The two kinds behave differently. A URL block stops new authorizations, deletes the client's stored tokens so refresh stops, adds its access token ids to `jtiDenylist` when one is set, writes a `client` row to the shared revocation store (so every token the client holds is refused at once in live mode, and in cached mode within `maxStalenessMs`), and marks the stored client as disabled (reason `blocked`). A host block is checked on every authorize and token call, so clients on that host stop working at once. It does not disable their stored rows. When the store can list CIMD clients it also deletes their tokens and writes a `client` revocation row for each, so unblocking the host later does not bring old tokens back. Unblocking never turns a disabled client back on: run `mcp.cimd.enable(clientId)` for that. Remove a block with `mcp.cimd.unblock(id)`, list blocks with `mcp.cimd.listBlocks()`, and read a stored client with its document snapshot through `mcp.cimd.inspect(clientId)`.
 
 Blocking needs a block store. Pass `auth` to `createMcpModule`, or a `blocks` store, or `block` throws.
 
@@ -20820,13 +21150,15 @@ The cache limits are the four `*CacheSeconds` options in the table above.
 
 **What theAuth checks.** A client_id must be a canonical https URL on port 443 with a path, no query, no fragment and no credentials. Before fetching, theAuth refuses IP addresses, single label names, local and internal suffixes, and wildcard DNS services such as nip.io and sslip.io. With a resolver it also refuses names that resolve to loopback, private, link-local, carrier-grade NAT, unique-local or cloud metadata addresses. It never follows redirects, reads at most 5 KB, requires a 200 JSON response, gives up after 5 seconds, and fails closed. The document must repeat its own URL as client_id, cannot use shared secrets, and cannot name an agent. Redirect URIs are matched exactly.
 
-**What theAuth cannot check.** It checks a hostname and then lets the runtime's fetch connect, and the runtime resolves the name again. A DNS server built to answer differently each time (DNS rebinding) can make that second lookup point at a private address. This is true on every runtime. With `resolver: "none"` there is no address check at all, only the name rules. DNS over HTTPS answers from public DNS, which can differ from what a server inside your network sees.
+**What is closed on Node and Bun.** When the runtime lets theAuth control the connection, the request goes through `node:https` instead of `fetch`, pinned to the addresses it just vetted. The connection's `lookup` never asks DNS again: it hands back only those addresses, checks each one again at connect, and refuses the whole answer if any is loopback, private, link-local, carrier-grade NAT, unique-local, multicast or a cloud metadata address (IPv4-mapped IPv6 included). A multi-address answer is checked in full, none skipped. A rebinding DNS server therefore cannot steer the connection, because there is no second lookup to win. TLS still validates the certificate against the original hostname, keep-alive is off, a fresh agent is used per request, and one deadline covers DNS, connect, headers and body. Same rules as before: exact 200, no redirects, 5 KB cap. Pinned requests ignore `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` on purpose, so an unvetted proxy cannot carry the request. If you need an egress proxy, enforce it at the network level. The Node and Bun path is on by default and is skipped when you pass your own `fetchImpl` or set `pinnedConnect: "off"`.
 
-**What to do about it.** If you know your clients, set `allowedHosts`: that is the only setting that fully closes the gap. It also covers a document's `jwks_uri`, which must be on an allowed host. Otherwise block private address ranges for outbound traffic from the auth server at the network level. On Cloudflare Workers outbound requests leave from Cloudflare's network, not yours, so a rebinding attack cannot reach your private network from there.
+**What theAuth cannot check.** On Cloudflare Workers and Deno, and whenever you pass `fetchImpl`, `pinnedConnect: "off"` or `resolver: "none"`, theAuth checks a hostname and then lets the runtime's fetch connect, and the runtime resolves the name again. A DNS server built to answer differently each time (DNS rebinding) can make that second lookup point at a private address. With `resolver: "none"` there is no address check at all, only the name rules. DNS over HTTPS answers from public DNS, which can differ from what a server inside your network sees.
+
+**What to do about it.** If you know your clients, set `allowedHosts`: that is the only setting that fully closes the gap on every runtime. It also covers a document's `jwks_uri`, which must be on an allowed host. On Deno, block private address ranges for outbound traffic from the auth server at the network level. On Cloudflare Workers outbound requests leave from Cloudflare's network, not yours, so a rebinding attack cannot reach your private network from there.
 
 **About names and logos.** client_name and logo_uri are whatever the client's author wrote. Show the client_id hostname as the identity. A redirect URI on localhost means any program on the user's machine can complete the flow as that client, so show the warning theAuth gives you.
 
-**Revocation.** Blocking a client stops new authorizations and refresh tokens at once. Access tokens it already holds stay valid until they expire unless a shared `jtiDenylist` is configured (with `auth`, the shared revocation store is the default; see [MCP token revocation](/mcp-revocation)).
+**Revocation.** Blocking a client stops new authorizations and refresh tokens at once. Access tokens it already holds stay valid until they expire unless a shared revocation store is configured, which then refuses them through the `client` row (with `auth`, the shared revocation store is the default; see [MCP token revocation](/mcp-revocation)).
 
 ---
 
@@ -20941,7 +21273,7 @@ A guard vendor can check an HTTPS endpoint against the [remote guard protocol](/
 npx @glinr/theauth-conformance guard https://guard.example.com/theauth --secret "$GUARD_SECRET"
 ```
 
-The secret can also come from `THEAUTH_GUARD_SECRET`. It signs the probes and is never printed. Nine checks run:
+The secret can also come from `THEAUTH_GUARD_SECRET`. It signs the probes and is never printed. Twelve checks run:
 
 | Check | Severity | What it proves |
 |---|---|---|
@@ -29014,7 +29346,7 @@ theauth.webhooks?.emit('user.created', { userId: 'user_123' });
 ### Endpoint options
 
 <ParamField path="url" type="string">Destination URL for the POST request.</ParamField>
-<ParamField path="secret" type="string">Signing secret used for the HMAC-SHA256 signature.</ParamField>
+<ParamField path="secret" type={`string | Array<string | { id: string; secret: string }>`}>Signing secret used for the HMAC-SHA256 signature. Pass an array, `[current, ...previous]`, to rotate: the first entry signs. Array entries must be at least 32 bytes, empty and duplicate entries are rejected when `webhooks()` is created. A plain string keeps working as before.</ParamField>
 <ParamField path="events" type="WebhookEvent[]">Event types this endpoint receives. There is no `'*'` wildcard: list every event you want.</ParamField>
 <ParamField path="retries" type="number">Retry attempts after the first failed delivery. Defaults to 3.</ParamField>
 <ParamField path="timeout" type="number">Per-request timeout in milliseconds. Defaults to 10000.</ParamField>
@@ -29065,6 +29397,7 @@ Every webhook delivery includes these headers:
 | `X-TheAuth-Signature` | `sha256=<hex>`, the HMAC-SHA256 of `<timestamp>.<raw body>` using your secret |
 | `X-TheAuth-Event` | Event type, e.g. `user.created` |
 | `X-TheAuth-Timestamp` | Unix timestamp (seconds) of delivery, the same value as `timestamp` in the body |
+| `X-TheAuth-Key-Id` | Only sent when the current signing secret was configured as `{ id, secret }`. Receivers try the key with this id first |
 
 ## Verifying signatures
 
@@ -29123,6 +29456,33 @@ async function verifyWebhook(
 ```
   </Tab>
 </Tabs>
+
+## Rotating the signing secret
+
+Each delivery is signed with one key, the first entry of `secret`. Receivers rotate by accepting both keys for a while. Add the new key first, deploy, then remove the old one, so no delivery is ever rejected.
+
+1. Generate a new secret (`openssl rand -base64 32`) and add it to the receivers: `secret: [oldSecret, newSecret]`. Deploy the receivers. Nothing changes yet, because the sender still signs with the old key.
+2. Switch the sender to sign with the new key and keep the old one: `secret: [newSecret, oldSecret]`. Deploy. Deliveries now carry the new signature, and in-flight retries signed earlier still verify.
+3. After the retry window and your timestamp tolerance have passed, remove the old key from the receivers and the sender: `secret: [newSecret]`.
+
+The `verify` helper from `@glinr/theauth/webhook` accepts the same list. It checks every key and does not stop at the first match, so timing does not reveal which key signed.
+
+```typescript
+import { verify } from '@glinr/theauth/webhook';
+
+const ok = await verify({
+  secret: [
+    { id: '2026-10', secret: process.env.WEBHOOK_SECRET_NEW! },
+    { id: '2026-04', secret: process.env.WEBHOOK_SECRET_OLD! },
+  ],
+  rawBody: await request.text(),
+  signature: request.headers.get('X-TheAuth-Signature') ?? '',
+  timestamp: request.headers.get('X-TheAuth-Timestamp') ?? '',
+  keyId: request.headers.get('X-TheAuth-Key-Id') ?? undefined,
+});
+```
+
+Key ids (letters, digits, `_` and `-`, up to 32 characters) are optional labels. They only choose which key is tried first. The secrets are never logged or included in error messages.
 
 ## Retry behavior
 
@@ -34824,6 +35184,7 @@ The MCP module returns `Result` errors with these codes. The token, registration
 | `UNSUPPORTED_GRANT_TYPE` | 400 | The grant type is not supported. |
 | `LOGIN_REQUIRED` | 400 | The user is not signed in at the authorization endpoint. With a `loginPage` configured the response redirects there instead. |
 | `INSUFFICIENT_SCOPE` | 403 | The token does not carry a required scope. See below. |
+| `SERVER_ERROR` | 503 | `/mcp/revoke` and `/mcp/introspect` only: the revocation store could not be written or read. The body is `temporarily_unavailable` and `Retry-After` is set on `/mcp/revoke`. Retry the call. |
 | `CONSENT_REQUIRED` | none | The client is identified by a [metadata document](/mcp-client-id-metadata) and no `consentPage` is configured, so no code is issued. Returned as a `Result` error from the authorize step. |
 | `ACCESS_DENIED` | 400 | Token exchange was refused by the `tokenExchange.authorize` policy. |
 | `REGISTRATION_DISABLED` | 404 | Dynamic registration is off (`registration: { enabled: false }`). Returned by `registerClient` as a `Result` error; the route answers 404. |
@@ -35392,7 +35753,7 @@ A migration guide from better-auth is available: [Migrate from better-auth](/mig
 | Capability | theAuth | better-auth |
 |---|---|---|
 | Language | TypeScript, MIT | TypeScript, MIT |
-| Named OAuth providers | 24 | 37 |
+| Named OAuth providers | 48 (22 first class, 26 presets) | 37 |
 | MCP OAuth 2.1 server | Built in with agent identity, delegation, and ephemeral sessions | Thin OIDC wrapper plugin |
 | Agent identity | First-class `AgentIdentity` entity next to `User` | Treated as an OAuth client |
 | A2A protocol | Server + client + Agent Cards with JWS signing | Not shipped |
@@ -35416,7 +35777,7 @@ A migration guide from better-auth is available: [Migrate from better-auth](/mig
 ## Pick better-auth if
 
 - You're building a human-facing web app with no agent workloads.
-- You need one of the 13 additional OAuth providers it ships that theAuth doesn't yet cover.
+- You need an OAuth provider it ships that theAuth does not cover. Check both provider lists first.
 - You want a Mongo or Redis adapter and Prisma first-class support right now.
 
 Both are MIT, both are TypeScript. The question is whether agents are part of your architecture.
@@ -35457,7 +35818,7 @@ A migration guide from Hanko is coming soon.
 | License | MIT | AGPL (backend), MIT (JS SDK) |
 | Primary focus | Agent-first auth SDK | Passkey-first auth |
 | TypeScript SDK | Yes, first-party | Yes, first-party |
-| Named OAuth providers | 24 | ~3 (Google, Apple, GitHub) |
+| Named OAuth providers | 48 (22 first class, 26 presets) | ~3 (Google, Apple, GitHub) |
 | Passkey support | Yes | Yes, core focus |
 | MCP OAuth 2.1 server | Built in | Not shipped |
 | Agent identity | First-class `AgentIdentity` entity | Not shipped |

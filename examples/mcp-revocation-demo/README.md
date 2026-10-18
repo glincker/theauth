@@ -53,7 +53,7 @@ This directory has no `package.json` on purpose, so it adds nothing to the works
     scope                mcp:read
     sub (the user)       alice
     act chain            sub-agent app (OAuth client bound to the sub-agent) (outermost is the current actor)
-    agent_id             assistant
+    agent_id             sub-agent
     theauth_dlg.agt      assistant, sub-agent
     theauth_dlg.lnk      the delegation above
 

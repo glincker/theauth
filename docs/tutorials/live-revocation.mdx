@@ -61,7 +61,7 @@ const exchanged = await mcp.token(form(subAppAuthHeader, {
 }));
 ```
 
-Exchange can only narrow. The exchanging client is bound to the sub-agent, so theAuth looks up the live link from the assistant to the sub-agent and writes its id into the token. That link id is what revocation will pull on later.
+Exchange can only narrow. The exchanging client is bound to the sub-agent, so theAuth looks up the live link from the assistant to the sub-agent and writes its id into the token. That link id is what revocation will pull on later. Exchange also checks ownership: every agent the new token names must be one Alice owns, or one reached over live links from an agent she owns. Otherwise it answers `invalid_grant`.
 
 The MCP module reads revocation state in one of three modes. The default with a database is `live`, and this script runs the issuing module that way.
 
@@ -91,8 +91,9 @@ if (!check.authorized) {
 The script decodes the JWT payload and prints the parts that matter. It never prints the raw token.
 
 - `act` is the RFC 8693 actor claim. Here it holds one entry, and its `sub` is the OAuth client id of the sub-agent app. The script labels it for you.
-- `agent_id` is the assistant, not the sub-agent. The token kept the `agent_id` of the token it was exchanged from.
+- `agent_id` is the sub-agent, the acting agent and the last entry of `agt`.
 - `theauth_dlg` lists `agt`, the agents on the authority path with the root first (assistant, then sub-agent), and `lnk`, the delegation link between them. This signed claim is the binding. It holds ids only, no permissions or names.
+- `theauth_pjti` lists the jtis of the token this one was exchanged from. The script does not print it. Revoking the assistant's token would revoke this one too.
 
 ## 5. Revoke the parent delegation
 
@@ -108,15 +109,15 @@ Same token, same tool. The resource server checks the signature, then the bindin
 
 The script prints the audit rows for Alice's two agents in write order: the allowed read, the denied write, the revoke, and the denied read after it. `audit.query` returns newest first, so the script reverses the list.
 
-One detail in that trail: the denial rows land under the assistant, because the server attributes a rejection to `check.rejected.agentId`, which comes from the token's `agent_id` claim. The `delegation.revoke` row is on the delegate's chain, which is the sub-agent.
+One detail in that trail: the denial rows land under the sub-agent, because the server attributes a rejection to `check.rejected.agentId`, which comes from the token's `agent_id` claim. The `delegation.revoke` row is on the delegate's chain, which is also the sub-agent.
 
 ## 7. The honest tradeoff: cached and offline
 
-Live mode reads the database on every request. That is one to four indexed queries. Two other modes skip some or all of that, and the script shows what you give up.
+Live mode reads the database on every request. That is a handful of indexed queries, and the count grows with the length of the delegation path. Two other modes skip some or all of that, and the script shows what you give up.
 
 **Cached.** The script builds a second MCP module with `revocation: { mode: "cached", pollIntervalMs: 200, maxStalenessMs: 1000 }`. It is given only the database handle, with no in process revocation bus, so it learns about a revoke the way a separate server instance would: by polling the shared table. The call right after the revoke still answers 200, because the cache holds the earlier verdict. The script then retries until the poll lands and the answer turns into 401. The documented bound is `maxStalenessMs`, which defaults to 5000 and was lowered here so the run is short. The process that performs the revoke clears its own cache at once, so you only see this gap on other instances.
 
-**Offline.** A third module with `mode: "offline"` checks the signature and `exp` and nothing else. The script revokes, waits 1.5 seconds, and the call still answers 200. The token stays good for about 60 minutes, because `accessTokenTtl` is 3600 seconds here. Nothing shortens that. If you use offline mode, set `accessTokenTtl` to a few minutes. The script then sends the same token to the live module, which refuses it.
+**Offline.** A third module with `mode: "offline"` checks the signature and `exp` and nothing else. The script revokes, waits 1.5 seconds, and the call still answers 200. The token stays good for about 60 minutes, because `accessTokenTtl` is 3600 seconds here. Nothing shortens that, and a server in this mode would not see a revoked parent token, agent or user either, unless the handler calls `revalidate()`. If you use offline mode, set `accessTokenTtl` to a few minutes. The script then sends the same token to the live module, which refuses it.
 
 Pick the mode by what a stale answer costs. The table in [MCP token revocation](/mcp-revocation#freshness-modes) has the numbers.
 
@@ -160,7 +161,7 @@ The listed server `orders-api` gets `{"active":false,"theauth_inactive_reason":"
     scope                mcp:read
     sub (the user)       alice
     act chain            sub-agent app (OAuth client bound to the sub-agent) (outermost is the current actor)
-    agent_id             assistant
+    agent_id             sub-agent
     theauth_dlg.agt      assistant, sub-agent
     theauth_dlg.lnk      the delegation above
 
@@ -207,6 +208,10 @@ IDs and timestamps are left out, so two runs print the same text. The cached ste
 
 ## Where this stops
 
+- Offline mode trusts the token until `exp`. Cached mode has the poll delay you saw in step 7a.
+- Banning or deleting a user, and signing out everywhere, revoke that user's tokens too, and the token endpoint refuses their refresh tokens and authorization codes. Signing out does not delete refresh token families. The live check at the token endpoint is what stops the refresh.
+- `client_credentials` and `jwt-bearer` tokens are not covered by the user and client watermarks, because those grants do not read the revocation table before minting. Agent bound tokens are still refused once the agent is revoked.
+- The authorization code path does not yet refuse a client that an admin bound to another user's agent. This is an open policy decision.
 - A request that passed validation before the revoke commits finishes. For long handlers, call `principal.session.revalidate()` between steps.
 - A server that verifies the JWT itself, or caches introspection answers, sees the revoke when that cache ends or the token expires.
 - The raw token in the script is a bearer token. Revocation does not stop replay while the token is live. [DPoP](/dpop) does.

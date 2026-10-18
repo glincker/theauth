@@ -6,7 +6,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 
 ## Docs
 
-- [theAuth](https://docs.theauth.dev/): Open-source auth for AI agents and humans. Agent identity, permissions, delegation, audit and MCP OAuth, plus 14 human auth methods and 48 OAuth providers, in one TypeScript SDK.
+- [theAuth](https://docs.theauth.dev/): Open-source auth for AI agents and humans. Agent identity, permissions, delegation, audit and MCP OAuth, plus human sign in and 48 OAuth providers, in one TypeScript SDK.
 - [Core concepts](https://docs.theauth.dev/concepts): The mental model you need before touching code. Agents, permissions, delegation, audit, trust, MCP.
 - [Quickstart](https://docs.theauth.dev/quickstart): Two five-minute tracks. Add agent auth (identity, permissions, audit) or human auth (email and password), or both. Scaffold a Next.js SaaS with one command.
 - [Dev mode: local agent auth server in one command](https://docs.theauth.dev/dev-mode): Start a local theAuth server with npx theauth dev. It seeds a demo user, two agents, a delegation and a policy check in under a minute.
@@ -135,6 +135,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Delegate a scoped token to an agent and revoke it](https://docs.theauth.dev/tutorials/agent-delegation-e2e): Walk through a user delegating a read-only token to an agent, an MCP server verifying it, a denied out-of-scope call, the audit trail, and revocation. Runnable TypeScript.
 - [Find and remove unused permissions from an AI agent](https://docs.theauth.dev/tutorials/remove-unused-agent-permissions): Replay recorded decisions to see which agent grants were never used, propose a smaller set, and preview what it would deny. Runnable TypeScript.
 - [Prove what your AI agent did without sharing your database](https://docs.theauth.dev/tutorials/verifiable-agent-receipts): Sign a checkpoint of your agent audit log, mint a receipt for one decision, and let a counterparty verify it offline with a public key. Runnable TypeScript.
+- [Revoke an agent's MCP access and watch it fail on the next request](https://docs.theauth.dev/tutorials/live-revocation): Delegate a read only MCP token to a sub-agent, call a tool, get denied, revoke the parent delegation, and see the same token rejected at once. Then compare cached and offline freshness. Runnable TypeScript.
 - [MCP OAuth 2.1](https://docs.theauth.dev/mcp): Configure theAuth as an OAuth 2.1 authorization server for the Model Context Protocol. Implements PKCE S256, RFC 9728, RFC 8414, RFC 8707, and RFC 7591.
 - [MCP server grants](https://docs.theauth.dev/mcp-grants): Enable client_credentials, RFC 8693 token exchange, jwt-bearer (ID-JAG) and private_key_jwt client authentication on the MCP authorization server.
 - [MCP token revocation](https://docs.theauth.dev/mcp-revocation): How revoking a delegation, an agent, a session or a token reaches MCP access tokens, the three freshness modes, the introspection endpoint, and where revocation stops short.
