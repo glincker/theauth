@@ -22,7 +22,7 @@ export default function HomePage() {
 		>
 			<h1 style={{ fontSize: "2.5rem", fontWeight: 700, margin: 0 }}>__APP_NAME__</h1>
 			<p style={{ color: "#888", margin: 0, maxWidth: "40ch" }}>
-				Built on TheAuth &mdash; agent-first auth for the modern web.
+				Built on TheAuth: agent-first auth for the modern web.
 			</p>
 
 			<div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center" }}>

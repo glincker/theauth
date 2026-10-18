@@ -12,7 +12,8 @@ import { startDashboardServer } from "./dashboard-server.js";
 import { runDbCommand } from "./db-commands.js";
 import { startDemoServer } from "./demo-server.js";
 import { DEV_HELP, parseDevArgs, runDev } from "./dev-command.js";
-import { runInit } from "./init.js";
+import { runDoctor } from "./doctor-live.js";
+import { formatInit, INIT_HELP, parseInitArgs, runInit } from "./init.js";
 import { MIGRATE_HELP, parseMigrateArgs, runMigrate } from "./migrate-commands.js";
 import { runPolicyCommand } from "./policy-commands.js";
 import {
@@ -24,11 +25,9 @@ import {
 import {
 	COMPLETIONS_HELP,
 	DOCTOR_HELP,
-	formatDoctor,
 	parseDoctorArgs,
 	parseSecretArgs,
 	renderCompletions,
-	runDoctorChecks,
 	runSecret,
 	SECRET_HELP,
 } from "./tools-commands.js";
@@ -46,7 +45,7 @@ Usage:
   theauth <command> [options]
 
 Commands:
-  init          Initialize TheAuth in your project (--agent for coding assistants)
+  init          Set up TheAuth: server file, owner user, demo agent (--agent for coding assistants)
   add           Copy UI components into your project as source (shadcn style)
   mcp           Start the stdio MCP server for coding assistants
   migrate       Move users from Auth0, Keycloak, Clerk and more (plan, import, verify, status)
@@ -61,7 +60,7 @@ Commands:
   policy        Test policy suites against explain(): theauth policy test <suite>
   simulate      Ask what an agent could do, no side effects (--json)
   permissions   Show an agent's effective permissions (--json)
-  doctor        Check your setup for common mistakes (--json)
+  doctor        Check your setup and a running server (--live <url>, --json)
   secret        Generate random secrets (--env NAME, --json)
   completions   Print shell completions (bash, zsh, fish)
   version      Show version
@@ -72,7 +71,9 @@ Options:
 
 Examples:
   theauth init
+  theauth init --framework hono --yes
   theauth init --agent --target claude,cursor
+  theauth doctor --live http://localhost:3000/api/theauth
   theauth dev
   theauth mcp
   theauth migrate
@@ -92,7 +93,7 @@ function printHelp(): void {
 async function handleInit(): Promise<void> {
 	const rest = argv.slice(3);
 	if (rest.includes("--help") || rest.includes("-h")) {
-		stdout.write(INIT_AGENT_HELP);
+		stdout.write(rest.includes("--agent") ? INIT_AGENT_HELP : INIT_HELP);
 		return;
 	}
 	if (rest.includes("--agent")) {
@@ -108,13 +109,19 @@ async function handleInit(): Promise<void> {
 		if (parsed.options.dryRun) stdout.write("Dry run: no files were written.\n");
 		return;
 	}
-	const result = await runInit();
-	if (!result.success) {
-		if (result.error.code !== "ABORTED") {
-			stdout.write(`\nInit failed: ${result.error.message}\n`);
-			exit(1);
-		}
+	const parsed = parseInitArgs(rest, process.cwd());
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${INIT_HELP}`);
+		exit(1);
+		return;
 	}
+	const result = await runInit(parsed);
+	if (!result.success) {
+		stdout.write(`\nInit failed: ${result.error.message}\n`);
+		exit(1);
+		return;
+	}
+	stdout.write(formatInit(result));
 }
 
 async function handleMigrateCommand(): Promise<void> {
@@ -262,7 +269,7 @@ function handleSecret(): void {
 	stdout.write(runSecret(parsed));
 }
 
-function handleDoctor(): void {
+async function handleDoctor(): Promise<void> {
 	const parsed = parseDoctorArgs(argv.slice(3), process.cwd());
 	if (parsed.help) {
 		stdout.write(DOCTOR_HELP);
@@ -273,12 +280,7 @@ function handleDoctor(): void {
 		exit(1);
 		return;
 	}
-	const checks = runDoctorChecks({
-		env: process.env,
-		cwd: parsed.cwd,
-		nodeVersion: process.version,
-	});
-	const { text, ok } = formatDoctor(checks, parsed.json);
+	const { text, ok } = await runDoctor(parsed, process.env, process.version);
 	stdout.write(text);
 	if (!ok) exit(1);
 }
@@ -369,7 +371,7 @@ async function main(): Promise<void> {
 			await handleCodemod();
 			break;
 		case "doctor":
-			handleDoctor();
+			await handleDoctor();
 			break;
 		case "secret":
 			handleSecret();

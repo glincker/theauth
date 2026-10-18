@@ -1,3 +1,7 @@
-# Local secrets for `wrangler dev`. Copy to .dev.vars (git-ignored).
-# Use a random string of 32 or more characters.
+# Local secrets for `wrangler dev`. create-theauth-app copied this to .dev.vars
+# (git-ignored) with generated values. Use random strings of 32 or more characters.
 SESSION_SECRET=
+# Bearer key for the management routes under /api.
+ADMIN_API_KEY=
+# Email of the user that owns agents you create.
+OWNER_EMAIL=owner@example.com

@@ -7,7 +7,6 @@
 import { serve } from "@hono/node-server";
 import { theAuthHono } from "@glinr/theauth-hono";
 import { Hono } from "hono";
-import { users } from "@glinr/theauth";
 import type { McpAccessToken, McpAuthModule, McpAuthorizationCode, McpClient } from "@glinr/theauth/mcp";
 import { createMcpModule } from "@glinr/theauth/mcp";
 
@@ -17,34 +16,27 @@ import { MCP_TOOLS } from "./tools.js";
 
 const PORT = Number(process.env["PORT"] ?? 3001);
 const BASE_URL = process.env["BASE_URL"] ?? `http://localhost:${PORT}`;
-const SIGNING_SECRET =
-	process.env["MCP_SIGNING_SECRET"] ?? "dev-mcp-signing-secret-at-least-32-chars-ok";
+const OWNER_EMAIL = process.env["OWNER_EMAIL"] ?? "owner@example.com";
+const SIGNING_SECRET = process.env["MCP_SIGNING_SECRET"] ?? "";
 
-// In-memory MCP stores. In production, back these with your database or a
-// cache layer. These are here so the scaffolded template boots without extra
-// setup.
+// In-memory MCP stores: registered clients, codes and tokens vanish on restart.
+// The auth data itself (users, agents, audit) is stored in the database file.
+// Database backed MCP stores are not available yet, so this part of the template
+// keeps the in-memory maps. Back them with your own database before production.
 const clients = new Map<string, McpClient>();
 const authCodes = new Map<string, McpAuthorizationCode>();
 const tokens = new Map<string, McpAccessToken>();
 const refreshTokenIndex = new Map<string, string>();
 
 async function main(): Promise<void> {
+	if (SIGNING_SECRET.length < 32) {
+		throw new Error("MCP_SIGNING_SECRET must be at least 32 characters. Set it in .env.");
+	}
 	const theauth = await getTheAuth();
 
-	try {
-		theauth.db
-			.insert(users)
-			.values({
-				id: "user-1",
-				email: "demo@__APP_NAME__.local",
-				name: "Demo User",
-				createdAt: new Date(),
-				updatedAt: new Date(),
-			})
-			.run();
-	} catch {
-		// Ignore on restart when the row already exists.
-	}
+	// Agents reference their owner by foreign key, so create the user first.
+	// user.create returns the existing user when the email is already there.
+	const owner = await theauth.user.create({ email: OWNER_EMAIL, name: "Owner" });
 
 	const mcp: McpAuthModule = createMcpModule({
 		config: {
@@ -84,7 +76,7 @@ async function main(): Promise<void> {
 			tokens.delete(accessToken);
 		},
 		// Replace this with a real session lookup in production.
-		resolveUserId: async () => "user-1",
+		resolveUserId: async () => owner.id,
 	});
 
 	const app = new Hono();
@@ -94,12 +86,12 @@ async function main(): Promise<void> {
 	// The management routes require the admin key (see lib/admin-auth.ts).
 	app.route("/api", theAuthHono(theauth, { mcp, authenticate: authenticateAdmin }));
 
-	// Protected tool list. Accepts either a kv_ agent token or an MCP JWT.
+	// Protected tool list. Accepts either a ta_ agent token (or a legacy kv_ one) or an MCP JWT.
 	app.get("/tools/list", async (c) => {
 		const token = c.req.header("authorization")?.replace("Bearer ", "");
 		if (!token) return c.json({ error: "Missing Authorization header" }, 401);
 
-		if (token.startsWith("kv_")) {
+		if (token.startsWith("ta_") || token.startsWith("kv_")) {
 			const result = await theauth.authorizeByToken(token, {
 				action: "read",
 				resource: "mcp:tools:list",
@@ -131,7 +123,7 @@ async function main(): Promise<void> {
 		const tool = MCP_TOOLS.find((t) => t.name === toolName);
 		if (!tool) return c.json({ error: `Unknown tool: ${toolName}` }, 404);
 
-		if (token.startsWith("kv_")) {
+		if (token.startsWith("ta_") || token.startsWith("kv_")) {
 			const result = await theauth.authorizeByToken(token, {
 				action: "execute",
 				resource: `mcp:tools:${toolName}`,
@@ -160,8 +152,8 @@ async function main(): Promise<void> {
 		c.json({
 			name: "__APP_NAME__",
 			mcp: {
-				authorization_server: `${BASE_URL}/.well-known/oauth-authorization-server`,
-				protected_resource: `${BASE_URL}/.well-known/oauth-protected-resource`,
+				authorization_server: `${BASE_URL}/api/.well-known/oauth-authorization-server`,
+				protected_resource: `${BASE_URL}/api/.well-known/oauth-protected-resource`,
 				register: `${BASE_URL}/api/mcp/register`,
 				authorize: `${BASE_URL}/api/mcp/authorize`,
 				token: `${BASE_URL}/api/mcp/token`,
@@ -172,6 +164,7 @@ async function main(): Promise<void> {
 
 	serve({ fetch: app.fetch, port: PORT }, (info) => {
 		console.log(`__APP_NAME__ listening on http://localhost:${info.port}`);
+		console.log(`Owner user id (use as ownerId when creating agents): ${owner.id}`);
 	});
 }
 

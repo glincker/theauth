@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { copyFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,13 +9,17 @@ export interface ScaffoldOptions {
 	targetDir: string;
 	template: string;
 	appName: string;
-	dbDriver: "sql.js" | "pg";
+	dbDriver: DbDriver;
 	dbUrl: string;
 }
 
-// `sql.js` backs the default `provider: "sqlite"` in @glinr/theauth, so it is
-// the driver the SQLite templates must depend on.
+/** `better-sqlite3` is a real file on disk. `sql.js` is kept for older callers. */
+export type DbDriver = "better-sqlite3" | "sql.js" | "pg";
+
+// `better-sqlite3` backs `provider: "sqlite-native"`, a database file that survives
+// restarts. The `sql.js` provider does not write its file reliably.
 const DB_PACKAGE_VERSION: Record<string, string> = {
+	"better-sqlite3": "^12.9.0",
 	"sql.js": "^1.14.1",
 	pg: "^8.13.0",
 };
@@ -72,7 +77,7 @@ export function resolveWorkspaceRanges(
 function replacePlaceholders(
 	content: string,
 	appName: string,
-	dbDriver: "sql.js" | "pg",
+	dbDriver: DbDriver,
 	dbUrl: string,
 ): string {
 	const dbPkgVersion = DB_PACKAGE_VERSION[dbDriver] ?? "*";
@@ -96,7 +101,7 @@ async function copyDir(
 	src: string,
 	dest: string,
 	appName: string,
-	dbDriver: "sql.js" | "pg",
+	dbDriver: DbDriver,
 	dbUrl: string,
 	versions: Record<string, string>,
 ): Promise<void> {
@@ -126,6 +131,31 @@ async function copyDir(
  * Exported separately from the CLI flow so tests can call it without spawning
  * a prompt session.
  */
+const GENERATED_SECRETS =
+	/^(THEAUTH_SECRET|SESSION_SECRET|ADMIN_API_KEY|MCP_SIGNING_SECRET)=[ \t]*$/gm;
+
+/** Fill the empty secret lines of an env example with fresh 32 byte random hex values. */
+export function fillSecrets(example: string): string {
+	return example.replace(
+		GENERATED_SECRETS,
+		(_line, name: string) => `${name}=${randomBytes(32).toString("hex")}`,
+	);
+}
+
+/** Write `.env` (or `.dev.vars`) from the example with generated secrets, unless it already exists. */
+async function writeEnvFromExample(targetDir: string): Promise<void> {
+	for (const [example, target] of [
+		[".env.example", ".env"],
+		[".dev.vars.example", ".dev.vars"],
+	] as const) {
+		const source = await readFile(join(targetDir, example), "utf-8").catch(() => null);
+		if (source === null) continue;
+		const exists = await stat(join(targetDir, target)).catch(() => null);
+		if (exists) continue;
+		await writeFile(join(targetDir, target), fillSecrets(source), "utf-8");
+	}
+}
+
 export async function scaffold(opts: ScaffoldOptions): Promise<void> {
 	const templatesDir = join(__dirname, "..", "templates");
 	const templateSrc = join(templatesDir, opts.template);
@@ -137,6 +167,7 @@ export async function scaffold(opts: ScaffoldOptions): Promise<void> {
 
 	const versions = await loadWorkspaceVersions();
 	await copyDir(templateSrc, opts.targetDir, opts.appName, opts.dbDriver, opts.dbUrl, versions);
+	await writeEnvFromExample(opts.targetDir);
 }
 
 export { copyFile };

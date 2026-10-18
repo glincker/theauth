@@ -1,6 +1,6 @@
 ---
 title: CLI tools
-description: theauth doctor checks your setup, theauth secret generates keys, and theauth completions installs shell completion.
+description: theauth init sets up a project, theauth doctor checks it and a running server, theauth secret generates keys, and theauth completions installs shell completion.
 icon: terminal
 ---
 
@@ -19,25 +19,90 @@ theauth add --list
 
 Options: `--dir <path>`, `--overwrite`, `--dry-run`, `--registry <dir|url>`. See [UI components](/ui-components#copy-the-source-into-your-project).
 
+## init
+
+```bash
+npx theauth init                          # asks for framework and database
+npx theauth init --framework hono --yes   # no prompts
+npx theauth init --framework nextjs --db postgres
+```
+
+Options:
+
+| Flag | Meaning |
+|------|---------|
+| `--framework` | `hono`, `express`, `nextjs`, `fastify`, `sveltekit` or `nuxt`. Default: detected from `package.json`, else `hono`. |
+| `--db` | `sqlite` (default, a file at `./theauth.db`), `postgres` or `mysql`. |
+| `--dir <path>` | Project directory. Default: the current one. |
+| `--yes` | Never prompt. Any of `--framework` or `--db` also skips the prompts. |
+| `--force` | Replace generated files that already exist. `.env` is never replaced. |
+| `--mcp` | Accepted and skipped with a note: it needs the database backed MCP stores, which are not available yet. |
+
+Files it writes, relative to the project directory:
+
+| File | Content |
+|------|---------|
+| `src/theauth.ts` | The TheAuth instance (created on first use) and the admin key check. |
+| `src/seed.ts` | Creates the owner user with `theauth.user.create`, then a `demo-agent`. Safe to run twice. |
+| `src/server.ts` | Hono, Express and Fastify: a server that seeds on boot and mounts the adapter at `/api/theauth`. |
+| route file | Next.js `app/api/theauth/[...theauth]/route.ts` (under `src/` when it exists), SvelteKit `src/routes/api/theauth/[...path]/+server.ts`, Nuxt `server/api/theauth/[...path].ts`. |
+| `.env.example` | Every variable the project reads, with empty secrets. |
+| `.env` | Generated 32 byte `THEAUTH_SECRET` and `ADMIN_API_KEY`. Only created when absent, and `.env` is added to `.gitignore`. |
+
+Re-running `init` is safe: files that exist are reported as `skipped` and left alone. It does not edit `package.json`; it prints the install command for the package manager it detected (`npm`, `pnpm`, `yarn` or `bun`). Sample output and the follow-up curl are in the [quickstart](/quickstart#fastest-start-theauth-init). `theauth init --agent` is a different mode that installs the assistant skill and MCP config.
+
 ## doctor
 
 ```bash
 npx theauth doctor
-npx theauth doctor --json   # for CI
+npx theauth doctor --json                                       # for CI
+npx theauth doctor --live http://localhost:3000/api/theauth     # also call the running server
 ```
 
 Reads the process environment plus `.env` and `.env.local` in the current directory (the process environment wins), then checks:
 
-| Check | Fails when | Warns when |
-|-------|-----------|------------|
-| Node | older than 20 | |
-| Secret | `SESSION_SECRET` is missing or under 32 characters | looks like a placeholder or has few distinct characters |
-| App URL | invalid, not https in production, or localhost in production | not set |
-| Database | | not set, or SQLite in production |
-| .env | present but not in `.gitignore` | |
-| Dependency | | `@glinr/theauth` not in `package.json` |
+| Id | Fails when | Warns when |
+|----|-----------|------------|
+| `node` | older than 20 | |
+| `secret` | `SESSION_SECRET` or `THEAUTH_SECRET` is missing or under 32 characters | looks like a placeholder or has few distinct characters |
+| `app-url` | invalid, not https in production, or localhost in production | not set |
+| `database` | | not set, or SQLite in production |
+| `gitignore` | `.env` is present but not in `.gitignore` | |
+| `dependency` | | `@glinr/theauth` not in `package.json` |
+| `core-version` | the installed core is outside an installed adapter's peer range | core is not installed yet |
+| `schema` | an applied migration was edited (checksum mismatch) | migrations are pending, the SQLite file does not exist yet, or the status could not be read |
+| `allow-unauthenticated` | `allowUnauthenticated: true` in source and `NODE_ENV=production` | `allowUnauthenticated: true` in source outside production |
+| `trusted-proxy` | | `trustedProxy` is not set in source and `NODE_ENV=production` |
 
-Exit code is 1 when any check fails. Warnings do not fail the run. With `--json` the output is `{ "ok": boolean, "checks": [{ "id", "status", "message", "fix?" }] }`.
+`schema` reads the ledger the same way [`theauth db status`](/database) does, using `DATABASE_URL` or the database in `theauth.config.mjs` when you have one. `allow-unauthenticated` and `trusted-proxy` scan your `src`, `server`, `app`, `lib` and `routes` folders.
+
+### Live mode
+
+`--live [url]` also calls the running server. Give it the URL where you mounted the handler (default `http://localhost:3000/api/theauth`; `--url` is an alias):
+
+| Id | Fails when |
+|----|-----------|
+| `live-reachable` | the server does not answer, or `GET <url>/agents` answers 404 (nothing mounted there) |
+| `live-protected-401` | `GET <url>/agents` without a token answers 2xx (the management routes are open); warns on other non-401 answers |
+| `live-mcp-metadata` | a well-known document advertises an endpoint (`authorization_endpoint`, `token_endpoint`, `registration_endpoint`, `revocation_endpoint`, `jwks_uri`) that answers 404 or does not answer |
+
+When MCP is not mounted both well-known documents answer 404 and `live-mcp-metadata` passes. Metadata that points at a different origin than the one you probe (a `BASE_URL` of `http://localhost:3001` while the server listens on 3000, for example) fails with the endpoints it could not reach.
+
+### Exit code and JSON
+
+Exit code is 1 when any check fails. Warnings do not fail the run. With `--json` the output is:
+
+```json
+{
+  "ok": true,
+  "checks": [
+    { "id": "schema", "status": "pass", "message": "Schema up to date (4 applied)" },
+    { "id": "app-url", "status": "warn", "message": "No app URL (THEAUTH_URL or APP_URL)", "fix": "Set it so redirects, cookies and OAuth callbacks use the right origin." }
+  ]
+}
+```
+
+`status` is `pass`, `warn` or `fail`; `fix` appears on non-passing checks. The shape is stable: new checks only add entries, so key on `id` and ignore ids you do not know. A check is left out when it does not apply (no `DATABASE_URL`, no adapter in source, no `--live`).
 
 ## secret
 

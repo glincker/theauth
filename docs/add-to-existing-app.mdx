@@ -25,6 +25,35 @@ theAuth does not replace your human auth. It runs alongside it. This guide assum
   </Card>
 </CardGroup>
 
+<Tip>
+Want the files below generated for you? Run `npx theauth init --framework nextjs` (or `hono`, `express`, `fastify`, `sveltekit`, `nuxt`) in your project. It writes `src/theauth.ts`, a seed script that creates the owner user and a demo agent, the route file, and a `.env` with generated secrets, then prints the install command for your package manager and a `curl` against the mounted routes. For Next.js it detects an existing `src/` folder and writes `src/app/api/theauth/[...theauth]/route.ts` (or `app/...` without one):
+
+```text title="npx theauth init --yes (Next.js, pnpm)"
+created     src/theauth.ts
+created     src/seed.ts
+created     src/app/api/theauth/[...theauth]/route.ts
+created     .env.example
+created     .gitignore
+created     .env (generated secrets, gitignored)
+
+Next steps
+
+  1. Install dependencies:
+       pnpm add @glinr/theauth @glinr/theauth-nextjs better-sqlite3 zod
+       pnpm add -D tsx
+  2. Create the owner user and a demo agent:
+       pnpm exec tsx --env-file=.env src/seed.ts
+  3. Start your app:
+       pnpm dev
+  4. List agents through the mounted routes:
+       curl -s -H "Authorization: Bearer $(grep '^ADMIN_API_KEY=' .env | cut -d= -f2)" http://localhost:3000/api/theauth/agents
+  5. Check the setup, including the running server:
+       theauth doctor --live http://localhost:3000/api/theauth
+```
+
+The generated `authenticate` checks a bearer `ADMIN_API_KEY`. In an app that already has human auth, replace it with your own check as shown in step 3. Re-running `init` never overwrites a file that exists.
+</Tip>
+
 ## Steps
 
 <Steps>

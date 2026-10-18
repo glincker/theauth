@@ -88,11 +88,22 @@ export const DOCTOR_HELP = `
 theauth doctor
 
 Usage:
-  theauth doctor [--json] [--cwd <dir>]
+  theauth doctor [--json] [--cwd <dir>] [--live [url]] [--url <url>]
 
-Checks your setup for common mistakes: Node version, session secret strength,
-app URL, database URL, whether .env is gitignored, and whether a dependency on
-@glinr/theauth exists. Exits 1 when any check fails. Warnings do not fail.
+Checks your setup for common mistakes: Node version, secret strength, app URL,
+database URL, whether .env is gitignored, the @glinr/theauth dependency, core
+version against the adapter peer range, pending schema migrations, and unsafe
+settings (allowUnauthenticated, a missing trustedProxy in production).
+
+  --live [url]  Also call the running server at the URL where the routes are
+                mounted (default http://localhost:3000/api/theauth): routes are
+                reachable, MCP metadata only lists mounted endpoints, and a
+                protected route answers 401 without a token.
+  --url <url>   Same as giving the URL to --live.
+  --json        Print { "ok": boolean, "checks": [{ "id", "status", "message", "fix?" }] }.
+                status is pass, warn or fail. New checks only add entries.
+
+Exits 1 when any check fails. Warnings do not fail.
 `;
 
 export type CheckStatus = "pass" | "warn" | "fail";
@@ -127,7 +138,7 @@ export function parseDotenv(text: string): Record<string, string> {
 	return out;
 }
 
-function loadEnv(
+export function loadEnv(
 	cwd: string,
 	base: Record<string, string | undefined>,
 ): Record<string, string | undefined> {
@@ -294,21 +305,33 @@ export function runDoctorChecks(input: DoctorEnv): DoctorCheck[] {
 
 export interface DoctorOptions {
 	json: boolean;
+	/** Base URL to probe, or null to skip the live checks. */
+	live: string | null;
 	cwd: string;
 	help: boolean;
 	error: string | null;
 }
 
 export function parseDoctorArgs(args: string[], defaultCwd: string): DoctorOptions {
-	const out: DoctorOptions = { json: false, cwd: defaultCwd, help: false, error: null };
+	const out: DoctorOptions = { json: false, live: null, cwd: defaultCwd, help: false, error: null };
+	let url: string | null = null;
 	for (let i = 0; i < args.length; i++) {
 		const a = args[i] ?? "";
 		const [flag, inline] = a.split("=", 2);
 		if (a === "--json") out.json = true;
 		else if (flag === "--cwd") out.cwd = inline ?? args[++i] ?? defaultCwd;
-		else if (a === "--help" || a === "-h") out.help = true;
+		else if (flag === "--live") {
+			const next = args[i + 1];
+			if (inline !== undefined) url = inline;
+			else if (next !== undefined && /^https?:\/\//.test(next)) url = args[++i] ?? null;
+			out.live = url ?? "";
+		} else if (flag === "--url") {
+			url = inline ?? args[++i] ?? null;
+			out.live = url ?? "";
+		} else if (a === "--help" || a === "-h") out.help = true;
 		else out.error ??= `Unknown option: ${a}`;
 	}
+	if (out.live !== null) out.live = url ?? "";
 	return out;
 }
 
