@@ -47,8 +47,13 @@ export async function runVerifyGo(args: AuditArgs): Promise<AuditRunResult> {
 	let head: GoHeadResult | null = null;
 	try {
 		const rows = parseGoExport(await readFile(args.file ?? "", "utf8"));
+		const periodSecrets =
+			args.periodSecrets === null
+				? undefined
+				: (JSON.parse(await readFile(args.periodSecrets, "utf8")) as Record<string, string>);
 		r = await verifyGoAuditChain(rows, {
 			pseudonymSecret: args.secretHex ?? undefined,
+			periodSecrets,
 			allowPartialStart: args.partial,
 		});
 		if (args.head !== null && args.headKey !== null) {

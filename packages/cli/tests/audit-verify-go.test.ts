@@ -158,3 +158,56 @@ describe("audit verify-go --head", () => {
 		expect(() => parseHeadKeys("[]")).toThrow(/no public key/);
 	});
 });
+
+describe("verify-go with rotating pseudonyms", () => {
+	const fx = JSON.parse(
+		readFileSync(
+			fileURLToPath(new URL("../../core/tests/fixtures/go-e2e-head-vectors.json", import.meta.url)),
+			"utf8",
+		),
+	) as {
+		pseudonymSecretHex: string;
+		periodSecretsHex: Record<string, string>;
+		chains: { rows: unknown[] }[];
+	};
+	const file = write("rotated.json", JSON.stringify(fx.chains.flatMap((c) => c.rows)));
+
+	it("parses the flag", () => {
+		expect(
+			parseAuditArgs(["verify-go", "x.json", "--period-secrets", "p.json"]).periodSecrets,
+		).toBe("p.json");
+		expect(parseAuditArgs(["verify-go", "x.json", "--period-secrets"]).error).toMatch(
+			/needs a file/,
+		);
+	});
+
+	it("verifies a Go export with period secrets", async () => {
+		const periods = write("periods.json", JSON.stringify(fx.periodSecretsHex));
+		const out = await runVerifyGo(
+			parseAuditArgs([
+				"verify-go",
+				file,
+				"--secret-hex",
+				fx.pseudonymSecretHex,
+				"--period-secrets",
+				periods,
+				"--json",
+			]),
+		);
+		expect(out.code).toBe(0);
+		expect(JSON.parse(out.output)).toMatchObject({ ok: true, pseudonymsUnchecked: 0 });
+	});
+
+	it("flags a wrong period secret", async () => {
+		const first = Object.keys(fx.periodSecretsHex)[0] as string;
+		const periods = write(
+			"bad-periods.json",
+			JSON.stringify({ ...fx.periodSecretsHex, [first]: "00".repeat(32) }),
+		);
+		const out = await runVerifyGo(
+			parseAuditArgs(["verify-go", file, "--period-secrets", periods, "--json"]),
+		);
+		expect(out.code).toBe(1);
+		expect(JSON.parse(out.output).firstFailure.reason).toBe("pseudonym_mismatch");
+	});
+});

@@ -67,6 +67,16 @@ export interface GoChainVerifyOptions {
 	/** The installation pseudonym secret (raw bytes, or hex). Enables raw id vs pseudonym checks. */
 	pseudonymSecret?: Uint8Array | string;
 	/**
+	 * Per period secrets for rotating pseudonyms (`r1:<period>:<hex>`, Go `RotatingPseudonym`), keyed
+	 * by the period number, as a `Map` or a plain object. Values are raw bytes or hex. A rotated
+	 * pseudonym whose period has no secret here (shredded, or not supplied) is trusted as stored and
+	 * counted in `pseudonymsUnchecked`, like Go's `PseudonymKeys.Check`. A rotated pseudonym is never
+	 * compared under `pseudonymSecret`.
+	 */
+	periodSecrets?:
+		| ReadonlyMap<number | string, Uint8Array | string>
+		| Record<string, Uint8Array | string>;
+	/**
 	 * Treat the first row seen for each chain as trusted for `seq` and `prev` (verifying an export
 	 * window instead of a whole chain). Default false.
 	 */
@@ -149,7 +159,7 @@ export function goJsonString(s: string): string {
 	return `${out}"`;
 }
 
-function compareBytes(a: string, b: string): number {
+export function compareBytes(a: string, b: string): number {
 	const x = encoder.encode(a);
 	const y = encoder.encode(b);
 	const n = Math.min(x.length, y.length);
@@ -214,13 +224,61 @@ export async function goPseudonym(secret: Uint8Array, id: string): Promise<strin
 	return id === "" ? "" : hmacHex(secret, `theauth.audit.pseudonym.v1:${id}`);
 }
 
-function secretBytes(s: Uint8Array | string | undefined): Uint8Array | null {
-	if (s === undefined) return null;
-	if (typeof s !== "string") return s;
-	if (!/^(?:[0-9a-fA-F]{2})+$/.test(s)) throw new Error("pseudonymSecret string must be hex");
+const ROTATED_PREFIX = "r1:";
+const ROTATED_DOMAIN = "theauth.audit.pseudonym.v2:p";
+const INT64_MIN = -(2n ** 63n);
+const INT64_MAX = 2n ** 63n - 1n;
+
+/**
+ * Period of a rotated pseudonym, as Go `PseudonymPeriod`: the `r1:` prefix, then an int64 up to the
+ * next colon. Anything else (including `r1:abc:ff` and `r1:12`) is not rotated and is treated as a
+ * stable pseudonym, exactly as Go does.
+ */
+export function goRotatedPeriod(pseudonym: string): bigint | null {
+	if (!pseudonym.startsWith(ROTATED_PREFIX)) return null;
+	const rest = pseudonym.slice(ROTATED_PREFIX.length);
+	const colon = rest.indexOf(":");
+	if (colon < 0) return null;
+	const num = rest.slice(0, colon);
+	if (!/^[+-]?\d+$/.test(num)) return null;
+	const n = BigInt(num);
+	return n < INT64_MIN || n > INT64_MAX ? null : n;
+}
+
+/** `r1:<period>:` + hex HMAC-SHA256(periodSecret, "theauth.audit.pseudonym.v2:p<period>:" + id). */
+export async function goRotatingPseudonym(
+	secret: Uint8Array,
+	period: bigint,
+	id: string,
+): Promise<string> {
+	if (id === "") return "";
+	const p = period.toString();
+	return `${ROTATED_PREFIX}${p}:${await hmacHex(secret, `${ROTATED_DOMAIN}${p}:${id}`)}`;
+}
+
+function hexBytes(s: string, what: string): Uint8Array {
+	if (!/^(?:[0-9a-fA-F]{2})+$/.test(s)) throw new Error(`${what} string must be hex`);
 	const out = new Uint8Array(s.length / 2);
 	for (let i = 0; i < out.length; i++) out[i] = Number.parseInt(s.slice(i * 2, i * 2 + 2), 16);
 	return out;
+}
+
+function periodSecretMap(input: GoChainVerifyOptions["periodSecrets"]): Map<string, Uint8Array> {
+	const out = new Map<string, Uint8Array>();
+	if (input === undefined) return out;
+	const entries = input instanceof Map ? [...input.entries()] : Object.entries(input);
+	for (const [k, v] of entries) {
+		const key = String(k);
+		if (!/^[+-]?\d+$/.test(key)) throw new Error(`periodSecrets key ${key} is not a period number`);
+		out.set(BigInt(key).toString(), typeof v === "string" ? hexBytes(v, "periodSecrets value") : v);
+	}
+	return out;
+}
+
+function secretBytes(s: Uint8Array | string | undefined): Uint8Array | null {
+	if (s === undefined) return null;
+	if (typeof s !== "string") return s;
+	return hexBytes(s, "pseudonymSecret");
 }
 
 const str = (v: string | null | undefined): string => v ?? "";
@@ -281,6 +339,7 @@ function malformed(row: GoAuditRow): string | null {
 async function resolvePseudonyms(
 	row: GoAuditRow,
 	secret: Uint8Array | null,
+	periods: ReadonlyMap<string, Uint8Array>,
 ): Promise<{ p: Pseudonyms; erased: boolean; unchecked: boolean; missing?: string; raw: Pair[] }> {
 	const pairs: Pair[] = [
 		{ name: "actorUserId", raw: str(row.actorUserId), given: row.actorUserPseudonym },
@@ -296,7 +355,10 @@ async function resolvePseudonyms(
 		let value: string;
 		if (typeof c.given === "string") {
 			value = c.given;
-			if (c.raw !== "" && secret === null) unchecked = true;
+			if (c.raw !== "") {
+				const period = goRotatedPeriod(c.given);
+				if (period === null ? secret === null : !periods.has(period.toString())) unchecked = true;
+			}
 		} else if (c.raw === "") {
 			value = "";
 		} else if (secret !== null) {
@@ -329,7 +391,7 @@ export async function goChainPayload(
 	const problem = malformed(row);
 	if (problem) throw new Error(problem);
 	const secret = secretBytes(options.pseudonymSecret);
-	const r = await resolvePseudonyms(row, secret);
+	const r = await resolvePseudonyms(row, secret, periodSecretMap(options.periodSecrets));
 	if (r.missing) throw new Error(r.missing);
 	return payloadString(row, str(row.organizationId), row.chainSeq as number, r.p);
 }
@@ -354,6 +416,7 @@ export async function verifyGoAuditChain(
 	options: GoChainVerifyOptions = {},
 ): Promise<GoChainVerifyResult> {
 	const secret = secretBytes(options.pseudonymSecret);
+	const periods = periodSecretMap(options.periodSecrets);
 	const result: GoChainVerifyResult = {
 		ok: true,
 		checked: 0,
@@ -404,24 +467,24 @@ export async function verifyGoAuditChain(
 			return fail(seq === state.lastSeq ? "seq_duplicate" : "seq_gap", `want seq ${state.wantSeq}`);
 		}
 		if (str(row.prevHash) !== state.wantPrev) return fail("prev_hash_mismatch");
-		const ps = await resolvePseudonyms(row, secret);
+		const ps = await resolvePseudonyms(row, secret, periods);
 		if (ps.missing) return fail("missing_pseudonym_input", ps.missing);
 		if ((await sha256Hex(payloadString(row, chainKey, seq, ps.p))) !== row.hash) {
 			return fail("hash_mismatch");
 		}
-		if (secret !== null) {
-			for (const c of ps.raw) {
-				if (
-					c.raw !== "" &&
-					typeof c.given === "string" &&
-					(await goPseudonym(secret, c.raw)) !== c.given
-				) {
-					return fail("pseudonym_mismatch", c.name);
-				}
+		for (const c of ps.raw) {
+			if (c.raw === "" || typeof c.given !== "string") continue;
+			const period = goRotatedPeriod(c.given);
+			let want: string | null = null;
+			if (period !== null) {
+				const ps2 = periods.get(period.toString());
+				if (ps2) want = await goRotatingPseudonym(ps2, period, c.raw);
+			} else if (secret !== null) {
+				want = await goPseudonym(secret, c.raw);
 			}
-		} else if (ps.unchecked) {
-			result.pseudonymsUnchecked++;
+			if (want !== null && want !== c.given) return fail("pseudonym_mismatch", c.name);
 		}
+		if (ps.unchecked) result.pseudonymsUnchecked++;
 		if (ps.erased) result.erased++;
 		state.lastSeq = seq;
 		state.wantSeq = seq + 1;

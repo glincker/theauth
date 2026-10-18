@@ -17,6 +17,7 @@ Usage:
   theauth audit query [--agent <id>] [--user <id>] [--since <iso>] [--until <iso>] [--limit <n>]
                       [--provenance <kind>[:<hash>]] [--input-content <text>] [--json]
   theauth audit verify-go <export.json|export.ndjson> [--secret-hex <hex>] [--partial] [--json]
+                          [--period-secrets <periods.json>]
                           [--head <head.json> --head-key <public-key.json>]
 
 Options:
@@ -44,6 +45,9 @@ in theauth-go) against the exported rows, which catches rows cut off the end of 
 chain. --head-key is the Ed25519 public key file: {"keyId", "publicKey": {"kty",
 "crv", "x"}}, a list of those, or {"keys": [...]}. The export must reach the signed
 seq of every chain, so do not combine --head with a window that stops early.
+--period-secrets is a JSON object {"<period>": "<hex secret>"} for the rotating
+pseudonyms (r1:<period>:<hex>) theauth-go writes when audit pseudonym rotation is on.
+A period missing from the file (shredded) is trusted as stored.
 `;
 
 export interface AuditArgs {
@@ -52,6 +56,7 @@ export interface AuditArgs {
 	file: string | null;
 	secretHex: string | null;
 	partial: boolean;
+	periodSecrets: string | null;
 	head: string | null;
 	headKey: string | null;
 	agent: string | null;
@@ -89,6 +94,7 @@ export function parseAuditArgs(args: string[]): AuditArgs {
 		file: null,
 		secretHex: null,
 		partial: false,
+		periodSecrets: null,
 		head: null,
 		headKey: null,
 		agent: null,
@@ -134,6 +140,10 @@ export function parseAuditArgs(args: string[]): AuditArgs {
 				break;
 			case "--secret-hex":
 				out.secretHex = value() ?? null;
+				break;
+			case "--period-secrets":
+				out.periodSecrets = value() ?? null;
+				if (!out.periodSecrets) out.error = "--period-secrets needs a file path";
 				break;
 			case "--head":
 				out.head = value() ?? null;

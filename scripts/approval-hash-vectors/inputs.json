@@ -1,0 +1,317 @@
+{
+  "note": "Inputs for the approval hash cross language check. argumentsJson is raw JSON text; null means no arguments.",
+  "cases": [
+    {
+      "name": "simple",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"amount\":10,\"to\":\"alice\"}"
+    },
+    {
+      "name": "empty_object",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{}"
+    },
+    {
+      "name": "null_arguments",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "null"
+    },
+    {
+      "name": "key_order_nested",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"b\":{\"z\":1,\"a\":{\"y\":2,\"x\":3}},\"a\":[{\"d\":1,\"c\":2}]}"
+    },
+    {
+      "name": "unicode_bmp",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"name\":\"caf\u00e9 Zo\u00eb \u65e5\u672c\u8a9e\"}"
+    },
+    {
+      "name": "unicode_astral_value",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"emoji\":\"\\ud83d\\ude00 ok\"}"
+    },
+    {
+      "name": "key_order_astral_vs_bmp_top",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"\\ud83d\\ude00\":1,\"\\uffff\":2,\"a\":3}"
+    },
+    {
+      "name": "key_order_astral_vs_bmp_nested",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":{\"\\ud83d\\ude00\":1,\"\\ue000\":2}}"
+    },
+    {
+      "name": "html_chars",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"q\":\"<script>a&b</script>\"}"
+    },
+    {
+      "name": "html_chars_in_key",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"<k>&\":1}"
+    },
+    {
+      "name": "line_separators",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"s\":\"a\\u2028b\\u2029c\"}"
+    },
+    {
+      "name": "control_chars",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"s\":\"a\\tb\\nc\\rd\\u0001e\\u0008f\\u000cg\\u001fh\\u007fi\"}"
+    },
+    {
+      "name": "quote_backslash",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"s\":\"say \\\"hi\\\" \\\\ path\"}"
+    },
+    {
+      "name": "slash",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"s\":\"a/b\"}"
+    },
+    {
+      "name": "lone_surrogate_value",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"s\":\"x\\ud800y\"}"
+    },
+    {
+      "name": "lone_low_surrogate_value",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"s\":\"x\\udc00y\"}"
+    },
+    {
+      "name": "int_small",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":0,\"m\":-5,\"k\":42}"
+    },
+    {
+      "name": "int_max_safe",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":9007199254740991}"
+    },
+    {
+      "name": "int_beyond_safe",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":9007199254740993}",
+      "numberTextCase": true
+    },
+    {
+      "name": "int_int64_max",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":9223372036854775807}",
+      "numberTextCase": true
+    },
+    {
+      "name": "int_beyond_int64",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":123456789012345678901234567890}",
+      "numberTextCase": true
+    },
+    {
+      "name": "float_simple",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":1.5,\"m\":0.1,\"k\":-2.25}"
+    },
+    {
+      "name": "float_trailing_zero",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":1.0}",
+      "numberTextCase": true
+    },
+    {
+      "name": "float_exponent_input",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":1e2}",
+      "numberTextCase": true
+    },
+    {
+      "name": "float_exponent_upper",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":1E+2}",
+      "numberTextCase": true
+    },
+    {
+      "name": "float_small",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":0.000001,\"m\":1e-7}"
+    },
+    {
+      "name": "float_small_text_form",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":1e-7}",
+      "numberTextCase": true
+    },
+    {
+      "name": "float_large",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":1e21,\"m\":123456789012345680000}",
+      "numberTextCase": true
+    },
+    {
+      "name": "float_1e20",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":100000000000000000000}",
+      "numberTextCase": true
+    },
+    {
+      "name": "float_negative_zero",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":-0}",
+      "numberTextCase": true
+    },
+    {
+      "name": "float_negative_zero_decimal",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":-0.0}",
+      "numberTextCase": true
+    },
+    {
+      "name": "float_precision",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":0.30000000000000004}"
+    },
+    {
+      "name": "float_long_digits",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"n\":3.141592653589793238462643}",
+      "numberTextCase": true
+    },
+    {
+      "name": "bool_null_values",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"a\":true,\"b\":false,\"c\":null}"
+    },
+    {
+      "name": "null_vs_absent_key",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"a\":null}"
+    },
+    {
+      "name": "absent_key",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{}"
+    },
+    {
+      "name": "array_top_values",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"a\":[1,\"two\",null,true,[],{}]}"
+    },
+    {
+      "name": "array_empty",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"a\":[]}"
+    },
+    {
+      "name": "deep_nesting",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":[1,{\"f\":2}]}}}}}"
+    },
+    {
+      "name": "reserved_top_level",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"amount\":1,\"approvalId\":\"x\",\"inputProvenance\":{\"s\":1},\"theauthHook\":\"v\",\"THEAUTH_x\":1,\"TheAuth\":2}"
+    },
+    {
+      "name": "reserved_nested_kept",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"o\":{\"approvalId\":\"x\",\"theauthHook\":\"v\"}}"
+    },
+    {
+      "name": "reserved_lookalike_kept",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"theAuthx\":0,\"the_auth\":1,\"approval\":2,\"approvalid\":3,\"inputprovenance\":4}"
+    },
+    {
+      "name": "empty_string_key",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"\":1,\"a\":2}"
+    },
+    {
+      "name": "empty_string_value",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"a\":\"\"}"
+    },
+    {
+      "name": "proto_key",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"__proto__\":{\"x\":1},\"constructor\":2}"
+    },
+    {
+      "name": "numeric_looking_keys",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"10\":1,\"9\":2,\"1\":3,\"a\":4}"
+    },
+    {
+      "name": "whitespace_in_strings",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"s\":\" a  b\\t\"}"
+    },
+    {
+      "name": "action_unicode",
+      "action": "ex\u00e9cuter",
+      "resource": "banque:<virement>&",
+      "argumentsJson": "{\"a\":1}"
+    },
+    {
+      "name": "action_resource_empty",
+      "action": "",
+      "resource": "",
+      "argumentsJson": "{\"a\":1}"
+    },
+    {
+      "name": "long_string",
+      "action": "execute",
+      "resource": "bank:transfer",
+      "argumentsJson": "{\"s\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}"
+    }
+  ]
+}

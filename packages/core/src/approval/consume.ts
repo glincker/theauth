@@ -1,5 +1,4 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
-import { canonicalJson } from "../audit/chain.js";
 import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { sha256 } from "../crypto/web-crypto.js";
 import { claimCount } from "../db/claim.js";
@@ -9,6 +8,7 @@ import type { DenialCode } from "../permission/codes.js";
 import { DECISION_CODES } from "../permission/codes.js";
 import type { AuthRequirement } from "../session/auth-context.js";
 import { ACR_ORDER, acrList } from "../session/auth-context.js";
+import { canonicalApprovalJson } from "./canonical.js";
 
 /** Reason codes returned when an approval cannot be spent. */
 export const APPROVAL_CODES = {
@@ -87,14 +87,20 @@ function stepUpCovers(
 	return true;
 }
 
-/** Canonical hash of what an approver signs off on: the action, the resource and the arguments. Absent arguments and an empty object hash the same. */
+/**
+ * Canonical hash of what an approver signs off on: the action, the resource and the arguments. Absent arguments and an empty object hash the same. The canonical form is the one theauth-go hashes (see `canonical.ts`), so the same request has the same hash in both libraries for JSON shaped arguments.
+ */
 export async function hashApprovalAction(
 	action: string,
 	resource: string,
 	args: Record<string, unknown> | null | undefined,
 ): Promise<string> {
 	return sha256(
-		canonicalJson({ action, resource, arguments: stripReservedAuditKeys(args ?? undefined) ?? {} }),
+		canonicalApprovalJson({
+			action,
+			resource,
+			arguments: stripReservedAuditKeys(args ?? undefined) ?? {},
+		}),
 	);
 }
 
