@@ -18,6 +18,7 @@ export default defineConfig({
 		"browser/index": "src/browser/index.ts",
 		"http/index": "src/http/index.ts",
 		"testing/index": "src/testing/index.ts",
+		"integrations/index": "src/integrations/index.ts",
 	},
 	format: ["esm"],
 	dts: true,

@@ -1,0 +1,115 @@
+---
+title: "LangGraph and CrewAI"
+description: "Authorize LangGraph and CrewAI tool calls over REST with POST /authorize/token, plus a small TypeScript guard for Node orchestrators."
+icon: plug
+---
+
+LangGraph and CrewAI are Python frameworks, so there is no Python package in this repo. Any process that can make an HTTP call can ask theAuth before running a tool. This page has a REST recipe for Python and a TypeScript guard, `createHttpGuard`, for Node orchestrators such as LangGraph.js.
+
+## The endpoint
+
+Mount the theAuth handler (for example at `/api/auth`) and call it with the agent bearer token.
+
+```bash
+curl -s -X POST https://YOUR_HOST/api/auth/authorize/token \
+  -H "authorization: Bearer $AGENT_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"action":"execute","resource":"tool:refund","arguments":{"amount":40}}'
+```
+
+| Status | Meaning |
+| --- | --- |
+| 200 | Allowed. Body `{ "data": { "allowed": true, "auditId": "..." } }` |
+| 401 | Bad, revoked or expired token. Body `{ "error": { "code", "message" } }` or `data.code` of `invalid_token`, `agent_revoked`, `agent_expired` |
+| 403 | Denied. Body `{ "data": { "allowed": false, "code", "reason", "auditId" } }` |
+
+`data.code` is the decision code, for example `no_permission`, `rate_limited` or `approval_required`. Treat any non 200 answer, and any network error, as a denial.
+
+## Python recipe (LangGraph)
+
+```python
+import os
+import requests
+
+AUTH_URL = os.environ["THEAUTH_URL"]  # e.g. https://YOUR_HOST/api/auth
+AGENT_TOKEN = os.environ["THEAUTH_AGENT_TOKEN"]
+
+
+def authorize(tool_name, arguments):
+    try:
+        res = requests.post(
+            f"{AUTH_URL}/authorize/token",
+            headers={"authorization": f"Bearer {AGENT_TOKEN}"},
+            json={"action": "execute", "resource": f"tool:{tool_name}", "arguments": arguments},
+            timeout=5,
+        )
+        body = res.json()
+    except Exception as exc:
+        return {"denied": True, "code": "guard_error", "reason": str(exc)}
+    data = body.get("data") or {}
+    if res.status_code == 200 and data.get("allowed") is True:
+        return None
+    return {
+        "denied": True,
+        "code": data.get("code") or (body.get("error") or {}).get("code", "guard_error"),
+        "reason": data.get("reason") or (body.get("error") or {}).get("message", "denied"),
+        "approval_required": data.get("code") == "approval_required",
+    }
+
+
+def guarded(tool_name, fn):
+    def run(**kwargs):
+        refusal = authorize(tool_name, kwargs)
+        return refusal if refusal else fn(**kwargs)
+    return run
+```
+
+With LangGraph, return the refusal dict as the tool message content so the graph continues:
+
+```python
+from langchain_core.tools import StructuredTool
+
+def refund(order_id: str, amount: float) -> dict:
+    return {"order_id": order_id, "refunded": amount}
+
+refund_tool = StructuredTool.from_function(
+    func=guarded("refund", refund), name="refund", description="Refund an order"
+)
+```
+
+## Python recipe (CrewAI)
+
+```python
+from crewai.tools import tool
+
+@tool("refund")
+def refund_tool(order_id: str, amount: float) -> str:
+    """Refund an order."""
+    refusal = authorize("refund", {"order_id": order_id, "amount": amount})
+    if refusal:
+        return f"Refused ({refusal['code']}): {refusal['reason']}"
+    return f"Refunded {amount} on {order_id}"
+```
+
+## TypeScript guard for Node orchestrators
+
+```ts
+import { createHttpGuard } from "@glinr/theauth/integrations";
+
+const guard = createHttpGuard({
+  baseUrl: process.env.THEAUTH_URL!, // e.g. https://YOUR_HOST/api/auth
+  token: () => process.env.THEAUTH_AGENT_TOKEN!,
+  timeoutMs: 5000,
+});
+
+const refund = guard.guard("refund", async (args: { orderId: string; amount: number }) => {
+  return { orderId: args.orderId, refunded: args.amount };
+});
+
+const out = await refund({ orderId: "ord_1", amount: 40 });
+// A refusal resolves to { ok: false, denied: true, toolName, code, reason, approvalRequired }.
+```
+
+Use `guard.check(toolName, args)` when you want the denial without wrapping a function: it returns `null` when allowed. The guard never throws. Network errors, timeouts and server errors resolve to a denial with code `guard_error`.
+
+Both authorize routes accept an optional `approvalId` in the body, which spends an approved request once when the action, resource and arguments match. `createHttpGuard` does not send one itself. For a retry after approval, call the route yourself with the approved id, or run the check in a Node service that holds `theauth.authorize` and use the `requestApproval` option of the [Vercel AI SDK helper](/integrations/vercel-ai-sdk).
