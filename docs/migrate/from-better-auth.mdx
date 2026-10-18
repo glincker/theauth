@@ -385,7 +385,7 @@ Set `THEAUTH_ROLLOUT=10` to start at 10%, then raise it over days as you validat
 ## FAQ
 
 **Does theAuth support all the OAuth providers better-auth has?**
-No. As of 2026-04 we ship 17 first-class providers: Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom. Any provider with a standard OAuth 2.0 authorization code flow works via the generic provider factory, but you write the config by hand. If a specific provider matters to you, open an issue.
+No. We ship 48 OAuth providers: 22 first-class (Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, Kakao, Kick, Linear, LinkedIn, Microsoft, Notion, PayPal, Reddit, Slack, Spotify, Twitch, Twitter/X, Vercel, Zoom) and 26 legacy presets (for example Auth0, Keycloak, Okta and Cognito). Any provider with a standard OAuth 2.0 authorization code flow works via the generic provider factory, but you write the config by hand. If a specific provider matters to you, open an issue.
 
 **Is Prisma supported?**
 Partly. `createTheAuth` itself takes `database: { provider, url }` and runs on Drizzle. `@glinr/theauth-prisma` gives you `createPrismaAdapter(prisma)` to read and write theAuth tables from code that already uses Prisma, it does not replace the core instance. See the [Prisma adapter docs](/prisma).

@@ -37,6 +37,8 @@ pnpm add @glinr/theauth better-sqlite3
 
 `npm install` and `yarn add` work the same way. The Node SQLite driver is `better-sqlite3`; on Bun, Deno and Workers use the matching [database provider](/database).
 
+The unscoped `theauth` package is an alias for `@glinr/theauth-cli`, so `npx theauth init` sets up agent identity and MCP OAuth 2.1 without a separate CLI install. To keep the command on your PATH, install it globally with `npm install -g theauth`.
+
 </Step>
 
 <Step>
@@ -138,7 +140,7 @@ Run it with `npx tsx agent.ts`.
 
 ## Track B: Add human auth
 
-theAuth ships 14 human auth methods and 17 OAuth providers as plugins and modules; this track uses email and password, the most common starting point. See [Authentication](/auth) for the rest.
+theAuth ships 14 human auth methods and 48 OAuth providers as plugins and modules; this track uses email and password, the most common starting point. See [Authentication](/auth) for the rest.
 
 <Steps>
 

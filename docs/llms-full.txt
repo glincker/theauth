@@ -4,7 +4,7 @@
 
 Source: https://docs.theauth.dev/
 
-**Auth for AI agents and for the humans behind them.** theAuth gives every agent its own identity, checks permissions at call time and writes an audit row for every decision. It also ships human auth: 14 methods (email and password, magic link, passkeys, TOTP and more) and 17 OAuth providers. Use either half alone, or both. Runs on Node, edge, Workers, Deno and Bun.
+**Auth for AI agents and for the humans behind them.** theAuth gives every agent its own identity, checks permissions at call time and writes an audit row for every decision. It also ships human auth: 14 methods (email and password, magic link, passkeys, TOTP and more) and 48 OAuth providers. Use either half alone, or both. Runs on Node, edge, Workers, Deno and Bun.
 
 <Note>Building in Go? See the [theAuth Go library docs](/go/getting-started/overview).</Note>
 
@@ -365,16 +365,18 @@ pnpm add @glinr/theauth better-sqlite3
 
 `npm install` and `yarn add` work the same way. The Node SQLite driver is `better-sqlite3`; on Bun, Deno and Workers use the matching [database provider](/database).
 
+The unscoped `theauth` package is an alias for `@glinr/theauth-cli`, so `npx theauth init` sets up agent identity and MCP OAuth 2.1 without a separate CLI install. To keep the command on your PATH, install it globally with `npm install -g theauth`.
+
 </Step>
 
 <Step>
 
 ### Create an instance and an owner
 
-Every agent has an owner: a user ID that exists as a row in `theauth_users` (the `owner_id` column is a foreign key, so creating an agent for an unknown ID fails). Human auth in the next track creates these rows for you; if you already have users in another system, insert a row for each one you want to own agents.
+Every agent has an owner: a user ID that exists as a row in `theauth_users` (the `owner_id` column is a foreign key, so creating an agent for an unknown ID fails). Human auth in the next track creates these rows for you; if you already have users in another system, call `theauth.user.create()` for each one you want to own agents. It validates and lowercases the email, and returns the existing row if the email is already registered.
 
 ```ts title="agent.ts"
-import { createTheAuth, users } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' }, // use a file path to keep data
@@ -382,13 +384,11 @@ const theauth = await createTheAuth({
 });
 
 // Owner row. Skip this if the user came from the human auth track.
-theauth.db.insert(users).values({
-  id: 'user-123',
+const owner = await theauth.user.create({
+  id: 'user-123', // optional, generated when omitted
   email: 'owner@example.com',
   name: 'Owner',
-  createdAt: new Date(),
-  updatedAt: new Date(),
-}).run();
+});
 ```
 
 </Step>
@@ -468,7 +468,7 @@ Run it with `npx tsx agent.ts`.
 
 ## Track B: Add human auth
 
-theAuth ships 14 human auth methods and 17 OAuth providers as plugins and modules; this track uses email and password, the most common starting point. See [Authentication](/auth) for the rest.
+theAuth ships 14 human auth methods and 48 OAuth providers as plugins and modules; this track uses email and password, the most common starting point. See [Authentication](/auth) for the rest.
 
 <Steps>
 
@@ -591,7 +591,7 @@ An agent cannot delegate permissions it does not hold itself. Attempts to escala
 Covers agent creation, authorization by ID and token, token rotation, delegation, and audit export.
 
 ```ts
-import { createTheAuth, users } from '@glinr/theauth';
+import { createTheAuth } from '@glinr/theauth';
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' },
@@ -599,10 +599,7 @@ const theauth = await createTheAuth({
 });
 
 // The owner must exist in theauth_users (see Track A, step 2)
-theauth.db.insert(users).values({
-  id: 'user-123', email: 'owner@example.com', name: 'Owner',
-  createdAt: new Date(), updatedAt: new Date(),
-}).run();
+await theauth.user.create({ id: 'user-123', email: 'owner@example.com', name: 'Owner' });
 
 // Create an agent with wildcard read on github resources
 const agent = await theauth.agent.create({
@@ -722,7 +719,7 @@ With the `@glinr/theauth-email` plugin, sign-in requires email verification by d
 
 ### "FOREIGN KEY constraint failed" when creating agents
 
-The `ownerId` must match a row in `theauth_users`. Sign the user up with the email plugin (Track B), or insert a row as shown in step 2 of Track A.
+The `ownerId` must match a row in `theauth_users`. Sign the user up with the email plugin (Track B), or create one with `theauth.user.create()` as shown in step 2 of Track A.
 
 ### Session not persisting after page reload
 
@@ -832,7 +829,7 @@ One adapter per framework. All of them share the same guard, rate limits and ses
 
 ## Social and OAuth providers
 
-40 providers ship ready to use. Each is a factory you pass to `oauth()`, with PKCE and token refresh handled for you. Anything else with an OIDC discovery document works through `genericOIDC`.
+48 providers ship ready to use. Each is a factory you pass to `oauth()`, with PKCE and token refresh handled for you. Anything else with an OIDC discovery document works through `genericOIDC`.
 
 <div className="flex flex-wrap gap-3 my-4">
   <a href="/auth/github" className="flex w-24 flex-col items-center gap-2 rounded-xl border border-zinc-200 p-3 no-underline dark:border-zinc-800"><img src="/brand-icons/works-with/github.svg" alt="" className="block dark:hidden h-8 w-8 object-contain" /><img src="/brand-icons/works-with/github-dark.svg" alt="" className="hidden dark:block h-8 w-8 object-contain" /><span className="text-xs text-center leading-tight">GitHub</span></a>
@@ -1083,14 +1080,17 @@ Pick a path that does not collide with your existing auth. `/api/theauth/*` live
 Hook into your existing post-sign-in flow. For Clerk, that is a webhook or a server action. For Auth.js, the `signIn` event. For better-auth, the `onSignIn` hook.
 
 <Warning>
-`theauth_agents.owner_id` is a foreign key to `theauth_users.id`, and `agent.create` does not create the user for you. Before the first agent, make sure a `theauth_users` row exists whose `id` is your provider's user ID (`id`, `email`, `createdAt`, and `updatedAt` are required). Otherwise the insert fails with a foreign key error.
+`theauth_agents.owner_id` is a foreign key to `theauth_users.id`, and `agent.create` does not create the user for you. Call `theauth.user.create` with your provider's user ID before the first agent. Otherwise the insert fails with a foreign key error. `create` is idempotent on email, so calling it on every sign-in is safe. If the email already belongs to a different id, it throws `USER_EMAIL_CONFLICT` instead of returning the wrong row.
 </Warning>
 
 ```ts title="wherever you create user-scoped resources"
 import { getTheAuth } from '@/lib/theauth';
 
-export async function createDefaultAgent(userId: string) {
+export async function createDefaultAgent(userId: string, email: string) {
   const theauth = await getTheAuth();
+
+  // Ensures the owner row exists. Returns the existing row on later calls.
+  await theauth.user.create({ id: userId, email });
 
   const agent = await theauth.agent.create({
     ownerId: userId,                     // stable ID from your auth provider
@@ -1294,6 +1294,7 @@ const theauth = await createTheAuth({
 <ParamField path="auth" type={`{ adapter?: AuthAdapter; session?: SessionConfig }`}>Human auth adapter and session config.</ParamField>
 <ParamField path="approval" type="ApprovalConfig">CIBA async approval flow config. See [Approval flows](/approval).</ParamField>
 <ParamField path="hooks" type="TheAuthHooks">Lifecycle hooks for sandboxing and custom validation. See [Hooks](/hooks).</ParamField>
+<ParamField path="hookSafety" type="HookSafetyConfig">Timeout and failure policy for `beforeAuthorize` and `beforeAgentCreate`. Defaults: 2000 ms, deny on timeout or error for `beforeAuthorize`, throw for `beforeAgentCreate`. Environment variables `THEAUTH_HOOK_TIMEOUT_MS`, `THEAUTH_HOOK_ON_TIMEOUT` and `THEAUTH_HOOK_ON_ERROR` set the defaults. See [Hook safety](/hooks#hook-safety-timeout-and-fail-closed).</ParamField>
 <ParamField path="policy" type="PolicyEngineConfig">Unified policy engine cache, combine strategy, and audit sampling. See [Policy engine](/policy-engine).</ParamField>
 <ParamField path="did" type="{ web?: DidWebConfig }">did:web domain and path. See [DIDs](/did).</ParamField>
 <ParamField path="plugins" type="TheAuthPlugin[]">Plugin factories such as `gdpr()`, `rateLimit()`, `twoFactor()`. See [Plugins](#plugins).</ParamField>
@@ -1749,7 +1750,7 @@ The full set of tables theAuth can create is below. Which ones exist in your dat
 | `theauth_agents` | AI agent identities (the core entity) |
 | `theauth_permissions` | Per-agent resource+action permissions with constraints |
 | `theauth_delegation_chains` | Agent-to-agent delegation records |
-| `theauth_audit_logs` | Log of every agent action |
+| `theauth_audit_logs` | Log of every agent action. The nullable `decision_code` column holds the machine-readable outcome (added in 2.0, not part of the audit hash) |
 | `theauth_rate_limits` | Per-agent call-rate counters |
 | `theauth_mcp_servers` | Registered MCP servers |
 | `theauth_sessions` | theAuth-managed human user sessions |
@@ -1768,6 +1769,12 @@ The full set of tables theAuth can create is below. Which ones exist in your dat
 | `theauth_oidc_clients`, `theauth_oidc_auth_codes`, `theauth_oidc_refresh_tokens` | OIDC provider records |
 | `theauth_rebac_resources`, `theauth_rebac_relationships` | ReBAC graph |
 | `theauth_federation_instances`, `theauth_federation_tokens` | Federation records |
+
+### Upgrading the audit table
+
+`createTables()` adds `decision_code TEXT` and the index `theauth_audit_logs_code (agent_id, decision_code)` to an existing audit table on startup, and does nothing when they already exist. Old rows keep a NULL code. If you set `database.skipMigrations: true`, run `packages/core/src/db/migrations/0002_add_audit_decision_code.sql` yourself before deploying 2.0, because the audit queries select that column. On MySQL use the prefixed index shown in the file. The column is not covered by the audit hash, so existing hash chains and the Go verifier keep verifying.
+
+`createTables()` also adds `recorded_at_ms` (`INTEGER` on SQLite, `BIGINT` on Postgres and MySQL) and the index `theauth_audit_logs_order`, and backfills existing rows from their second-resolution `timestamp` (migration `0003_add_audit_recorded_at_ms.sql`; reruns are no-ops). Audit reads order by it so rows written in the same second keep their write order. If you set `database.skipMigrations: true`, apply that file first and use the Postgres, MySQL or SQLite variants in its comments. The column is not covered by the audit hash, so existing chains and the Go verifier keep verifying.
 
 All table and column names use `snake_case`. IDs are `text`. In the SQLite schema, timestamps are stored as integers.
 
@@ -2273,9 +2280,6 @@ These are returned by the code, not invented for the docs. For the complete list
 ## Still stuck
 
 <CardGroup cols={2}>
-  <Card title="FAQ" href="/faq" icon="circle-question">
-    Short answers to the questions that come up most.
-  </Card>
   <Card title="Error codes" href="/errors" icon="triangle-exclamation">
     The full reference.
   </Card>
@@ -12654,10 +12658,10 @@ console.log(agent.token);
 <ParamField path="token" type="string">Bearer token with a `kv_` prefix. Shown once at creation, then SHA-256 hashed. Rotate to replace.</ParamField>
 <ParamField path="permissions" type="Permission[]">What this agent is allowed to do. Evaluated at every `authorize()` call.</ParamField>
 <ParamField path="status" type="'active' | 'revoked' | 'expired'">Current state. Revocation is permanent.</ParamField>
-<ParamField path="ownerId" type="string">The user who owns this agent. Must match an existing row in `theauth_users` (foreign key).</ParamField>
+<ParamField path="ownerId" type="string">The user who owns this agent. Must match an existing row in `theauth_users` (foreign key). Create the row with `theauth.user.create({ id, email })`.</ParamField>
 <ParamField path="name" type="string">Human-readable label.</ParamField>
 <ParamField path="type" type="'autonomous' | 'delegated' | 'service'">Determines how the agent acquires and uses permissions.</ParamField>
-<ParamField path="expiresAt" type="Date" default="now + agents.tokenExpiry (24h)">Optional at creation; when omitted it defaults to `agents.tokenExpiry` from now. Token validation (`authorizeByToken`) rejects an expired agent and flips its `status` to `expired`. `authorize(agentId)` only checks `status`, so it does not notice an elapsed `expiresAt` until the agent has been marked expired.</ParamField>
+<ParamField path="expiresAt" type="Date" default="now + agents.tokenExpiry (24h)">Optional at creation; when omitted it defaults to `agents.tokenExpiry` from now. Token validation (`authorizeByToken`) rejects an expired agent and flips its `status` to `expired`. `authorize(agentId)` also compares `expiresAt` to the clock, so an elapsed agent is denied with code `agent_expired` (and an audit row) even before its stored `status` flips.</ParamField>
 <ParamField path="metadata" type="Record<string, unknown>" default="{}">Arbitrary key/value pairs for your own use.</ParamField>
 
 ## Agent types
@@ -12777,9 +12781,9 @@ await theauth.agent.revoke(agentId);
 // The agent's token is rejected immediately
 ```
 
-Each attempt by a revoked or expired agent is still written to the audit log as a denied row with the reason `agent_revoked` or `agent_expired`. See [what gets recorded](/audit-trail#what-gets-recorded). `policy.evaluate()` denies a revoked, suspended or expired agent with `POLICY_AGENT_INACTIVE`. This check is pending in a changeset and is available in the next release after 1.1.2. Before it, `evaluate()` took an agent id directly and did not read the agent's status.
+Each attempt by a revoked or expired agent is still written to the audit log as a denied row with the reason `agent_revoked` or `agent_expired`. See [what gets recorded](/audit-trail#what-gets-recorded). `policy.evaluate()` denies a revoked, suspended or expired agent with `POLICY_AGENT_INACTIVE`.
 
-In the TypeScript package, `agent.revoke()` also revokes every active delegation chain the agent gave or received, and the chains downstream of them. The call returns `{ revokedDelegations }` with the chain ids, writes one `agent.cascade.revoked` audit row, and fires `onAgentRevoke`. The cascade is pending in a changeset and is available in the next release after 1.1.2. Before it, `agent.revoke()` did not touch delegation chains.
+In the TypeScript package, `agent.revoke()` also revokes every active delegation chain the agent gave or received, and the chains downstream of them. The call returns `{ revokedDelegations }` with the chain ids, writes one `agent.cascade.revoked` audit row, and fires `onAgentRevoke`.
 
 <Warning>
 Revocation is permanent. There is no un-revoke. To restore access, create a new agent.
@@ -13080,11 +13084,11 @@ console.log(chain.depth);     // 1
 console.log(chain.expiresAt); // Date
 ```
 
-<ParamField path="fromAgent" type="string">Agent ID granting the permissions. Must hold every permission being delegated.</ParamField>
+<ParamField path="fromAgent" type="string">Agent ID granting the permissions. Must hold every permission being delegated, either as its own permission or through a delegation it received.</ParamField>
 <ParamField path="toAgent" type="string">Agent ID receiving the permissions.</ParamField>
-<ParamField path="permissions" type="Permission[]">Subset of permissions to delegate. Must not exceed the fromAgent's own permissions.</ParamField>
+<ParamField path="permissions" type="Permission[]">Subset of permissions to delegate. Must not exceed what the fromAgent holds (its own permissions plus the active, unexpired delegations it received).</ParamField>
 <ParamField path="expiresAt" type="Date">When the delegation expires. After this point, the chain is no longer valid.</ParamField>
-<ParamField path="maxDepth" type="number">Highest chain depth this call may create. The new link's depth (1 for a first hop, parent depth plus 1 for a re-delegation) must be less than or equal to this value, otherwise the call throws. Default is 3. The value is not inherited by later hops: each `delegate()` call is checked against its own `maxDepth`.</ParamField>
+<ParamField path="maxDepth" type="number">Highest chain depth this link and any later link below it may reach. The new link's depth (1 for a first hop, parent depth plus 1 for a re-delegation) must be less than or equal to the effective limit, otherwise the call throws. Default is 3. The limit is inherited: a re-delegation is checked against the smaller of its own `maxDepth` and the `maxDepth` of every active delegation the parent received.</ParamField>
 
 ### Permission subset enforcement
 
@@ -13113,7 +13117,7 @@ Invalid delegations:
 
 ### Constraints carry over
 
-Constraints on the permissions you delegate are stored on the chain and enforced by `policy.evaluate()`. They are narrowed against the permission the parent holds, so a child can only be tighter:
+Constraints on the permissions you delegate are stored on the chain and enforced by `authorize()`, `authorizeByToken()` and `policy.evaluate()`. They are narrowed against the permission the parent holds, so a child can only be tighter:
 
 | Constraint | Result |
 |---|---|
@@ -13136,7 +13140,7 @@ await theauth.delegate({
 
 ### Depth limiting
 
-Each link has a depth: 1 for a delegation from an agent that did not itself receive one, otherwise the deepest active chain into the delegating agent plus 1. On every `delegate()` call the code compares the new link's depth with the `maxDepth` passed on that same call (default 3) and throws if the depth is larger. `maxDepth` is not stored as a ceiling for later hops, so to stop re-delegation you pass a small `maxDepth` on each call, and the hop that would exceed it is rejected.
+Each link has a depth: 1 for a delegation from an agent that did not itself receive one, otherwise the deepest active chain into the delegating agent plus 1. On every `delegate()` call the code computes an effective limit, the smallest of the `maxDepth` passed on that call (default 3) and the `maxDepth` stored on every active, unexpired delegation into the delegating agent, and throws if the new link's depth is larger. The effective limit is stored on the new link, so a limit set at the top of a chain holds for every hop below it. A later call can lower it, never raise it.
 
 ```typescript
 // Orchestrator → Sub (depth 1, maxDepth 2): allowed
@@ -13148,7 +13152,7 @@ await theauth.delegate({
   maxDepth: 2,
 });
 
-// Sub → SubSub (depth 2, maxDepth 2): allowed
+// Sub → SubSub (depth 2, limit min(2, 2) = 2): allowed
 await theauth.delegate({
   fromAgent: sub.id,
   toAgent: subSub.id,
@@ -13157,15 +13161,19 @@ await theauth.delegate({
   maxDepth: 2,
 });
 
-// Same call with maxDepth: 1 is rejected: depth 2 exceeds maxDepth 1
-// SubSub → anything with maxDepth: 2 is rejected: depth 3 exceeds maxDepth 2
+// Sub → anyone with maxDepth: 1 is rejected: depth 2 exceeds limit 1
+// SubSub → anyone, even with maxDepth: 10, is rejected: depth 3 exceeds the inherited limit 2
 ```
 
 The default `maxDepth` when not specified is `3`.
 
-<Warning>
-The subset check uses the delegating agent's own permissions, not the permissions it received through delegation. An agent that holds only delegated permissions (such as `sub` above, created with `permissions: []`) cannot re-delegate them: that call throws the subset error before depth is considered. Give the intermediate agent its own copy of the permissions if it must re-delegate.
-</Warning>
+<Info>
+A delegating agent can re-delegate permissions it received. The subset check runs against the agent's own permissions plus the active delegations into it, so `sub` above, created with `permissions: []`, can pass on what it was given, never more. The new link also cannot outlive the delegation it was derived from: its expiry is capped at the earliest expiry among the delegations into the parent, unless the parent's own permissions already cover the request.
+</Info>
+
+### Delegators must be live
+
+A delegation lends authority only while its delegator is live. If a delegating agent is revoked or expired (or any status other than `active`), the links it gave stop counting: the delegate loses the permissions that came through it in `authorize()`, `authorizeByToken()`, `policy.evaluate()`, `explain()`, the simulator and the live MCP check, and the chain passed to `beforeAuthorize` no longer lists it. This applies down the chain, even when no revocation cascade ran. An agent that stands on its own permissions, and a root user as delegator, are not affected, and permissions the delegate holds directly are never touched. The same filter backs token vault consent (a downstream agent cannot use a vault credential through a dead intermediate) and the policy-shrink grant list, so unused-permission suggestions ignore dead links. If a delegator's inbound links are all dead, its onward links still stand when they grant only permissions it holds directly, because that authority never came through the dead chain. Onward links that grant what it received through the dead chain stop.
 
 ### Cascading revocation
 
@@ -13254,7 +13262,7 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
     ```
   </Step>
   <Step>
-    Delegate only what the sub-agent needs, with a short expiry and a small `maxDepth` (re-delegation calls must pass a larger one, see depth limiting above).
+    Delegate only what the sub-agent needs, with a short expiry and a small `maxDepth` (later hops inherit it, see depth limiting above).
 
     ```typescript
     await theauth.delegate({
@@ -13629,6 +13637,37 @@ perms[0].actions.push('write'); // safe, does not mutate the original
 <Warning>
   Spreading directly from `permissionTemplates` gives you a reference to the original array entries. If you mutate the objects after spreading, you will modify the template. Use `getPermissionTemplate` when you need to modify entries.
 </Warning>
+
+## Typed permissions
+
+Declare a catalog with `definePermissions` and pass it as `permissions` to `createTheAuth`. The returned instance narrows `resource` and `action` on `authorize`, `authorizeByToken`, `agent.create`, `agent.update` and `delegate`, so typos become compile errors.
+
+```typescript
+import { createTheAuth, definePermissions } from '@glinr/theauth';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: ':memory:' },
+  permissions: definePermissions({
+    'mcp:github:*': ['read', 'write'],
+    'tool:file_read': ['execute'],
+  }),
+});
+
+await theauth.authorize(id, { resource: 'mcp:github:issues', action: 'read' });    // ok
+await theauth.authorize(id, { resource: 'mcp:github:issues', action: 'execute' }); // compile error
+await theauth.authorize(id, { resource: 'mcp:gitlab:issues', action: 'read' });    // compile error
+```
+
+Rules:
+
+- Actions are correlated with the pattern that covers the resource. `execute` is valid for `tool:file_read` but not for `mcp:github:issues`.
+- A trailing `*` accepts any suffix. An exact pattern accepts only that literal resource.
+- In `agent.create`, `agent.update` and `delegate`, `actions: ['*']` is always allowed.
+- A catalog entry of `'*'` makes `resource` collapse to `string` for that entry.
+- Without `permissions`, nothing changes and every value stays `string`.
+- The catalog is type level only. It is not enforced at runtime.
+
+The typed instance is a `TypedTheAuth<C>` facade. To pass it to an adapter that expects `TheAuth`, cast it: `theauth as unknown as TheAuth`. The cast is sound because the typed methods only narrow their inputs. `explain(agentId, action, resource)` is typed the same way, with `action` and `resource` correlated.
 
 ## Next steps
 
@@ -14662,7 +14701,7 @@ Source: https://docs.theauth.dev/audit
 
 ## How audit logging works
 
-Every call to `theauth.authorize()` or `theauth.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed and denied calls are both recorded (the `rate_limited` value exists in the type, but the built-in permission engine records rate limit denials as `denied`). Calls rejected before the permission engine runs, such as an unknown or revoked agent, are not logged. The SDK never updates entries; `theauth.audit.cleanup({ retentionDays })` deletes entries older than the cutoff.
+Every call to `theauth.authorize()` or `theauth.authorizeByToken()` writes an entry to the audit log, regardless of outcome. Allowed and denied calls are both recorded (the `rate_limited` value exists in the type, but the built-in permission engine records rate limit denials as `denied`). A call blocked by a `beforeAuthorize` hook, including a hook timeout or error, is logged as a denial in the agent's hash chain (see [Lifecycle hooks](/hooks#what-a-block-leaves-in-the-audit-log)). A call for a revoked or expired agent is logged too. `theauth.delegation.revoke()` writes a chained `delegation.revoke` row for each link it revokes, cascaded links included, on the delegate's chain (`resource` is `delegation:<id>`; `parameters` holds `delegationId`, `fromAgent`, `toAgent`, `revokedBy` when known, `cascade`, `cascadeFrom` and `rootDelegationId`). Revoking a link that is already revoked writes nothing. Calls for an unknown agent id or an unknown token have no agent row to attach to and are not logged. The SDK never updates entries; `theauth.audit.cleanup({ retentionDays })` deletes entries older than the cutoff.
 
 `authorize()` returns an `auditId` linking the decision to its log entry:
 
@@ -14687,13 +14726,14 @@ console.log(result.auditId); // a UUID, e.g. "7b0c1d52-..."
 <ParamField path="parameters" type={`Record<string, unknown>`}>Arguments passed to the tool at the time of the call.</ParamField>
 <ParamField path="result" type="'allowed' | 'denied' | 'rate_limited' | 'escalated'">The outcome of the check. The built-in permission engine writes `allowed` or `denied`. `policy.evaluate()` writes `escalated` when the action needs human approval. Rows also carry accountability fields such as the acting agent, the accountable human and the policy version; see [Tamper-evident audit trail](/audit-trail#fields-on-each-row).</ParamField>
 <ParamField path="reason" type="string">Free-text explanation of a denial. Absent on allowed entries.</ParamField>
+<ParamField path="code" type="DecisionCode">Machine-readable outcome, such as `allowed`, `no_permission`, `rate_limited`, `hook_denied`, `hook_timeout` or `hook_error`. Read from the nullable `decision_code` column, so it is `undefined` on rows written before that column existed. It is an index convenience, not evidence: it is not part of the audit hash, so use `reason` and the hashed fields when proving what happened.</ParamField>
 <ParamField path="durationMs" type="number">Time taken to evaluate the decision, in milliseconds.</ParamField>
 <ParamField path="tokensCost" type="number">Optional token usage. The built-in permission engine does not populate it.</ParamField>
 <ParamField path="timestamp" type="Date">When the authorization check occurred.</ParamField>
 
 ### Filtering
 
-All filter fields are optional and combinable. Results are ordered newest first. Without filters or a `limit`, the query returns every entry.
+All filter fields are optional and combinable. Results are ordered newest first. The `timestamp` column has 1 second resolution, so ordering uses the `recorded_at_ms` write-order column (strictly increasing per agent chain), then `timestamp`, `chain_seq` and `id`. Rows written in the same second always come back in write order. `recorded_at_ms` is not part of the audit hash. Without filters or a `limit`, the query returns every entry.
 
 ```typescript
 const logs = await theauth.audit.query({
@@ -14712,6 +14752,7 @@ const logs = await theauth.audit.query({
 <ParamField path="userId" type="string">Filter to all agents owned by a user.</ParamField>
 <ParamField path="since" type="Date">Include entries on or after this timestamp.</ParamField>
 <ParamField path="until" type="Date">Include entries on or before this timestamp.</ParamField>
+<ParamField path="codes" type="DecisionCode[]">Only entries whose `code` is one of these, for example `['hook_denied', 'hook_timeout', 'hook_error']` to list every hook block.</ParamField>
 <ParamField path="actions" type="string[]">Filter to specific action names. Applied after `limit` and `offset`, so a page can come back shorter than `limit`.</ParamField>
 <ParamField path="result" type="'allowed' | 'denied' | 'rate_limited'">Filter by outcome.</ParamField>
 <ParamField path="limit" type="number">Maximum entries to return. No default: all matching entries are returned when omitted.</ParamField>
@@ -14845,7 +14886,7 @@ With `agents.auditAll` on (the default), every decision about a known agent writ
 | `reason` | Written when |
 |---|---|
 | `agent_revoked` | `authorize(agentId)` or `authorizeByToken(token)` is called for a revoked agent |
-| `agent_expired` | The same calls for an agent whose status is `expired`, or whose token has passed its expiry |
+| `agent_expired` | The same calls for an agent whose status is `expired`, or whose `expiresAt` has passed, even if its stored status is still `active` |
 
 The `reason` string on the returned result is unchanged (for example `Agent "deploy-bot" is revoked`). The row stores the short code. The row never stores the token. It stores the action, resource, `arguments`, IP and user agent, like any other row, and it goes through the same writer, so with `tamperEvident` on it joins the agent's chain like any other row.
 
@@ -16611,6 +16652,8 @@ Three places differ on purpose:
 - Budget is checked only by the simulator, and only when it can tell the action would not fit: a `cost` is supplied and it is larger than what is left. `authorize()` does not look at budgets.
 - An agent whose `expiresAt` has passed but whose status is still `active` gets a warning step. `authorize()` by agent id looks at status only, so the simulator matches that and flags it instead.
 
+Delegated rules keep their `constraints` in the simulator. Earlier versions dropped them when loading stored delegation chains, so a delegated rate limit or IP allowlist could show `allow` here while `authorize()` denied. That is fixed, and the simulator now shares its evaluation walk with [`explain()`](/explain).
+
 ## Run it
 
 ```ts
@@ -16735,10 +16778,85 @@ theauth permissions agent_123
 
 `simulate` exits 0 on `allow` and 2 on anything else, so you can use it in scripts. `permissions` prints a table of resource, action, source (`own` or `delegation:<chain>`) and decision.
 
+## Explain a live decision
+
+To see why one real call would be allowed or denied, with the matched rule, the delegation link and the hook outcome, use [`theauth.explain()`](/explain). The simulator is for what-if analysis and matrices; `explain()` is for the agent as it is now.
+
 ## Limits
 
 - Time windows use the server's local clock, the same as `authorize()`. Pass `context.timestamp` to test another moment.
 - ReBAC relations and the unified policy engine's cache are not part of the simulation yet. It covers the direct permission path that `theauth.authorize()` uses.
+
+---
+
+# Explain a decision
+
+Source: https://docs.theauth.dev/explain
+
+## What it does
+
+`theauth.explain(agentId, action, resource, options?)` mirrors `theauth.authorize()` and returns the reasoning instead of just the verdict. It answers questions like "which rule let this through?", "which delegation carried it?" and "why was this denied?".
+
+It only reads. It writes no audit rows, does not increment rate limit counters, does not spend approvals, and never caches.
+
+```ts
+const result = await theauth.explain("agent_123", "read", "mcp:github:repos", {
+  context: { ip: "10.1.2.3" },
+});
+
+if (!result.success) throw new Error(result.error.message);
+const e = result.data;
+
+console.log(e.decision, e.code, e.reason);
+console.log(e.matchedGrant?.source, e.matchedGrant?.link?.delegationId);
+console.log(e.constraints);
+```
+
+The call returns a `Result`. A denial is a successful explanation (`decision: "deny"`). A database failure returns `EXPLAIN_LOAD_FAILED`, and empty input returns `EXPLAIN_INVALID_INPUT`.
+
+## Result
+
+| Field | Meaning |
+| --- | --- |
+| `decision` | `allow`, `deny` or `escalate` |
+| `allowed` | `true` only for `allow` |
+| `code` | The same [decision code](/errors) `authorize()` would return, such as `no_permission`, `rate_limited` or `hook_denied` |
+| `reason` | Human readable explanation |
+| `agent` | Id, name, owner, status and expiry. `null` when the agent does not exist (code `agent_not_found`) |
+| `delegation` | The chain from the root human to the agent, plus every inbound grant |
+| `matchedGrant` | The rule that decided, or that came closest. Includes `source` (`own` or `delegation`), `index`, `resourceMatch`, `actionMatch` and, for delegated rules, the `link` that carried it |
+| `constraints` | Checks on the matched rule, in order: rate limit, argument patterns, approval, time window, IP allowlist |
+| `attempts` | Which permission sets were tried (own, then delegated) and how each ended |
+| `hook` | Whether `beforeAuthorize` is configured, whether it ran, and what it said |
+| `trace` | The full step list, the same `TraceStep` type as the [simulator](/simulator), with a `hook` stage |
+
+## Semantics
+
+`explain()` follows `authorize()`: the first matching rule wins, own permissions are tried before delegated ones, and when both deny the own verdict stands. When a delegated rule matched but failed a constraint, `matchedGrant` and `constraints` show that rule and `reason` says so, even though the code stays the one `authorize()` returns.
+
+A rule with `requireApproval` reports `decision: "escalate"` and code `approval_required`. Explain cannot spend an approval.
+
+The unified `policy.evaluate()` engine (deny overrides, risk, taint) is not explained yet. The `engine` option is reserved for it and only accepts `"authorize"`.
+
+## Options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `arguments` | none | Tool arguments checked against `allowedArgPatterns` |
+| `context` | none | Request metadata. `ip` is checked against `ipAllowlist` |
+| `at` | now | Evaluate time windows at this instant |
+| `runHooks` | `false` | Call `beforeAuthorize` with `dryRun: true` and `source: "explain"` |
+
+## Hooks
+
+Hooks can call external services, so `explain()` skips `beforeAuthorize` unless you pass `runHooks: true`. When skipped, `hook.configured` is `true` and `hook.evaluated` is `false`, which tells you the live answer may differ.
+
+With `runHooks: true` the hook runs through the same timeout and fail-closed handling as `authorize()`. It receives `dryRun: true`, so a hook that writes records or notifies someone should check that flag and stay quiet. A deny, escalate, timeout or error from the hook is reflected in `decision`, `code` and `hook`.
+
+## Related
+
+- [Permission simulator](/simulator) for what-if overrides, matrices and access reviews
+- [Hooks](/hooks) for `beforeAuthorize` and `dryRun`
 
 ---
 
@@ -17868,6 +17986,234 @@ Step 1 shows the page result carries a `tool_output:fetch_page` label (the `user
 
 ---
 
+# Delegate a scoped token to an agent and revoke it
+
+Source: https://docs.theauth.dev/tutorials/agent-delegation-e2e
+
+An agent that can do everything its owner can do is a liability. This tutorial builds the opposite: a user hands an agent a read-only token, an MCP server checks it on every call, the agent is stopped when it reaches for a write tool, and the user can pull the plug at any time.
+
+It runs in one process with an in-memory SQLite database, no model and no API key. The full script is in [`examples/agent-delegation-e2e`](https://github.com/glincker/theauth/tree/main/examples/agent-delegation-e2e).
+
+## What you build
+
+| Step | What happens | Result |
+| --- | --- | --- |
+| 1 | The user approves an OAuth 2.1 grant, the agent narrows it | Token with `mcp:read` only |
+| 2 | The agent calls `read_report` | Allowed |
+| 3 | `explain()` says why `delete_report` is denied, then the agent calls it | Denied, 403 |
+| 4 | A `beforeAuthorize` hook sees the chain and blocks a resource | `hook_denied` audit row |
+| 5 | Read the audit log | One row per decision, in write order |
+| 6 | The user revokes the delegation | `delegation.revoke` row, next call rejected with 401 |
+
+## 1. Create the agents and the delegation
+
+Alice owns a parent agent with read and write access. She delegates read only to a child agent. The child has no permissions of its own.
+
+```typescript
+const assistant = await auth.agent.create({
+  ownerId: 'user-alice',
+  name: 'alice-assistant',
+  type: 'autonomous',
+  permissions: [{ resource: 'mcp:reports:*', actions: ['read', 'write'] }],
+});
+const reportBot = await auth.agent.create({
+  ownerId: 'user-alice',
+  name: 'report-bot',
+  type: 'delegated',
+  permissions: [],
+});
+const chain = await auth.delegate({
+  fromAgent: assistant.id,
+  toAgent: reportBot.id,
+  permissions: [{ resource: 'mcp:reports:*', actions: ['read'] }],
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  maxDepth: 1,
+});
+```
+
+The owner is created first with `auth.user.create({ id: 'user-alice', email, name })`.
+
+## 2. Configure the MCP server
+
+The OAuth server and the resource server share one `createMcpModule`. Three options matter here. `tokenExchange` lets the agent narrow its token, `delegationStore` makes the module re-check the delegation chain against live records, and `resolveActorAgentId` maps OAuth identities to agent ids.
+
+```typescript
+const mcp = createMcpModule({
+  config: {
+    enabled: true,
+    issuer: origin,
+    baseUrl: `${origin}/api/auth`,
+    resource: origin,
+    signingSecret: SIGNING_SECRET,
+    scopes: ['mcp:read', 'mcp:write'],
+    accessTokenTtl: 3600,
+    jtiDenylist: createInMemoryJtiDenylist(), // required by tokenExchange
+    tokenExchange: { enabled: true },
+    delegationStore: createDbDelegationStore(auth.db),
+    resolveActorAgentId: ({ sub, clientId }) =>
+      clientId ? agentByClient.get(clientId) : sub === OWNER_ID ? assistant.id : undefined,
+  },
+  // ...your storage callbacks
+});
+```
+
+The mapper runs on the token subject (the user, mapped to the parent agent) and on each actor (the OAuth client, mapped to the child agent). Delegation links are agent to agent, so both ends need an agent id. See [MCP OAuth 2.1](/mcp) for the full option list.
+
+## 3. Delegate the scoped token
+
+Alice approves the agent app through the authorization code flow with PKCE. That grant carries `mcp:read mcp:write`. The agent then trades it for a narrower token.
+
+```typescript
+const exchanged = await mcp.token(
+  form({
+    grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+    subject_token: granted.data.access_token,
+    subject_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+    scope: 'mcp:read',
+    resource: origin,
+  }),
+);
+```
+
+Token exchange can only narrow. Asking for a scope the subject token lacks fails with `invalid_scope`. The new token carries an `act` claim that records which client is acting for the user. See [MCP server grants](/mcp-grants).
+
+## 4. Verify on every call
+
+The MCP server checks the bearer token and the scope the tool needs before it runs anything.
+
+```typescript
+const check = await mcp.requireScopes(request, [TOOL_SCOPES[tool]]);
+if (!check.authorized) return check.response; // 401 or 403
+```
+
+`read_report` needs `mcp:read`, so it passes. `delete_report` needs `mcp:write`, so `requireScopes` returns a 403 step-up response and the tool never runs. The server writes an audit row for both outcomes with `recordAuditEvent`.
+
+Before the 403, the script asks theAuth why the write would be denied. `explain()` only reads: it writes no audit row and spends nothing.
+
+```typescript
+const why = await auth.explain(reportBot.id, 'write', 'mcp:reports:delete_report');
+if (!why.success) throw new Error(why.error.message);
+console.log(why.data.decision, why.data.code, why.data.matchedGrant);
+// deny no_permission undefined
+```
+
+The delegated rule covers read only, so no grant matches a write and `matchedGrant` is absent. See [Explain a decision](/explain).
+
+## 5. Add a hook (optional)
+
+A `beforeAuthorize` hook runs for `auth.authorize()` and receives the delegation chain behind the agent. This one logs the chain depth and denies a resource on a blocklist. Hooks fail closed: a throw or a timeout denies the call.
+
+```typescript
+const auth = await createTheAuth({
+  // ...
+  hooks: {
+    async beforeAuthorize({ delegation, resource }) {
+      console.log(`chain depth=${delegation.path.length - 1} resource=${resource}`);
+      if (BLOCKED_RESOURCES.has(resource.split(':').pop() ?? '')) {
+        return { decision: 'deny', reason: 'resource is on the example blocklist', ruleId: 'example-blocklist' };
+      }
+      return undefined;
+    },
+  },
+});
+```
+
+The blocked call returns code `hook_denied` and writes an audit row with that code. See [Lifecycle hooks](/hooks).
+
+## 6. Revoke the parent delegation
+
+```typescript
+await auth.delegation.revoke(chain.id, { revokedBy: 'user-alice' });
+```
+
+This writes a `delegation.revoke` audit row on the delegate's chain with `revokedBy` set. The agent's token has not expired and its signature is still valid. The next call is rejected anyway, because `delegationStore` finds the revoked link in the chain from the user to the agent.
+
+## Expected output
+
+```text
+> tsx src/index.ts
+
+== Setup: owner, agents and delegation
+   parent agent           alice-assistant (7d41da37-5a8...)
+   child agent            report-bot (b48d3e18-57a...)
+   delegation             8a7628c2-8b2... read on mcp:reports:*
+
+== Step 1: Alice approves a scoped OAuth grant for the agent app
+   user grant scopes      mcp:read mcp:write
+   agent token scopes     mcp:read (narrowed by token exchange)
+
+== Step 2: agent calls read_report (needs mcp:read)
+   HTTP                   200
+   result                 {"content":"[simulated] read_report ok"}
+
+== Step 3: why would delete_report be denied? (theauth.explain)
+   decision               deny (code no_permission)
+   reason                 No permission grants agent "report-bot" access to "write" on "mcp:reports:delete_report"
+   matched grant          none (no rule matches write on this resource)
+
+== Step 3b: agent calls delete_report (needs mcp:write)
+   HTTP                   403
+   result                 {"error":"insufficient scope","status":403}
+
+== Step 4: beforeAuthorize hook (optional guard on theauth.authorize)
+   [hook] source=authorize chain depth=1 resource=mcp:reports:q3
+   read q3                allowed=true
+   [hook] source=authorize chain depth=1 resource=mcp:reports:payroll
+   read payroll           allowed=false code=hook_denied
+   audit id               cd0174d0-cf6...
+
+== Audit log (write order)
+   2026-10-17T23:41:54.000Z allowed  delegation.create delegation:8a7628c2-8b21-4a3f-9d16-8f4711ef5d6c ()
+   2026-10-17T23:41:54.000Z allowed  mcp.tools.call mcp:reports:read_report (scope mcp:read granted)
+   2026-10-17T23:41:54.000Z denied   mcp.tools.call mcp:reports:delete_report (missing scope mcp:write)
+   2026-10-17T23:41:54.000Z allowed  read mcp:reports:q3 [allowed] ()
+   2026-10-17T23:41:54.000Z denied   read mcp:reports:payroll [hook_denied] (resource is on the example blocklist)
+   write order check      ok
+
+== Revocation: Alice revokes the parent delegation
+   revoked                8a7628c2-8b2...
+   HTTP                   401
+   result                 {"error":"Delegation chain is no longer valid (revoked link)","status":401}
+
+== Audit log after revocation
+   2026-10-17T23:41:54.000Z allowed  delegation.create delegation:8a7628c2-8b21-4a3f-9d16-8f4711ef5d6c ()
+   2026-10-17T23:41:54.000Z allowed  mcp.tools.call mcp:reports:read_report (scope mcp:read granted)
+   2026-10-17T23:41:54.000Z denied   mcp.tools.call mcp:reports:delete_report (missing scope mcp:write)
+   2026-10-17T23:41:54.000Z allowed  read mcp:reports:q3 [allowed] ()
+   2026-10-17T23:41:54.000Z denied   read mcp:reports:payroll [hook_denied] (resource is on the example blocklist)
+   2026-10-17T23:41:54.000Z allowed  delegation.revoke delegation:8a7628c2-8b21-4a3f-9d16-8f4711ef5d6c revokedBy=user-alice ()
+   2026-10-17T23:41:54.000Z denied   mcp.tools.call mcp:reports:read_report (token rejected: Delegation chain is no longer valid (revoked link))
+   write order check      ok
+```
+
+IDs are random and timestamps are the time of your run. The `read` rows come from `auth.authorize()`. `audit.query` returns newest first, so the script reverses it to print write order. Rows from the same second still come back in write order.
+
+## Rough edges to know about
+
+- `audit.query` returns newest first. Reverse it if you want to read a trail top to bottom.
+- Audit timestamps still have one second resolution, so rows from one run print the same time. Write order is reliable even so.
+- A rejected token has no verified session, so the example reads the `act.client_id` claim without verifying it, only to attribute the denied call in the audit log. Never use it to grant access.
+- `explain()` shows no `matchedGrant` when no rule matches at all, so the output says why a write fails but not which near miss was closest.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Delegation chains" href="/delegation">
+  Depth limits, constraints and cascading revocation.
+</Card>
+  <Card title="MCP OAuth 2.1" href="/mcp">
+  The authorization server, scopes and the live delegation check.
+</Card>
+  <Card title="MCP server grants" href="/mcp-grants">
+  Token exchange, client credentials and jwt-bearer.
+</Card>
+  <Card title="Audit trail" href="/audit">
+  Query, export and verify the audit log.
+</Card>
+</CardGroup>
+
+---
+
 # Find and remove unused permissions from an AI agent
 
 Source: https://docs.theauth.dev/tutorials/remove-unused-agent-permissions
@@ -18567,7 +18913,7 @@ On refresh, a `scope` that was not part of the original grant returns `invalid_s
 
 **Revocation and the jti denylist.** `mcp.revoke(request)` implements RFC 7009 (`POST /mcp/revoke`, client authenticated, own tokens only). Access tokens are JWTs, so revoking one only takes effect immediately if you set `config.jtiDenylist` (`createInMemoryJtiDenylist()` for a single process, or your own shared store). Without it a revoked access token stays valid until `exp`.
 
-**Live delegation check (opt in).** A token minted by token exchange carries its delegation chain in the `act` claim, and by default `validateAccessToken` trusts that claim until `exp`. Set `config.delegationStore` to re-check the chain against live records on every validation. The path is the token `sub`, then each actor from the innermost `act` out to the current actor, and every consecutive pair must have an active, unexpired link. A missing, revoked or expired link rejects the token with `INVALID_TOKEN`. Tokens without an `act` claim skip the check, and without a store nothing changes. `createDbDelegationStore` matches ids to the agent ids used in `delegation.create()`. Token exchange sets `act.sub` to the actor's user id or client id, which usually is not an agent id, so map them with `resolveActorAgentId` (below).
+**Live delegation check (opt in).** A token minted by token exchange carries its delegation chain in the `act` claim, and by default `validateAccessToken` trusts that claim until `exp`. Set `config.delegationStore` to re-check the chain against live records on every validation. The path is the token `sub`, then each actor from the innermost `act` out to the current actor, and every consecutive pair must have an active, unexpired link. A missing, revoked or expired link rejects the token with `INVALID_TOKEN`. Tokens without an `act` claim skip the check, and without a store nothing changes. `createDbDelegationStore` matches ids to the agent ids used in `theauth.delegate()`. Token exchange sets `act.sub` to the actor's user id or client id, which usually is not an agent id, so map them with `resolveActorAgentId` (below).
 
 ```typescript
 import { createDbDelegationStore } from "@glinr/theauth/mcp";
@@ -18578,7 +18924,7 @@ const mcpConfig = {
 };
 ```
 
-`createDbDelegationStore` reads the delegation chain table, so the ids it looks up must be the agent ids used in `delegation.create()`. See [Delegation](/delegation) for revoking a chain.
+`createDbDelegationStore` reads the delegation chain table, so the ids it looks up must be the agent ids used in `theauth.delegate()`. See [Delegation](/delegation) for revoking a chain.
 
 **Mapping actors to agents.** Set `resolveActorAgentId` to translate each actor before the lookup. It receives `{ sub, clientId? }` for the token subject and for every hop, and returns the agent id (or a promise of one). It works with any `delegationStore`, built in or your own.
 
@@ -18595,7 +18941,7 @@ const mcpConfig = {
 
 The check fails closed. If the mapper returns `undefined` (or an empty string) for any actor, the token is rejected with `INVALID_TOKEN` and the message `Delegation chain is no longer valid (unmapped actor)`. If the mapper throws or rejects, the token is rejected the same way with `(mapper failed)`, and `allowUnmappedActors` does not change that. Set `allowUnmappedActors: true` only if you want unmapped actors to keep their raw id and be looked up as they are. Without `resolveActorAgentId` nothing changes.
 
-The mapper also runs on the token `sub` (usually a user id), so it must return an agent id for it too, because `delegation.create()` links are agent to agent. Token exchange validates the subject token with the same check, so a mapper failure also blocks an exchange.
+The mapper also runs on the token `sub` (usually a user id), so it must return an agent id for it too, because `theauth.delegate()` links are agent to agent. Token exchange validates the subject token with the same check, so a mapper failure also blocks an exchange.
 
 <Note>
   TheAuth has no built-in link from an OAuth client or a user to an agent. The agents table has no `client_id` column and `theauth_oauth_clients` has no agent reference, and a user can own many agents, so there is no safe default mapper. Keep that mapping in your own data (for example agent `metadata` or a table of your own) and supply it through `resolveActorAgentId`.
@@ -23671,6 +24017,99 @@ export function SignInPage() {
 
 ---
 
+# UI headless
+
+Source: https://docs.theauth.dev/ui-headless
+
+`@glinr/theauth-ui-headless` ships account components with behavior and accessibility built in and no visual styling. Every user-facing string comes from a required `labels` prop, and every part carries a `data-part` attribute plus an optional `classNames` slot, so you apply your own styles (Tailwind, CSS modules or anything else). If you want ready-made styling instead, use [UI components](/ui-components).
+
+The package wraps the query hooks from `@glinr/theauth-react/query`, so it must render inside `TheAuthQueryProvider`.
+
+## What it includes
+
+| Component | What it does |
+| --- | --- |
+| `SessionList` | Lists the signed-in sessions, revokes one, or revokes all others. |
+| `ApiTokenList` | Lists personal or agent API tokens and revokes them. |
+| `MintTokenForm` | Creates a token with chosen abilities and expiry, and shows the secret once with a copy button. |
+| `AgentList`, `AgentRegisterForm` | List agents and register a new one. |
+| `DeviceApproval` | Approves or denies a device sign-in request (RFC 8628). |
+| `StepUpDialog` and `useStepUpRetry` | Asks for a password, TOTP code or passkey when the server returns `auth.recent_auth_required`, then retries the blocked action. |
+
+## Install
+
+```bash title="terminal"
+pnpm add @glinr/theauth-ui-headless @glinr/theauth-react @glinr/theauth-client @tanstack/react-query react
+```
+
+Peer dependencies are `react` (18 or newer), `@tanstack/react-query` (5 or newer), `@glinr/theauth-react` and `@glinr/theauth-client`. `npm install` and `yarn add` work the same way.
+
+## Example
+
+This page renders a session list. Clicks on revoke go through `useStepUpRetry`, so a revoke that needs fresh authentication opens the dialog and retries once the user confirms.
+
+```tsx title="app/settings/sessions.tsx"
+import { createTheAuthGoClient } from "@glinr/theauth-client";
+import { TheAuthQueryProvider } from "@glinr/theauth-react/query";
+import {
+  SessionList,
+  StepUpDialog,
+  useStepUpRetry,
+} from "@glinr/theauth-ui-headless";
+
+const client = createTheAuthGoClient({
+  baseUrl: "https://api.example.com",
+  basePath: "/auth",
+});
+
+const sessionLabels = {
+  title: "Active sessions",
+  loading: "Loading sessions",
+  empty: "No other sessions",
+  current: "This device",
+  revokeOthers: "Sign out other sessions",
+  lastSeen: (iso: string) => `Last seen ${new Date(iso).toLocaleString()}`,
+  revoke: () => "Sign out",
+  error: (code: string) => `Something went wrong (${code})`,
+};
+
+const stepUpLabels = {
+  title: "Confirm it is you",
+  methods: { password: "Password", totp: "Authenticator code", passkey: "Passkey" },
+  password: "Password",
+  totpCode: "Code",
+  passkeyPrompt: "Use your passkey to continue",
+  submit: "Confirm",
+  cancel: "Cancel",
+  error: (code: string) => `Could not verify (${code})`,
+};
+
+export function SessionSettings() {
+  const { run, dialogProps } = useStepUpRetry();
+
+  return (
+    <TheAuthQueryProvider client={client}>
+      <SessionList
+        labels={sessionLabels}
+        run={run}
+        classNames={{ item: "flex items-center gap-3 py-2", revoke: "text-sm text-red-600" }}
+      />
+      <StepUpDialog {...dialogProps} labels={stepUpLabels} />
+    </TheAuthQueryProvider>
+  );
+}
+```
+
+`labels.error(code)` receives a stable code such as `invalid_expiry` or `invalid_credentials`, so map it to your own copy. Components also set `data-error-code` on the alert element, which is useful in tests.
+
+## Related
+
+- [UI components](/ui-components) for prebuilt, Tailwind-styled forms.
+- [React](/react) for `TheAuthProvider` and the hooks these components use.
+- [Client SDK](/client-sdk) for the typed client behind `createTheAuthGoClient`.
+
+---
+
 # Publish theAuth components and MCP server
 
 Source: https://docs.theauth.dev/publishing
@@ -24680,7 +25119,7 @@ await theAuthDb.transaction(async (tx) => {
 // Mix with your own Prisma models
 await prisma.$transaction(async (tx) => {
   const theauth = createPrismaAdapter(tx);
-  await theauth.createAgent({ ... });
+  await theauth.agent.create({ ... });
   // Your own model:
   await tx.subscription.create({ data: { ... } });
 });
@@ -26292,33 +26731,134 @@ Source: https://docs.theauth.dev/hooks
 Hooks are async callbacks you register at startup. theAuth calls them at specific points in the authorization and agent lifecycle. They let you add custom logic without patching the SDK: log denials to Slack, block agents from running in unsandboxed environments, fire webhooks, or update your own database.
 
 <Warning>
-  Hooks are async. `beforeAuthorize` and `beforeAgentCreate` are awaited and can block requests by returning `{ allow: false }`; an exception thrown inside them propagates to the caller. All other hooks (`afterAuthorize`, `afterAgentCreate`, `onAgentRevoke`, `onViolation`) are fire-and-forget: theAuth does not await them and does not catch their errors, so a throw becomes an unhandled promise rejection (which can terminate a Node.js process). Wrap their bodies in `try/catch`.
+  Hooks are async. `beforeAuthorize` and `beforeAgentCreate` are awaited, run under a timeout, and can block requests by returning `{ allow: false }`. A timeout, a throw or a malformed verdict in `beforeAuthorize` denies the call by default (see [Hook safety](#hook-safety-timeout-and-fail-closed)). All other hooks (`afterAuthorize`, `afterAgentCreate`, `onAgentRevoke`, `onViolation`) are fire-and-forget: theAuth does not await them and does not catch their errors, so a throw becomes an unhandled promise rejection (which can terminate a Node.js process). Wrap their bodies in `try/catch`.
 </Warning>
 
-Authorization hooks run only for calls to `theauth.authorize()`. They do not run for `theauth.authorizeByToken()` or `theauth.policy.evaluate()`.
+`beforeAuthorize` runs for `theauth.authorize()`, `theauth.authorizeByToken()` and `theauth.policy.evaluate()` when the subject is an agent. It runs after the agent is resolved and known to be active, and before any permission is evaluated. It does not run for an unknown agent id, an invalid token, or a revoked or expired agent: those deny first. A `policy.evaluate()` call for a user-only subject (no `agentId`) has no agent, no delegation chain and no audit row, so the hook does not run. `afterAuthorize` and `onViolation` fire for `authorize()` and `authorizeByToken()`, and receive a `source` field naming the entry point.
 
 ## Available hooks
 
-<ParamField path="beforeAuthorize" type={`(context: { agentId, action, resource, arguments? }) => Promise<{ allow: boolean; reason?: string } | void>`}>Fires before every `theauth.authorize()` call. Return `{ allow: false, reason }` to block: the call returns `{ allowed: false, reason, auditId: "" }` without touching the database, so no audit row is written. Return nothing or `{ allow: true }` to proceed.</ParamField>
-<ParamField path="afterAuthorize" type={`(context: { agentId, action, resource, result }) => Promise<void>`}>Fires after authorize() completes with the final result (`{ allowed, reason?, auditId }`). It does not fire when `beforeAuthorize` blocked the call or when the agent was not found or is not active.</ParamField>
-<ParamField path="beforeAgentCreate" type={`(input: CreateAgentInput) => Promise<{ allow: boolean; reason?: string } | void>`}>Fires before `theauth.agent.create()`. Return `{ allow: false }` to reject the creation; `create()` then throws an `Error` carrying your reason.</ParamField>
+<ParamField path="beforeAuthorize" type={`(context: BeforeAuthorizeContext) => Promise<{ allow: boolean; reason?: string } | { decision: "allow" | "deny" | "escalate"; reason?: string; guard?: string; ruleId?: string; metadata?: Record<string, string | number | boolean> } | void>`}>Fires before permission evaluation for an agent that can act. Return nothing or `{ allow: true }` to proceed. Return `{ allow: false, reason }` (or `{ decision: "deny" }`) to block with code `hook_denied`. Return `{ decision: "escalate" }` to require human approval: `authorize()` returns `allowed: false` with code `approval_required`, and `policy.evaluate()` returns `decision: "escalate"` with `escalation.tier` set to `"hook"`. A hook can only narrow access: an allow never overrides a denial from the agent's own permissions.</ParamField>
+<ParamField path="afterAuthorize" type={`(context: { agentId, action, resource, source, result }) => Promise<void>`}>Fires after authorize() or authorizeByToken() completes with the final result (`{ allowed, reason?, auditId, code? }`). It does not fire when `beforeAuthorize` blocked the call or when the agent was not found or is not active.</ParamField>
+<ParamField path="beforeAgentCreate" type={`(input: CreateAgentInput) => Promise<{ allow: boolean; reason?: string } | void>`}>Fires before `theauth.agent.create()`. Return `{ allow: false }` to reject the creation; `create()` then throws a `HookBlockedError` carrying your reason. It runs under the same timeout as `beforeAuthorize`, but a timeout or a throw makes `create()` throw by default, so creation never proceeds on a broken hook unless you set `onTimeout` or `onError` to `"allow"`.</ParamField>
 <ParamField path="afterAgentCreate" type={`(agent: AgentIdentity) => Promise<void>`}>Fires after an agent is successfully created.</ParamField>
 <ParamField path="onAgentRevoke" type={`(agentId: string) => Promise<void>`}>Fires after `theauth.agent.revoke()` succeeds.</ParamField>
-<ParamField path="onViolation" type={`(violation: { type, agentId, action, resource, reason }) => Promise<void>`}>Fires when `theauth.authorize()` returns a denial (including a `beforeAuthorize` block). Budget policies are not part of `authorize()`, so they do not trigger it.</ParamField>
+<ParamField path="onViolation" type={`(violation: { type, code, agentId, action, resource, reason, source }) => Promise<void>`}>Fires when `theauth.authorize()` or `theauth.authorizeByToken()` returns a denial (including a `beforeAuthorize` block). `code` is the machine-readable denial code and `type` is its coarse grouping. Budget policies are not part of `authorize()`, so they do not trigger it.</ParamField>
 
-### Violation types
+## The beforeAuthorize context
 
-The `onViolation` hook receives a typed `type` field so you can route each category to a different handler.
+The hook receives the old fields (`agentId`, `action`, `resource`, `arguments`) plus the resolved agent and the delegation chain behind it, so a guard can decide on who the call is really for.
 
-| Type | When it fires |
-|------|---------------|
-| `permission_denied` | Default when no other category matches (for example, no permission grants the agent the action) |
-| `rate_limited` | The denial reason contains "rate" |
-| `ip_blocked` | The denial reason contains "ip" or "allowlist" (the request IP is missing or not in the permission's `ipAllowlist`) |
-| `time_restricted` | The denial reason contains "time" or "window" (outside the permission's `timeWindow`) |
-| `approval_required` | The denial reason contains "approval" (the permission has `requireApproval`) |
+```typescript
+hooks: {
+  async beforeAuthorize({ agent, delegation, source, context, dryRun, signal, action, resource }) {
+    // agent: the resolved agent, token omitted (id, ownerId, tenantId, name, type, permissions, status)
+    // delegation.rootOwnerId: the human accountable for the root of the chain
+    // delegation.path: agent ids from the root agent down to this agent
+    // delegation.links: the grant between each pair on the path, with its permissions, constraints, depth and expiry
+    // delegation.inbound: every active grant into this agent (authorize merges all of them)
+    // source: "authorize" | "authorizeByToken" | "policy.evaluate" | "explain"
+    // context: { ip?, userAgent? } when the caller passed them
+    // dryRun: true when the call comes from explain(); do not cause side effects
+    // signal: aborted when the hook times out; pass it to fetch()
+    const res = await fetch(guardUrl, { method: 'POST', body: JSON.stringify({ action, resource, root: delegation.rootOwnerId }), signal });
+    if (!res.ok) throw new Error('guard unavailable'); // denies with code hook_error by default
+    const verdict = await res.json();
+    return verdict.ok ? undefined : { decision: 'deny', reason: 'Blocked by guard' };
+  },
+}
+```
 
-The type is derived by substring matching on the denial reason text, checked in the order above. A reason that happens to contain one of those substrings, for example an agent or resource name containing "rate" or "time", can be classified as that category.
+`delegation.path` has one element when the agent is not delegated. When an agent has several inbound grants, `path` and `links` follow the oldest one, and `inbound` lists all of them. Revoked and expired grants never appear. The chain is loaded only when a `beforeAuthorize` hook is configured, so integrations without one pay nothing. A hook verdict is never cached: `policy.evaluate()` asks the hook on every call, even when the permission decision itself comes from the cache.
+
+The `reason` you return is shown to the calling agent. Do not put secrets in it.
+
+## Hook safety: timeout and fail-closed
+
+A hook that hangs would hang every authorization, and a hook that throws should not silently open the door. `beforeAuthorize` therefore runs under a timeout and denies by default when it fails.
+
+```typescript
+const theauth = await createTheAuth({
+  database,
+  hooks: { beforeAuthorize },
+  hookSafety: {
+    timeoutMs: 1500,                       // default 2000, 0 disables, clamped to 60000
+    onTimeout: 'deny',                     // 'deny' | 'allow' | 'throw'
+    onError: 'deny',                       // thrown error or malformed verdict
+    beforeAgentCreate: { onTimeout: 'throw' },
+    onHookError: ({ hook, kind, error, elapsedMs, agentId }) => metrics.increment(`hook.${hook}.${kind}`),
+  },
+});
+```
+
+| Situation | Result | Code | Reason returned to the caller |
+|-----------|--------|------|-------------------------------|
+| Hook returns deny | Denied | `hook_denied` | Your reason, else `Blocked by beforeAuthorize hook` |
+| Hook returns escalate | Denied, needs approval | `approval_required` | Your reason, else `beforeAuthorize hook requires approval` |
+| Timeout, mode `deny` | Denied | `hook_timeout` | `beforeAuthorize hook timed out after <n>ms` |
+| Error or malformed verdict, mode `deny` | Denied | `hook_error` | `beforeAuthorize hook failed` (the error text is not returned) |
+| Timeout or error, mode `allow` | Evaluation continues | Final code of the evaluation | Final reason. The audit row carries `theauthHook.outcome: "fail_open"` |
+| Mode `throw` | The call rejects | | `HookTimeoutError` (code `HOOK_TIMEOUT`) or your original error |
+
+Each setting resolves from the per-hook option (`hookSafety.beforeAuthorize`), then the top-level `hookSafety` option, then an environment variable, then the built-in default. Invalid environment values are ignored.
+
+| Setting | Environment variable | Default |
+|---------|----------------------|---------|
+| `timeoutMs` | `THEAUTH_HOOK_TIMEOUT_MS` | `2000` |
+| `onTimeout` | `THEAUTH_HOOK_ON_TIMEOUT` | `deny` for `beforeAuthorize`, `throw` for `beforeAgentCreate` |
+| `onError` | `THEAUTH_HOOK_ON_ERROR` | `deny` for `beforeAuthorize`, `throw` for `beforeAgentCreate` |
+
+For `beforeAgentCreate`, `deny` and `throw` both make `create()` throw: `deny` throws a `HookBlockedError` with the code, `throw` rethrows the original error.
+
+`onHookError` is called on every timeout and error whatever the mode. It must not throw (a throw is swallowed) and cannot change the outcome. Setting a mode to `allow` is a deliberate fail-open: every such bypass is marked in the audit row and reported to `onHookError`, so it stays visible.
+
+On a timeout the `signal` passed to the hook is aborted, so a hook that forwards it to `fetch()` stops its request. A late result from an abandoned hook is ignored.
+
+## What a block leaves in the audit log
+
+A `beforeAuthorize` block has an agent and an owner, so it writes a normal audit row in the agent's hash chain and returns that row's id as `auditId` (an empty string when `agents.auditAll` is `false`). A call for an unknown agent id or unknown token still writes nothing.
+
+| Column | Value |
+|--------|-------|
+| `result` | `denied`, or `escalated` for an escalate verdict |
+| `decision_code` | `hook_denied`, `hook_timeout`, `hook_error` or `approval_required` |
+| `reason` | The reason returned to the caller |
+| `parameters` | The call arguments plus `theauthHook: { hook, outcome, guard?, ruleId?, metadata?, elapsedMs }` |
+| `duration_ms` | How long the hook ran |
+| `subject_id`, `actor_id`, `delegation_chain` | Root owner, the agent, and the path when delegated |
+
+`outcome` is `deny`, `escalate`, `timeout`, `error` or `fail_open`. The `theauthHook` key is set by theAuth and overrides a tool argument with the same name. `metadata` is capped at 16 scalar keys with values cut to 256 characters. Query these rows with `theauth.audit.query({ codes: ['hook_denied', 'hook_timeout', 'hook_error'] })`.
+
+### Violation codes and types
+
+Every denial carries a `code` from a closed set. `onViolation` receives it as `code`, `authorize()` and `authorizeByToken()` return it as `result.code`, and `policy.evaluate()` returns it as `decision.code`. Branch on `code`, not on the `reason` text.
+
+```typescript
+import { DECISION_CODES, violationTypeOf } from '@glinr/theauth';
+
+hooks: {
+  async onViolation({ code, agentId }) {
+    if (code === DECISION_CODES.RATE_LIMITED) await alerts.warn(agentId);
+    // violationTypeOf(code) gives the coarse type
+  },
+},
+```
+
+`type` stays available and keeps the same five values. It is derived from `code` with `violationTypeOf`:
+
+| Type | Codes that map to it |
+|------|----------------------|
+| `rate_limited` | `rate_limited` |
+| `ip_blocked` | `ip_not_allowed` (the request IP is missing or not in the permission's `ipAllowlist`) |
+| `time_restricted` | `time_restricted` (outside the permission's `timeWindow`) |
+| `approval_required` | `approval_required`, `approval_invalid` |
+| `permission_denied` | every other code |
+
+A `beforeAuthorize` deny reports code `hook_denied`, so its `type` is `permission_denied` whatever the reason text says. A timeout reports `hook_timeout` and an error `hook_error`, also `permission_denied`. An escalate verdict reports `approval_required`. See [Errors](/errors#decision-codes) for the full list of codes.
+
+<Note>
+  `classifyViolation(reason)` is still exported but deprecated. It matches substrings of the reason text, so a reason that merely contains "rate" or "time" is misclassified. Use `code` and `violationTypeOf` instead.
+</Note>
 
 ## Registering hooks
 
@@ -26372,7 +26912,7 @@ const theauth = await createTheAuth({
 });
 ```
 
-The `result.auditId` links this log line to the audit entry, so you can correlate your own logs with the theAuth audit trail. When `agents.auditAll` is `false`, the permission engine returns an `auditId` but does not write a row for it. Blocked-by-hook and unknown-agent denials return an empty `auditId`. Denials for a revoked or expired agent return the id of the row that was written.
+The `result.auditId` links this log line to the audit entry, so you can correlate your own logs with the theAuth audit trail. When `agents.auditAll` is `false`, the permission engine returns an `auditId` but does not write a row for it. Unknown-agent denials return an empty `auditId`. Denials for a revoked or expired agent, and calls blocked by a `beforeAuthorize` hook, return the id of the row that was written.
 
 ## Enforcing a sandbox check
 
@@ -26393,11 +26933,11 @@ const theauth = await createTheAuth({
 });
 ```
 
-Returning `{ allow: false }` from `beforeAgentCreate` causes the `theauth.agent.create()` call to throw an `Error` whose message is the reason you provided.
+Returning `{ allow: false }` from `beforeAgentCreate` causes the `theauth.agent.create()` call to throw a `HookBlockedError` (an `Error`) whose message is the reason you provided.
 
 ## Reacting to violations
 
-The `onViolation` hook fires for every denial returned by `theauth.authorize()`, classified as described above. Use it to send alerts or update your observability platform.
+The `onViolation` hook fires for every denial returned by `theauth.authorize()` or `theauth.authorizeByToken()`, with the `code` and `type` described above. Use it to send alerts or update your observability platform.
 
 ```typescript
 const theauth = await createTheAuth({
@@ -26458,6 +26998,211 @@ discovery = createDiscoveryModule(theauth.db);
   Query the record of authorization decisions.
 </Card>
 </CardGroup>
+
+## External guards
+
+An external guard is a policy service that decides whether an agent may act, for example HOL Guard. It plugs in through `beforeAuthorize`. `guardHook` adapts a guard to that hook, so the guard only implements `check`. Timeout, default deny and audit fields come from the hook runner.
+
+```ts
+import { createTheAuth, guardHook, type ExternalGuard } from "@glinr/theauth";
+
+const holGuard: ExternalGuard = {
+  name: "hol-guard",
+  version: "1.0.0",
+  async check(input, signal) {
+    const res = await fetch("https://guard.example.com/check", {
+      method: "POST",
+      body: JSON.stringify(input),
+      signal,
+    });
+    return res.json(); // { decision: "allow" | "deny" | "escalate", reason?, ruleId?, metadata? }
+  },
+};
+
+const theauth = await createTheAuth({
+  database,
+  hooks: { beforeAuthorize: guardHook(holGuard) },
+  hookSafety: { beforeAuthorize: { timeoutMs: 1500 } },
+});
+```
+
+### What the guard receives
+
+`check(input, signal)` gets the agent (id, owner, tenant, type, name, never the token), the request (`action`, `resource`, `arguments`), the full delegation chain from the root human (`rootOwnerId`, `path`, `links` with each grant's permissions, `inbound`), the entry point (`source`), the client `ip` when known, and `dryRun`. `dryRun` is true from `explain()`, so the guard should not count or log it as a real call. The `signal` aborts at the hook timeout, so pass it to `fetch`.
+
+### Verdicts
+
+The guard returns `{ decision: "allow" | "deny" | "escalate", reason?, guard?, ruleId?, metadata? }`. `guardHook` fills `guard` with `guard.name` when the guard leaves it empty. `reason` is returned to the calling agent, so keep secrets out of it. `guard`, `ruleId` and `metadata` are written to the audit row under `parameters.theauthHook`. A guard can only narrow access: an allow never overrides theAuth's own permission checks.
+
+### Default deny
+
+A throw, a rejected promise or a malformed verdict denies with code `hook_error`. No answer within `timeoutMs` (default 2000) aborts the signal and denies with code `hook_timeout`. Failing open is possible only by setting `onTimeout: "allow"` or `onError: "allow"` in `hookSafety`, and each fail-open is recorded on the audit row.
+
+### Composing guards
+
+`composeBeforeAuthorize` runs several hooks in order with deny-overrides. The first deny short-circuits, an escalate beats allow, and a throw from any hook propagates so the whole check denies.
+
+```ts
+import { composeBeforeAuthorize, guardHook } from "@glinr/theauth";
+
+hooks: { beforeAuthorize: composeBeforeAuthorize(guardHook(holGuard), guardHook(internalRules)) }
+```
+
+---
+
+# Community integrations
+
+Source: https://docs.theauth.dev/community-integrations
+
+A community integration is a package written by someone outside the theAuth maintainers that connects theAuth to another tool. Typical examples are a policy service that decides `beforeAuthorize`, an alerting bridge that reacts to `onViolation`, or an audit exporter that forwards `afterAuthorize` results.
+
+Integrations use the public hook API from [Lifecycle hooks](/hooks). They do not patch the SDK, and they do not need access to the theAuth database.
+
+## Build one from the template
+
+The repository ships a minimal skeleton at `templates/integration-adapter/`. It contains:
+
+- `package.json` with `@glinr/theauth` as a peer dependency, so your package uses the host application's copy.
+- `src/index.ts` with a `createBeforeAuthorizeHook` factory and a placeholder `evaluate(context)` function.
+- `src/index.test.ts`, a vitest suite covering allow, deny, thrown errors, and timeouts.
+- `README.md` with registration steps.
+
+Copy the directory, rename the package, and replace `evaluate()` with your own check. Keep the factory shape so hosts can pass options such as `timeoutMs` and an injected evaluator for tests.
+
+```typescript
+import { createTheAuth } from '@glinr/theauth';
+import { createBeforeAuthorizeHook } from 'your-integration';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite', url: 'theauth.db' },
+  hooks: {
+    beforeAuthorize: createBeforeAuthorizeHook({ timeoutMs: 2000 }),
+  },
+});
+```
+
+## The contract
+
+### Hook input
+
+`beforeAuthorize` receives one object per `theauth.authorize()` call:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `agentId` | `string` | The agent making the call. |
+| `action` | `string` | The action being requested. |
+| `resource` | `string` | The resource the action targets. |
+| `arguments` | `object`, optional | Extra call arguments, when the caller provides them. |
+
+`beforeAuthorize` does not run for `theauth.authorizeByToken()` or `theauth.policy.evaluate()`.
+
+### Hook output
+
+Return one of the following:
+
+- `{ allow: true }` or nothing: the call proceeds.
+- `{ allow: false, reason: string }`: the call is blocked. theAuth returns `{ allowed: false, reason, auditId: "" }` and writes no audit row.
+
+### Failure behavior
+
+Integrations must deny by default. If your code throws, rejects, or does not settle within the host's time budget, return `{ allow: false, reason }` with a short explanation. Do not return `{ allow: true }` from a catch block.
+
+theAuth awaits `beforeAuthorize`, and an exception thrown inside it propagates to the caller. A fail-open integration can therefore turn a backend outage into unrestricted agent access. The template enforces a timeout and converts errors into denials for this reason.
+
+Other hooks (`afterAuthorize`, `onViolation`, and the rest) are fire-and-forget. Wrap their bodies in `try/catch`, because an unhandled rejection can terminate a Node.js process.
+
+## Get listed
+
+Maintainers review listings. To request one:
+
+1. Open a Discussion in [glincker/theauth](https://github.com/glincker/theauth/discussions) with the spec and fixture described below.
+2. Include a short spec: what the integration does, which hooks it uses, its failure behavior, and the package name and version.
+3. Attach a test fixture: a small script or vitest file that shows an allow case, a deny case, and an error case against your package.
+4. A maintainer reviews the spec and fixture. Accepted integrations are added to the table below.
+
+Listing does not mean theAuth maintains or audits the package. Review the code before you depend on it.
+
+## Listed integrations
+
+| Name | Maintainer | Package | Status |
+|------|------------|---------|--------|
+| _No integrations listed yet._ | | | |
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Lifecycle hooks" href="/hooks">
+  Full hook signatures, violation types, and blocking semantics.
+</Card>
+  <Card title="Event streaming" href="/event-streaming">
+  Forward authorization events to Kafka, NATS, or webhooks.
+</Card>
+</CardGroup>
+
+---
+
+# requireScope
+
+Source: https://docs.theauth.dev/require-scope
+
+`requireScope(theauth, { action, resource })` guards a route so only agents holding that permission reach your handler. It reads `Authorization: Bearer kv_...`, calls `authorizeByToken`, and either answers the request itself or continues with the agent identity attached.
+
+## Behavior
+
+| Situation | Response |
+| --- | --- |
+| No bearer token | 401 `UNAUTHORIZED` |
+| Unknown, revoked, or expired token | 401 `UNAUTHORIZED` |
+| Valid token, scope not granted | 403 `FORBIDDEN` with the denial reason in `error.message` |
+| Allowed | Handler runs with the agent identity |
+
+Errors use the same `{ "error": { "code", "message" } }` shape as the rest of the adapters. Every check is recorded in the audit trail like any other authorization.
+
+## Hono
+
+```ts
+import { Hono } from "hono";
+import { requireScope, type AgentEnv } from "@glinr/theauth-hono";
+
+const app = new Hono<AgentEnv>();
+
+app.get("/invoices", requireScope(theauth, { action: "read", resource: "invoices" }), (c) => {
+  const agent = c.get("agent");
+  return c.json({ agentId: agent.id });
+});
+```
+
+## Next.js
+
+The guard wraps a route handler. The handler receives the agent as its second argument and the route context as its third.
+
+```ts
+import { requireScope } from "@glinr/theauth-nextjs";
+
+export const GET = requireScope(theauth, { action: "read", resource: "invoices" })(
+  async (_req, agent) => Response.json({ agentId: agent.id }),
+);
+```
+
+## Express
+
+```ts
+import { getAgent, requireScope } from "@glinr/theauth-express";
+
+app.get("/invoices", requireScope(theauth, { action: "read", resource: "invoices" }), (_req, res) => {
+  res.json({ agentId: getAgent(res)?.id });
+});
+```
+
+## Options
+
+| Option | Description |
+| --- | --- |
+| `action` | Action the agent must be allowed to perform. |
+| `resource` | Resource the action applies to. |
+| `clientIp` | Optional `(request) => string \| undefined`. Supplies the caller IP for `ipAllowlist` constraints and audit rows. Behind a proxy, resolve it from a header you trust. |
+
+`requireScope` is separate from `theAuthHono`, `theAuthNextjs`, and `theAuthExpress`. It does not need the management routes or an `authenticate` resolver.
 
 ---
 
@@ -28726,6 +29471,90 @@ Start with how you want to move, then pick the guide for your current setup.
 
 ---
 
+# Upgrading to 2.0
+
+Source: https://docs.theauth.dev/upgrading-to-2
+
+This page lists behavior changes in `@glinr/theauth` 2.0 that a working 1.x integration can see. Each section says what changed and what to change in your code.
+
+## Typed decision codes
+
+`authorize()`, `authorizeByToken()` and `policy.evaluate()` now return a machine-readable `code`, and `onViolation` receives `code` next to `type`. See [Errors](/errors#decision-codes) for the list.
+
+What changed:
+
+- `PolicyDecision` has a new required field `code`. Code that builds a `PolicyDecision` by hand with an object literal must add it. `makeDecision()` fills it in from `effect` when you leave it out.
+- `AuthorizeResult.code` is optional on the type and always set by core.
+- `onViolation.type` is now derived from the code, not from substrings of the reason text. The five `type` values are unchanged, but some denials classify differently. A reason that contained "rate", "ip", "time", "window" or "approval" by accident, such as an agent named `pirate-bot`, was reported as `rate_limited` and is now `permission_denied`.
+- A `beforeAuthorize` block now reports `type: "permission_denied"` with `code: "hook_denied"`. Before, the type came from words in your hook's reason string.
+- When a delegated permission fails with an approval problem, `authorize()` reports that failure instead of the agent's own denial. This now includes the case where the delegated permission requires approval and no approval id was given. Before, only a failed approval id was preferred.
+- `classifyViolation()` is deprecated. It still works with its old logic.
+
+What to do:
+
+- Replace checks on `reason` text with checks on `result.code` or the `code` passed to `onViolation`.
+- Replace `classifyViolation(reason)` with `violationTypeOf(code)`.
+- If you route alerts on `type`, review the cases above.
+
+## beforeAuthorize runs later, with more context, and covers every entry point
+
+`hooks.beforeAuthorize` now runs after the agent is resolved and known to be active, and before permissions are evaluated. See [Lifecycle hooks](/hooks).
+
+What changed:
+
+- The hook no longer runs for an unknown agent id, an invalid token, or a revoked or expired agent. Those deny first, with their own codes. Before, the hook ran for every id, including ones that do not exist.
+- The context gains `agent` (token omitted), `delegation` (root owner, path, links and inbound grants), `source`, `context` (ip and user agent), `dryRun` and `signal`. The old fields keep their names and meaning, so a hook that destructures `{ agentId, action, resource, arguments }` keeps working.
+- The hook now also runs for `authorizeByToken()` and for `policy.evaluate()` with an agent subject. A `policy.evaluate()` call for a user-only subject does not run it. Hook verdicts are never cached.
+- A hook can return `{ decision: "escalate" }`. `authorize()` then denies with code `approval_required`, and `policy.evaluate()` returns an escalate decision with `escalation.tier` set to `"hook"`. A valid `approvalId` passed to `policy.evaluate()` is spent, and evaluation then continues through the agent's normal permissions, so an approval never grants more than the agent already holds.
+- A hook block now writes an audit row and returns its id as `auditId`. It used to return `auditId: ""` and write nothing.
+- `authorizeByToken()` now honors delegated permissions and fires `afterAuthorize` and `onViolation`, matching `authorize()`. A delegated agent that was denied by token because its permissions came only from a delegation is now allowed.
+- `afterAuthorize` and `onViolation` receive a `source` field.
+- `DelegationHop` (internal lineage type) now carries the permissions, depth, limit and dates of each hop, so the `hops` stored in the parameters of `delegation.create` audit rows are larger.
+
+What to do:
+
+- If your hook relied on running for unknown agent ids (for example to count probes), move that logic to `onViolation`, which sees `agent_not_found`.
+- If you call `authorizeByToken()` for delegated agents and relied on it denying them, review those agents' delegations.
+- If your hook inspects the delegation chain, read it from `context.delegation` instead of loading it yourself.
+
+## Hooks time out and fail closed
+
+`beforeAuthorize` and `beforeAgentCreate` now run under a timeout (2000 ms by default), and failures deny. See [Hook safety](/hooks#hook-safety-timeout-and-fail-closed).
+
+What changed:
+
+- A `beforeAuthorize` hook that throws, returns a malformed verdict, or exceeds the timeout now denies the call with code `hook_error` or `hook_timeout`. Before, a throw propagated to the caller of `authorize()`.
+- A `beforeAgentCreate` hook that throws or times out makes `agent.create()` throw. A timeout throws `HookTimeoutError`; a throw rethrows the original error as before.
+- A blocked `agent.create()` now throws `HookBlockedError` (still an `Error`) instead of a plain `Error`, with the same message.
+
+What to do:
+
+- Set `hookSafety.onError: "throw"` to keep the old behavior of a throwing `beforeAuthorize` rejecting the call, or `"allow"` to fail open (every bypass is marked `fail_open` in the audit row).
+- Raise `hookSafety.timeoutMs` (or `THEAUTH_HOOK_TIMEOUT_MS`) if your hook calls a slow service. Pass `context.signal` to `fetch()` so the request stops on timeout.
+
+## New audit column: decision_code
+
+`theauth_audit_logs` gains a nullable `decision_code TEXT` column and an index on `(agent_id, decision_code)`. See [Database](/database#upgrading-the-audit-table).
+
+- `createTables()` adds both on startup. Old rows keep a NULL code, and `audit.query()` reports them with `code` undefined.
+- If you run with `database.skipMigrations: true`, apply `packages/core/src/db/migrations/0002_add_audit_decision_code.sql` before deploying. Without the column, audit reads and writes fail.
+- The column is not part of the audit hash, so existing chains and the Go verifier keep verifying.
+- `audit.query()` accepts `codes: DecisionCode[]`, and entries carry `code`.
+
+## delegation docs corrected
+
+The delegation page said a delegating agent could not re-delegate permissions it received, and that `maxDepth` was not inherited. Neither matched the code. Re-delegation of received permissions is allowed (within what the agent holds), and `maxDepth` is inherited: a hop is checked against the smallest `maxDepth` among the delegations into its parent. No behavior changed.
+
+## authorize() now enforces expiresAt
+
+`authorize(agentId, ...)` used to check only the stored `status`, so an agent past its `expiresAt` kept passing until something flipped its status to `expired`. It now compares `expiresAt` to the clock and denies with code `agent_expired`, writing the normal denied audit row. `authorizeByToken()`, `agent.validateToken()` and `policy.evaluate()` already did this. If you relied on an elapsed agent still passing, extend its `expiresAt` through `agent.update()`.
+
+## A revoked or expired delegator no longer lends permissions
+
+Delegated permissions, lineage and the chain handed to `beforeAuthorize` used to check only the delegation link, never the status or `expiresAt` of the agent that created it. An intermediate agent that was revoked, suspended or expired, without its links being revoked, still lent permissions to the agents below it. Now a link counts only while its delegator agent is `active` and unexpired and, if it was itself delegated to, at least one of its own inbound links traces back to a live delegator. Chains that passed before can now fail with the usual permission-denied code. No new decision code was added. To restore access, re-activate or extend the delegator, or delegate again from a live agent. The same check now applies to token vault use (`getAccessToken` is refused when the consent runs through a revoked or expired intermediate agent) and to `loadGrants`/`analyzeUsage` in policy-shrink. One carve-out: an active delegator whose inbound links are all dead keeps the onward links that grant only permissions it holds directly.
+
+---
+
 # Pick a migration path
 
 Source: https://docs.theauth.dev/migrate/choose-a-path
@@ -29577,7 +30406,7 @@ Set `THEAUTH_ROLLOUT=10` to start at 10%, then raise it over days as you validat
 ## FAQ
 
 **Does theAuth support all the OAuth providers better-auth has?**
-No. As of 2026-04 we ship 17 first-class providers: Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom. Any provider with a standard OAuth 2.0 authorization code flow works via the generic provider factory, but you write the config by hand. If a specific provider matters to you, open an issue.
+No. We ship 48 OAuth providers: 22 first-class (Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, Kakao, Kick, Linear, LinkedIn, Microsoft, Notion, PayPal, Reddit, Slack, Spotify, Twitch, Twitter/X, Vercel, Zoom) and 26 legacy presets (for example Auth0, Keycloak, Okta and Cognito). Any provider with a standard OAuth 2.0 authorization code flow works via the generic provider factory, but you write the config by hand. If a specific provider matters to you, open an issue.
 
 **Is Prisma supported?**
 Partly. `createTheAuth` itself takes `database: { provider, url }` and runs on Drizzle. `@glinr/theauth-prisma` gives you `createPrismaAdapter(prisma)` to read and write theAuth tables from code that already uses Prisma, it does not replace the core instance. See the [Prisma adapter docs](/prisma).
@@ -31197,7 +32026,7 @@ Creates a new agent identity.
 }
 ```
 
-`ownerId`, `name`, `type`, and at least one permission are required. `expiresAt` is optional: when omitted, the agent expires after `agents.tokenExpiry` (default `24h`). The owner must already exist as a row in `theauth_users`. Fields not listed here, such as `tenantId`, are ignored by the REST endpoint.
+`ownerId`, `name`, `type`, and at least one permission are required. `expiresAt` is optional: when omitted, the agent expires after `agents.tokenExpiry` (default `24h`). The owner must already exist as a row in `theauth_users`, which `theauth.user.create({ id, email })` ensures. Fields not listed here, such as `tenantId`, are ignored by the REST endpoint.
 
 **Response** `201 Created`
 
@@ -31909,62 +32738,118 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 
 ```json
 {
-  "code": "AGENT_NOT_FOUND",
-  "message": "Agent agt_01abc does not exist or has been revoked."
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Admin access required"
+  }
 }
 ```
+
+## Decision codes
+
+`authorize()`, `authorizeByToken()` and `policy.evaluate()` return a machine-readable `code` next to the free-form `reason`. The set is closed: `DECISION_CODES` is exported from `@glinr/theauth`, with the `DecisionCode` type, `isDecisionCode()` and `violationTypeOf()`. Branch on `code`, never on `reason` text.
+
+| Code | Meaning | `onViolation.type` |
+|------|---------|--------------------|
+| `allowed` | The call is allowed. | none |
+| `approval_consumed` | The call is allowed and spent a single-use approval. | none |
+| `no_permission` | No permission grants the action on the resource. | `permission_denied` |
+| `rate_limited` | `maxCallsPerHour` is used up. | `rate_limited` |
+| `ip_not_allowed` | The IP is missing or not in `ipAllowlist`. | `ip_blocked` |
+| `time_restricted` | Outside the permission's `timeWindow`. | `time_restricted` |
+| `argument_rejected` | An argument failed `allowedArgPatterns`, or a pattern is not a valid regex. | `permission_denied` |
+| `approval_required` | The permission has `requireApproval` and no approval id was given, or a `beforeAuthorize` hook returned `escalate`. | `approval_required` |
+| `approval_invalid` | The approval id is unknown, not approved, already used, or for another call. | `approval_required` |
+| `agent_not_found` | No agent with that id. | `permission_denied` |
+| `agent_revoked` | The agent is revoked. | `permission_denied` |
+| `agent_expired` | The agent is expired. | `permission_denied` |
+| `invalid_token` | `authorizeByToken` got an unknown, revoked or expired token. | `permission_denied` |
+| `owner_mismatch` | `policy.evaluate` was given an owner that does not own the agent. | `permission_denied` |
+| `hook_denied` | A `beforeAuthorize` hook blocked the call. | `permission_denied` |
+| `hook_timeout` | A `beforeAuthorize` hook timed out and the default `deny` mode blocked the call. | `permission_denied` |
+| `hook_error` | A `beforeAuthorize` hook threw or returned a malformed verdict and the default `deny` mode blocked the call. | `permission_denied` |
+| `taint_violation` | A taint rule matched the call's input provenance. | `permission_denied` |
+| `risk_escalation` | A risk tier requires approval or step up. | `permission_denied` |
+| `policy_indeterminate` | The policy engine could not decide (invalid input, graph error). It denies. | `permission_denied` |
+
+`code` is optional on the `AuthorizeResult` type so results you build by hand still compile, but core always sets it. `PolicyDecision.code` is always present.
 
 ## Error code reference
 
 <Warning>
-`theauth.authorize()` and `theauth.delegate()` do not return the permission and delegation codes in the tables below. `authorize()` returns `{ allowed, reason, auditId }` where `reason` is free-form text (for example `No permission grants agent "x" access to "write" on "mcp:github:repos"`), and `delegate()` throws a plain `Error` with a descriptive message (a subset violation or a depth overrun). Treat the Agent, Permission, Token, and Delegation tables as a reference vocabulary for your own HTTP layer, not as values the TypeScript core emits. The MCP module returns `Result` errors with codes such as `INVALID_CLIENT`, `INVALID_GRANT`, `LOGIN_REQUIRED`, `INVALID_TOKEN`, `TOKEN_EXPIRED`, `INVALID_AUDIENCE`, `INVALID_ISSUER`, `INSUFFICIENT_SCOPE`, `UNAUTHORIZED`, and `SERVER_ERROR`.
+`theauth.authorize()` does not return HTTP-style codes. It returns `{ allowed, reason, auditId, code }` where `code` is one of the lowercase decision codes above and `reason` is free-form text. Agent calls such as `agent.create()` (at the `maxPerUser` limit), `agent.update()`, `agent.revoke()` and `agent.rotate()` throw a plain `Error` with a descriptive message, so there are no `AGENT_*` or `PERMISSION_*` REST codes to branch on. Use the decision codes for authorization outcomes. The tables below list the uppercase codes that core, the adapters and the gateway really emit.
 </Warning>
 
-### Agent errors
-
-| Code | HTTP status | Description |
-|------|-------------|-------------|
-| `AGENT_NOT_FOUND` | 404 | No agent with the given ID exists. |
-| `AGENT_LIMIT_EXCEEDED` | 422 | The user has reached their `maxPerUser` agent limit. |
-| `AGENT_REVOKED` | 403 | The agent has been explicitly revoked and cannot be used. |
-| `AGENT_EXPIRED` | 403 | The agent's `expiresAt` is in the past. |
-
-### Permission errors
-
-| Code | HTTP status | Description |
-|------|-------------|-------------|
-| `PERMISSION_DENIED` | 403 | The agent does not have a permission matching the requested resource and action. |
-| `RATE_LIMITED` | 429 | The agent has exceeded its `maxCallsPerHour` constraint for this resource. |
-| `OUTSIDE_TIME_WINDOW` | 403 | The current time falls outside the permission's `timeWindow` constraint. |
-| `IP_NOT_ALLOWED` | 403 | The request IP is not in the permission's `ipAllowlist`. |
-| `REQUIRES_APPROVAL` | 202 | The action requires human approval (`requireApproval: true`). An approval request has been created. |
-
-### Token errors
-
-| Code | HTTP status | Description |
-|------|-------------|-------------|
-| `INVALID_TOKEN` | 401 | The token cannot be verified (bad signature, malformed, or unknown). |
-| `TOKEN_EXPIRED` | 401 | The token's `exp` claim is in the past. |
+REST errors from the adapters and the gateway use `{ "error": { "code", "message" } }`. MCP OAuth endpoints use the RFC 6749 wire shape `{ "error": "invalid_grant", "error_description": "..." }`, with the code lowercased.
 
 ### Delegation errors
 
-| Code | HTTP status | Description |
-|------|-------------|-------------|
-| `DELEGATION_DEPTH_EXCEEDED` | 422 | The delegation would exceed the `maxDepth` limit. |
-| `INSUFFICIENT_PERMISSIONS` | 403 | The delegating agent is attempting to grant permissions it does not hold. |
-| `DELEGATION_NOT_FOUND` | 404 | No delegation with the given ID exists. |
-| `DELEGATION_EXPIRED` | 403 | The delegation chain's `expiresAt` is in the past. |
-
-### MCP / OAuth errors
+`theauth.delegate()` throws a `DelegationError` (a typed `Error` with a `code`). The framework adapters map it to HTTP 400 and send `code` through as the REST error code.
 
 | Code | HTTP status | Description |
 |------|-------------|-------------|
-| `MCP_CLIENT_NOT_FOUND` | 401 | The OAuth `client_id` is not registered. |
-| `MCP_INVALID_GRANT` | 400 | The authorization code or refresh token is invalid, expired, or already consumed. |
-| `MCP_INVALID_REDIRECT_URI` | 400 | The `redirect_uri` does not match the registered client. |
-| `MCP_PKCE_FAILED` | 400 | The `code_verifier` does not match the stored `code_challenge`. |
-| `MCP_SCOPE_INSUFFICIENT` | 403 | The token does not carry the required scopes for this endpoint. |
-| `MCP_CLIENT_DISABLED` | 403 | The OAuth client has been disabled by an administrator. |
+| `DELEGATION_PERMISSION_SUBSET` | 400 | The delegating agent is trying to grant a permission it does not hold, or a wider one. |
+| `DELEGATION_DEPTH_EXCEEDED` | 400 | The delegation would exceed the `maxDepth` limit. |
+| `DELEGATION_PARENT_REVOKED` | 400 | The parent delegation in the chain has been revoked. |
+
+### User errors
+
+`theauth.user.create()` throws a `UserError`. Branch on `code`.
+
+| Code | Description |
+|------|-------------|
+| `USER_INVALID_INPUT` | The input failed schema validation. The message lists the failing fields. |
+| `USER_EMAIL_CONFLICT` | The email is already registered under a different user id than the one you passed. |
+| `USER_ID_CONFLICT` | The id is already in use by another email. |
+
+### Hook errors
+
+| Code | Where | Description |
+|------|-------|-------------|
+| `hook_timeout`, `hook_error` | `HookBlockedError.code` | A `beforeAgentCreate` hook timed out or failed and the mode was `deny`. For `beforeAuthorize` the same strings come back as decision codes. |
+| `HOOK_TIMEOUT` | `HookTimeoutError.code` | A hook timed out and the mode was `throw`. |
+
+### Agent tool errors
+
+| Code | Description |
+|------|-------------|
+| `TOOL_APPROVAL_REQUIRED` | A guarded tool needs human approval or step up. Do not retry until it is granted. |
+| `TOOL_GUARD_FAILED` | The policy check for a guarded tool could not complete, so the tool was blocked. |
+
+### Token errors
+
+Returned by the MCP token validator as `Result` errors. Over HTTP they are a 401 with a `WWW-Authenticate: Bearer resource_metadata="..."` challenge.
+
+| Code | HTTP status | Description |
+|------|-------------|-------------|
+| `INVALID_TOKEN` | 401 | The token cannot be verified, has been revoked, or is malformed. |
+| `TOKEN_EXPIRED` | 401 | The token's `exp` claim is in the past. |
+| `INVALID_AUDIENCE` | 401 | The token's `aud` does not match this resource. |
+| `INVALID_ISSUER` | 401 | The token's `iss` does not match this server. |
+
+### MCP and OAuth errors
+
+The MCP module returns `Result` errors with these codes. The token, registration and revocation endpoints answer 401 for `INVALID_CLIENT` and 400 for the rest.
+
+| Code | HTTP status | Description |
+|------|-------------|-------------|
+| `INVALID_REQUEST` | 400 | A required parameter is missing or malformed, or `code_challenge_method` is not `S256`. |
+| `INVALID_CLIENT` | 401 | The `client_id` is unknown, or client authentication failed. |
+| `INVALID_GRANT` | 400 | The authorization code or refresh token is invalid, expired or consumed, the `redirect_uri` does not match, or PKCE verification failed. |
+| `INVALID_REDIRECT_URI` | 400 | The `redirect_uri` does not match the registered client. |
+| `INVALID_SCOPE` | 400 | A requested scope is not allowed for this client or grant. |
+| `INVALID_TARGET` | 400 | The `resource` parameter does not match the one bound to the grant. |
+| `INVALID_CLIENT_METADATA` | 400 | Dynamic client registration metadata is invalid. |
+| `INVALID_DPOP_PROOF` | 400 | A DPoP proof is missing or invalid. |
+| `USE_DPOP_NONCE` | 400 | The client must retry with the server-issued DPoP nonce. |
+| `UNAUTHORIZED_CLIENT` | 400 | The client is not allowed to use this grant type. |
+| `UNSUPPORTED_GRANT_TYPE` | 400 | The grant type is not supported. |
+| `LOGIN_REQUIRED` | 400 | The user is not signed in at the authorization endpoint. With a `loginPage` configured the response redirects there instead. |
+| `INSUFFICIENT_SCOPE` | 403 | The token does not carry a required scope. See below. |
+| `UNAUTHORIZED` | 401 | No Bearer token was presented. |
+| `SERVER_ERROR` | 500 | The server could not complete validation. |
+
+`requireMcpAuth` and gateway policies with `requiredScopes` answer a scope shortfall with 403 and a `WWW-Authenticate` challenge carrying `error="insufficient_scope"` and the missing `scope`. The body lists `required_scopes` and `current_scopes`. The step-up helper adds an `upgrade_url` so the client can re-authorize with the extra scopes.
 
 ### General errors
 
@@ -31972,8 +32857,13 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 |------|-------------|-------------|
 | `BAD_REQUEST` | 400 | The request body or parameters failed validation. |
 | `UNAUTHORIZED` | 401 | No valid credential was provided. |
-| `FORBIDDEN` | 403 | The credential is valid but does not have access to this resource. |
+| `FORBIDDEN` | 403 | The credential is valid but does not have access to this resource. The gateway also uses it for a disallowed origin or a failed `requiredPermissions` check. |
 | `NOT_FOUND` | 404 | The requested resource does not exist. |
+| `RATE_LIMITED` | 429 | Too many requests. A `Retry-After` header says when to retry. |
+| `CSRF_REJECTED` | 403 | A cross-site write was refused for a cookie session. |
+| `PAYLOAD_TOO_LARGE` | 413 | Gateway only: the request body is over the limit. |
+| `BAD_GATEWAY` | 502 | Gateway only: the upstream is unreachable. |
+| `GATEWAY_TIMEOUT` | 504 | Gateway only: the upstream did not respond in time. |
 | `INTERNAL_ERROR` | 500 | An unexpected error occurred. Check server logs for details. |
 
 ## Related

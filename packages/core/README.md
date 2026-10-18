@@ -34,7 +34,7 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 
 ## Why theauth?
 
-Many auth libraries stop at human login. theAuth also covers **AI agent identity**: it gives every agent its own bearer token, scoped permissions, delegation chains, and an audit trail you can make tamper evident. Plus full human auth (14 methods, 17 OAuth providers, passkeys, SSO) so you don't need two auth systems.
+Many auth libraries stop at human login. theAuth also covers **AI agent identity**: it gives every agent its own bearer token, scoped permissions, delegation chains, and an audit trail you can make tamper evident. Plus full human auth (14 methods, 48 OAuth providers, passkeys, SSO) so you don't need two auth systems.
 
 ```
 npm install @glinr/theauth
@@ -112,7 +112,7 @@ const result = await theauth.authorize(agent.id, {
 <tr>
 <td>
 
-### OAuth (17 providers)
+### OAuth (48 providers)
 Apple, Atlassian, Discord, Dropbox, Figma, GitHub, GitLab, Google, LinkedIn, Microsoft, Notion, Reddit, Slack, Spotify, Twitch, Twitter/X, Zoom, plus a generic OIDC factory for anything else.
 
 </td>

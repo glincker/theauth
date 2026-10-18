@@ -262,7 +262,7 @@ await theAuthDb.transaction(async (tx) => {
 // Mix with your own Prisma models
 await prisma.$transaction(async (tx) => {
   const theauth = createPrismaAdapter(tx);
-  await theauth.createAgent({ ... });
+  await theauth.agent.create({ ... });
   // Your own model:
   await tx.subscription.create({ data: { ... } });
 });

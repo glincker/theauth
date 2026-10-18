@@ -364,7 +364,7 @@ On refresh, a `scope` that was not part of the original grant returns `invalid_s
 
 **Revocation and the jti denylist.** `mcp.revoke(request)` implements RFC 7009 (`POST /mcp/revoke`, client authenticated, own tokens only). Access tokens are JWTs, so revoking one only takes effect immediately if you set `config.jtiDenylist` (`createInMemoryJtiDenylist()` for a single process, or your own shared store). Without it a revoked access token stays valid until `exp`.
 
-**Live delegation check (opt in).** A token minted by token exchange carries its delegation chain in the `act` claim, and by default `validateAccessToken` trusts that claim until `exp`. Set `config.delegationStore` to re-check the chain against live records on every validation. The path is the token `sub`, then each actor from the innermost `act` out to the current actor, and every consecutive pair must have an active, unexpired link. A missing, revoked or expired link rejects the token with `INVALID_TOKEN`. Tokens without an `act` claim skip the check, and without a store nothing changes. `createDbDelegationStore` matches ids to the agent ids used in `delegation.create()`. Token exchange sets `act.sub` to the actor's user id or client id, which usually is not an agent id, so map them with `resolveActorAgentId` (below).
+**Live delegation check (opt in).** A token minted by token exchange carries its delegation chain in the `act` claim, and by default `validateAccessToken` trusts that claim until `exp`. Set `config.delegationStore` to re-check the chain against live records on every validation. The path is the token `sub`, then each actor from the innermost `act` out to the current actor, and every consecutive pair must have an active, unexpired link. A missing, revoked or expired link rejects the token with `INVALID_TOKEN`. Tokens without an `act` claim skip the check, and without a store nothing changes. `createDbDelegationStore` matches ids to the agent ids used in `theauth.delegate()`. Token exchange sets `act.sub` to the actor's user id or client id, which usually is not an agent id, so map them with `resolveActorAgentId` (below).
 
 ```typescript
 import { createDbDelegationStore } from "@glinr/theauth/mcp";
@@ -375,7 +375,7 @@ const mcpConfig = {
 };
 ```
 
-`createDbDelegationStore` reads the delegation chain table, so the ids it looks up must be the agent ids used in `delegation.create()`. See [Delegation](/delegation) for revoking a chain.
+`createDbDelegationStore` reads the delegation chain table, so the ids it looks up must be the agent ids used in `theauth.delegate()`. See [Delegation](/delegation) for revoking a chain.
 
 **Mapping actors to agents.** Set `resolveActorAgentId` to translate each actor before the lookup. It receives `{ sub, clientId? }` for the token subject and for every hop, and returns the agent id (or a promise of one). It works with any `delegationStore`, built in or your own.
 
@@ -392,7 +392,7 @@ const mcpConfig = {
 
 The check fails closed. If the mapper returns `undefined` (or an empty string) for any actor, the token is rejected with `INVALID_TOKEN` and the message `Delegation chain is no longer valid (unmapped actor)`. If the mapper throws or rejects, the token is rejected the same way with `(mapper failed)`, and `allowUnmappedActors` does not change that. Set `allowUnmappedActors: true` only if you want unmapped actors to keep their raw id and be looked up as they are. Without `resolveActorAgentId` nothing changes.
 
-The mapper also runs on the token `sub` (usually a user id), so it must return an agent id for it too, because `delegation.create()` links are agent to agent. Token exchange validates the subject token with the same check, so a mapper failure also blocks an exchange.
+The mapper also runs on the token `sub` (usually a user id), so it must return an agent id for it too, because `theauth.delegate()` links are agent to agent. Token exchange validates the subject token with the same check, so a mapper failure also blocks an exchange.
 
 <Note>
   TheAuth has no built-in link from an OAuth client or a user to an agent. The agents table has no `client_id` column and `theauth_oauth_clients` has no agent reference, and a user can own many agents, so there is no safe default mapper. Keep that mapping in your own data (for example agent `metadata` or a table of your own) and supply it through `resolveActorAgentId`.

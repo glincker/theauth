@@ -1,0 +1,92 @@
+---
+title: UI headless
+description: Unstyled, accessible React components for session lists, API and agent tokens, device approval and step-up re-authentication from @glinr/theauth-ui-headless. You bring the copy and the CSS.
+icon: layer-group
+---
+
+`@glinr/theauth-ui-headless` ships account components with behavior and accessibility built in and no visual styling. Every user-facing string comes from a required `labels` prop, and every part carries a `data-part` attribute plus an optional `classNames` slot, so you apply your own styles (Tailwind, CSS modules or anything else). If you want ready-made styling instead, use [UI components](/ui-components).
+
+The package wraps the query hooks from `@glinr/theauth-react/query`, so it must render inside `TheAuthQueryProvider`.
+
+## What it includes
+
+| Component | What it does |
+| --- | --- |
+| `SessionList` | Lists the signed-in sessions, revokes one, or revokes all others. |
+| `ApiTokenList` | Lists personal or agent API tokens and revokes them. |
+| `MintTokenForm` | Creates a token with chosen abilities and expiry, and shows the secret once with a copy button. |
+| `AgentList`, `AgentRegisterForm` | List agents and register a new one. |
+| `DeviceApproval` | Approves or denies a device sign-in request (RFC 8628). |
+| `StepUpDialog` and `useStepUpRetry` | Asks for a password, TOTP code or passkey when the server returns `auth.recent_auth_required`, then retries the blocked action. |
+
+## Install
+
+```bash title="terminal"
+pnpm add @glinr/theauth-ui-headless @glinr/theauth-react @glinr/theauth-client @tanstack/react-query react
+```
+
+Peer dependencies are `react` (18 or newer), `@tanstack/react-query` (5 or newer), `@glinr/theauth-react` and `@glinr/theauth-client`. `npm install` and `yarn add` work the same way.
+
+## Example
+
+This page renders a session list. Clicks on revoke go through `useStepUpRetry`, so a revoke that needs fresh authentication opens the dialog and retries once the user confirms.
+
+```tsx title="app/settings/sessions.tsx"
+import { createTheAuthGoClient } from "@glinr/theauth-client";
+import { TheAuthQueryProvider } from "@glinr/theauth-react/query";
+import {
+  SessionList,
+  StepUpDialog,
+  useStepUpRetry,
+} from "@glinr/theauth-ui-headless";
+
+const client = createTheAuthGoClient({
+  baseUrl: "https://api.example.com",
+  basePath: "/auth",
+});
+
+const sessionLabels = {
+  title: "Active sessions",
+  loading: "Loading sessions",
+  empty: "No other sessions",
+  current: "This device",
+  revokeOthers: "Sign out other sessions",
+  lastSeen: (iso: string) => `Last seen ${new Date(iso).toLocaleString()}`,
+  revoke: () => "Sign out",
+  error: (code: string) => `Something went wrong (${code})`,
+};
+
+const stepUpLabels = {
+  title: "Confirm it is you",
+  methods: { password: "Password", totp: "Authenticator code", passkey: "Passkey" },
+  password: "Password",
+  totpCode: "Code",
+  passkeyPrompt: "Use your passkey to continue",
+  submit: "Confirm",
+  cancel: "Cancel",
+  error: (code: string) => `Could not verify (${code})`,
+};
+
+export function SessionSettings() {
+  const { run, dialogProps } = useStepUpRetry();
+
+  return (
+    <TheAuthQueryProvider client={client}>
+      <SessionList
+        labels={sessionLabels}
+        run={run}
+        classNames={{ item: "flex items-center gap-3 py-2", revoke: "text-sm text-red-600" }}
+      />
+      <StepUpDialog {...dialogProps} labels={stepUpLabels} />
+    </TheAuthQueryProvider>
+  );
+}
+```
+
+`labels.error(code)` receives a stable code such as `invalid_expiry` or `invalid_credentials`, so map it to your own copy. Components also set `data-error-code` on the alert element, which is useful in tests.
+
+## Related
+
+- [UI components](/ui-components) for prebuilt, Tailwind-styled forms.
+- [React](/react) for `TheAuthProvider` and the hooks these components use.
+- [Client SDK](/client-sdk) for the typed client behind `createTheAuthGoClient`.

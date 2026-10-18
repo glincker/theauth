@@ -6,7 +6,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 
 ## Docs
 
-- [theAuth](https://docs.theauth.dev/): Open-source auth for AI agents and humans. Agent identity, permissions, delegation, audit and MCP OAuth, plus 14 human auth methods and 17 OAuth providers, in one TypeScript SDK.
+- [theAuth](https://docs.theauth.dev/): Open-source auth for AI agents and humans. Agent identity, permissions, delegation, audit and MCP OAuth, plus 14 human auth methods and 48 OAuth providers, in one TypeScript SDK.
 - [Core concepts](https://docs.theauth.dev/concepts): The mental model you need before touching code. Agents, permissions, delegation, audit, trust, MCP.
 - [Quickstart](https://docs.theauth.dev/quickstart): Two five-minute tracks. Add agent auth (identity, permissions, audit) or human auth (email and password), or both. Scaffold a Next.js SaaS with one command.
 - [Dev mode: local agent auth server in one command](https://docs.theauth.dev/dev-mode): Start a local theAuth server with npx theauth dev. It seeds a demo user, two agents, a delegation and a policy check in under a minute.
@@ -120,6 +120,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [OpenAI Agents SDK](https://docs.theauth.dev/openai-agents-sdk): Guard OpenAI Agents SDK tools with theAuth, hold large calls for a human, and read the chained decision record.
 - [Guard LangGraph and Mastra agent tools](https://docs.theauth.dev/agent-frameworks): Wrap LangChain.js, LangGraph and Mastra tools in TypeScript with guardTool. Denied calls throw, and risky calls pause for human approval.
 - [Permission simulator](https://docs.theauth.dev/simulator): Ask what an agent would be allowed to do, with a step by step trace and no side effects.
+- [Explain a decision](https://docs.theauth.dev/explain): Ask why authorize() would allow or deny a call, with the matched rule, delegation link, constraint checks and hook outcome, and no side effects.
 - [Rate limiting](https://docs.theauth.dev/rate-limiting): Apply per-IP limits on auth endpoints with the rateLimit plugin and per-agent call caps with the maxCallsPerHour constraint.
 - [CLI login (device flow)](https://docs.theauth.dev/cli-auth): Sign users into a CLI, TV app or MCP client with the OAuth device authorization grant (RFC 8628), with theauth login, logout and whoami.
 - [CLI tools](https://docs.theauth.dev/cli-tools): theauth doctor checks your setup, theauth secret generates keys, and theauth completions installs shell completion.
@@ -127,6 +128,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Budget policies](https://docs.theauth.dev/budget-policies): Controlling LLM spend and call volume with per-agent, per-user, and per-tenant policies.
 - [Cost attribution](https://docs.theauth.dev/cost-attribution): Track LLM token spend, API call costs, and custom costs per agent, per tool, and per delegation chain.
 - [Stop prompt injection from making an AI agent send email](https://docs.theauth.dev/tutorials/prompt-injection-tool-guard): Label where tool arguments came from, then hold any email whose recipient was copied from a web page for human approval. Runnable TypeScript, no API key.
+- [Delegate a scoped token to an agent and revoke it](https://docs.theauth.dev/tutorials/agent-delegation-e2e): Walk through a user delegating a read-only token to an agent, an MCP server verifying it, a denied out-of-scope call, the audit trail, and revocation. Runnable TypeScript.
 - [Find and remove unused permissions from an AI agent](https://docs.theauth.dev/tutorials/remove-unused-agent-permissions): Replay recorded decisions to see which agent grants were never used, propose a smaller set, and preview what it would deny. Runnable TypeScript.
 - [Prove what your AI agent did without sharing your database](https://docs.theauth.dev/tutorials/verifiable-agent-receipts): Sign a checkpoint of your agent audit log, mint a receipt for one decision, and let a counterparty verify it offline with a public key. Runnable TypeScript.
 - [MCP OAuth 2.1](https://docs.theauth.dev/mcp): Configure theAuth as an OAuth 2.1 authorization server for the Model Context Protocol. Implements PKCE S256, RFC 9728, RFC 8414, RFC 8707, and RFC 7591.
@@ -158,6 +160,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Electron](https://docs.theauth.dev/electron): Add auth to Electron apps via `ElectronTheAuthProvider`. Covers OS keychain token storage, OAuth popup windows, IPC bridge, and session persistence.
 - [Browser extensions](https://docs.theauth.dev/browser-extension): Sign users into a Manifest V3 extension with OAuth 2.1 and PKCE, keep tokens out of content scripts, and optionally bind them with DPoP.
 - [UI components](https://docs.theauth.dev/ui-components): Drop-in React components for sign-in, sign-up, password reset, 2FA, and OAuth buttons from @glinr/theauth-ui. Tailwind-based, wired to TheAuthProvider automatically.
+- [UI headless](https://docs.theauth.dev/ui-headless): Unstyled, accessible React components for session lists, API and agent tokens, device approval and step-up re-authentication from @glinr/theauth-ui-headless. You bring the copy and the CSS.
 - [Publish theAuth components and MCP server](https://docs.theauth.dev/publishing): Install theAuth React components with the shadcn CLI, or list the theAuth MCP server in the official MCP Registry for discovery.
 - [Admin dashboard](https://docs.theauth.dev/dashboard): Embed `TheAuthDashboard` from `@glinr/theauth-dashboard` to manage agents, permissions, delegation chains, and audit logs. Runs standalone via `npx theauth dashboard`.
 - [Terraform provider](https://docs.theauth.dev/terraform): Manage theAuth agents, permissions, API keys, and organizations as Terraform resources.
@@ -174,6 +177,8 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [GitHub Actions OIDC for CI agents (Go only)](https://docs.theauth.dev/use-cases/github-actions-oidc): Exchange a GitHub Actions OIDC token for a short-lived theAuth access token, with no stored client secret. Go only, as TypeScript has no helper.
 - [OAuth 2.1 server on SQLite in one Go binary](https://docs.theauth.dev/use-cases/sqlite-oauth-server): Run an OAuth 2.1 authorization server and MCP resource server from one Go binary and one SQLite file. Go only, not in the TypeScript package.
 - [Lifecycle hooks](https://docs.theauth.dev/hooks): Running custom logic before and after authorization, agent creation, and policy violations.
+- [Community integrations](https://docs.theauth.dev/community-integrations): Build a third-party integration that plugs into theAuth hooks, and get it listed in the community directory.
+- [requireScope](https://docs.theauth.dev/require-scope): Protect an endpoint for agents with one line in the Hono, Next.js, or Express adapter.
 - [Webhooks](https://docs.theauth.dev/webhooks): Push HMAC-signed HTTP POST payloads to external URLs for the events you emit. Configure endpoints with the `webhooks` option of createTheAuth.
 - [Event streaming](https://docs.theauth.dev/event-streaming): Stream events you emit (agent lifecycle, auth, budget, and others) to clients in real time via SSE using createEventStreamModule. Missed events replay from a timestamp cursor.
 - [Custom session fields](https://docs.theauth.dev/custom-session): Attach arbitrary data to sessions at creation time and read it back on validation.
@@ -187,6 +192,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Multi-tenant isolation](https://docs.theauth.dev/multi-tenant): Tenant records and tenant-scoped agents on one theAuth instance. Tenant settings and suspension are stored but not enforced by the SDK.
 - [Standards alignment](https://docs.theauth.dev/standards): Which IETF drafts theAuth maps to, and how to emit the matching claims on issued tokens.
 - [Migration guides](https://docs.theauth.dev/migrate/index): Pick a migration guide for your current auth setup. Covers moving from better-auth, Clerk, the better-auth agent plugin, and Auth0 to theAuth.
+- [Upgrading to 2.0](https://docs.theauth.dev/upgrading-to-2): Breaking changes in theAuth 2.0 for integrations built on 1.x, with what changed and what to do.
 - [Pick a migration path](https://docs.theauth.dev/migrate/choose-a-path): Big bang, lazy password migration, or run both and move users as they log in. How to choose, and how to back out of each.
 - [Run both and migrate as users log in](https://docs.theauth.dev/migrate/run-both-and-migrate): The strangler fig approach. Keep your current auth running, create theAuth accounts as people sign in, and widen a percentage until you can retire the old system.
 - [Import users](https://docs.theauth.dev/migrate/import-users): Bring users and password hashes from Auth0, Keycloak, Clerk, Better Auth, Auth.js or any CSV into theAuth, with a dry run first.

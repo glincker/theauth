@@ -31,7 +31,7 @@ With `agents.auditAll` on (the default), every decision about a known agent writ
 | `reason` | Written when |
 |---|---|
 | `agent_revoked` | `authorize(agentId)` or `authorizeByToken(token)` is called for a revoked agent |
-| `agent_expired` | The same calls for an agent whose status is `expired`, or whose token has passed its expiry |
+| `agent_expired` | The same calls for an agent whose status is `expired`, or whose `expiresAt` has passed, even if its stored status is still `active` |
 
 The `reason` string on the returned result is unchanged (for example `Agent "deploy-bot" is revoked`). The row stores the short code. The row never stores the token. It stores the action, resource, `arguments`, IP and user agent, like any other row, and it goes through the same writer, so with `tamperEvident` on it joins the agent's chain like any other row.
 

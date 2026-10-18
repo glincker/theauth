@@ -448,6 +448,7 @@
               "electron",
               "browser-extension",
               "ui-components",
+              "ui-headless",
               "publishing",
               "dashboard"
             ]

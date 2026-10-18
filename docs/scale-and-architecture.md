@@ -1,6 +1,6 @@
 # Scale and architecture notes
 
-Status: hypotheses. Everything below comes from reading the code on the `release/wave2-2026-10` branch, not from measurements. The benchmark harness in `benchmarks/` exists to confirm or kill each item. Until a CI run has produced numbers (see [benchmarks](./benchmarks.mdx)), treat every "expected effect" as a prediction. I have not put any timing figures in this file on purpose.
+Status: hypotheses. Everything below comes from reading the code on the `main` branch, not from measurements. The benchmark harness in `benchmarks/` exists to confirm or kill each item. Until a CI run has produced numbers (see [benchmarks](./benchmarks.mdx)), treat every "expected effect" as a prediction. I have not put any timing figures in this file on purpose.
 
 The facts (what the code does) are stated plainly. The predictions are marked **Hypothesis**.
 
