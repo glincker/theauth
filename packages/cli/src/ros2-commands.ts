@@ -41,10 +41,13 @@ Options:
                         it out, widen exports it anyway
   --robot also exports permissions delegated to the robot, not only its own
   --subject <dn>        Certificate subject (default CN=<enclave>)
-  --node <name>         Node name in policy.xml (default last enclave token)
+  --node <name>         Node name in policy.xml and for the node baseline (default last enclave token)
   --gated <mode>        omit (default) or include: what to do with permissions that
                         carry constraints DDS cannot enforce
   --protection <kind>   encrypt (default) or sign, for governance.xml
+  --namespace <ns>      Namespace of the node, for the node baseline (default /)
+  --no-node-baseline    Do not add /rosout, /parameter_events and the node's parameter services.
+                        Without them a node cannot start under ROS_SECURITY_STRATEGY=Enforce
   --no-ros-discovery    Do not add ros_discovery_info (needed by Fast DDS, Cyclone DDS, Connext)
   --json                Machine readable output
 `;
@@ -67,6 +70,8 @@ export interface Ros2Args {
 	gated: "omit" | "include";
 	protection: "encrypt" | "sign";
 	rosDiscovery: boolean;
+	nodeBaseline: boolean;
+	namespace?: string;
 	files: string[];
 	json: boolean;
 	help: boolean;
@@ -80,6 +85,7 @@ export function parseRos2Args(args: string[]): Ros2Args {
 		singleLevel: "skip",
 		protection: "encrypt",
 		rosDiscovery: true,
+		nodeBaseline: true,
 		files: [],
 		json: false,
 		help: false,
@@ -131,7 +137,9 @@ export function parseRos2Args(args: string[]): Ros2Args {
 			const v = value();
 			if (v === "encrypt" || v === "sign") out.protection = v;
 			else out.error ??= "--protection must be encrypt or sign";
-		} else if (flag === "--no-ros-discovery") out.rosDiscovery = false;
+		} else if (flag === "--no-node-baseline") out.nodeBaseline = false;
+		else if (flag === "--namespace") out.namespace = value();
+		else if (flag === "--no-ros-discovery") out.rosDiscovery = false;
 		else if (flag === "--json") out.json = true;
 		else if (flag === "--help" || flag === "-h") out.help = true;
 		else if (!a.startsWith("-") && sub === "diff") out.files.push(a);
@@ -263,6 +271,7 @@ export async function runRos2Export(args: Ros2Args): Promise<number> {
 			rosDiscoveryTopic: args.rosDiscovery,
 			protection: args.protection,
 			node: args.node,
+			nodeBaseline: args.nodeBaseline ? { namespace: args.namespace } : false,
 			gated: args.gated,
 			resourceMatching: args.resourceMatching,
 			singleLevel: args.singleLevel,

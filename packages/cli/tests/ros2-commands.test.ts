@@ -284,6 +284,7 @@ KjE40rK/Hv6FNxxqn9oIg0W/JyUUMYI=
 			"http://localhost:1",
 			"--enclave",
 			"/e",
+			"--no-node-baseline",
 			"--out",
 			join(dir, "o2"),
 		]);
@@ -291,5 +292,38 @@ KjE40rK/Hv6FNxxqn9oIg0W/JyUUMYI=
 		const json = JSON.parse(await readFile(join(dir, "o2", "theauth-export.json"), "utf-8"));
 		expect(json.rules.map((r: { name: string }) => r.name)).toEqual(["/lent", "/own"]);
 		vi.unstubAllGlobals();
+	});
+});
+
+describe("ros2 export node baseline", () => {
+	async function exportRules(extra: string[]): Promise<string[]> {
+		const permFile = join(dir, "p.json");
+		await writeFile(
+			permFile,
+			JSON.stringify([{ resource: "ros2:/chatter", actions: ["publish"] }]),
+		);
+		const out = join(dir, "o");
+		const args = parseRos2Args(["export", "--permissions", permFile, "--out", out, ...extra]);
+		expect(await runRos2Export(args)).toBe(0);
+		const json = JSON.parse(await readFile(join(out, "theauth-export.json"), "utf-8"));
+		return json.rules.map((r: { name: string }) => r.name);
+	}
+
+	it("adds rosout, parameter events and the node's parameter services by default", async () => {
+		const names = await exportRules(["--enclave", "/fleet/r1/talker"]);
+		expect(names).toContain("/rosout");
+		expect(names).toContain("/parameter_events");
+		expect(names).toContain("/talker/get_parameters");
+		expect(names).toContain("/chatter");
+	});
+
+	it("honours --node and --namespace, and --no-node-baseline", async () => {
+		const names = await exportRules(["--enclave", "/e", "--node", "nav", "--namespace", "/r1"]);
+		expect(names).toContain("/r1/nav/set_parameters");
+		expect(await exportRules(["--enclave", "/e", "--no-node-baseline"])).toEqual(["/chatter"]);
+	});
+
+	it("skips the baseline when the enclave token is not a valid node name", async () => {
+		expect(await exportRules(["--enclave", "/fleet/robot-1"])).toEqual(["/chatter"]);
 	});
 });

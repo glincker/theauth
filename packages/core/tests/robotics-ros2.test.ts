@@ -300,6 +300,56 @@ describe("exportRos2", () => {
 	});
 });
 
+describe("exportRos2 node baseline", () => {
+	const perms = [{ resource: "ros2:/scan", actions: ["publish"] }];
+	const names = (rules: { name: string }[]) => rules.map((r) => r.name);
+
+	it("is off unless asked for", () => {
+		const out = exportRos2(perms, { enclave: "/r/nav", ...WINDOW });
+		expect(names(out.policy.rules)).toEqual(["/scan"]);
+		expect(JSON.parse(out.files["theauth-export.json"] ?? "{}").nodeBaseline).toBe("off");
+	});
+
+	it("adds the endpoints a node opens at start, for the node and namespace given", () => {
+		const out = exportRos2(perms, {
+			enclave: "/r/nav",
+			...WINDOW,
+			nodeBaseline: { node: "planner", namespace: "/robot1" },
+		});
+		const n = names(out.policy.rules);
+		expect(n).toContain("/rosout");
+		expect(n).toContain("/parameter_events");
+		for (const s of [
+			"describe_parameters",
+			"get_parameter_types",
+			"get_parameters",
+			"list_parameters",
+			"set_parameters",
+			"set_parameters_atomically",
+		]) {
+			expect(n).toContain(`/robot1/planner/${s}`);
+		}
+		const xml = out.files["permissions.xml"] ?? "";
+		expect(xml).toContain("rt/rosout");
+		expect(xml).toContain("rt/parameter_events");
+		expect(xml).toContain("rq/robot1/planner/get_parametersRequest");
+	});
+
+	it("uses the last enclave token, and skips quietly when it is not a ROS node name", () => {
+		const ok = exportRos2(perms, { enclave: "/r/nav", ...WINDOW, nodeBaseline: true });
+		expect(names(ok.policy.rules)).toContain("/nav/get_parameters");
+		const bad = exportRos2(perms, { enclave: "/r/robot-1", ...WINDOW, nodeBaseline: true });
+		expect(names(bad.policy.rules)).toEqual(["/scan"]);
+		expect(JSON.parse(bad.files["theauth-export.json"] ?? "{}").nodeBaseline).toMatch(/skipped/);
+	});
+
+	it("throws on an explicit node name that cannot be a ROS node", () => {
+		expect(() =>
+			exportRos2(perms, { enclave: "/r/nav", ...WINDOW, nodeBaseline: { node: "bad-name" } }),
+		).toThrow(/Invalid node baseline/);
+	});
+});
+
 describe("diffRosPolicies", () => {
 	it("shows what a policy change does on the DDS side", () => {
 		const before = [{ resource: "ros2:/scan", actions: ["subscribe"] }];

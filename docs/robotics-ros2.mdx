@@ -26,7 +26,7 @@ The action `*` means every verb of that kind. Names must be absolute (`/scan`, n
 With the default matching, a `*` works only as a whole colon segment. `ros2:/fleet/*` is not a pattern: theAuth's policy engine would never match it at runtime, so the exporter lists it as skipped instead of writing a DDS rule the runtime check disagrees with. List exact names, or turn on [path matching](/permissions#path-matching-opt-in) (`resourceMatching: "path"` on the server, `--resource-matching path` on the export):
 
 - `ros2:/fleet/**` exports as the DDS glob `rt/fleet/*`.
-- `ros2:/fleet/*` (exactly one level) is skipped. A DDS permissions topic is an fnmatch pattern whose `*` also crosses `/`, so the grant would reach `/fleet/a/b` while theAuth denies it. Use `**`, list exact names, or pass `--single-level widen` to export the wider DDS grant on purpose. The runtime gate still enforces one level.
+- `ros2:/fleet/*` (exactly one level) is skipped. A DDS permissions topic is an fnmatch pattern whose `*` also crosses `/`, so the grant would reach `/fleet/a/b` while theAuth denies it. This was checked against Fast DDS, see [the glob result](#verified-on-ros-2-humble). Use `**`, list exact names, or pass `--single-level widen` to export the wider DDS grant on purpose. The runtime gate still enforces one level.
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
@@ -82,6 +82,12 @@ The output is deterministic: sorted, no timestamps except the validity window yo
 The mapping is the one SROS2 uses in its `permissions.xsl`. A topic `/cmd_vel` becomes the DDS topic `rt/cmd_vel`. A service client publishes `rq/<name>Request` and subscribes to `rr/<name>Reply`, and the server does the reverse. An action client publishes the three `_action` request topics and subscribes to the three replies plus `feedback` and `status`. The grant ends in `<default>DENY</default>`, so anything not listed is refused.
 
 DDS Security evaluates rules in document order and the first match wins. The exporter writes allow rules only, so order never changes the outcome.
+
+### The node baseline
+
+A ROS 2 node opens a few endpoints of its own before your code runs: it publishes `/rosout`, publishes and subscribes `/parameter_events`, and answers six parameter services under its own name (`describe_parameters`, `get_parameter_types`, `get_parameters`, `list_parameters`, `set_parameters`, `set_parameters_atomically`). SROS2's `create_permission` does not add these, and under `Enforce` a node missing any of them fails at startup (see [what was verified](#verified-on-ros-2-humble)). So the exporter adds them by default, for the node named by `--node` (default: the last token of the enclave path) in the namespace given by `--namespace` (default `/`).
+
+The name must be the real ROS node name, because the parameter services are named after it. If the last enclave token is not a valid node name (for example `robot-1`, since node names cannot contain a hyphen) and you did not pass `--node`, the baseline is skipped and `theauth-export.json` says so. Pass `--no-node-baseline` to leave it out. Whether a node started with rosout logging and parameter services turned off still needs them was not tried.
 
 ### Gated permissions
 
@@ -318,6 +324,84 @@ theauth ros2 diff before.json after.json
 ```
 
 Prints the DDS topics that would be added or removed and the permissions that became or stopped being gated. Exit code 0 means no change, 2 means the exported policy differs, 1 is an error. Use it in review before rolling a policy change to a fleet.
+
+## Verified on ROS 2 Humble
+
+Everything in this section was run, in Docker, on 2026-10-18. The setup: image `ros:humble` (digest `sha256:566b87e6dfc4...`, aarch64), `ros-humble-sros2` 0.10.9, `ros-humble-rmw-fastrtps-cpp` 6.2.10, Fast DDS 2.6.12, `rclpy` publisher and subscriber scripts on `std_msgs/String`, one enclave per process, `ROS_SECURITY_ENABLE=true ROS_SECURITY_STRATEGY=Enforce`. The exporter ran on the host and the XML was mounted into the container.
+
+What this does not cover: only Humble and only `rmw_fastrtps_cpp` (no Jazzy, no Cyclone DDS, no Connext, no Zenoh). Only `rclpy` nodes, no `rclcpp`. Only topics. Services and actions were not exercised end to end, apart from the parameter services every node serves. Certificate expiry and key revocation were not tried. The gate node of this page was not run: the "gate" below is just an enclave exported with `--gated include`.
+
+### Export, then build the keystore
+
+```bash
+# Host. perms: /chatter publish plus a gated /cmd_vel (requireApproval) for the talker.
+theauth ros2 export --permissions talker.json --enclave /w11/talker --out out-talker
+#   9 rules exported, 1 gated, 0 skipped.
+#     gated  ros2:/cmd_vel [publish] left out: requireApproval
+theauth ros2 export --permissions listener.json --enclave /w11/listener --out out-listener
+theauth ros2 export --permissions driver.json   --enclave /w11/driver   --out out-driver   # subscribes /cmd_vel
+theauth ros2 export --permissions gate.json     --enclave /w11/gate     --out out-gate --gated include
+
+# Container.
+ros2 security create_keystore "$ROS_SECURITY_KEYSTORE"
+for e in talker listener gate driver; do
+  ros2 security create_enclave   "$ROS_SECURITY_KEYSTORE" /w11/$e
+  ros2 security create_permission "$ROS_SECURITY_KEYSTORE" /w11/$e /work/out-$e/policy.xml
+done
+export ROS_SECURITY_ENABLE=true ROS_SECURITY_STRATEGY=Enforce
+```
+
+`create_permission` accepted every exported `policy.xml`.
+
+### What flowed and what was refused
+
+Each row starts the subscriber, waits three seconds, then runs the publisher for twelve seconds at 2 Hz.
+
+| Publisher enclave and topic | Subscriber enclave and topic | Result |
+| --- | --- | --- |
+| talker, `/chatter` | listener, `/chatter` | Both created. The listener received 13 messages. |
+| talker, `/secret` (not in any policy) | listener, `/secret` | Publisher refused: `create_publisher() could not create data writer`. Subscriber refused with `rt/secret topic not found in allow rule`, and the `rclpy` process then crashed with a segmentation fault instead of raising. |
+| talker, `/cmd_vel` (gated, left out) | driver, `/cmd_vel` | Publisher refused. The driver subscribed and received 0 messages. |
+| gate (exported with `--gated include`), `/cmd_vel` | driver, `/cmd_vel` | Both created. The driver received 13 messages. |
+| listener, `/chatter` (only has subscribe) | listener, `/chatter` | Publisher refused. |
+
+The refusal text from Fast DDS, as printed:
+
+```text
+[SECURITY Error] rt/secret topic not found in allow rule. (./src/cpp/security/accesscontrol/Permissions.cpp:1245) -> Function check_create_datareader
+```
+
+Two more checks. With security switched off (`ROS_SECURITY_ENABLE=false`) the same `/secret` publisher and subscriber exchanged messages (14 and 15 received in two runs), so the refusals above come from the permissions and not from the test scripts. And a publisher with security off talking to an `Enforce` subscriber on `/chatter` delivered 0 messages: the governance's refusal of unauthenticated participants held.
+
+### Signing your own XML
+
+The exported `permissions.xml` and `governance.xml` were also signed with the OpenSSL commands from [Sign and install](#sign-and-install) (using `public/permissions_ca.cert.pem` and `private/permissions_ca.key.pem` from the keystore), copied over the enclave's `permissions.*` and `governance.*`, and `openssl smime -verify` printed `Verification successful` for all four. The talker and listener then behaved as in the first two table rows. `openssl x509 -subject` printed `subject=CN = /w11/talker`, and DDS accepted the exporter's `CN=/w11/talker` as equal.
+
+### The node baseline is needed
+
+With only the application topics in `policy.xml`, a node under `Enforce` does not start. Observed in order, each one fixed by adding that item:
+
+```text
+rt/rosout topic not found in allow rule ... check_create_datawriter
+rq/talker/describe_parametersRequest topic not found in allow rule ... check_create_datareader
+rt/parameter_events topic not found in allow rule ... check_create_datawriter
+```
+
+That is why [the node baseline](#the-node-baseline) exists. Exporting `/rosout`, six parameter services and `/parameter_events` made the first table row work.
+
+### Globs
+
+Enclave `globss` was exported from `ros2:/fleet/**` with `--resource-matching path` (DDS topic `rt/fleet/*`). Enclave `glob1` was exported from `ros2:/fleet/*` with `--resource-matching path --single-level widen`, which writes the same `rt/fleet/*`. Both enclaves, creating publishers:
+
+```text
+/fleet        refused
+/fleet/a      allowed
+/fleet/a/b    allowed
+/fleet/a/b/c  allowed
+/other        refused
+```
+
+So in Fast DDS the `*` of a permissions topic does cross `/`, as this page says: the one level `/fleet/*` cannot be written as a DDS glob, and `--single-level widen` really does grant the deeper names. A glob does not match its own prefix (`/fleet`).
 
 ## What is not covered
 

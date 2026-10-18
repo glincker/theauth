@@ -15,6 +15,8 @@ export {
 	ros2Topic,
 	verbsForAction,
 } from "./names.js";
+export type { NodeBaselineOptions } from "./node-baseline.js";
+export { nodeBaselinePermissions, PARAMETER_SERVICES } from "./node-baseline.js";
 export type {
 	BuildRosPolicyOptions,
 	GatedPermission,

@@ -1,3 +1,5 @@
+import type { NodeBaselineOptions } from "./node-baseline.js";
+import { isValidNodeBaseline, nodeBaselinePermissions } from "./node-baseline.js";
 import type { BuildRosPolicyOptions, RoboticsPermission, RosPolicy } from "./policy-model.js";
 import { buildRosPolicy } from "./policy-model.js";
 import type { GovernanceXmlOptions, PermissionsXmlOptions } from "./xml.js";
@@ -13,6 +15,12 @@ export interface Ros2ExportOptions extends BuildRosPolicyOptions {
 	rosDiscoveryTopic?: boolean;
 	protection?: GovernanceXmlOptions["protection"];
 	node?: string;
+	/**
+	 * Add what every ROS 2 node needs to start under Enforce (`/rosout`, `/parameter_events`, its
+	 * parameter services). `true` uses the policy node name (`node`, or the last enclave token) in
+	 * namespace "/". Off by default in the library, on by default in the CLI.
+	 */
+	nodeBaseline?: boolean | Partial<NodeBaselineOptions>;
 }
 
 export interface Ros2Export {
@@ -26,7 +34,8 @@ export function exportRos2(
 	permissions: readonly RoboticsPermission[],
 	options: Ros2ExportOptions,
 ): Ros2Export {
-	const policy = buildRosPolicy(permissions, {
+	const baseline = resolveBaseline(options);
+	const policy = buildRosPolicy([...permissions, ...baseline.permissions], {
 		gated: options.gated,
 		resourceMatching: options.resourceMatching,
 		singleLevel: options.singleLevel,
@@ -44,6 +53,7 @@ export function exportRos2(
 		enclave: options.enclave,
 		gatedMode: options.gated ?? "omit",
 		resourceMatching: options.resourceMatching ?? "colon",
+		nodeBaseline: baseline.report,
 		rules: policy.rules,
 		gated: policy.gated,
 		skipped: policy.skipped,
@@ -62,5 +72,28 @@ export function exportRos2(
 			}),
 			"theauth-export.json": `${JSON.stringify(report, null, 2)}\n`,
 		},
+	};
+}
+
+function resolveBaseline(options: Ros2ExportOptions): {
+	permissions: RoboticsPermission[];
+	report: string;
+} {
+	const opt = options.nodeBaseline;
+	if (!opt) return { permissions: [], report: "off" };
+	const explicit = typeof opt === "object" ? opt : {};
+	const fromEnclave = options.enclave.split("/").filter(Boolean).pop() ?? "robot";
+	const node = explicit.node ?? options.node ?? fromEnclave;
+	const resolved: NodeBaselineOptions = { node, namespace: explicit.namespace };
+	if (isValidNodeBaseline(resolved)) {
+		return { permissions: nodeBaselinePermissions(resolved), report: `node ${node}` };
+	}
+	if (explicit.node !== undefined || options.node !== undefined) {
+		// An explicit name that cannot be a ROS node name is a mistake, say so.
+		return { permissions: nodeBaselinePermissions(resolved), report: "" };
+	}
+	return {
+		permissions: [],
+		report: `skipped: "${node}" is not a valid ROS node name, pass --node`,
 	};
 }
