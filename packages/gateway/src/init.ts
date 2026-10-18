@@ -10,7 +10,7 @@ export type GatewayTheAuth = Awaited<ReturnType<typeof createTheAuth>>;
  */
 export async function initTheAuth(dbUrl: string): Promise<GatewayTheAuth> {
 	return createTheAuth({
-		database: { provider: "sqlite", url: dbUrl },
+		database: { provider: dbUrl === ":memory:" ? "sqlite" : "sqlite-native", url: dbUrl },
 		agents: { enabled: true },
 	});
 }

@@ -107,7 +107,7 @@ describe("theauth db", () => {
 		const configFile = join(dir, "config.mjs");
 		await writeFile(
 			configFile,
-			`export default { database: { provider: "sqlite", url: ${JSON.stringify(file)} } };\n`,
+			`export default { database: { provider: "sqlite-native", url: ${JSON.stringify(file)} } };\n`,
 		);
 		const status = await executeDb(parseDbArgs(["status", "--config", configFile]), {});
 		// No agents in the config, so the audit migrations do not apply.
