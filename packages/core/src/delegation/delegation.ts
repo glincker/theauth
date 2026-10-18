@@ -1,11 +1,18 @@
 import { and, eq, or } from "drizzle-orm";
+import { canonicalJson } from "../audit/chain.js";
 import { recordAuditEvent } from "../audit/record.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { delegationChains, permissions } from "../db/schema.js";
 import { revocationRowExpiry } from "../mcp/revocation-bus.js";
 import type { McpRevocationBus } from "../mcp/revocation-types.js";
-import type { DelegateInput, DelegationChain, Permission } from "../types.js";
+import type {
+	DelegateInput,
+	DelegationChain,
+	Permission,
+	PermissionConstraints,
+} from "../types.js";
+import { assertValidExpiry } from "../validation.js";
 import { narrowConstraints } from "./constraints.js";
 import { resolveLineage } from "./lineage.js";
 import { loadLiveInboundRows } from "./liveness.js";
@@ -26,18 +33,40 @@ export async function getDelegatedPermissions(
 	return chains.flatMap((c) => (c.permissions as Permission[]).map((p) => ({ ...p })));
 }
 
-/** Apply the parent's constraints (from the first parent permission covering the child's) to each requested permission. Constraints only ever narrow. */
+/** True when the two resource patterns can select a common resource, so either one may gate the other. */
+function resourcesOverlap(parent: string, child: string): boolean {
+	return isResourceSubset(parent, child) || isResourceSubset(child, parent);
+}
+
+/**
+ * Apply the parent's constraints to each requested permission, one action at a time. For every action the first parent rule (in engine order) that overlaps the child's resource and grants that action supplies the constraints, so a rule that gates an action (for example requireApproval) is never skipped because a later rule covers more actions. Actions whose narrowed constraints are identical stay in one permission, others are split. Constraints only ever narrow.
+ */
 function inheritConstraints(parentPerms: Permission[], requested: Permission[]): Permission[] {
-	return requested.map((child) => {
-		const parent = parentPerms.find(
-			(p) =>
-				isResourceSubset(p.resource, child.resource) &&
-				child.actions.every((a) => p.actions.includes(a) || p.actions.includes("*")),
-		);
-		const constraints = narrowConstraints(parent?.constraints, child.constraints);
+	const out: Permission[] = [];
+	for (const child of requested) {
+		const groups = new Map<string, { actions: string[]; constraints?: PermissionConstraints }>();
+		for (const action of child.actions) {
+			const parent = parentPerms.find(
+				(p) =>
+					resourcesOverlap(p.resource, child.resource) &&
+					(p.actions.includes(action) || p.actions.includes("*")),
+			);
+			const constraints = narrowConstraints(parent?.constraints, child.constraints);
+			const key = constraints ? canonicalJson(constraints) : "";
+			const group = groups.get(key);
+			if (group) group.actions.push(action);
+			else groups.set(key, { actions: [action], constraints });
+		}
 		const { constraints: _requested, ...withoutConstraints } = child;
-		return constraints ? { ...withoutConstraints, constraints } : withoutConstraints;
-	});
+		for (const group of groups.values()) {
+			out.push(
+				group.constraints
+					? { ...withoutConstraints, actions: group.actions, constraints: group.constraints }
+					: { ...withoutConstraints, actions: group.actions },
+			);
+		}
+	}
+	return out;
 }
 
 export type DelegationErrorCode =
@@ -71,6 +100,8 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 	 * The parent's authority is read from storage, never from the caller: its own permission rows plus the active, unexpired chains that delegate to it.
 	 */
 	async function delegate(input: DelegateInput): Promise<DelegationChain> {
+		// Required on a delegation, so a missing value is as invalid as an Invalid Date.
+		assertValidExpiry(input.expiresAt ?? null);
 		const now = new Date();
 
 		const ownRows = await db

@@ -1,4 +1,6 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
+import { canonicalJson } from "../audit/chain.js";
+import { sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { approvalRequests } from "../db/schema.js";
 
@@ -9,6 +11,8 @@ export const APPROVAL_CODES = {
 	MISMATCH: "APPROVAL_MISMATCH",
 	EXPIRED: "APPROVAL_EXPIRED",
 	ALREADY_USED: "APPROVAL_ALREADY_USED",
+	/** The arguments presented at spend time differ from the ones the human approved. */
+	ARGUMENTS_MISMATCH: "APPROVAL_ARGUMENTS_MISMATCH",
 	/** Reason recorded on the allow that spent an approval. */
 	CONSUMED: "APPROVAL_CONSUMED",
 } as const;
@@ -18,13 +22,38 @@ export type ApprovalDenialCode =
 	| typeof APPROVAL_CODES.NOT_APPROVED
 	| typeof APPROVAL_CODES.MISMATCH
 	| typeof APPROVAL_CODES.EXPIRED
-	| typeof APPROVAL_CODES.ALREADY_USED;
+	| typeof APPROVAL_CODES.ALREADY_USED
+	| typeof APPROVAL_CODES.ARGUMENTS_MISMATCH;
 
 export interface ConsumeApprovalInput {
 	approvalId: string;
 	agentId: string;
 	action: string;
 	resource: string;
+	/** The arguments of the call being authorized. Must hash equal to the ones the human approved. Absent means no arguments. */
+	arguments?: Record<string, unknown>;
+}
+
+/** Canonical hash of what an approver signs off on: the action, the resource and the arguments. Absent arguments and an empty object hash the same. */
+export async function hashApprovalAction(
+	action: string,
+	resource: string,
+	args: Record<string, unknown> | null | undefined,
+): Promise<string> {
+	return sha256(canonicalJson({ action, resource, arguments: args ?? {} }));
+}
+
+/** Hash a presented argument bag. Anything that cannot be canonicalized (a cycle) never matches. */
+async function safeHash(
+	action: string,
+	resource: string,
+	args: Record<string, unknown> | null | undefined,
+): Promise<string | undefined> {
+	try {
+		return await hashApprovalAction(action, resource, args);
+	} catch {
+		return undefined;
+	}
 }
 
 export type ConsumeApprovalResult =
@@ -33,7 +62,11 @@ export type ConsumeApprovalResult =
 
 type Row = typeof approvalRequests.$inferSelect;
 
-function classify(row: Row | undefined, input: ConsumeApprovalInput, now: Date) {
+async function classify(
+	row: Row | undefined,
+	input: ConsumeApprovalInput,
+	now: Date,
+): Promise<ApprovalDenialCode | undefined> {
 	if (!row) return APPROVAL_CODES.NOT_FOUND;
 	if (
 		row.agentId !== input.agentId ||
@@ -46,6 +79,14 @@ function classify(row: Row | undefined, input: ConsumeApprovalInput, now: Date) 
 	if (row.status !== "approved") return APPROVAL_CODES.NOT_APPROVED;
 	if (row.consumedAt) return APPROVAL_CODES.ALREADY_USED;
 	if (row.expiresAt <= now) return APPROVAL_CODES.EXPIRED;
+	// Bind the spend to the arguments the human saw. A request stored without arguments only
+	// covers an argument-less call. Stored arguments are never edited, so this check cannot
+	// drift between here and the conditional UPDATE below.
+	const approved = await safeHash(row.action, row.resource, row.arguments);
+	const presented = await safeHash(input.action, input.resource, input.arguments);
+	if (approved === undefined || presented === undefined || approved !== presented) {
+		return APPROVAL_CODES.ARGUMENTS_MISMATCH;
+	}
 	return undefined;
 }
 
@@ -63,7 +104,7 @@ export async function consumeApproval(
 ): Promise<ConsumeApprovalResult> {
 	const now = new Date();
 	const row = await load(db, input.approvalId);
-	const early = classify(row, input, now);
+	const early = await classify(row, input, now);
 	if (early) return { ok: false, code: early };
 
 	const updated = await db
@@ -84,7 +125,7 @@ export async function consumeApproval(
 
 	if (updated.length === 0) {
 		// Lost a race or the row changed under us. Report why, never allow.
-		const code = classify(await load(db, input.approvalId), input, new Date());
+		const code = await classify(await load(db, input.approvalId), input, new Date());
 		return { ok: false, code: code ?? APPROVAL_CODES.ALREADY_USED };
 	}
 	return { ok: true, approvalId: input.approvalId, approverId: row?.respondedBy ?? undefined };

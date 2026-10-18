@@ -207,6 +207,7 @@ export async function verifyGuardRequest(
 	const ts = Number(timestamp);
 	const now = (options.now ?? (() => Math.floor(Date.now() / 1000)))();
 	const tolerance = options.toleranceSec ?? GUARD_DEFAULT_TOLERANCE_SEC;
+	if (!isValidTolerance(tolerance)) return { ok: false, reason: "invalid tolerance" };
 	if (Math.abs(now - ts) > tolerance) return { ok: false, reason: "stale timestamp" };
 	if (!safeEqual(await signGuardBody(secret, ts, body), signature)) {
 		return { ok: false, reason: "bad signature" };
@@ -256,7 +257,9 @@ export async function verifyGuardResponse(
 	if (!/^\d{1,12}$/.test(timestamp)) return { ok: false, reason: "bad response timestamp" };
 	const ts = Number(timestamp);
 	const now = (args.now ?? (() => Math.floor(Date.now() / 1000)))();
-	if (Math.abs(now - ts) > (args.toleranceSec ?? GUARD_DEFAULT_TOLERANCE_SEC)) {
+	const tolerance = args.toleranceSec ?? GUARD_DEFAULT_TOLERANCE_SEC;
+	if (!isValidTolerance(tolerance)) return { ok: false, reason: "invalid tolerance" };
+	if (Math.abs(now - ts) > tolerance) {
 		return { ok: false, reason: "stale response" };
 	}
 	const expected = `v1=${await hmacHex(secret, `${args.requestId}.${ts}.${args.body}`)}`;
@@ -265,20 +268,59 @@ export async function verifyGuardResponse(
 		: { ok: false, reason: "bad response signature" };
 }
 
+/** Largest freshness window accepted, in seconds. */
+const GUARD_MAX_TOLERANCE_SEC = 3600;
+
+/** NaN compares false against everything, so an unvalidated tolerance would switch freshness off. */
+function isValidTolerance(value: number): boolean {
+	return Number.isFinite(value) && value >= 0 && value <= GUARD_MAX_TOLERANCE_SEC;
+}
+
+/** Read the body while streaming and abort as soon as the cap is crossed, so a hostile endpoint cannot make us buffer more than the cap. */
 async function readCapped(response: Response): Promise<string> {
 	const declared = Number(response.headers.get("content-length") ?? "0");
-	if (declared > GUARD_MAX_RESPONSE_BYTES) throw new Error("guard response too large");
-	const text = await response.text();
-	if (encoder.encode(text).length > GUARD_MAX_RESPONSE_BYTES) {
+	if (declared > GUARD_MAX_RESPONSE_BYTES) {
+		await response.body?.cancel().catch(() => undefined);
 		throw new Error("guard response too large");
 	}
-	return text;
+	if (!response.body) {
+		const text = await response.text();
+		if (encoder.encode(text).length > GUARD_MAX_RESPONSE_BYTES) {
+			throw new Error("guard response too large");
+		}
+		return text;
+	}
+	const reader = response.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		total += value.byteLength;
+		if (total > GUARD_MAX_RESPONSE_BYTES) {
+			await reader.cancel().catch(() => undefined);
+			throw new Error("guard response too large");
+		}
+		chunks.push(value);
+	}
+	const all = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		all.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return new TextDecoder().decode(all);
 }
 
 /** Build an ExternalGuard that calls a vendor endpoint. Throws on a bad url or empty secret. */
 export function httpGuard(options: HttpGuardOptions): ExternalGuard {
 	const url = assertSafeUrl(options.url, options.name);
 	if (!options.secret) throw new Error(`httpGuard "${options.name}": secret is required`);
+	if (options.toleranceSec !== undefined && !isValidTolerance(options.toleranceSec)) {
+		throw new Error(
+			`httpGuard "${options.name}": toleranceSec must be a finite number between 0 and ${GUARD_MAX_TOLERANCE_SEC}`,
+		);
+	}
 	const { secret, redact, keyId } = options;
 	const responseSecret = options.responseSecret ?? secret;
 	const requireSigned = options.requireSignedResponse !== false;

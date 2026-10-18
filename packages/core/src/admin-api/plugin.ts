@@ -106,6 +106,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 				{ adminUserIds: config.adminUserIds },
 				db,
 				ctx.sessionManager,
+				ctx.revocations,
 			);
 			const approvals = createApprovalModule(config.approval ?? {}, db);
 			const delegations = createDelegationModule({ db });
@@ -296,6 +297,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						agentId: systemAgentId,
 						action,
 						resource,
+						arguments: isRecord(body.arguments) ? body.arguments : undefined,
 					});
 					if (!result.ok) {
 						await audit(p, "admin_api.approval.consume", `approval:${id}`, "denied", {

@@ -120,6 +120,7 @@ export async function runPolicyHook(
 			agentId: row.id,
 			action: input.action,
 			resource: input.resource,
+			arguments: input.context?.arguments,
 		});
 		if (spent.ok) {
 			return {

@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import type { ApprovalModule } from "../approval/approval.js";
 import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
 import { recordAuditEvent } from "../audit/record.js";
+import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { withHookDetail } from "../authorize/hook-outcome.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
@@ -145,6 +146,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			agentId,
 			action: input.action,
 			resource: input.resource,
+			arguments: input.context?.arguments,
 		});
 		if (!spent.ok) {
 			return {
@@ -462,8 +464,11 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			resource: input.resource,
 			parameters: withHookDetail(
 				consumed
-					? { ...(input.context?.arguments ?? {}), approvalId: consumed.approvalId }
-					: input.context?.arguments,
+					? {
+							...(stripReservedAuditKeys(input.context?.arguments) ?? {}),
+							approvalId: consumed.approvalId,
+						}
+					: stripReservedAuditKeys(input.context?.arguments),
 				hookDetail,
 			),
 			approverId: consumed?.approverId,

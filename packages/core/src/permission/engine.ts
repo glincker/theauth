@@ -1,5 +1,6 @@
 import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
 import { insertAuditRow } from "../audit/chain.js";
+import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { evaluateConstraints, findMatchingPermission, inspectConstraints } from "../policy/abac.js";
@@ -88,6 +89,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 						agentId: agent.id,
 						action: request.action,
 						resource: request.resource,
+						arguments: request.arguments,
 					});
 					if (spent.ok) {
 						consumed = { approvalId: spent.approvalId, approverId: spent.approverId };
@@ -169,7 +171,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 				action: request.action,
 				event: "authorize",
 				resource: request.resource,
-				parameters: extra?.parameters ?? request.arguments ?? {},
+				parameters: extra?.parameters ?? stripReservedAuditKeys(request.arguments) ?? {},
 				result: extra?.result ?? "denied",
 				reason: extra?.reason ?? code,
 				decisionCode: code,
@@ -256,7 +258,7 @@ async function writeAuditLog(
 			event: "authorize",
 			resource: request.resource,
 			parameters: {
-				...(request.arguments ?? {}),
+				...(stripReservedAuditKeys(request.arguments) ?? {}),
 				...(consumed ? { approvalId: consumed.approvalId } : {}),
 				...(auditParameters ?? {}),
 			},

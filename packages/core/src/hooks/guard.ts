@@ -72,8 +72,13 @@ function toGuardInput(ctx: BeforeAuthorizeContext): GuardCheckInput {
 export function guardHook(guard: ExternalGuard): BeforeAuthorizeHook {
 	return async (ctx) => {
 		const verdict = await guard.check(toGuardInput(ctx), ctx.signal);
-		// A malformed verdict is passed through untouched so the runner fails closed.
-		if (typeof verdict !== "object" || verdict === null) return verdict;
+		// A guard that returns nothing (a forgotten return, a vendor SDK error path) is not an
+		// allow. Throwing makes the runner deny with its hook error code.
+		if (verdict === undefined || verdict === null) {
+			throw new Error(`guard "${guard.name}" returned no verdict`);
+		}
+		// Any other malformed verdict is passed through untouched so the runner fails closed.
+		if (typeof verdict !== "object") return verdict;
 		return verdict.guard ? verdict : { ...verdict, guard: guard.name };
 	};
 }

@@ -1,4 +1,5 @@
 import type { createAgentModule } from "../agent/agent.js";
+import { stripReservedAuditKeys } from "../audit/reserved.js";
 import type { Database } from "../db/database.js";
 import type { createDelegationModule } from "../delegation/delegation.js";
 import { resolveHookChain } from "../delegation/lineage.js";
@@ -286,7 +287,10 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 			request,
 			outcome.code,
 			{
-				parameters: withHookDetail(request.arguments, hookAuditDetail(outcome)),
+				parameters: withHookDetail(
+					stripReservedAuditKeys(request.arguments),
+					hookAuditDetail(outcome),
+				),
 				durationMs: outcome.elapsedMs,
 				subjectId: chain.rootOwnerId,
 				actorId: agent.id,
