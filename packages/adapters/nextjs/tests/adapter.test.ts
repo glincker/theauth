@@ -8,8 +8,11 @@ const BASE_URL = "http://localhost/api/auth/theauth";
 const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
 type Handlers = ReturnType<typeof theAuthNextjs>;
+type CorsOption = NonNullable<Parameters<typeof theAuthNextjs>[1]>["cors"];
 
-async function createTestHandlers(): Promise<{ handlers: Handlers; theauth: TheAuth }> {
+async function createTestHandlers(
+	cors?: CorsOption,
+): Promise<{ handlers: Handlers; theauth: TheAuth }> {
 	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
@@ -33,7 +36,11 @@ async function createTestHandlers(): Promise<{ handlers: Handlers; theauth: TheA
 		.run();
 
 	return {
-		handlers: theAuthNextjs(theauth, { basePath: "/api/auth/theauth", allowUnauthenticated: true }),
+		handlers: theAuthNextjs(theauth, {
+			basePath: "/api/auth/theauth",
+			allowUnauthenticated: true,
+			cors,
+		}),
 		theauth,
 	};
 }
@@ -129,13 +136,31 @@ describe("Next.js adapter", () => {
 		expect(denyBody.data.reason).toContain("Invalid or expired");
 	});
 
-	it("serves MCP preflight responses with CORS headers", async () => {
-		const res = await handlers.OPTIONS(
-			new Request(`${BASE_URL}/mcp/register`, { method: "OPTIONS" }),
-		);
+	const ORIGIN = "https://app.example.com";
+	const CORS = { origins: [ORIGIN], groups: { register: true } };
 
+	function preflight(origin: string): Request {
+		return new Request(`${BASE_URL}/mcp/register`, {
+			method: "OPTIONS",
+			headers: { Origin: origin, "Access-Control-Request-Method": "POST" },
+		});
+	}
+
+	it("sends no CORS headers on a preflight when cors is not configured", async () => {
+		const res = await handlers.OPTIONS(preflight(ORIGIN));
+		expect(res.headers.get("access-control-allow-origin")).toBeNull();
+	});
+
+	it("serves MCP preflight responses for the configured origin only", async () => {
+		const { handlers: corsHandlers } = await createTestHandlers(CORS);
+		const res = await corsHandlers.OPTIONS(preflight(ORIGIN));
 		expect(res.status).toBe(204);
-		expect(res.headers.get("access-control-allow-origin")).toBe("*");
+		expect(res.headers.get("access-control-allow-origin")).toBe(ORIGIN);
+		expect(res.headers.get("vary")).toContain("Origin");
+		expect(res.headers.get("access-control-allow-methods")).toContain("POST");
 		expect(res.headers.get("access-control-allow-methods")).toContain("OPTIONS");
+
+		const other = await corsHandlers.OPTIONS(preflight("https://evil.example.com"));
+		expect(other.headers.get("access-control-allow-origin")).toBeNull();
 	});
 });

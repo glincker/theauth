@@ -7,7 +7,11 @@ import { theAuthFastify } from "../src/adapter.js";
 
 const BASE_PERMISSIONS = [{ resource: "mcp:github", actions: ["read"] }];
 
-async function createTestApp(): Promise<{ app: ReturnType<typeof Fastify>; theauth: TheAuth }> {
+type CorsOption = NonNullable<Parameters<typeof theAuthFastify>[1]>["cors"];
+
+async function createTestApp(
+	cors?: CorsOption,
+): Promise<{ app: ReturnType<typeof Fastify>; theauth: TheAuth }> {
 	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
@@ -31,7 +35,7 @@ async function createTestApp(): Promise<{ app: ReturnType<typeof Fastify>; theau
 		.run();
 
 	const app = Fastify();
-	await app.register(theAuthFastify(theauth, { allowUnauthenticated: true }), {
+	await app.register(theAuthFastify(theauth, { allowUnauthenticated: true, cors }), {
 		prefix: "/api/theauth",
 	});
 
@@ -138,14 +142,37 @@ describe("Fastify adapter", () => {
 		expect(denyBody.data.reason).toContain("Invalid or expired");
 	});
 
-	it("serves MCP preflight responses with CORS headers", async () => {
+	const ORIGIN = "https://app.example.com";
+	const CORS = { origins: [ORIGIN], groups: { register: true } };
+
+	it("answers no CORS headers on a preflight when cors is not configured", async () => {
 		const res = await app.inject({
 			method: "OPTIONS",
 			url: "/api/theauth/mcp/register",
+			headers: { origin: ORIGIN, "access-control-request-method": "POST" },
 		});
+		expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+	});
 
+	it("serves MCP preflight responses for the configured origin only", async () => {
+		const { app: corsApp } = await createTestApp(CORS);
+		const res = await corsApp.inject({
+			method: "OPTIONS",
+			url: "/api/theauth/mcp/register",
+			headers: { origin: ORIGIN, "access-control-request-method": "POST" },
+		});
 		expect(res.statusCode).toBe(204);
-		expect(res.headers["access-control-allow-origin"]).toBe("*");
+		expect(res.headers["access-control-allow-origin"]).toBe(ORIGIN);
+		expect(String(res.headers.vary)).toContain("Origin");
+		expect(res.headers["access-control-allow-methods"]).toContain("POST");
 		expect(res.headers["access-control-allow-methods"]).toContain("OPTIONS");
+
+		const other = await corsApp.inject({
+			method: "OPTIONS",
+			url: "/api/theauth/mcp/register",
+			headers: { origin: "https://evil.example.com", "access-control-request-method": "POST" },
+		});
+		expect(other.headers["access-control-allow-origin"]).toBeUndefined();
+		await corsApp.close();
 	});
 });
