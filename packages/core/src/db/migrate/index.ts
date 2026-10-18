@@ -1,4 +1,9 @@
 export { MIGRATIONS } from "../migrations/index.js";
+export {
+	AUDIT_SECRETS_LAYOUT_MISMATCH,
+	AuditSecretsLayoutError,
+	assertAuditSecretsLayout,
+} from "./audit-secrets-guard.js";
 export { createExecutor, toDialect } from "./executor.js";
 export { migrationChecksum } from "./ledger.js";
 export type { MigrationOptions, MigrationRunResult } from "./runner.js";

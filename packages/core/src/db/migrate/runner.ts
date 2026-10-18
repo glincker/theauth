@@ -1,6 +1,7 @@
 import type { TheAuthConfig } from "../../types.js";
 import type { Database } from "../database.js";
 import { BASELINE_ID, MIGRATIONS } from "../migrations/index.js";
+import { assertAuditSecretsLayout } from "./audit-secrets-guard.js";
 import { createExecutor, isAlreadyExistsError } from "./executor.js";
 import type { EnabledFeatures } from "./features.js";
 import { resolveEnabledFeatures } from "./features.js";
@@ -132,6 +133,7 @@ export async function runMigrations(
 	options: MigrationOptions & { dryRun?: boolean } = {},
 ): Promise<MigrationRunResult> {
 	const exec = createExecutor(db, provider);
+	await assertAuditSecretsLayout(exec);
 	const features = resolveEnabledFeatures(options.config);
 	const applicable = applicableMigrations(features, options.to);
 	const dryRun = options.dryRun === true;

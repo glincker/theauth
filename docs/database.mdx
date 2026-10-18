@@ -231,6 +231,10 @@ The full set of tables theAuth can create is below. Which ones exist in your dat
 
 Migrations `0002` and `0003` add `decision_code TEXT` (with the index `theauth_audit_logs_code`) and `recorded_at_ms` (`INTEGER` on SQLite, `BIGINT` on Postgres, with the index `theauth_audit_logs_order`). Old rows keep a NULL code, and `recorded_at_ms` is backfilled from the second-resolution `timestamp`. Audit reads order by `recorded_at_ms`, so rows written in the same second keep their write order. Migration `0005` adds a nullable `event TEXT` column (with the index `theauth_audit_logs_event`). It backfills `event` from `action` for rows whose action is itself an event name (`delegation.create`, `delegation.revoke`, `agent.cascade.revoked`, `approval.*`, `vault.read`, `audit.*`), marks policy engine rows `policy.evaluate`, marks the remaining rows that have a decision code `authorize`, and leaves every other row NULL. None of these columns is covered by the audit hash, so existing hash chains keep verifying. If you use `skipMigrations`, see [Using skipMigrations](#using-skipmigrations).
 
+<Warning>
+  Do not run TheAuth and `theauth-go` in the same database or schema. Both create `theauth_audit_secrets` with different column types. TheAuth detects the foreign layout before it migrates (and on every start with `skipMigrations`) and throws `AUDIT_SECRETS_LAYOUT_MISMATCH` without changing the table. Use a separate database or schema for each library. See [Audit receipts and chain vectors](/audit-receipts).
+</Warning>
+
 All table and column names use `snake_case`. IDs are `text`. Timestamps are integer epoch seconds on both SQLite and Postgres.
 
 ## Peer dependencies

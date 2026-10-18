@@ -109,19 +109,28 @@ function hashedFieldsV2(row: AuditInsert | AuditRow): Record<string, unknown> {
 	};
 }
 
+/** The exact string that is hashed for a row: canonical JSON of `{v, seq, prev, row}`. Exported for conformance vectors and offline verifiers. */
+export function chainPayload(
+	row: AuditInsert | AuditRow,
+	chainSeq: number,
+	prevHash: string | null,
+): string {
+	const version = row.hashVersion ?? 1;
+	return canonicalJson({
+		v: version,
+		seq: chainSeq,
+		prev: prevHash,
+		row: version >= 2 ? hashedFieldsV2(row) : hashedFieldsV1(row),
+	});
+}
+
 export async function computeRowHash(
 	row: AuditInsert | AuditRow,
 	chainSeq: number,
 	prevHash: string | null,
 	hmacKey?: string,
 ): Promise<string> {
-	const version = row.hashVersion ?? 1;
-	const payload = canonicalJson({
-		v: version,
-		seq: chainSeq,
-		prev: prevHash,
-		row: version >= 2 ? hashedFieldsV2(row) : hashedFieldsV1(row),
-	});
+	const payload = chainPayload(row, chainSeq, prevHash);
 	return hmacKey ? hmacSha256(hmacKey, payload) : sha256(payload);
 }
 

@@ -1,0 +1,652 @@
+{
+  "format": "theauth.audit.chain-vectors",
+  "formatVersion": 1,
+  "producer": "@glinr/theauth core",
+  "description": "TypeScript audit chain row-hash vectors. See docs/audit-receipts.mdx for the algorithm. These are the TypeScript formats ts-v1 and ts-v2, not the Go chain format.",
+  "chains": [
+    {
+      "name": "v1-plain",
+      "hashFormat": "ts-v1",
+      "agentId": "agent-v1-plain",
+      "hashVersion": 1,
+      "hmacKey": null,
+      "pseudonymKey": null,
+      "rows": [
+        {
+          "seq": 1,
+          "prev": null,
+          "input": {
+            "agentId": "agent-v1-plain",
+            "userId": "user-v1-plain",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r1",
+            "action": "execute",
+            "parameters": {
+              "b": 2,
+              "a": 1
+            },
+            "timestamp": 1790812800000,
+            "hashVersion": 1
+          },
+          "payload": "{\"prev\":null,\"row\":{\"action\":\"execute\",\"agentId\":\"agent-v1-plain\",\"cacheHit\":false,\"durationMs\":12,\"id\":\"r1\",\"ip\":null,\"parameters\":{\"a\":1,\"b\":2},\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812800000,\"tokensCost\":null,\"userAgent\":null,\"userId\":\"user-v1-plain\"},\"seq\":1,\"v\":1}",
+          "hash": "723a150835342e922e78137be5abb8ae5c99c117abf0aacf5f1681a30d9b2f10"
+        },
+        {
+          "seq": 2,
+          "prev": "723a150835342e922e78137be5abb8ae5c99c117abf0aacf5f1681a30d9b2f10",
+          "input": {
+            "agentId": "agent-v1-plain",
+            "userId": "user-v1-plain",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r2",
+            "action": "café 🚀",
+            "parameters": {
+              "note": "<tag> &   \"q\"",
+              "n": 9007199254740991,
+              "nested": {
+                "z": null,
+                "y": [
+                  3,
+                  {
+                    "k": 1,
+                    "a": 2
+                  }
+                ]
+              }
+            },
+            "reason": "ok",
+            "tokensCost": 1.5,
+            "ip": "203.0.113.7",
+            "userAgent": "vector/1",
+            "cacheHit": true,
+            "policyVersion": "p-7",
+            "delegationChain": [],
+            "inputProvenance": {
+              "source": "user",
+              "trace": {
+                "b": 1,
+                "a": 0
+              }
+            },
+            "timestamp": 1790812801000,
+            "hashVersion": 1
+          },
+          "payload": "{\"prev\":\"723a150835342e922e78137be5abb8ae5c99c117abf0aacf5f1681a30d9b2f10\",\"row\":{\"action\":\"café 🚀\",\"agentId\":\"agent-v1-plain\",\"cacheHit\":true,\"durationMs\":12,\"id\":\"r2\",\"ip\":\"203.0.113.7\",\"parameters\":{\"n\":9007199254740991,\"nested\":{\"y\":[3,{\"a\":2,\"k\":1}],\"z\":null},\"note\":\"<tag> &   \\\"q\\\"\"},\"reason\":\"ok\",\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812801000,\"tokensCost\":1.5,\"userAgent\":\"vector/1\",\"userId\":\"user-v1-plain\"},\"seq\":2,\"v\":1}",
+          "hash": "75b0ff4eefd435e0f4499461debb6f51a78de3553b80e94d14c952cd4d5986f0"
+        },
+        {
+          "seq": 3,
+          "prev": "75b0ff4eefd435e0f4499461debb6f51a78de3553b80e94d14c952cd4d5986f0",
+          "input": {
+            "agentId": "agent-v1-plain",
+            "userId": "user-v1-plain",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r3",
+            "action": "write",
+            "parameters": null,
+            "delegationChain": ["d1", "d2"],
+            "timestamp": 1790812802000,
+            "hashVersion": 1
+          },
+          "payload": "{\"prev\":\"75b0ff4eefd435e0f4499461debb6f51a78de3553b80e94d14c952cd4d5986f0\",\"row\":{\"action\":\"write\",\"agentId\":\"agent-v1-plain\",\"cacheHit\":false,\"durationMs\":12,\"id\":\"r3\",\"ip\":null,\"parameters\":null,\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812802000,\"tokensCost\":null,\"userAgent\":null,\"userId\":\"user-v1-plain\"},\"seq\":3,\"v\":1}",
+          "hash": "fdea382510414df81a2d1ed6f6e1c87fcdbcc1e8c282555f242f4f98e93c90ec"
+        },
+        {
+          "seq": 4,
+          "prev": "fdea382510414df81a2d1ed6f6e1c87fcdbcc1e8c282555f242f4f98e93c90ec",
+          "input": {
+            "agentId": "agent-v1-plain",
+            "userId": "user-v1-plain",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r4",
+            "action": "execute",
+            "parameters": {},
+            "timestamp": 1790812803000,
+            "hashVersion": 1
+          },
+          "payload": "{\"prev\":\"fdea382510414df81a2d1ed6f6e1c87fcdbcc1e8c282555f242f4f98e93c90ec\",\"row\":{\"action\":\"execute\",\"agentId\":\"agent-v1-plain\",\"cacheHit\":false,\"durationMs\":12,\"id\":\"r4\",\"ip\":null,\"parameters\":{},\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812803000,\"tokensCost\":null,\"userAgent\":null,\"userId\":\"user-v1-plain\"},\"seq\":4,\"v\":1}",
+          "hash": "1e3523f1c8d902ed4794dbe956893f81bf1c7f24e90455eeec427f3d19df5f5a"
+        }
+      ]
+    },
+    {
+      "name": "v1-hmac",
+      "hashFormat": "ts-v1",
+      "agentId": "agent-v1-hmac",
+      "hashVersion": 1,
+      "hmacKey": "vector-hmac-key-do-not-use",
+      "pseudonymKey": null,
+      "rows": [
+        {
+          "seq": 1,
+          "prev": null,
+          "input": {
+            "agentId": "agent-v1-hmac",
+            "userId": "user-v1-hmac",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r1",
+            "action": "execute",
+            "parameters": {
+              "b": 2,
+              "a": 1
+            },
+            "timestamp": 1790812800000,
+            "hashVersion": 1
+          },
+          "payload": "{\"prev\":null,\"row\":{\"action\":\"execute\",\"agentId\":\"agent-v1-hmac\",\"cacheHit\":false,\"durationMs\":12,\"id\":\"r1\",\"ip\":null,\"parameters\":{\"a\":1,\"b\":2},\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812800000,\"tokensCost\":null,\"userAgent\":null,\"userId\":\"user-v1-hmac\"},\"seq\":1,\"v\":1}",
+          "hash": "9811e80cedfef789d95d86d67e58516a07c5ed877082341a0c24a27dace1d6a7"
+        },
+        {
+          "seq": 2,
+          "prev": "9811e80cedfef789d95d86d67e58516a07c5ed877082341a0c24a27dace1d6a7",
+          "input": {
+            "agentId": "agent-v1-hmac",
+            "userId": "user-v1-hmac",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r2",
+            "action": "café 🚀",
+            "parameters": {
+              "note": "<tag> &   \"q\"",
+              "n": 9007199254740991,
+              "nested": {
+                "z": null,
+                "y": [
+                  3,
+                  {
+                    "k": 1,
+                    "a": 2
+                  }
+                ]
+              }
+            },
+            "reason": "ok",
+            "tokensCost": 1.5,
+            "ip": "203.0.113.7",
+            "userAgent": "vector/1",
+            "cacheHit": true,
+            "policyVersion": "p-7",
+            "delegationChain": [],
+            "inputProvenance": {
+              "source": "user",
+              "trace": {
+                "b": 1,
+                "a": 0
+              }
+            },
+            "timestamp": 1790812801000,
+            "hashVersion": 1
+          },
+          "payload": "{\"prev\":\"9811e80cedfef789d95d86d67e58516a07c5ed877082341a0c24a27dace1d6a7\",\"row\":{\"action\":\"café 🚀\",\"agentId\":\"agent-v1-hmac\",\"cacheHit\":true,\"durationMs\":12,\"id\":\"r2\",\"ip\":\"203.0.113.7\",\"parameters\":{\"n\":9007199254740991,\"nested\":{\"y\":[3,{\"a\":2,\"k\":1}],\"z\":null},\"note\":\"<tag> &   \\\"q\\\"\"},\"reason\":\"ok\",\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812801000,\"tokensCost\":1.5,\"userAgent\":\"vector/1\",\"userId\":\"user-v1-hmac\"},\"seq\":2,\"v\":1}",
+          "hash": "309ee42cc325bd32a3e6bb37d496fac54094ce1f0e67bb04b4ec9209c05dd8f1"
+        },
+        {
+          "seq": 3,
+          "prev": "309ee42cc325bd32a3e6bb37d496fac54094ce1f0e67bb04b4ec9209c05dd8f1",
+          "input": {
+            "agentId": "agent-v1-hmac",
+            "userId": "user-v1-hmac",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r3",
+            "action": "write",
+            "parameters": null,
+            "delegationChain": ["d1", "d2"],
+            "timestamp": 1790812802000,
+            "hashVersion": 1
+          },
+          "payload": "{\"prev\":\"309ee42cc325bd32a3e6bb37d496fac54094ce1f0e67bb04b4ec9209c05dd8f1\",\"row\":{\"action\":\"write\",\"agentId\":\"agent-v1-hmac\",\"cacheHit\":false,\"durationMs\":12,\"id\":\"r3\",\"ip\":null,\"parameters\":null,\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812802000,\"tokensCost\":null,\"userAgent\":null,\"userId\":\"user-v1-hmac\"},\"seq\":3,\"v\":1}",
+          "hash": "7d6e925b8ba991f02fde565bc51a8b7820ef45d83c44444252998b53f528f0e2"
+        },
+        {
+          "seq": 4,
+          "prev": "7d6e925b8ba991f02fde565bc51a8b7820ef45d83c44444252998b53f528f0e2",
+          "input": {
+            "agentId": "agent-v1-hmac",
+            "userId": "user-v1-hmac",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r4",
+            "action": "execute",
+            "parameters": {},
+            "timestamp": 1790812803000,
+            "hashVersion": 1
+          },
+          "payload": "{\"prev\":\"7d6e925b8ba991f02fde565bc51a8b7820ef45d83c44444252998b53f528f0e2\",\"row\":{\"action\":\"execute\",\"agentId\":\"agent-v1-hmac\",\"cacheHit\":false,\"durationMs\":12,\"id\":\"r4\",\"ip\":null,\"parameters\":{},\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812803000,\"tokensCost\":null,\"userAgent\":null,\"userId\":\"user-v1-hmac\"},\"seq\":4,\"v\":1}",
+          "hash": "ea599fcec1d81e60fd089f11c83fcea2b5a7933d1d5616a2b4dcae5c89187436"
+        }
+      ]
+    },
+    {
+      "name": "v2-plain",
+      "hashFormat": "ts-v2",
+      "agentId": "agent-v2-plain",
+      "hashVersion": 2,
+      "hmacKey": null,
+      "pseudonymKey": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+      "rows": [
+        {
+          "seq": 1,
+          "prev": null,
+          "input": {
+            "agentId": "agent-v2-plain",
+            "userId": "user-v2-plain",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r1",
+            "action": "execute",
+            "parameters": {
+              "b": 2,
+              "a": 1
+            },
+            "timestamp": 1790812800000,
+            "hashVersion": 2,
+            "idPseudonyms": {
+              "userId": "1b2395448dbdabf4b7895169f40eed1510d05365a6d9378f65d655c6832e01f1",
+              "agentId": "30d6ebe330323d1eb0f814482232b86f18be173694678b7cb3ee4200cc6b0a3c"
+            }
+          },
+          "payload": "{\"prev\":null,\"row\":{\"action\":\"execute\",\"cacheHit\":false,\"delegationChain\":null,\"durationMs\":12,\"id\":\"r1\",\"idPseudonyms\":{\"agentId\":\"30d6ebe330323d1eb0f814482232b86f18be173694678b7cb3ee4200cc6b0a3c\",\"userId\":\"1b2395448dbdabf4b7895169f40eed1510d05365a6d9378f65d655c6832e01f1\"},\"inputProvenance\":null,\"ip\":null,\"parameters\":{\"a\":1,\"b\":2},\"policyVersion\":null,\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812800000,\"tokensCost\":null,\"userAgent\":null},\"seq\":1,\"v\":2}",
+          "hash": "a06bfae36950beb609da440c882c3f53ae14a7f3586c2f30e1ef83b4d26ab3a7"
+        },
+        {
+          "seq": 2,
+          "prev": "a06bfae36950beb609da440c882c3f53ae14a7f3586c2f30e1ef83b4d26ab3a7",
+          "input": {
+            "agentId": "agent-v2-plain",
+            "userId": "user-v2-plain",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r2",
+            "action": "café 🚀",
+            "parameters": {
+              "note": "<tag> &   \"q\"",
+              "n": 9007199254740991,
+              "nested": {
+                "z": null,
+                "y": [
+                  3,
+                  {
+                    "k": 1,
+                    "a": 2
+                  }
+                ]
+              }
+            },
+            "reason": "ok",
+            "tokensCost": 1.5,
+            "ip": "203.0.113.7",
+            "userAgent": "vector/1",
+            "cacheHit": true,
+            "policyVersion": "p-7",
+            "delegationChain": [],
+            "inputProvenance": {
+              "source": "user",
+              "trace": {
+                "b": 1,
+                "a": 0
+              }
+            },
+            "timestamp": 1790812801000,
+            "hashVersion": 2,
+            "idPseudonyms": {
+              "userId": "1b2395448dbdabf4b7895169f40eed1510d05365a6d9378f65d655c6832e01f1",
+              "agentId": "30d6ebe330323d1eb0f814482232b86f18be173694678b7cb3ee4200cc6b0a3c"
+            }
+          },
+          "payload": "{\"prev\":\"a06bfae36950beb609da440c882c3f53ae14a7f3586c2f30e1ef83b4d26ab3a7\",\"row\":{\"action\":\"café 🚀\",\"cacheHit\":true,\"delegationChain\":[],\"durationMs\":12,\"id\":\"r2\",\"idPseudonyms\":{\"agentId\":\"30d6ebe330323d1eb0f814482232b86f18be173694678b7cb3ee4200cc6b0a3c\",\"userId\":\"1b2395448dbdabf4b7895169f40eed1510d05365a6d9378f65d655c6832e01f1\"},\"inputProvenance\":{\"source\":\"user\",\"trace\":{\"a\":0,\"b\":1}},\"ip\":\"203.0.113.7\",\"parameters\":{\"n\":9007199254740991,\"nested\":{\"y\":[3,{\"a\":2,\"k\":1}],\"z\":null},\"note\":\"<tag> &   \\\"q\\\"\"},\"policyVersion\":\"p-7\",\"reason\":\"ok\",\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812801000,\"tokensCost\":1.5,\"userAgent\":\"vector/1\"},\"seq\":2,\"v\":2}",
+          "hash": "a9b1718d88848c0a6b76f679e10a4475fb1766dd6ee5cdd5bb1c4272d7b832ca"
+        },
+        {
+          "seq": 3,
+          "prev": "a9b1718d88848c0a6b76f679e10a4475fb1766dd6ee5cdd5bb1c4272d7b832ca",
+          "input": {
+            "agentId": "agent-v2-plain",
+            "userId": "user-v2-plain",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r3",
+            "action": "write",
+            "parameters": null,
+            "delegationChain": ["d1", "d2"],
+            "timestamp": 1790812802000,
+            "hashVersion": 2,
+            "idPseudonyms": {
+              "userId": "1b2395448dbdabf4b7895169f40eed1510d05365a6d9378f65d655c6832e01f1",
+              "agentId": "30d6ebe330323d1eb0f814482232b86f18be173694678b7cb3ee4200cc6b0a3c"
+            }
+          },
+          "payload": "{\"prev\":\"a9b1718d88848c0a6b76f679e10a4475fb1766dd6ee5cdd5bb1c4272d7b832ca\",\"row\":{\"action\":\"write\",\"cacheHit\":false,\"delegationChain\":[\"d1\",\"d2\"],\"durationMs\":12,\"id\":\"r3\",\"idPseudonyms\":{\"agentId\":\"30d6ebe330323d1eb0f814482232b86f18be173694678b7cb3ee4200cc6b0a3c\",\"userId\":\"1b2395448dbdabf4b7895169f40eed1510d05365a6d9378f65d655c6832e01f1\"},\"inputProvenance\":null,\"ip\":null,\"parameters\":null,\"policyVersion\":null,\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812802000,\"tokensCost\":null,\"userAgent\":null},\"seq\":3,\"v\":2}",
+          "hash": "55418de3aaab2bc45267991d7aaa6ac4a0e55e92532dbc4a9a628a4db1d3ca04"
+        },
+        {
+          "seq": 4,
+          "prev": "55418de3aaab2bc45267991d7aaa6ac4a0e55e92532dbc4a9a628a4db1d3ca04",
+          "input": {
+            "agentId": "agent-v2-plain",
+            "userId": "user-v2-plain",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r4",
+            "action": "execute",
+            "parameters": {},
+            "timestamp": 1790812803000,
+            "hashVersion": 2,
+            "idPseudonyms": {
+              "userId": "1b2395448dbdabf4b7895169f40eed1510d05365a6d9378f65d655c6832e01f1",
+              "agentId": "30d6ebe330323d1eb0f814482232b86f18be173694678b7cb3ee4200cc6b0a3c"
+            }
+          },
+          "payload": "{\"prev\":\"55418de3aaab2bc45267991d7aaa6ac4a0e55e92532dbc4a9a628a4db1d3ca04\",\"row\":{\"action\":\"execute\",\"cacheHit\":false,\"delegationChain\":null,\"durationMs\":12,\"id\":\"r4\",\"idPseudonyms\":{\"agentId\":\"30d6ebe330323d1eb0f814482232b86f18be173694678b7cb3ee4200cc6b0a3c\",\"userId\":\"1b2395448dbdabf4b7895169f40eed1510d05365a6d9378f65d655c6832e01f1\"},\"inputProvenance\":null,\"ip\":null,\"parameters\":{},\"policyVersion\":null,\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812803000,\"tokensCost\":null,\"userAgent\":null},\"seq\":4,\"v\":2}",
+          "hash": "30e24e47bedb8ec2135e2c7cdc9c2e4f8395d8005e21e05109f953643c92427c",
+          "erasedInput": {
+            "agentId": "[deleted-vector]",
+            "userId": "[deleted-vector]",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r4",
+            "action": "execute",
+            "parameters": {},
+            "timestamp": 1790812803000,
+            "hashVersion": 2,
+            "idPseudonyms": {
+              "userId": "1b2395448dbdabf4b7895169f40eed1510d05365a6d9378f65d655c6832e01f1",
+              "agentId": "30d6ebe330323d1eb0f814482232b86f18be173694678b7cb3ee4200cc6b0a3c"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "v2-hmac",
+      "hashFormat": "ts-v2",
+      "agentId": "agent-v2-hmac",
+      "hashVersion": 2,
+      "hmacKey": "vector-hmac-key-do-not-use",
+      "pseudonymKey": "vector-hmac-key-do-not-use",
+      "rows": [
+        {
+          "seq": 1,
+          "prev": null,
+          "input": {
+            "agentId": "agent-v2-hmac",
+            "userId": "user-v2-hmac",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r1",
+            "action": "execute",
+            "parameters": {
+              "b": 2,
+              "a": 1
+            },
+            "timestamp": 1790812800000,
+            "hashVersion": 2,
+            "idPseudonyms": {
+              "userId": "eee589749248e7d3d04e726dcfd2d4cf7504dc19085fb9abe2cec15343d22b49",
+              "agentId": "b6296039ced718d86b9ebed95cfdbfcaea32d9f4598854e8ef678a8f6c4c00cd"
+            }
+          },
+          "payload": "{\"prev\":null,\"row\":{\"action\":\"execute\",\"cacheHit\":false,\"delegationChain\":null,\"durationMs\":12,\"id\":\"r1\",\"idPseudonyms\":{\"agentId\":\"b6296039ced718d86b9ebed95cfdbfcaea32d9f4598854e8ef678a8f6c4c00cd\",\"userId\":\"eee589749248e7d3d04e726dcfd2d4cf7504dc19085fb9abe2cec15343d22b49\"},\"inputProvenance\":null,\"ip\":null,\"parameters\":{\"a\":1,\"b\":2},\"policyVersion\":null,\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812800000,\"tokensCost\":null,\"userAgent\":null},\"seq\":1,\"v\":2}",
+          "hash": "6c7cbd10bc67e7511dd60a252801f30f794585b2d202a63e080b87bd11f3cb45"
+        },
+        {
+          "seq": 2,
+          "prev": "6c7cbd10bc67e7511dd60a252801f30f794585b2d202a63e080b87bd11f3cb45",
+          "input": {
+            "agentId": "agent-v2-hmac",
+            "userId": "user-v2-hmac",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r2",
+            "action": "café 🚀",
+            "parameters": {
+              "note": "<tag> &   \"q\"",
+              "n": 9007199254740991,
+              "nested": {
+                "z": null,
+                "y": [
+                  3,
+                  {
+                    "k": 1,
+                    "a": 2
+                  }
+                ]
+              }
+            },
+            "reason": "ok",
+            "tokensCost": 1.5,
+            "ip": "203.0.113.7",
+            "userAgent": "vector/1",
+            "cacheHit": true,
+            "policyVersion": "p-7",
+            "delegationChain": [],
+            "inputProvenance": {
+              "source": "user",
+              "trace": {
+                "b": 1,
+                "a": 0
+              }
+            },
+            "timestamp": 1790812801000,
+            "hashVersion": 2,
+            "idPseudonyms": {
+              "userId": "eee589749248e7d3d04e726dcfd2d4cf7504dc19085fb9abe2cec15343d22b49",
+              "agentId": "b6296039ced718d86b9ebed95cfdbfcaea32d9f4598854e8ef678a8f6c4c00cd"
+            }
+          },
+          "payload": "{\"prev\":\"6c7cbd10bc67e7511dd60a252801f30f794585b2d202a63e080b87bd11f3cb45\",\"row\":{\"action\":\"café 🚀\",\"cacheHit\":true,\"delegationChain\":[],\"durationMs\":12,\"id\":\"r2\",\"idPseudonyms\":{\"agentId\":\"b6296039ced718d86b9ebed95cfdbfcaea32d9f4598854e8ef678a8f6c4c00cd\",\"userId\":\"eee589749248e7d3d04e726dcfd2d4cf7504dc19085fb9abe2cec15343d22b49\"},\"inputProvenance\":{\"source\":\"user\",\"trace\":{\"a\":0,\"b\":1}},\"ip\":\"203.0.113.7\",\"parameters\":{\"n\":9007199254740991,\"nested\":{\"y\":[3,{\"a\":2,\"k\":1}],\"z\":null},\"note\":\"<tag> &   \\\"q\\\"\"},\"policyVersion\":\"p-7\",\"reason\":\"ok\",\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812801000,\"tokensCost\":1.5,\"userAgent\":\"vector/1\"},\"seq\":2,\"v\":2}",
+          "hash": "d6b941db9b65b0ff12fdffbff297cf4f9b9593ff295437c681eaba40de11ec0b"
+        },
+        {
+          "seq": 3,
+          "prev": "d6b941db9b65b0ff12fdffbff297cf4f9b9593ff295437c681eaba40de11ec0b",
+          "input": {
+            "agentId": "agent-v2-hmac",
+            "userId": "user-v2-hmac",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r3",
+            "action": "write",
+            "parameters": null,
+            "delegationChain": ["d1", "d2"],
+            "timestamp": 1790812802000,
+            "hashVersion": 2,
+            "idPseudonyms": {
+              "userId": "eee589749248e7d3d04e726dcfd2d4cf7504dc19085fb9abe2cec15343d22b49",
+              "agentId": "b6296039ced718d86b9ebed95cfdbfcaea32d9f4598854e8ef678a8f6c4c00cd"
+            }
+          },
+          "payload": "{\"prev\":\"d6b941db9b65b0ff12fdffbff297cf4f9b9593ff295437c681eaba40de11ec0b\",\"row\":{\"action\":\"write\",\"cacheHit\":false,\"delegationChain\":[\"d1\",\"d2\"],\"durationMs\":12,\"id\":\"r3\",\"idPseudonyms\":{\"agentId\":\"b6296039ced718d86b9ebed95cfdbfcaea32d9f4598854e8ef678a8f6c4c00cd\",\"userId\":\"eee589749248e7d3d04e726dcfd2d4cf7504dc19085fb9abe2cec15343d22b49\"},\"inputProvenance\":null,\"ip\":null,\"parameters\":null,\"policyVersion\":null,\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812802000,\"tokensCost\":null,\"userAgent\":null},\"seq\":3,\"v\":2}",
+          "hash": "c61f6b33562eaa2986b762ead1478d069168df30e3f446f093bf051bfb98efe1"
+        },
+        {
+          "seq": 4,
+          "prev": "c61f6b33562eaa2986b762ead1478d069168df30e3f446f093bf051bfb98efe1",
+          "input": {
+            "agentId": "agent-v2-hmac",
+            "userId": "user-v2-hmac",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r4",
+            "action": "execute",
+            "parameters": {},
+            "timestamp": 1790812803000,
+            "hashVersion": 2,
+            "idPseudonyms": {
+              "userId": "eee589749248e7d3d04e726dcfd2d4cf7504dc19085fb9abe2cec15343d22b49",
+              "agentId": "b6296039ced718d86b9ebed95cfdbfcaea32d9f4598854e8ef678a8f6c4c00cd"
+            }
+          },
+          "payload": "{\"prev\":\"c61f6b33562eaa2986b762ead1478d069168df30e3f446f093bf051bfb98efe1\",\"row\":{\"action\":\"execute\",\"cacheHit\":false,\"delegationChain\":null,\"durationMs\":12,\"id\":\"r4\",\"idPseudonyms\":{\"agentId\":\"b6296039ced718d86b9ebed95cfdbfcaea32d9f4598854e8ef678a8f6c4c00cd\",\"userId\":\"eee589749248e7d3d04e726dcfd2d4cf7504dc19085fb9abe2cec15343d22b49\"},\"inputProvenance\":null,\"ip\":null,\"parameters\":{},\"policyVersion\":null,\"reason\":null,\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812803000,\"tokensCost\":null,\"userAgent\":null},\"seq\":4,\"v\":2}",
+          "hash": "c9ac85d19a58552aecf1bac32d0adb1866d43b9913ae981eaebf474f4d5d202f",
+          "erasedInput": {
+            "agentId": "[deleted-vector]",
+            "userId": "[deleted-vector]",
+            "resource": "mcp:github:repos",
+            "result": "allowed",
+            "durationMs": 12,
+            "id": "r4",
+            "action": "execute",
+            "parameters": {},
+            "timestamp": 1790812803000,
+            "hashVersion": 2,
+            "idPseudonyms": {
+              "userId": "eee589749248e7d3d04e726dcfd2d4cf7504dc19085fb9abe2cec15343d22b49",
+              "agentId": "b6296039ced718d86b9ebed95cfdbfcaea32d9f4598854e8ef678a8f6c4c00cd"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "negative": [
+    {
+      "name": "tampered_field_v1",
+      "chain": "v1-plain",
+      "failsAtRow": 1,
+      "mutate": {
+        "kind": "set_input",
+        "field": "result",
+        "value": "denied"
+      },
+      "expect": "hash_mismatch"
+    },
+    {
+      "name": "tampered_field_v2",
+      "chain": "v2-hmac",
+      "failsAtRow": 2,
+      "mutate": {
+        "kind": "set_input",
+        "field": "action",
+        "value": "delete"
+      },
+      "expect": "hash_mismatch"
+    },
+    {
+      "name": "tampered_parameters_v2",
+      "chain": "v2-hmac",
+      "failsAtRow": 1,
+      "mutate": {
+        "kind": "set_input",
+        "field": "parameters",
+        "value": {
+          "note": "changed"
+        }
+      },
+      "expect": "hash_mismatch"
+    },
+    {
+      "name": "reordered_top_level_keys_v1",
+      "chain": "v1-plain",
+      "failsAtRow": 1,
+      "mutate": {
+        "kind": "set_payload",
+        "payload": "{\"v\":1,\"seq\":2,\"prev\":\"723a150835342e922e78137be5abb8ae5c99c117abf0aacf5f1681a30d9b2f10\",\"row\":{\"action\":\"café 🚀\",\"agentId\":\"agent-v1-plain\",\"cacheHit\":true,\"durationMs\":12,\"id\":\"r2\",\"ip\":\"203.0.113.7\",\"parameters\":{\"n\":9007199254740991,\"nested\":{\"y\":[3,{\"a\":2,\"k\":1}],\"z\":null},\"note\":\"<tag> &   \\\"q\\\"\"},\"reason\":\"ok\",\"resource\":\"mcp:github:repos\",\"result\":\"allowed\",\"timestamp\":1790812801000,\"tokensCost\":1.5,\"userAgent\":\"vector/1\",\"userId\":\"user-v1-plain\"}}"
+      },
+      "expect": "hash_mismatch"
+    },
+    {
+      "name": "reordered_row_keys_v1",
+      "chain": "v1-plain",
+      "failsAtRow": 1,
+      "mutate": {
+        "kind": "set_payload",
+        "payload": "{\"prev\":\"723a150835342e922e78137be5abb8ae5c99c117abf0aacf5f1681a30d9b2f10\",\"row\":{\"userId\":\"user-v1-plain\",\"userAgent\":\"vector/1\",\"tokensCost\":1.5,\"timestamp\":1790812801000,\"result\":\"allowed\",\"resource\":\"mcp:github:repos\",\"reason\":\"ok\",\"parameters\":{\"n\":9007199254740991,\"nested\":{\"y\":[3,{\"a\":2,\"k\":1}],\"z\":null},\"note\":\"<tag> &   \\\"q\\\"\"},\"ip\":\"203.0.113.7\",\"id\":\"r2\",\"durationMs\":12,\"cacheHit\":true,\"agentId\":\"agent-v1-plain\",\"action\":\"café 🚀\"},\"seq\":2,\"v\":1}"
+      },
+      "expect": "hash_mismatch"
+    },
+    {
+      "name": "pretty_printed_v1",
+      "chain": "v1-plain",
+      "failsAtRow": 1,
+      "mutate": {
+        "kind": "set_payload",
+        "payload": "{\n \"prev\": \"723a150835342e922e78137be5abb8ae5c99c117abf0aacf5f1681a30d9b2f10\",\n \"row\": {\n  \"action\": \"café 🚀\",\n  \"agentId\": \"agent-v1-plain\",\n  \"cacheHit\": true,\n  \"durationMs\": 12,\n  \"id\": \"r2\",\n  \"ip\": \"203.0.113.7\",\n  \"parameters\": {\n   \"n\": 9007199254740991,\n   \"nested\": {\n    \"y\": [\n     3,\n     {\n      \"a\": 2,\n      \"k\": 1\n     }\n    ],\n    \"z\": null\n   },\n   \"note\": \"<tag> &   \\\"q\\\"\"\n  },\n  \"reason\": \"ok\",\n  \"resource\": \"mcp:github:repos\",\n  \"result\": \"allowed\",\n  \"timestamp\": 1790812801000,\n  \"tokensCost\": 1.5,\n  \"userAgent\": \"vector/1\",\n  \"userId\": \"user-v1-plain\"\n },\n \"seq\": 2,\n \"v\": 1\n}"
+      },
+      "expect": "hash_mismatch"
+    },
+    {
+      "name": "wrong_hmac_key",
+      "chain": "v2-hmac",
+      "failsAtRow": 0,
+      "mutate": {
+        "kind": "set_key",
+        "hmacKey": "another-key"
+      },
+      "expect": "hash_mismatch"
+    },
+    {
+      "name": "missing_hmac_key",
+      "chain": "v1-hmac",
+      "failsAtRow": 0,
+      "mutate": {
+        "kind": "set_key",
+        "hmacKey": null
+      },
+      "expect": "hash_mismatch"
+    },
+    {
+      "name": "wrong_seq_in_payload",
+      "chain": "v1-plain",
+      "failsAtRow": 2,
+      "mutate": {
+        "kind": "set_seq",
+        "seq": 9
+      },
+      "expect": "hash_mismatch"
+    },
+    {
+      "name": "dropped_middle_row",
+      "chain": "v1-plain",
+      "failsAtRow": 1,
+      "mutate": {
+        "kind": "drop_row",
+        "index": 1
+      },
+      "expect": "prev_hash_mismatch"
+    },
+    {
+      "name": "dropped_first_row",
+      "chain": "v2-plain",
+      "failsAtRow": 0,
+      "mutate": {
+        "kind": "drop_row",
+        "index": 0
+      },
+      "expect": "prev_hash_mismatch"
+    },
+    {
+      "name": "raw_id_edited_after_pseudonym",
+      "chain": "v2-plain",
+      "failsAtRow": 1,
+      "mutate": {
+        "kind": "set_input",
+        "field": "userId",
+        "value": "someone-else"
+      },
+      "expect": "pseudonym_mismatch"
+    }
+  ]
+}

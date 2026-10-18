@@ -108,6 +108,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Agent RACI template](https://docs.theauth.dev/accountability-raci-template): A RACI table for AI agent actions, and how each Responsible, Accountable, Consulted and Informed cell is enforced at runtime in theAuth.
 - [Audit trail](https://docs.theauth.dev/audit): Immutable logging of every authorization decision, with filtering, export, and compliance references.
 - [Tamper-evident audit trail](https://docs.theauth.dev/audit-trail): Chain audit rows with SHA-256 or HMAC hashes, verify the chain, replay what an agent did, and export signed evidence.
+- [Audit receipts and chain vectors](https://docs.theauth.dev/audit-receipts): The receipt format shared by the TypeScript and Go libraries, how to verify one with either, and the chain test vectors an outside verifier can use. Receipts interoperate, chains do not.
 - [Audit checkpoints and receipts](https://docs.theauth.dev/audit-checkpoints): Sign checkpoints of a tamper evident audit log and give counterparties receipts they can verify offline.
 - [Observability](https://docs.theauth.dev/observability): Decision events, OpenTelemetry spans and metrics, and a logger for the SDK's own diagnostics.
 - [Policy shrink](https://docs.theauth.dev/policy-shrink): Apply least privilege to AI agent authorization by finding unused permissions and replaying decisions against a smaller policy.

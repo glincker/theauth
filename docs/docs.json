@@ -348,6 +348,7 @@
               "accountability-raci-template",
               "audit",
               "audit-trail",
+              "audit-receipts",
               "audit-checkpoints",
               "observability",
               "policy-shrink",
