@@ -1,12 +1,12 @@
 ---
 title: What's new
-description: What changed in the TypeScript SDK across the agent accountability and tool guard work, and what the pending release contains.
+description: What changed in the TypeScript SDK across the agent accountability, tool guard and revocation work, and what the pending release contains.
 icon: sparkles
 ---
 
-This page covers two rounds of work on `@glinr/theauth`. Both aim to make an agent's actions checkable before and after they run. The changes sit in pending changesets in the repository and are merged to main. This page does not name a release number. Check the [GitHub releases](https://github.com/glincker/theauth/releases) for what has been published, and the changelog for breaking changes.
+This page covers three rounds of work on `@glinr/theauth`. The first two aim to make an agent's actions checkable before and after they run. The third makes revocation reach the tokens an agent already holds. The changes sit in pending changesets in the repository and are merged to main. This page does not name a release number. Check the [GitHub releases](https://github.com/glincker/theauth/releases) for what has been published, and the changelog for breaking changes.
 
-Every changeset in the pending set is `minor` or `patch`, and several change behavior, so read the "Behavior changes" list before you upgrade.
+The pending set now includes `major` changesets (hooks, the HTTP handler, audit v2, the MCP stores, SAML, cookies and more). Read [Upgrading to 2.0](/upgrading-to-2) before you upgrade, and the "Behavior changes" list below.
 
 ## Accountability at runtime (first round)
 
@@ -23,8 +23,25 @@ Every changeset in the pending set is `minor` or `patch`, and several change beh
 - **Taint guard.** Tool arguments can carry labels for where they came from, and policy decides which labels may reach which tools. The labels are written to the audit row. See [Taint aware tool guard](/taint-guard).
 - **Policy shrink.** `analyzeUsage`, `suggestShrink` and `verifyShrink` compare what an agent may do with what it did, and report which recorded decisions would change. They never edit permissions. See [Policy shrink](/policy-shrink).
 - **Audit checkpoints and receipts.** Signed checkpoints over the audit log, with inclusion and consistency proofs and receipts that verify offline with a public key. See [Audit checkpoints and receipts](/audit-checkpoints).
-- **MCP live delegation check.** With `delegationStore` set, a token's `act` chain is re-checked against live links, and `resolveActorAgentId` maps actors to agent ids. See [MCP OAuth 2.1](/mcp#security-hardening).
+- **MCP live delegation check.** With `delegationStore` set, a token's `act` chain is re-checked against live links, and `resolveActorAgentId` maps actors to agent ids. The third round replaces this with a signed binding that needs no config. See [MCP OAuth 2.1](/mcp#security-hardening).
 - **Session and audit fixes.** Session refresh and `maxConcurrent` no longer race, a failing audit write no longer makes `authorize()` throw, and `canonicalJson` rejects cycles.
+
+## Revocation, remote guards and storage (third round)
+
+- **Revocation reaches MCP tokens.** Exchanged tokens carry a signed `theauth_dlg` binding to their delegation links and agents. With `auth`, revoking a link, an agent, a user's sessions or a token fails the next request on every instance that shares the database. Modes are `live`, `cached` and `offline`. See [MCP token revocation](/mcp-revocation).
+- **Introspection.** `POST /mcp/introspect` (RFC 7662) gives resource servers the live answer. Only the token's client and listed resource servers learn the inactive reason.
+- **Client ID metadata documents.** A client can use an `https` URL as its `client_id`, behind a required consent page, host rules, size and time limits and an admin block list. See [Client ID metadata documents](/mcp-client-id-metadata).
+- **Database backed MCP server.** Clients, codes, tokens and refresh families live in the theAuth database, and an OAuth client can be bound to an agent.
+- **One HTTP handler.** `createTheAuthHandler` serves every route for every framework adapter, with identical status codes. See the [route reference](/adapters/routes).
+- **Explain and policy tests.** `explain()` returns the matched grant, the delegation chain and near misses. `@glinr/theauth/testing` and `theauth policy test` run policy suites. See [Explain a decision](/explain) and [Policy testing](/policy-testing).
+- **Remote guards.** `httpGuard` and `guardHook` put a signed, fail closed external check in `beforeAuthorize`. See [Remote guards](/guards).
+- **Observability.** One typed event per decision, an OpenTelemetry mapping and a logger interface. See [Observability](/observability).
+- **Audit API v2.** Explicit order, cursor paging, an `event` column and `decision_code` filters.
+- **Schema ledger.** Every schema change is recorded in `theauth_schema_migrations`, with `theauth db status | up | sql`.
+- **Typed decision codes and typed permissions.** `authorize()` returns a `code`, and `definePermissions` turns resource and action typos into compile errors.
+- **Security fixes.** Strict SAML signature verification, a signed session cache in `@glinr/theauth-nextjs-auth`, `Secure` cookies by default and PBKDF2 at 600000 iterations, and revoked or expired delegators no longer lend permissions.
+- **Storage.** Postgres works across the instance with epoch second timestamps, and `provider: "sqlite"` refuses a file URL (use `sqlite-native`).
+- **Tooling.** `theauth init` and `theauth doctor` are rebuilt, and `theauth.user.create` replaces hand written inserts.
 
 ## Behavior changes to check
 
@@ -34,6 +51,10 @@ Every changeset in the pending set is `minor` or `patch`, and several change beh
 - Delegated constraints that do not overlap the parent now deny every call.
 - `checkLiveDelegation` takes an options object as its fourth argument in place of the `now` date.
 - Rows written before the new audit columns verify as erased history, not as tampered.
+- With `auth`, MCP validation reads the database on every request by default (`live` mode). Set `revocation.mode: "cached"` above roughly a thousand validations per second per instance.
+- Agent tokens start with `ta_`. Existing `kv_` tokens keep working.
+
+The rest, with the action to take for each, is in [Upgrading to 2.0](/upgrading-to-2).
 
 ## Tutorials
 

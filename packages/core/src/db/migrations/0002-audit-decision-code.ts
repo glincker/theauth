@@ -3,7 +3,7 @@ import type { Migration } from "../migrate/types.js";
 /**
  * The machine-readable DecisionCode of an authorization outcome (for example allowed, no_permission, hook_denied, hook_timeout). Nullable, so rows written before this migration stay valid and read back with no code.
  *
- * The column is NOT part of the audit hash payload (hash version stays 2), so existing chains and the Go verifier keep verifying. `reason` remains the hashed text.
+ * The column is NOT part of the audit hash payload (hash version stays 2), so existing chains keep verifying. `reason` remains the hashed text.
  */
 export const auditDecisionCode: Migration = {
 	id: "0002",

@@ -112,16 +112,16 @@ Returned by the MCP token validator as `Result` errors, and by `mcp.requireScope
 
 | Code | HTTP status | Description |
 |------|-------------|-------------|
-| `INVALID_TOKEN` | 401 | The token cannot be verified, has been revoked, or is malformed. |
+| `INVALID_TOKEN` | 401 | The token cannot be verified, has been revoked, or is malformed. For a revoked token `details.revocation` holds `{ reason, id }` on the server side only, never in the 401 body. See [MCP token revocation](/mcp-revocation). |
 | `TOKEN_EXPIRED` | 401 | The token's `exp` claim is in the past. |
 | `INVALID_AUDIENCE` | 401 | The token's `aud` does not match this resource. |
 | `INVALID_ISSUER` | 401 | The token's `iss` does not match this server. |
-| `DELEGATION_REVOKED` | 401 | A link in the token's `act` chain is revoked, expired or missing (needs `delegationStore`). Reported by `requireScopes`; `validateToken` reports `INVALID_TOKEN` with the reason in the message. |
+| `DELEGATION_REVOKED` | 401 | A delegation link or agent behind the token (its `theauth_dlg` binding, or its `act` chain with `delegationStore`) is revoked, expired or missing. Reported by `requireScopes`; `validateToken` reports `INVALID_TOKEN` with the reason in the message. |
 | `DPOP_REQUIRED` | 401 | The token is bound to a DPoP key but was presented without a DPoP proof. Reported by `requireScopes`. |
 
 ### MCP and OAuth errors
 
-The MCP module returns `Result` errors with these codes. The token, registration and revocation endpoints answer 401 for `INVALID_CLIENT` and 400 for the rest.
+The MCP module returns `Result` errors with these codes. The token, registration, revocation and introspection endpoints answer 401 for `INVALID_CLIENT` and 400 for the rest, with the exceptions in the table.
 
 | Code | HTTP status | Description |
 |------|-------------|-------------|
@@ -138,6 +138,10 @@ The MCP module returns `Result` errors with these codes. The token, registration
 | `UNSUPPORTED_GRANT_TYPE` | 400 | The grant type is not supported. |
 | `LOGIN_REQUIRED` | 400 | The user is not signed in at the authorization endpoint. With a `loginPage` configured the response redirects there instead. |
 | `INSUFFICIENT_SCOPE` | 403 | The token does not carry a required scope. See below. |
+| `CONSENT_REQUIRED` | none | The client is identified by a [metadata document](/mcp-client-id-metadata) and no `consentPage` is configured, so no code is issued. Returned as a `Result` error from the authorize step. |
+| `ACCESS_DENIED` | 400 | Token exchange was refused by the `tokenExchange.authorize` policy. |
+| `REGISTRATION_DISABLED` | 404 | Dynamic registration is off (`registration: { enabled: false }`). Returned by `registerClient` as a `Result` error; the route answers 404. |
+| `RATE_LIMITED` | 429 | Introspection only: the client is over `introspection.maxRequestsPerMinute`. A `Retry-After` header is set. |
 | `UNAUTHORIZED` | 401 | No Bearer token was presented. |
 | `SERVER_ERROR` | 500 | The server could not complete validation. |
 

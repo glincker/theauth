@@ -125,8 +125,10 @@ These go in the `config` object passed to `createMcpModule`.
 <ParamField path="preRegisteredClients" type="Array">Clients stored at startup through `storeClient` (storing an existing client updates it, so this is safe on every boot). Each entry can set `grantTypes` to allow the non-interactive grants and `agentId` to bind the client to an agent.</ParamField>
 <ParamField path="registration.agentForClient" type="(client: McpClient, request: Request) => Promise<string | undefined>">Bind each dynamically registered client to an agent at registration time. Runs on the server after the request validated; the registration body cannot choose its own agent. See [Bind OAuth clients to agents](#bind-oauth-clients-to-agents).</ParamField>
 <ParamField path="clientCredentials" type="object">Opt in to the `client_credentials` grant. See [MCP server grants](/mcp-grants).</ParamField>
-<ParamField path="tokenExchange" type="object">Opt in to RFC 8693 token exchange. Requires `jtiDenylist`. See [MCP server grants](/mcp-grants).</ParamField>
-<ParamField path="delegationStore" type="McpDelegationStore">Opt in to a live check of the token `act` chain. See [Live delegation check](#security-hardening).</ParamField>
+<ParamField path="tokenExchange" type="object">Opt in to RFC 8693 token exchange. Requires `jtiDenylist` unless you pass `auth`, which supplies the shared one. See [MCP server grants](/mcp-grants).</ParamField>
+<ParamField path="revocation" type="McpRevocationConfig">How resource server validation sees revocation: `mode` (`live`, `cached` or `offline`), `maxStalenessMs`, `pollIntervalMs`, `cacheMax`, `requireBoundChain`, `revokeOnSignOutEverywhere` and `onRevoked`. Defaults to `live` with `auth`. See [MCP token revocation](/mcp-revocation).</ParamField>
+<ParamField path="introspection" type="McpIntrospectionConfig">Enable the RFC 7662 introspection endpoint: `enabled`, `resourceServers` and `maxRequestsPerMinute`. Off by default. See [MCP token revocation](/mcp-revocation#introspection-and-revocation-endpoints).</ParamField>
+<ParamField path="delegationStore" type="McpDelegationStore">Opt in to the legacy walk of the token `act` chain, for tokens that carry no `theauth_dlg` binding. See [Live delegation check](#security-hardening).</ParamField>
 <ParamField path="resolveActorAgentId" type="(actor: { sub: string; clientId?: string }) => string | undefined | Promise<string | undefined>">Map each actor in the `act` chain (and the token `sub`) to an agent id before the live delegation lookup. With `auth`, return `undefined` to fall through to the built-in mapping (the actor's bound agent, then its own id). Without `auth`, unmapped actors reject the token unless `allowUnmappedActors` is true. See [Live delegation check](#security-hardening).</ParamField>
 <ParamField path="jwtBearer" type="object">Opt in to RFC 7523 redemption of ID-JAG assertions from trusted issuers. See [MCP server grants](/mcp-grants).</ParamField>
 <ParamField path="assertionStorage" type="SecondaryStorage">Replay cache for `private_key_jwt` and jwt-bearer assertions. In-process by default. Use a shared store with more than one instance.</ParamField>
@@ -144,9 +146,10 @@ Adapters register these routes relative to their mount path (default `/api/theau
 | `GET /mcp/authorize` | OAuth 2.1 | Authorization endpoint |
 | `POST /mcp/token` | OAuth 2.1 | Token endpoint |
 | `POST /mcp/revoke` | RFC 7009 | Token revocation (client authenticated, own tokens only) |
+| `POST /mcp/introspect` | RFC 7662 | Token introspection (confidential clients only, off until `introspection.enabled`) |
 | `GET /mcp/jwks` | RFC 7517 | Public signing keys (empty set with an HS256 secret) |
 
-So with the default mount, the token endpoint is `https://auth.yourapp.com/api/theauth/mcp/token`. All seven routes are served by the shared handler in core (`createTheAuthHandler` from `@glinr/theauth/http`), so every adapter has them. The authorization server metadata advertises only the endpoints that are mounted. To mount a subset, pass `routes: { mcp: { revoke: false, jwks: false } }` to the handler: the metadata then drops `revocation_endpoint` and `jwks_uri`, and those paths answer 404. See the [route reference](/adapters/routes).
+So with the default mount, the token endpoint is `https://auth.yourapp.com/api/theauth/mcp/token`. All eight routes are served by the shared handler in core (`createTheAuthHandler` from `@glinr/theauth/http`), so every adapter has them. The authorization server metadata advertises only the endpoints that are mounted. To mount a subset, pass `routes: { mcp: { revoke: false, jwks: false } }` to the handler: the metadata then drops `revocation_endpoint` and `jwks_uri`, and those paths answer 404. See the [route reference](/adapters/routes).
 
 <Warning>
   The well-known documents are registered relative to the mount point, so with the default mount they live at `/api/theauth/.well-known/...`. MCP clients look for them at the root of your origin (`/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`). When you mount the adapter under a prefix, add root-level routes (or rewrites) that serve the same documents:
@@ -222,6 +225,7 @@ Access tokens are JWTs signed with HS256 (`typ: at+jwt`). They carry:
 - `scope`: space-separated granted scopes
 - `jti`: unique token ID
 - `exp` and `iat`: expiry and issued-at timestamps
+- `act` and `theauth_dlg`: on tokens from token exchange, the delegation chain and a signed binding to the delegation records and agents behind it. See [MCP token revocation](/mcp-revocation).
 
 A refresh token is issued only when the granted scope includes `offline_access`. Each refresh call rotates the refresh token inside its family, and replaying a rotated token revokes the whole family (see Security hardening). Tokens issued to a client that is [bound to an agent](#bind-oauth-clients-to-agents) also carry `agent_id`.
 
@@ -438,9 +442,9 @@ createMcpModule({
 
 On refresh, a `scope` that was not part of the original grant returns `invalid_scope`, and a `resource` that differs from the original grant returns `invalid_target`.
 
-**Revocation and the jti denylist.** `mcp.revoke(request)` implements RFC 7009 (`POST /mcp/revoke`, client authenticated, own tokens only). Access tokens are JWTs, so revoking one only takes effect immediately if you set `config.jtiDenylist` (`createInMemoryJtiDenylist()` for a single process, or your own shared store). Without it a revoked access token stays valid until `exp`.
+**Revocation.** With `auth`, revocation is shared and takes effect on the next request. `mcp.revoke(request)` implements RFC 7009 (`POST /mcp/revoke`, client authenticated, own tokens only), and `config.jtiDenylist` defaults to the database backed revocation store, so a token revoked on one instance is refused on all of them. Revoking a delegation link, revoking an agent and signing a user out everywhere reach MCP tokens the same way, because exchanged tokens carry a signed `theauth_dlg` binding to the records they rest on. The mode (`live`, `cached` or `offline`) decides what resource server validation reads. Without `auth` (your own stores) the mode is `offline`, and revoking an access token takes effect immediately only if you set `config.jtiDenylist` (`createInMemoryJtiDenylist()` for one process, or your own shared store). See [MCP token revocation](/mcp-revocation) for the modes, introspection and the limits.
 
-**Live delegation check (opt in).** A token minted by token exchange carries its delegation chain in the `act` claim, and by default `validateAccessToken` trusts that claim until `exp`. Set `config.delegationStore` to re-check the chain against live records on every validation. The path is the token `sub`, then each actor from the innermost `act` out to the current actor, and every consecutive pair must have an active, unexpired link. A missing, revoked or expired link rejects the token (`INVALID_TOKEN` from `validateToken`, `DELEGATION_REVOKED` from `requireScopes`). Tokens without an `act` claim skip the check, and without a store nothing changes. `createDbDelegationStore` matches ids to the agent ids used in `theauth.delegate()`. Token exchange sets `act.sub` to the actor's user id or client id, which usually is not an agent id, so they are mapped to agent ids first (below).
+**Live delegation check.** Tokens bound to their delegation are checked against the live delegation and agent rows in `live` and `cached` mode, with no extra config. `config.delegationStore` is now the opt in for the older walk, which only matters for tokens that carry an `act` claim and no `theauth_dlg` binding (minted before the upgrade, or with no agent row behind the actors). By default `validateAccessToken` trusts such an `act` chain until `exp`. With the store set it re-checks the chain on every validation: the path is the token `sub`, then each actor from the innermost `act` out to the current actor, and every consecutive pair must have an active, unexpired link. A missing, revoked or expired link rejects the token (`INVALID_TOKEN` from `validateToken`, `DELEGATION_REVOKED` from `requireScopes`). Tokens without an `act` claim skip the check. `createDbDelegationStore` matches ids to the agent ids used in `theauth.delegate()`. Token exchange sets `act.sub` to the actor's user id or client id, which usually is not an agent id, so they are mapped to agent ids first (below).
 
 ```typescript
 import { createDbDelegationStore } from "@glinr/theauth/mcp";
@@ -522,6 +526,9 @@ To rotate, move the old key into `previous: [{ kid, publicKey }]` and set a new 
     IETF draft claims emitted on MCP-issued agent JWTs.
   </Card>
   <Card title="Delegation" href="/delegation" icon="link">
-    Delegate a subset of MCP scopes to sub-agents with depth limits. Revoking a link can reject tokens minted down the chain when you set `delegationStore`.
+    Delegate a subset of MCP scopes to sub-agents with depth limits. Revoking a link rejects the tokens minted down the chain.
+  </Card>
+  <Card title="MCP token revocation" href="/mcp-revocation" icon="ban">
+    Freshness modes, the shared denylist, introspection and the limits.
   </Card>
 </CardGroup>

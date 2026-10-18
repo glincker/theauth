@@ -159,7 +159,7 @@ On startup theAuth runs every migration that is not in the ledger yet, in order,
 - **Reruns are no-ops.** Applied migrations are skipped. Statements tolerate "already exists", so a half finished upgrade can be resumed.
 - **Applied migrations cannot change.** The ledger stores a checksum of each migration's SQL. If it no longer matches the code, startup fails with `SchemaChecksumError` rather than guessing.
 - **Features still decide which tables exist.** A migration that touches the audit table only applies when your config creates it. Enable the feature later and the next start creates the table and applies the migrations that were waiting.
-- **The audit hash does not change.** `decision_code`, `recorded_at_ms` and `event` are not part of the hashed payload, so existing chains and the Go verifier keep verifying.
+- **The audit hash does not change.** `decision_code`, `recorded_at_ms` and `event` are not part of the hashed payload, so existing chains keep verifying.
 
 Read the ledger from code:
 
@@ -229,7 +229,7 @@ The full set of tables theAuth can create is below. Which ones exist in your dat
 
 ### Upgrading the audit table
 
-Migrations `0002` and `0003` add `decision_code TEXT` (with the index `theauth_audit_logs_code`) and `recorded_at_ms` (`INTEGER` on SQLite, `BIGINT` on Postgres, with the index `theauth_audit_logs_order`). Old rows keep a NULL code, and `recorded_at_ms` is backfilled from the second-resolution `timestamp`. Audit reads order by `recorded_at_ms`, so rows written in the same second keep their write order. Migration `0005` adds a nullable `event TEXT` column (with the index `theauth_audit_logs_event`). It backfills `event` from `action` for rows whose action is itself an event name (`delegation.create`, `delegation.revoke`, `agent.cascade.revoked`, `approval.*`, `vault.read`, `audit.*`), marks policy engine rows `policy.evaluate`, marks the remaining rows that have a decision code `authorize`, and leaves every other row NULL. None of these columns is covered by the audit hash, so existing hash chains and the Go verifier keep verifying. If you use `skipMigrations`, see [Using skipMigrations](#using-skipmigrations).
+Migrations `0002` and `0003` add `decision_code TEXT` (with the index `theauth_audit_logs_code`) and `recorded_at_ms` (`INTEGER` on SQLite, `BIGINT` on Postgres, with the index `theauth_audit_logs_order`). Old rows keep a NULL code, and `recorded_at_ms` is backfilled from the second-resolution `timestamp`. Audit reads order by `recorded_at_ms`, so rows written in the same second keep their write order. Migration `0005` adds a nullable `event TEXT` column (with the index `theauth_audit_logs_event`). It backfills `event` from `action` for rows whose action is itself an event name (`delegation.create`, `delegation.revoke`, `agent.cascade.revoked`, `approval.*`, `vault.read`, `audit.*`), marks policy engine rows `policy.evaluate`, marks the remaining rows that have a decision code `authorize`, and leaves every other row NULL. None of these columns is covered by the audit hash, so existing hash chains keep verifying. If you use `skipMigrations`, see [Using skipMigrations](#using-skipmigrations).
 
 All table and column names use `snake_case`. IDs are `text`. Timestamps are integer epoch seconds on both SQLite and Postgres.
 

@@ -1,0 +1,216 @@
+---
+title: MCP token revocation
+description: How revoking a delegation, an agent, a session or a token reaches MCP access tokens, the three freshness modes, the introspection endpoint, and where revocation stops short.
+icon: ban
+---
+
+An MCP access token is a signed JWT. A resource server can check the signature and `exp` and never talk to theAuth again, which is fast and also means a token outlives the thing that justified it. This page explains how theAuth closes that gap, how to choose a freshness mode, and what it does not cover.
+
+The short version: with a database and the default settings, revoking a delegation link, an agent, a user's sessions or a single token makes the next MCP request that carries an affected token fail on every theAuth instance that shares the database. A request that already passed validation finishes.
+
+## What a token carries
+
+A token minted by [token exchange](/mcp-grants) keeps the RFC 8693 `act` claim, nested with the current actor outermost. It also carries a private claim, `theauth_dlg`, that ties the token to the exact records its authority rests on:
+
+```json
+{
+  "act": { "sub": "agent-b", "act": { "sub": "agent-a" } },
+  "theauth_dlg": { "v": 1, "agt": ["agent-a", "agent-b"], "lnk": ["chain_01H..."] }
+}
+```
+
+- `agt` lists the agent ids on the authority path, root first. Every one must stay `active` and unexpired.
+- `lnk` lists the delegation link id for each consecutive pair in `agt`.
+
+The claim is signed, so a resource server can trust it only after verifying the signature. It holds ids and nothing else: no permissions, no names.
+
+Tokens are bound when their authority resolves to agent rows: token exchange, and authorization code, refresh, client credentials and jwt-bearer tokens that carry `agent_id` (these get `agt: [agentId]` and an empty `lnk`). A token with no agent behind it, such as a plain user to service token, is unbound. Only token, subject and client revocation apply to it, because there is no delegation record to revoke.
+
+A token also never outlives its sources. At mint time `exp` is the earliest of the configured lifetime, the parent token's expiry, every link's expiry and every agent's expiry. This holds in all three modes.
+
+## Freshness modes
+
+The mode decides what a resource server validation reads. Set it in the `revocation` block of the MCP config:
+
+```ts
+const mcp = createMcpModule({
+  auth: theauth,
+  config: {
+    // ...issuer, baseUrl, signingSecret, resource
+    revocation: {
+      mode: "live", // "live" | "cached" | "offline"
+    },
+  },
+});
+```
+
+| Mode | What validation reads | Staleness after a revoke | Cost per request |
+| --- | --- | --- | --- |
+| `live` | The revocation table (1 query) and the binding check (up to 3) | None on any instance sharing the database | 1 to 4 indexed queries |
+| `cached` | A per process cache keyed by `jti` | None on the revoking process. Other instances usually within `pollIntervalMs`, never longer than `maxStalenessMs` | One small query per instance per `pollIntervalMs` |
+| `offline` | Signature, `exp` and `jtiDenylist` if you set one | Up to the token's `exp` | None |
+
+The default is `live` when you pass `auth` to `createMcpModule` (a shared database), and `offline` when you pass your own stores, because there is nothing shared to read. The environment variable `THEAUTH_MCP_REVOCATION_MODE` sets the mode when the config does not.
+
+Three things hold in every mode. The token endpoint (exchange and refresh) always checks live. Introspection always checks live. Expiry is always honored at mint time.
+
+Live mode costs one to four primary key or indexed lookups on requests that are usually tool calls, so most deployments should leave it on. Move to `cached` above roughly a thousand validations per second per instance:
+
+```ts
+revocation: {
+  mode: "cached",
+  maxStalenessMs: 5000, // hard upper bound, default 5000
+  pollIntervalMs: 1000, // how often an instance checks for new revocations, default 1000
+  cacheMax: 10000,      // entries per process, default 10000
+}
+```
+
+| Option | Env var | Default |
+| --- | --- | --- |
+| `mode` | `THEAUTH_MCP_REVOCATION_MODE` | `live` with `auth`, else `offline` |
+| `maxStalenessMs` | `THEAUTH_MCP_REVOCATION_MAX_STALENESS_MS` | 5000 |
+| `pollIntervalMs` | `THEAUTH_MCP_REVOCATION_POLL_MS` | 1000 |
+| `cacheMax` | `THEAUTH_MCP_REVOCATION_CACHE_MAX` | 10000 |
+| `revokeOnSignOutEverywhere` | none | `true` |
+| `requireBoundChain` | none | `false` |
+| `onRevoked` | none | none |
+
+In cached mode a process that performs the revoke clears its cache at once. Other instances compare a fingerprint of the revocation table (row count and newest timestamp) on each poll and clear when it changes. If a revocation row failed to write, or an agent expiry was shortened by hand, the cache entry still dies at `maxStalenessMs`.
+
+In offline mode, shorten `accessTokenTtl` (300 seconds is a reasonable start). Exchanged tokens cannot be refreshed, so the lifetime is the whole bound.
+
+A store error during a live or cached check rejects the token with a server error. It never falls back to offline.
+
+## The shared denylist and migration 0007
+
+Revocations are rows in `theauth_mcp_revocations`, created by migration `0007`. The same migration adds indexes on `theauth_delegation_chains` for `from_agent_id` and `to_agent_id`, which the delegation liveness walk needed. Run `theauth db up` (or let the instance migrate on start). With `skipMigrations: true`, generate the SQL with `theauth db sql --from 0007`. See [Database](/database).
+
+| `kind` | Denies | Row removed after |
+| --- | --- | --- |
+| `jti` | One token | The token's `exp` |
+| `dlg` | Every token bound to that delegation link | The link's expiry |
+| `agent` | Every token bound to that agent | The agent's expiry, or 30 days |
+| `sub` | Every token of a user minted at or before the revoke | `accessTokenTtl` plus 60 seconds |
+| `client` | Every token of a client minted at or before the revoke | `accessTokenTtl` plus 60 seconds |
+
+`sub` and `client` rows are watermarks on `iat`. Validation reads both kinds, but nothing in theAuth writes a `client` row today, so use it only from your own code through the store. A token minted in the same second as the revoke also dies, which fails closed. Rows are pruned lazily, 500 at a time, at most once a minute per instance. The delegation and agent tables stay the source of truth for live checks. The rows exist to speed up the fail path and to drive cache invalidation across instances.
+
+With `auth`, `config.jtiDenylist` defaults to this shared store, so a token revoked on one instance is refused on all of them. An explicit `jtiDenylist` always wins. With `createInMemoryJtiDenylist()` the denylist is per process.
+
+## What pushes a revocation
+
+| Trigger | Rows written |
+| --- | --- |
+| `auth.delegation.revoke(id)`, including every link in the cascade | `dlg` for each revoked link |
+| `auth.agent.revoke(id)` | `agent` for the agent, `dlg` for the links it cut |
+| `session.revokeAll(userId)` (sign out everywhere, ban) | `sub`, unless `revokeOnSignOutEverywhere: false` |
+| `POST /mcp/revoke` (RFC 7009) and refresh token reuse | `jti` |
+
+Revoking a single session does not touch MCP tokens, because they are not tied to a session. If a `dlg` or `agent` row fails to write, the failure is logged and the revoke continues: the link or agent row is already revoked, so live mode still sees it and cached mode falls back to its staleness bound. If the row for an explicit token revoke fails to write, the revoke call fails (the HTTP route answers 500 `server_error`) instead of reporting success, because that row is the only record.
+
+An agent whose `expiresAt` passes is not pushed. Expiry is read from the agent row on live checks and capped into `exp` at mint.
+
+## Introspection and revocation endpoints
+
+`POST /mcp/revoke` is RFC 7009. A client may revoke its own tokens, and a `client_id` mismatch answers 200 without doing anything, as the RFC asks.
+
+`POST /mcp/introspect` is RFC 7662, for resource servers that cannot or should not trust the JWT alone. It is off until you enable it:
+
+```ts
+introspection: {
+  enabled: true,
+  resourceServers: [
+    { clientId: "orders-api", audiences: ["https://orders.example.com/mcp"] },
+  ],
+  maxRequestsPerMinute: 600, // per client, per instance, env THEAUTH_MCP_INTROSPECT_RPM
+}
+```
+
+When enabled and mounted, the metadata advertises `introspection_endpoint`. The route is mounted by default and answers 404 until `enabled` is true. If you mount a subset with `routes: { mcp: { ... } }`, include `introspect: true`.
+
+The caller must be a confidential client and authenticate with `client_secret_basic`, `client_secret_post` or `private_key_jwt`. Public clients are refused with 401 `invalid_client`. No token parsing happens before that check.
+
+The answer is always live. Only access tokens are introspectable, and refresh tokens report `active: false`. A `token` longer than 8192 characters is inactive without any cryptography. Responses carry `Cache-Control: no-store`.
+
+Who sees what:
+
+- Active token, entitled caller: `scope`, `client_id`, `sub`, `exp`, `iat`, `aud`, `iss`, `jti`, `token_type`, and when present `cnf`, `act`, `agent_id` and `theauth_dlg`.
+- Inactive token, entitled caller: `{ "active": false, "theauth_inactive_reason": "delegation_revoked" }`. The reasons are `expired`, `revoked`, `subject_revoked`, `client_revoked`, `delegation_revoked`, `delegation_expired`, `agent_revoked`, `agent_expired` and `invalid`.
+- Any other caller: exactly `{ "active": false }`.
+
+A caller is entitled when it is the token's own `client_id`, or a `resourceServers` entry whose `audiences` include the token's `aud`. A resource server that is not listed learns nothing about why a token is dead, and cannot tell a revoked token from one it was never entitled to see.
+
+Each call writes an `mcp.introspect` audit row with the caller, the `jti` and the result. The token is never stored.
+
+## Shared Signals events
+
+Pass `onRevoked` to forward revocations to a Shared Signals transmitter:
+
+```ts
+revocation: {
+  onRevoked: (event) => signals.bridge.onMcpRevocation(event),
+}
+```
+
+Here `signals` is the result of `sharedSignals(...)`. `dlg`, `agent` and `sub` revocations with a known user become CAEP `session-revoked` events, with the revoke reason in `reason_admin` and a session id of the form `<kind>:<id>`. A `jti` revocation sends nothing, because there is no user worth naming. Delivery is asynchronous and errors are swallowed. This is event emission, not a CAEP or SSF conformance claim. See [Standards](/standards).
+
+## Tightening exchange
+
+By default a token exchange whose actors resolve to no agent row mints an unbound token (`act` only). Set `requireBoundChain: true` to refuse it with `invalid_grant`, so every delegated token is revocable through its delegation:
+
+```ts
+revocation: { requireBoundChain: true }
+```
+
+Exchange also refuses a chain where two consecutive agent actors have no live delegation link between them, whatever this setting says.
+
+## Long running handlers
+
+Validation happens once, before the handler runs. A tool call that takes minutes, or an SSE stream, would otherwise outlive a revoke. `requireMcpAuth` hands the handler a session whose `revalidate()` repeats the revocation and binding checks live:
+
+```ts
+const handler = mcp.requireMcpAuth(
+  async (request, principal) => {
+    for (const step of steps) {
+      const alive = await principal.session?.revalidate?.();
+      if (alive && !alive.success) return new Response("revoked", { status: 401 });
+      await runStep(step);
+    }
+    return Response.json({ ok: true });
+  },
+  { requiredScopes: ["mcp:write"], revalidateEveryMs: 5000 },
+);
+```
+
+`revalidateEveryMs` throttles the store reads: a call within that window of the last check returns success without querying. It is off by default, and without it `revalidate()` always checks.
+
+## Limits
+
+These are the places revocation does not reach. Plan around them.
+
+- **Offline resource servers.** A server that verifies the JWT itself, or that caches introspection answers, sees a revoke when its cache ends or the token expires. Only live validation and uncached introspection are immediate.
+- **Calls in progress.** A request validated before the revoke commits completes. Streams and long handlers are cut off only if they call `revalidate()`.
+- **Unbound tokens.** A token whose actors are not theAuth agents has no delegation to revoke. Use `requireBoundChain` if that is not acceptable.
+- **Tokens minted before the upgrade.** They carry no `theauth_dlg`. With `act` and no `delegationStore` they are trusted until `exp`; tokens with an `agent_id` get a single agent status check. Exchanged tokens cannot refresh, so the gap closes within `accessTokenTtl`, one hour by default.
+- **HS256 shares the secret.** With `signingSecret`, any resource server that holds the secret can sign a token, including one with a forged `theauth_dlg` or none. Use RS256 or ES256 signing keys (see the MCP page) for resource servers you do not fully control, and give them the public key only.
+- **No push on expiry.** A shortened expiry is seen by live and cached modes and not by offline. Nothing is pushed when an agent simply expires.
+- **Replicas lag.** Live checks must read the primary. Pointing them at a lagging read replica adds the lag to every bound above.
+- **Custom stores.** With your own stores and no database, or with the in-memory denylist, there is no cross instance freshness.
+- **Replay.** Binding does not stop a stolen live token being used. [DPoP](/dpop) does. The two are independent: the binding says the authority is alive, `cnf.jkt` says the caller is the holder.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="MCP OAuth 2.1" href="/mcp" icon="plug">
+    Setup, endpoints and token validation.
+  </Card>
+  <Card title="Delegation" href="/delegation" icon="share-nodes">
+    Links, cascades and agent liveness.
+  </Card>
+  <Card title="DPoP" href="/dpop" icon="key">
+    Sender constrained tokens.
+  </Card>
+  <Card title="Upgrading to 2.0" href="/upgrading-to-2#mcp-tokens-are-bound-to-their-delegation" icon="arrow-up-right-dots">
+    What changes for existing integrations.
+  </Card>
+</CardGroup>

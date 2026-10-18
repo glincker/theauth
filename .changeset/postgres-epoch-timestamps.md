@@ -8,6 +8,6 @@ Timestamps on Postgres are now `BIGINT` epoch seconds, the same as SQLite. JSON 
 
 MySQL is marked unsupported until it passes the test suite on a real server. `provider: "mysql"` now throws `THEAUTH_MYSQL_UNSUPPORTED` unless you pass `experimental: true`.
 
-Audit hashes are unchanged, so existing chains and the Go verifier keep verifying.
+Audit hashes are unchanged, so existing chains keep verifying.
 
 Fix: the refresh token `used` column (`theauth_refresh_tokens`) holds the consume time in epoch seconds, which the reuse grace window reads. It was typed as a 0/1 flag (`BOOLEAN` on Postgres), so the grace window never matched and every replay was treated as theft. It is now `BIGINT` on Postgres and MySQL (SQLite storage is unchanged).

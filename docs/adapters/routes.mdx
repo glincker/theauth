@@ -39,6 +39,7 @@ const handler = createTheAuthHandler(theauth, { mcp, basePath: '/api/theauth' })
 | `GET` | `/mcp/authorize` | public | Authorization endpoint (redirects to login or the client) |
 | `POST` | `/mcp/token` | client | Token endpoint |
 | `POST` | `/mcp/revoke` | client | Token revocation (RFC 7009) |
+| `POST` | `/mcp/introspect` | client | Token introspection (RFC 7662), 404 until `introspection.enabled` |
 | `GET` | `/mcp/jwks` | public | Public signing keys (JWKS) |
 | `POST` | `/explain` | admin | Explain an authorization decision without recording it |
 
@@ -89,7 +90,72 @@ Management errors use `{ "error": { "code", "message" } }`. MCP endpoints use th
 | `routes.plugins` | `true` | Fall through to plugin endpoints. |
 | `routes.explain` | `true` | `POST /explain`. |
 | `maxBodyBytes` | `1048576` | Request body limit. |
+| `securityHeaders` | off | Response hardening headers. `true` for defaults or an options object. See [Security headers](#security-headers). |
+| `cors` | off | Exact-origin allowlist. See [CORS](#cors). |
 | `authenticate`, `allowUnauthenticated`, `trustedProxy`, `rateLimit`, `trustedOrigins`, `csrf` | | Same meaning as in [adapter security](/adapters). |
+
+## Cache headers
+
+Every response the handler produces carries `Cache-Control: no-store` and `Pragma: no-cache`, because auth responses hold credentials or session state: tokens, introspection results, authorize redirects, errors from guarded routes and anything that sets a cookie. The default is applied in one place; a route that sets its own `Cache-Control` keeps it (`GET /mcp/jwks` stays `public, max-age=300`). A 404 for a path the handler does not own is left alone.
+
+## Security headers
+
+Off by default. Pass `securityHeaders: true` (or an options object) to add:
+
+| Header | Value | Sent on |
+|---|---|---|
+| `X-Content-Type-Options` | `nosniff` | every response |
+| `Referrer-Policy` | `no-referrer` (tokens in magic-link and reset URLs never leak) | every response |
+| `Cross-Origin-Resource-Policy` | `same-origin` | every response |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | https requests only |
+| `X-Frame-Options` | `DENY` | HTML responses only |
+| `Content-Security-Policy` | `default-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'` | HTML responses only |
+
+HSTS is sent when the request URL is https, or when `trustedProxy` is configured and the proxy reports `X-Forwarded-Proto: https`. Without `trustedProxy` the forwarded header is ignored, so a client cannot trigger it. The core routes return JSON, so frame and CSP headers matter for HTML that plugins return. A header the route already set is never overwritten. Each header takes an override or `false` (`hsts`, `referrerPolicy`, `frameOptions`, `contentSecurityPolicy`, `crossOriginResourcePolicy`).
+
+For responses you build yourself:
+
+```typescript
+import { securityHeaders, isSecureRequest } from '@glinr/theauth/http';
+
+return new Response(html, {
+  headers: {
+    'Content-Type': 'text/html',
+    ...securityHeaders({ html: true, secure: isSecureRequest(request, { trustedProxyCount: 1 }) }),
+  },
+});
+```
+
+## CORS
+
+Off by default: no CORS header is sent anywhere. (Earlier versions sent `Access-Control-Allow-Origin: *` on every MCP route, token endpoint included.) Browser based MCP clients need the discovery documents, so list the origins that may read them:
+
+```typescript
+createTheAuthHandler(theauth, {
+  mcp,
+  cors: { origins: ['https://app.example.com'] },
+});
+```
+
+Rules, all enforced:
+
+- Origins are matched exactly (scheme, host, port). An origin that is not listed gets no `Access-Control-Allow-Origin`; it is never reflected. `Vary: Origin` is always set when a group has an allowlist.
+- `"*"` is accepted only for public documents. It cannot be combined with `credentials: true`, and cannot be used for `token`, `introspect`, `revoke` or `management`: the handler throws at startup.
+- A preflight (`OPTIONS` with `Access-Control-Request-Method`) is answered before authentication. It lists the methods that path serves, `allowedHeaders` (default `Content-Type, Authorization, DPoP`) and `maxAge` (default 600 seconds). A disallowed origin or method gets a bare 204.
+- `exposedHeaders` defaults to `DPoP-Nonce, WWW-Authenticate`.
+
+| Group | Routes | Default once `origins` is set |
+|---|---|---|
+| `discovery` | both `/.well-known/*` documents, `/mcp/jwks` | on |
+| `register` | `/mcp/register` | off |
+| `token` | `/mcp/token` | off |
+| `introspect` | `/mcp/introspect` | off |
+| `revoke` | `/mcp/revoke` | off |
+| `management` | agents, delegations, audit, dashboard, authorize/token, explain | off |
+
+`/mcp/authorize` is a browser navigation and never gets CORS. Opt a group in with `groups: { token: true }` (uses `origins`) or `groups: { token: ['https://spa.example.com'] }` (its own list). Token, introspection and revoke are client credential endpoints for servers; enable them for a browser only for a public client you control.
+
+At startup the handler logs a warning through the observability logger (console when none is set) when `allowUnauthenticated` is on, or when CORS allows `"*"` or opens a credential carrying group.
 
 ## Guarding your own routes
 

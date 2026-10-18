@@ -67,7 +67,7 @@ What to do:
 
 - `createTables()` adds both on startup. Old rows keep a NULL code, and `audit.query()` reports them with `code` undefined.
 - If you run with `database.skipMigrations: true`, apply the `decision_code` migration (generate it with `theauth db sql --dialect <yours>`, see [Schema ledger and skipMigrations](#schema-ledger-and-skipmigrations)) before deploying. Without the column, audit reads and writes fail.
-- The column is not part of the audit hash, so existing chains and the Go verifier keep verifying.
+- The column is not part of the audit hash, so existing chains keep verifying.
 - `audit.query()` accepts `codes: DecisionCode[]`, and entries carry `code`.
 
 ## delegation docs corrected
@@ -142,7 +142,7 @@ What to do:
 
 ## Schema ledger and skipMigrations
 
-theAuth now records every schema change in a ledger table, `theauth_schema_migrations`, and runs pending migrations at startup. `auth.schema.status()` reports the state. The 1.x tables are migration `0000`, and the audit and policy columns are `0001` to `0003`.
+theAuth now records every schema change in a ledger table, `theauth_schema_migrations`, and runs pending migrations at startup. `auth.schema.status()` reports the state. The 1.x tables are migration `0000`. Later migrations add the audit and policy columns (`0001`, `0002`, `0004`), Postgres epoch timestamps (`0003`), the audit `event` column (`0005`), the MCP stores (`0006`), the MCP revocation list (`0007`) and client metadata documents (`0008`).
 
 What changed:
 
@@ -168,3 +168,101 @@ What to do:
 
 - Mount the result with `app.use(path, buildTheAuthRouter(...))`, as before.
 - Remove any code that calls `Router` methods on the result, such as `.get()` or `.use()`.
+
+## Audit API v2 and the event column
+
+`audit.query()` and `GET /audit` gain an explicit order, cursor paging and an `event` field. See [Audit trail](/audit-trail).
+
+- The default order stays newest first, so existing calls return rows in the same order. Pass `order: "asc"` for oldest first. `actions` now filters before `limit` instead of after it.
+- `AuditEntry` has a new `event` field (`null` when unknown), stored in a nullable column added by migration `0005`. It is not part of the audit hash, so existing chains keep verifying. Code that builds `AuditEntry` values by hand must set it.
+- Delegation rows are now `action: "delegate"` with `event: "delegation.create"` or `"delegation.revoke"`. Older rows keep the old `action`. Match on `event` to see both.
+- The `query_audit` MCP tool drops `offset` and returns `{ returned, nextCursor, entries }`.
+- With `skipMigrations: true`, apply `0005` first: `theauth db sql --from 0005`.
+
+## MCP stores in the database, and the requireScopes result
+
+`createMcpModule({ auth, config, resolveUserId })` now keeps clients, codes, tokens and refresh families in the theAuth database. See [MCP OAuth 2.1](/mcp).
+
+- Migration `0006` adds columns to `theauth_oauth_clients` and `theauth_oauth_access_tokens`. Configs with an `mcp` key now create the OAuth tables.
+- The 401 body from `requireScopes` and the helper functions is now `{ jsonrpc, error: { code: -32001, message, data: { code } }, id: null }`. The code was `-32000`, and the `www-authenticate` key in the body is gone: read the header.
+- `requireScopes` failures return `status`, `error` and `rejected` as well as `response`. Code that matched `{ authorized: false; response }` exactly needs the `RequireScopesResult` type.
+- An expired token now reports `TOKEN_EXPIRED`. Before, it reported `INVALID_TOKEN`.
+- The old form with seven store functions still works, and a store function passed next to `auth` wins over the database one.
+
+## Agent tokens start with ta_
+
+New agent tokens start with `ta_` instead of `kv_`. Tokens already issued keep validating, and nothing is rewritten.
+
+- `agent.rotate` issues a `ta_` token for a legacy agent and retires the old one.
+- A bearer string with neither prefix is rejected before any database read.
+- If a proxy, log scrubber or secret scanner matches agent tokens by prefix, accept both `ta_` and `kv_`. See [Token format](/agents#token-format) for a scanning regex.
+
+## SQLite file URLs throw
+
+`provider: "sqlite"` runs on sql.js, which keeps the database in memory and does not reliably write the file. It now throws `THEAUTH_SQLITE_NOT_PERSISTENT` at startup for any `url` other than `:memory:`. Before, it loaded the file and lost writes on restart.
+
+- For a database file, use `provider: "sqlite-native"` (`npm install better-sqlite3`) or Postgres.
+- For a throwaway database, pass `url: ":memory:"`.
+- Loading an existing file into sql.js is gone. Open the same file with `sqlite-native`.
+
+## Postgres timestamps are epoch seconds
+
+Postgres now works across the whole instance. Before, the first write and every JSON read failed, so a working 1.x setup was not using Postgres through core.
+
+- Timestamp columns are `BIGINT` epoch seconds, as on SQLite. Migration `0003` converts `TIMESTAMPTZ` columns in place. Run `theauth db up`, or let the instance migrate on start.
+- If you query the tables yourself, wrap timestamp columns in `to_timestamp(...)`.
+- `provider: "mysql"` throws `THEAUTH_MYSQL_UNSUPPORTED` unless you pass `experimental: true`.
+- `theauth_refresh_tokens.used` is now `BIGINT` on Postgres and MySQL, so the refresh reuse grace window works. SQLite is unchanged.
+
+## Cookies are Secure by default, PBKDF2 is stronger
+
+The `Secure` cookie default no longer reads `NODE_ENV`. It used to be off when `NODE_ENV` was unset, which is the normal state on Workers, Deno and Bun.
+
+- Cookies are now `Secure` unless you pass `secure: false`, or pass a `request` for plain `http://localhost`, `127.0.0.1` or `[::1]`. For plain http anywhere else, set `cookieOptions.secure: false`.
+- Invalid `__Host-` and `__Secure-` combinations now throw, as do `Partitioned` or `SameSite=None` without `Secure`.
+- PBKDF2 defaults to 600000 iterations (was 100000), about 100 ms per hash. Set `pbkdf2Iterations` or `THEAUTH_PBKDF2_ITERATIONS` to lower it on a CPU limited plan. Old hashes verify with their own count and are upgraded at sign in.
+
+## SAML verification is strict
+
+If you use `sso.saml`, upgrade. The old verifier could be bypassed, and `cert` was imported as a bare public key. See [SSO](/auth/sso).
+
+- `idpEntityId` is now required. Logins fail with `SAML_CONFIG_ERROR` until you set it.
+- `wantAuthnResponseSigned: false` is a config error. Sign the Response or the Assertion.
+- `cert` takes an X.509 certificate or a public key PEM. RSA keys under 2048 bits are rejected. SHA-1 signatures need `allowLegacySha1: true`.
+- `getSamlAuthUrl` now sends an opaque single use `RelayState`, and the ACS route checks `InResponseTo` with it. Your own relay state comes back as `relayState`. Call `handleSamlResponse` with `{ relayState }` or `{ expectedRequestId }`.
+- IdP initiated responses need `allowIdpInitiated: true`. Encrypted assertions are still unsupported.
+
+## nextjs-auth requires a secret
+
+`@glinr/theauth-nextjs-auth` 0.2.0 and earlier trusted an unsigned session cache cookie, so anyone could write one and be treated as any user. Upgrade.
+
+- `createAuthConfig` now requires `secret`, at least 32 bytes, for example from `openssl rand -base64 48`. It throws at construction without one.
+- The cache cookie is signed and bound to the session token. Old unsigned cookies are ignored, at the cost of one backend call.
+- Cookies are `Secure` by default and no longer depend on `NODE_ENV`. Pass `secure: false` for http localhost only.
+- Before upgrading, `cookieCacheMaxAgeMs: 0` removes the exposure.
+
+## MCP tokens are bound to their delegation
+
+Revoking a delegation, an agent, a user's sessions or a token now reaches MCP access tokens. See [MCP token revocation](/mcp-revocation).
+
+- With `auth`, resource server validation defaults to `live` mode, and `jtiDenylist` defaults to a shared database store. Migration `0007` adds the `theauth_mcp_revocations` table and delegation indexes.
+- Exchanged tokens carry a signed `theauth_dlg` claim and never outlive their links, agents or parent token. Exchange refuses a chain with no live link between two agent actors.
+- Before: a revoked link left tokens valid until `exp`. After: the next request fails on every instance sharing the database.
+- Action: run `theauth db up`. Without `auth` nothing changes, and the mode is `offline`.
+- Tokens minted before the upgrade carry no binding and age out within `accessTokenTtl`.
+
+## Client metadata documents need a consent page
+
+`clientIdMetadataDocuments: { enabled: true }` now makes `createMcpModule` throw at startup unless `consentPage` is set. Any host can publish a client document, so every authorization has to be approved by a user. See [Client ID metadata documents](/mcp-client-id-metadata).
+
+- Before: an early build of the feature could issue codes with no consent screen. After: startup fails, and a stored metadata client that reaches authorize with no `consentPage` gets `CONSENT_REQUIRED`.
+- Action: set `consentPage` and call `mcp.describeClient()` on that page to show the verified host and every warning.
+- Migration `0008` adds the document snapshot columns and the `theauth_mcp_client_blocks` table.
+
+## Dynamic registration can be turned off
+
+`registration: { enabled: false }` removes `POST /mcp/register` (404), drops `registration_endpoint` from the metadata, and makes `registerClient` return `REGISTRATION_DISABLED`. The default is unchanged. Clients registered earlier keep working. Turn it off when you serve only pre-registered and metadata document clients.
+
+## Observability is opt in
+
+`observability.onDecision(event)` receives one typed event per `authorize`, `authorizeByToken` and `policy.evaluate` decision, and `logger` receives hook timeout and listener warnings. Nothing changes unless you set them. Events carry no tokens or raw arguments, and `observability.redactResource` rewrites the resource string. The dashboard audit page now sends `codes` to your audit endpoint and calls `/api/explain`, so mount the HTTP handler at `/api`. See [Observability](/observability).

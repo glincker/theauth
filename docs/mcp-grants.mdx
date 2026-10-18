@@ -104,7 +104,7 @@ const mcp = createMcpModule({
 
 Clients that authenticate with `private_key_jwt` can also revoke tokens through `mcp.revoke(request)`. The framework adapters do not serve `/mcp/revoke` themselves, so mount a `POST` route in your host that calls `mcp.revoke(request)` (see [MCP](/mcp)); metadata advertises `<baseUrl>/mcp/revoke`, so mount it there. The assertion audience must be the revoke endpoint URL or the issuer, an assertion addressed to the token endpoint is refused there, and the `jti` store is shared with the token endpoint. An assertion combined with basic auth or `client_secret` is rejected.
 
-`createMcpModule` throws at startup if `tokenExchange.enabled` is set without `jtiDenylist`. The denylist is what makes a revoked subject token fail the exchange. See the multi-instance note below.
+`createMcpModule` throws at startup if `tokenExchange.enabled` is set without `jtiDenylist`, unless you pass `auth`, which supplies the shared database denylist. The denylist is what makes a revoked subject token fail the exchange. See the multi-instance note below.
 
 The request carries a `subject_token` (and optionally an `actor_token`), both with `..._token_type=urn:ietf:params:oauth:token-type:access_token`. Only access tokens issued by this server are accepted. Other token types are rejected with `invalid_request`.
 
@@ -204,7 +204,7 @@ Each `jti` works once per client. Do not send a `client_secret` or Basic header 
 
 Two stores default to process memory and break down behind a load balancer.
 
-**`jtiDenylist`.** `createInMemoryJtiDenylist()` is per process. A token revoked through `mcp.revoke` on one instance still exchanges on another. Pass your own `McpJtiDenylist` (`revoke(jti, expiresAt)` and `isRevoked(jti)`) backed by Redis or your database.
+**`jtiDenylist`.** `createInMemoryJtiDenylist()` is per process. A token revoked through `mcp.revoke` on one instance still exchanges on another. With `auth` the default is already the shared database store (see [MCP token revocation](/mcp-revocation)). Otherwise pass your own `McpJtiDenylist` (`revoke(jti, expiresAt)` and `isRevoked(jti)`) backed by Redis or your database.
 
 **`assertionStorage`.** The replay cache for `private_key_jwt` assertions and jwt-bearer `jti` values defaults to an in-process store. With several instances an assertion can be replayed once per instance. Give every instance the same shared store:
 

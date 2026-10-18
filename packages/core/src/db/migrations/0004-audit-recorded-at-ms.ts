@@ -3,7 +3,7 @@ import type { Migration } from "../migrate/types.js";
 /**
  * Millisecond write order for audit rows. `timestamp` only has one second resolution, so rows written in the same second used to come back in unpredictable order. `recorded_at_ms` is strictly increasing per agent chain (and per process); audit reads order by it, then timestamp, chain_seq and id, so ties are deterministic.
  *
- * The column is NOT part of the audit hash payload (hash version stays 2), so existing chains and the Go verifier keep verifying. Existing rows are backfilled from their second resolution timestamp (only NULL rows, so reruns are no-ops).
+ * The column is NOT part of the audit hash payload (hash version stays 2), so existing chains keep verifying. Existing rows are backfilled from their second resolution timestamp (only NULL rows, so reruns are no-ops).
  */
 export const auditRecordedAtMs: Migration = {
 	id: "0004",

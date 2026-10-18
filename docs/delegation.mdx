@@ -149,7 +149,7 @@ In the TypeScript package, `agent.revoke()` also revokes every active chain wher
 </Note>
 
 <Note>
-Tokens minted through MCP token exchange carry their chain in the `act` claim. Set `delegationStore` in the MCP config to have the resource server re-check that chain against live records, so revoking a parent chain rejects tokens issued down it before they expire. See [MCP auth](/mcp).
+Tokens minted through MCP token exchange carry their chain in the `act` claim, plus a signed `theauth_dlg` binding to the exact links and agents behind it. With `auth` passed to `createMcpModule`, the resource server checks that binding against the live rows on every request, so revoking a link (and every link below it in the cascade) or revoking an agent makes the next request carrying an affected token fail, on every instance that shares the database. A token never outlives the links and agents it came from. Resource servers that only verify the JWT see the revoke at token expiry. See [MCP token revocation](/mcp-revocation) for the modes and limits. `delegationStore` remains as the opt in check for older tokens that have an `act` claim and no binding.
 </Note>
 
 ### Effective permissions
@@ -246,6 +246,6 @@ An orchestrator holds broad permissions, plans a task, and issues short-lived na
   Delegated permissions count as granted when you compare them with what an agent used.
 </Card>
   <Card title="MCP OAuth 2.1" href="/mcp">
-  Use delegation with MCP-authenticated agents. The optional `delegationStore` re-checks a token's delegation chain on each validation.
+  Use delegation with MCP-authenticated agents. Tokens from token exchange are bound to their delegation, so revoking a link rejects them on the next request. See [MCP token revocation](/mcp-revocation).
 </Card>
 </CardGroup>

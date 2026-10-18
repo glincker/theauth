@@ -1,6 +1,6 @@
 ---
 title: Session hardening
-description: Opt-in cookie cache, refresh token reuse grace, per-request base URLs, stateless sessions and federated logout.
+description: Opt-in (experimental) cookie cache, idle timeout, refresh token reuse grace, per-request base URLs, stateless sessions and federated logout.
 icon: shield
 ---
 
@@ -10,9 +10,11 @@ Everything on this page is opt-in. Nothing changes until you pass the option.
   <img src="/images/diagrams/theauth-stateless-session-binding.jpg" alt="A browser holds an identity cookie and a token cookie. The server checks that the token cookie is bound to the identity cookie and refuses a token cookie taken from another user." />
 </Frame>
 
-## Cookie cache
+## Cookie cache (experimental)
 
-A signed cookie that answers `validateSession` without a database read. A revoked session keeps working until the cache expires (5 minutes by default), so keep `maxAge` short.
+A signed cookie that answers `validateSession` without a database read. It exists only on `createCookieSessionManager`. `createTheAuth` does not use it, and the reserved `sessionsCache` secondary storage name is not read by core.
+
+It is not revocation safe. A revoked, banned or signed out everywhere session keeps validating from the cache until the cache cookie expires (5 minutes by default), and a cache hit also skips the idle timeout check. Nothing binds the cookie to a revocation version, so keep `maxAge` to seconds, or leave it off when a ban must take effect at once.
 
 ```typescript
 const sessions = createCookieSessionManager(

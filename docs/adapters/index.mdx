@@ -110,6 +110,10 @@ Earlier versions mounted these routes with no authentication. After upgrading, p
 | [`@glinr/theauth-solidstart`](/adapters/solidstart) | SolidStart | catch-all route `src/routes/api/theauth/[...theauth].ts` |
 | [`@glinr/theauth-tanstack`](/adapters/tanstack) | TanStack Start | catch-all route `app/routes/api/theauth.$.ts` |
 
+## Headers and CORS
+
+Every response is `Cache-Control: no-store` by default. Security headers (`securityHeaders`) and an exact-origin CORS allowlist (`cors`) are opt-in. See [Routes](/adapters/routes#security-headers).
+
 ## Endpoints registered
 
 All adapters register the same set of REST routes under `basePath` (default `/api/theauth`):

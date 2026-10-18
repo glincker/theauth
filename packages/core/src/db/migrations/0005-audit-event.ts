@@ -3,7 +3,7 @@ import type { Migration } from "../migrate/types.js";
 /**
  * A single event vocabulary for audit rows. `event` says what happened (authorize, policy.evaluate, delegation.create, ...), `action` keeps the domain verb (read, write, the tool name). Nullable, so rows from unknown writers read back with no event.
  *
- * The column is NOT part of the audit hash payload (hash version stays 2), so existing chains and the Go verifier keep verifying. Rows already written keep their `action` text, because it is hashed.
+ * The column is NOT part of the audit hash payload (hash version stays 2), so existing chains keep verifying. Rows already written keep their `action` text, because it is hashed.
  *
  * Backfill, only for rows with no event (reruns are no-ops):
  * 1. rows whose action is itself an event name get event = action;

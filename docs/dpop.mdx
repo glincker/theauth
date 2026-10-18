@@ -83,11 +83,15 @@ The client sends `Authorization: DPoP <token>` plus `DPoP: <proof>` where the pr
 
 ### What gets checked
 
-- Token: signature, issuer, expiry, audience against `expectedAudience` or `McpConfig.resource`, the jti denylist.
+- Token: signature, issuer, expiry, audience against `expectedAudience` or `McpConfig.resource`, then revocation (the jti denylist and, for delegated tokens, the live delegation binding, depending on the [freshness mode](/mcp-revocation)).
 - Proof: `htm`, `htu` (query and fragment ignored), `iat` window, `ath`, nonce, `jti` not seen before, and the proof key matching `cnf.jkt`.
 - Bearer downgrade: a bound token sent as `Bearer` is refused. This also covers `validateToken`, `middleware`, `withMcpAuth` and `requireScopes`.
 - A `DPoP` scheme request carrying an unbound token is refused.
 - Scopes: a shortfall returns 403 `insufficient_scope`.
+
+DPoP and revocation answer different questions. The `cnf.jkt` match says the caller holds the key the token was issued to. The revocation check says the authority behind the token is still alive. Both run, and the proof checks run first because they need no database read, so a request with a bad proof never reaches the revocation store. Revocation sits before the scope check, so a revoked token gets 401, never a 403 step up. An exchanged token is bound to the key of the exchange request, and a DPoP bound subject token needs a proof from the same key.
+
+[Introspection](/mcp-revocation#introspection-and-revocation-endpoints) reports `cnf.jkt` and `token_type: "DPoP"`, but it does not see your request. A resource server that introspects must still verify the proof itself. Replay protection for proof `jti` values is per process unless you set a shared `storage` in the DPoP config, which matters with more than one instance.
 
 Options: `requiredScopes`, `expectedAudience`, `resourceUrl` (the public URL clients sign, for proxies), `resourceMetadataUrl`, `requireDpop`, `requireNonce`.
 

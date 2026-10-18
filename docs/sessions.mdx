@@ -144,6 +144,32 @@ export async function POST(req: Request): Promise<Response> {
 
 ---
 
+## Idle timeout and remember me
+
+Both are opt-in. With neither set, sessions behave exactly as before.
+
+```typescript
+const sessions = createCookieSessionManager(
+  { secret: process.env.SESSION_SECRET!, maxAge: 60 * 60 * 24 * 7, idleTimeoutMs: 30 * 60 * 1000 },
+  db,
+);
+
+// "Keep me signed in" ticked: persistent cookie, 30 day absolute lifetime.
+await sessions.createSession(user.id, undefined, { rememberMe: true });
+// Not ticked: browser session cookie, normal `maxAge` lifetime on the server.
+await sessions.createSession(user.id, undefined, { rememberMe: false });
+```
+
+**Idle timeout.** `idleTimeoutMs` denies a session with no activity for that long, in addition to the absolute `maxAge`, which still applies. It is off by default: turning it on signs users out and adds a small write to busy sessions, so it is your call. Activity is recorded in `lastActiveAt`, written at most once per `activityGranularityMs` (default 60 seconds, or a quarter of the idle timeout when that is shorter), so a busy session costs one write per window and the effective idle limit can be up to one window longer than configured. `activityGranularityMs` must be shorter than `idleTimeoutMs`. Sessions created before you enabled the feature have no stamp and are treated as active on first read, not logged out.
+
+An idle session is deleted (and `onRevoke` is called), so it cannot return. `validateSession` still answers `session: null`; read `reason` for `idle_timeout`, `expired`, `not_found` or `invalid_token`. With the raw manager use `validateDetailed(token)`.
+
+Environment overrides, used when the option is not set in code: `THEAUTH_SESSION_IDLE_TIMEOUT_MS`, `THEAUTH_SESSION_ACTIVITY_GRANULARITY_MS`, `THEAUTH_SESSION_REMEMBER_ME_MAX_AGE`.
+
+**Remember me.** `rememberMe: true` uses `rememberMeMaxAge` (default 30 days) as the absolute lifetime, never more than `rememberMeMaxAgeCap` (default 90 days). `rememberMe: false` keeps the normal lifetime and, through the cookie manager or `buildSessionCookie(name, token, session)`, sends a cookie with no `Max-Age`, so the browser drops it on close. Leaving it unset keeps the old behavior (persistent cookie for `maxAge`). The choice is kept when a session is refreshed. If you build the cookie yourself from `createTheAuth` sessions, use `buildSessionCookie` so `rememberMe: false` is honored.
+
+The activity stamp and the remember me flag live in the session `metadata` JSON (no schema change). They are hidden from `session.metadata` and exposed as `session.lastActiveAt` and `session.rememberMe`. The stamp write re-reads the row first, but a metadata write landing in the same few milliseconds can still be overwritten by it, and the next activity repairs the stamp.
+
 ## JWT sessions
 
 Use JWT sessions when cookies don't work: SPAs calling a separate API origin, mobile apps, server-to-server flows. Access tokens are short-lived and stateless. Refresh tokens are opaque random strings stored as SHA-256 hashes, and they rotate on every use.
@@ -410,6 +436,10 @@ The cookie session manager does not return error codes: `validateSession` return
 <ParamField path="sessionName" type="string" default="'theauth_session'">Name of the session cookie.</ParamField>
 <ParamField path="maxAge" type="number" default="604800 (7 days)">Session lifetime in seconds. After this period the session is considered expired even if it has been used recently.</ParamField>
 <ParamField path="autoRefresh" type="boolean" default="true">When true, every successful `validateSession` extends the session by replacing the session row (the session ID changes) and returns a new cookie as `refreshCookieHeader`.</ParamField>
+<ParamField path="idleTimeoutMs" type="number" default="off">Deny a session with no activity for this many ms. Env `THEAUTH_SESSION_IDLE_TIMEOUT_MS`.</ParamField>
+<ParamField path="activityGranularityMs" type="number" default="60000 (or idleTimeoutMs / 4 if shorter)">Minimum age of `lastActiveAt` before it is rewritten. Must be below `idleTimeoutMs`. Env `THEAUTH_SESSION_ACTIVITY_GRANULARITY_MS`.</ParamField>
+<ParamField path="rememberMeMaxAge" type="number" default="2592000 (30 days)">Absolute lifetime in seconds for `rememberMe: true`. Env `THEAUTH_SESSION_REMEMBER_ME_MAX_AGE`.</ParamField>
+<ParamField path="rememberMeMaxAgeCap" type="number" default="7776000 (90 days)">Hard ceiling on the remember me lifetime.</ParamField>
 <ParamField path="cookieOptions.httpOnly" type="boolean" default="true">Prevents client-side JavaScript from accessing the cookie. Always set this to true for session cookies.</ParamField>
 <ParamField path="cookieOptions.secure" type="boolean" default="true when NODE_ENV is production, otherwise false">Only send the cookie over HTTPS. Set it to true explicitly if your deployment does not set NODE_ENV=production.</ParamField>
 <ParamField path="cookieOptions.sameSite" type="'lax' | 'strict' | 'none'" default="'lax'">Controls cross-site cookie behavior. 'lax' works for most apps. 'strict' adds more protection. 'none' is only for cross-origin cookie transport (requires secure: true).</ParamField>
