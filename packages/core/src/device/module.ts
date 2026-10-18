@@ -5,6 +5,7 @@ import type { Database } from "../db/database.js";
 import type { DecisionCode } from "../permission/codes.js";
 import { DECISION_CODES } from "../permission/codes.js";
 import type { DenialExtra } from "../permission/engine.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import type {
 	AgentIdentity,
@@ -34,6 +35,8 @@ import type {
 export interface DeviceModuleDeps {
 	db: Database;
 	config: DeviceConfig;
+	/** Top level `resourceMatching`, stamped into issued bundles. */
+	resourceMatching?: ResourceMatching;
 	storage: SecondaryStorage;
 	agent: {
 		update(agentId: string, input: UpdateAgentInput): Promise<AgentIdentity>;
@@ -61,12 +64,26 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 	const { db, config } = deps;
 	const registry = createDeviceRegistry(db, config.maxPerOwner ?? 10_000);
 
+	/** In the default mode a `*` before the last segment swallows the rest of the resource, a wider grant than it reads. Path mode defines it as one segment. */
+	function assertNoMidWildcard(permissions: readonly Permission[]): void {
+		if (deps.resourceMatching === "path") return;
+		for (const p of permissions) {
+			if (p.resource.split(":").slice(0, -1).includes("*")) {
+				throw new DeviceInputError(
+					"INVALID_INPUT",
+					`"*" is only allowed as the final segment of a device resource (got "${p.resource}")`,
+				);
+			}
+		}
+	}
+
 	async function guard(
 		ownerId: string,
 		tenantId: string | undefined,
 		name: string,
 		permissions: Permission[],
 	) {
+		assertNoMidWildcard(permissions);
 		await deps.guardAgentCreate({
 			ownerId,
 			...(tenantId !== undefined && { tenantId }),
@@ -129,6 +146,7 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 		if (device.status === "revoked") throw new DeviceInputError("CONFLICT", "Device is revoked");
 		// The agent facade runs the beforeAgentCreate policy on the new permission set.
 		if (patch.permissions !== undefined) {
+			assertNoMidWildcard(patch.permissions);
 			await deps.agent.update(device.agentId, { permissions: patch.permissions });
 		}
 		await registry.update(id, patch);
@@ -275,6 +293,7 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 			groups: device.groups,
 			permissions: [...device.permissions, ...delegated].filter((p) => !p.relation),
 			ttlSeconds: ttl,
+			...(deps.resourceMatching && { resourceMatching: deps.resourceMatching }),
 		});
 		await lifecycle(device, "device.bundle.issue", {
 			jti: bundle.claims.jti,

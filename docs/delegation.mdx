@@ -70,6 +70,8 @@ Invalid delegations:
 { resource: 'mcp:slack:*', actions: ['read'] }     // resource not held by parent
 ```
 
+The subset test is the runtime matcher applied to the child: a parent `mcp:github` does not allow delegating `mcp:github:read`, because `authorize()` would not let the parent use it either. With [path matching](/permissions#path-matching-opt-in), a parent `ros2:/fleet/*` can delegate `ros2:/fleet/r1`.
+
 ### Constraints carry over
 
 Constraints on the permissions you delegate are stored on the chain and enforced by `authorize()`, `authorizeByToken()` and `policy.evaluate()`. They are narrowed against the permission the parent holds, so a child can only be tighter:

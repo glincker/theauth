@@ -82,7 +82,8 @@ describe("resolveAuthContext", () => {
 	it("maps sign-in methods to authentication methods", () => {
 		expect(authMethodsForSignIn("password")).toEqual(["password"]);
 		expect(authMethodsForSignIn("magic_link")).toEqual(["otp"]);
-		expect(authMethodsForSignIn("social")).toEqual([]);
+		expect(authMethodsForSignIn("social")).toEqual(["federated"]);
+		expect(authMethodsForSignIn("siwe")).toEqual([]);
 	});
 });
 

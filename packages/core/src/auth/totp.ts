@@ -389,6 +389,10 @@ export function createTotpModule(
 			if (!code) return jsonResponse({ error: "code required" }, 400);
 
 			const result = await verify(userId, code);
+			// A code proven on a signed-in session is a step up (RFC 9470). Backup codes rate as `otp`.
+			if (result.valid) {
+				await deps.recordStepUp?.(request, result.usedBackupCode ? "otp" : "totp", userId);
+			}
 			return jsonResponse(result);
 		}
 

@@ -4,6 +4,7 @@ import type { InputSource } from "../audit/provenance.js";
 import type { DecisionCode } from "../permission/codes.js";
 import type { AuthRequirement } from "../session/auth-context.js";
 import type { ProvenanceMap, TaintConfig, TaintVerdict } from "../taint/types.js";
+import type { ResourceMatching } from "./resource-match.js";
 
 export type PolicyEffect = "permit" | "deny" | "indeterminate" | "escalate";
 
@@ -169,6 +170,8 @@ export interface PolicyEngineConfig {
 	taint?: TaintConfig;
 	/** Version label of the active policy set; written to the audit policy_version field. */
 	policyVersion?: string;
+	/** Resource matching for this engine and its taint rules. Defaults to the top level `resourceMatching`, then `colon`. */
+	resourceMatching?: ResourceMatching;
 }
 
 /** Error codes returned in PolicyDecision.reason when the decision was not a clean PERMIT or DENY from a matched permission. */

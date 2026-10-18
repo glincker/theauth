@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { agents, delegationChains, permissions } from "../db/schema.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type { Permission } from "../types.js";
 import { isPermissionSubset } from "./subset.js";
 
@@ -14,7 +15,11 @@ const MAX_WALK = 16;
 /**
  * A delegator lends authority only while it is live. An agent delegator must be `active` and unexpired. A delegator that is not an agent row (a root user) has no status to check. An agent that itself holds active inbound links is live only if at least one of them traces back to a live delegator, so a revoked or expired agent higher up takes the whole branch below it out, even when no revocation cascade ran. The exception is a link whose permissions the active delegator holds directly: that authority did not come through the dead chain, so the link stays. Agents that never had inbound links stand on their own. An agent whose inbound links are all revoked or expired does not: it lends only what its own permissions cover.
  */
-export function createDelegatorLiveness(db: Database, now: Date) {
+export function createDelegatorLiveness(
+	db: Database,
+	now: Date,
+	matching: ResourceMatching = "colon",
+) {
 	const agentCache = new Map<string, Promise<typeof agents.$inferSelect | undefined>>();
 	const inboundCache = new Map<string, Promise<ChainRow[]>>();
 	const ownCache = new Map<string, Promise<Permission[]>>();
@@ -105,7 +110,7 @@ export function createDelegatorLiveness(db: Database, now: Date) {
 		const row = await agentRow(link.fromAgentId);
 		if (!row || row.status !== "active" || (row.expiresAt && row.expiresAt <= now)) return state;
 		const own = await ownPermissions(link.fromAgentId);
-		return isPermissionSubset(own, link.permissions as Permission[]) ? "live" : state;
+		return isPermissionSubset(own, link.permissions as Permission[], matching) ? "live" : state;
 	}
 
 	return {
@@ -131,8 +136,9 @@ export async function loadLiveInboundRows(
 	db: Database,
 	agentId: string,
 	now: Date = new Date(),
+	matching: ResourceMatching = "colon",
 ): Promise<ChainRow[]> {
-	return createDelegatorLiveness(db, now).liveInboundRows(agentId);
+	return createDelegatorLiveness(db, now, matching).liveInboundRows(agentId);
 }
 
 /** State of one delegation link as a carrier of authority (see {@link createDelegatorLiveness}). The link's own status and expiry are the caller's to check. */

@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
 import { extractToken } from "../plugin/helpers.js";
+import type { AuthMethod } from "../session/auth-context.js";
 import type { SessionManager } from "../session/session.js";
 import type { AuthAdapter } from "./types.js";
 
@@ -19,6 +20,11 @@ export type RequestUserResolver = (request: Request) => Promise<{ id: string } |
 export interface ModuleRequestDeps {
 	/** Finds the signed-in user. `createTheAuth` wires the auth adapter and the session manager. */
 	resolveUser?: RequestUserResolver;
+	/**
+	 * Records a verified re-authentication on the caller's current session, only when that session
+	 * belongs to `userId`. Returns false when nothing was recorded. `createTheAuth` wires the session manager.
+	 */
+	recordStepUp?: (request: Request, method: AuthMethod, userId: string) => Promise<boolean>;
 }
 
 /** Auth adapter first, then the session token (Bearer header or session cookie). */

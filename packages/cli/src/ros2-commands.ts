@@ -1,3 +1,4 @@
+import { X509Certificate } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { stderr, stdout } from "node:process";
@@ -28,8 +29,17 @@ Options:
   --enclave <path>      Enclave path, for example /fleet/robot1/nav
   --out <dir>           Output directory (created if missing)
   --domain <n>          DDS domain id (default 0)
-  --not-before <iso>    Grant validity start (default now)
-  --not-after <iso>     Grant validity end (default 365 days from now)
+  --enclave-cert <pem>  Enclave certificate. The grant window defaults to its validity window,
+                        and --not-before or --not-after outside it is an error
+  --not-before <iso>    Grant validity start (default now, or the certificate start)
+  --not-after <iso>     Grant validity end (default 365 days from now, or the certificate end)
+  --resource-matching <mode>
+                        colon (default) or path. Use path when the server runs
+                        resourceMatching "path": ** segments export as DDS globs
+  --single-level <m>    skip (default) or widen. With path matching, a one level * cannot be
+                        written as a DDS glob (it would also match deeper names): skip leaves
+                        it out, widen exports it anyway
+  --robot also exports permissions delegated to the robot, not only its own
   --subject <dn>        Certificate subject (default CN=<enclave>)
   --node <name>         Node name in policy.xml (default last enclave token)
   --gated <mode>        omit (default) or include: what to do with permissions that
@@ -49,6 +59,9 @@ export interface Ros2Args {
 	domain?: number;
 	notBefore?: string;
 	notAfter?: string;
+	enclaveCert?: string;
+	resourceMatching: "colon" | "path";
+	singleLevel: "skip" | "widen";
 	subject?: string;
 	node?: string;
 	gated: "omit" | "include";
@@ -63,6 +76,8 @@ export interface Ros2Args {
 export function parseRos2Args(args: string[]): Ros2Args {
 	const out: Ros2Args = {
 		gated: "omit",
+		resourceMatching: "colon",
+		singleLevel: "skip",
 		protection: "encrypt",
 		rosDiscovery: true,
 		files: [],
@@ -91,7 +106,16 @@ export function parseRos2Args(args: string[]): Ros2Args {
 		else if (flag === "--server") out.server = value();
 		else if (flag === "--enclave") out.enclave = value();
 		else if (flag === "--out") out.out = value();
-		else if (flag === "--not-before") out.notBefore = value();
+		else if (flag === "--enclave-cert") out.enclaveCert = value();
+		else if (flag === "--resource-matching") {
+			const v = value();
+			if (v === "colon" || v === "path") out.resourceMatching = v;
+			else out.error ??= "--resource-matching must be colon or path";
+		} else if (flag === "--single-level") {
+			const v = value();
+			if (v === "skip" || v === "widen") out.singleLevel = v;
+			else out.error ??= "--single-level must be skip or widen";
+		} else if (flag === "--not-before") out.notBefore = value();
 		else if (flag === "--not-after") out.notAfter = value();
 		else if (flag === "--subject") out.subject = value();
 		else if (flag === "--node") out.node = value();
@@ -165,14 +189,56 @@ async function fetchRobotPermissions(args: Ros2Args): Promise<RoboticsPermission
 	const server = await resolveServer(args.server, false);
 	const cred = await loadCredential(server);
 	if (!cred) throw new Error(`Not logged in to ${server}. Run: theauth login --server ${server}`);
-	const res = await fetch(`${server}/agents/${encodeURIComponent(args.robot ?? "")}`, {
-		headers: { authorization: `${cred.tokenType} ${cred.accessToken}` },
-	});
+	const res = await fetch(
+		`${server}/agents/${encodeURIComponent(args.robot ?? "")}?include=delegated`,
+		{
+			headers: { authorization: `${cred.tokenType} ${cred.accessToken}` },
+		},
+	);
 	if (res.status === 404) throw new Error(`No agent with id ${args.robot}`);
 	if (res.status === 401) throw new Error("Your session is not valid. Run: theauth login");
 	if (res.status === 403) throw new Error("Admin access required to read an agent.");
 	if (!res.ok) throw new Error(`Server error (${res.status})`);
-	return extractPermissions(await res.json());
+	const body: unknown = await res.json();
+	const own = extractPermissions(body);
+	const data = isRecord(body) && isRecord(body.data) ? body.data : body;
+	const delegated =
+		isRecord(data) && Array.isArray(data.delegatedPermissions)
+			? extractPermissions(data.delegatedPermissions)
+			: [];
+	return [...own, ...delegated];
+}
+
+/** Validity window of a PEM certificate (X.509 notBefore and notAfter). */
+export function certificateWindow(pem: string): { notBefore: Date; notAfter: Date } {
+	let cert: X509Certificate;
+	try {
+		cert = new X509Certificate(pem);
+	} catch {
+		throw new Error("--enclave-cert is not a readable PEM certificate");
+	}
+	return { notBefore: new Date(cert.validFrom), notAfter: new Date(cert.validTo) };
+}
+
+/** Grant window: explicit flags win, then the certificate, then now plus a year. A grant must sit inside the certificate window. */
+export function grantWindow(
+	args: Pick<Ros2Args, "notBefore" | "notAfter">,
+	cert: { notBefore: Date; notAfter: Date } | undefined,
+	now: Date,
+): { notBefore: Date | string; notAfter: Date | string } {
+	const notBefore = args.notBefore ?? cert?.notBefore ?? now;
+	const notAfter =
+		args.notAfter ?? cert?.notAfter ?? new Date(now.getTime() + DEFAULT_VALIDITY_DAYS * DAY_MS);
+	if (cert) {
+		const from = new Date(notBefore).getTime();
+		const to = new Date(notAfter).getTime();
+		if (from < cert.notBefore.getTime() || to > cert.notAfter.getTime()) {
+			throw new Error(
+				`Grant window ${new Date(from).toISOString()} to ${new Date(to).toISOString()} is outside the certificate window ${cert.notBefore.toISOString()} to ${cert.notAfter.toISOString()}`,
+			);
+		}
+	}
+	return { notBefore, notAfter };
 }
 
 const DAY_MS = 86_400_000;
@@ -185,17 +251,21 @@ export async function runRos2Export(args: Ros2Args): Promise<number> {
 			? await readPermissionsFile(args.permissions)
 			: await fetchRobotPermissions(args);
 		const now = new Date();
+		const cert = args.enclaveCert
+			? certificateWindow(await readFile(resolve(args.enclaveCert), "utf-8"))
+			: undefined;
 		const result = lib.exportRos2(permissions, {
 			robotId: args.robot,
 			enclave: args.enclave ?? "",
 			subjectName: args.subject,
 			domainId: args.domain,
-			notBefore: args.notBefore ?? now,
-			notAfter: args.notAfter ?? new Date(now.getTime() + DEFAULT_VALIDITY_DAYS * DAY_MS),
+			...grantWindow(args, cert, now),
 			rosDiscoveryTopic: args.rosDiscovery,
 			protection: args.protection,
 			node: args.node,
 			gated: args.gated,
+			resourceMatching: args.resourceMatching,
+			singleLevel: args.singleLevel,
 		});
 		const dir = resolve(args.out ?? "");
 		await mkdir(dir, { recursive: true });
@@ -242,7 +312,11 @@ export async function runRos2Diff(args: Ros2Args): Promise<number> {
 	try {
 		const lib = await import("@glinr/theauth/robotics");
 		const [before, after] = await Promise.all(args.files.map(readPermissionsFile));
-		const diff = lib.diffRosPolicies(before ?? [], after ?? [], { gated: args.gated });
+		const diff = lib.diffRosPolicies(before ?? [], after ?? [], {
+			gated: args.gated,
+			resourceMatching: args.resourceMatching,
+			singleLevel: args.singleLevel,
+		});
 		if (args.json) {
 			stdout.write(`${JSON.stringify(diff, null, 2)}\n`);
 			return diff.empty ? 0 : 2;

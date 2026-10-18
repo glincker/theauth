@@ -48,6 +48,7 @@ export async function createTokenVault(config: TokenVaultConfig): Promise<TokenV
 	const { db, storage } = config;
 	const cipher = await createVaultCipher(config.keys);
 	const now = config.now ?? Date.now;
+	const matching = config.resourceMatching ?? "colon";
 	const skewMs = (config.expirySkewSeconds ?? 60) * 1000;
 	const lockTtl = config.lockTtlSeconds ?? 15;
 	const lockWaitMs = config.lockWaitMs ?? 5000;
@@ -107,14 +108,18 @@ export async function createTokenVault(config: TokenVaultConfig): Promise<TokenV
 		const resource = vaultResource(provider);
 		const own = await db.select().from(permissions).where(eq(permissions.agentId, agentId));
 		if (
-			own.some((p) => matchResource(p.resource, resource) && matchAction(p.actions, VAULT_ACTION))
+			own.some(
+				(p) =>
+					matchResource(p.resource, resource, matching) && matchAction(p.actions, VAULT_ACTION),
+			)
 		) {
 			return true;
 		}
-		const chains = await loadLiveInboundRows(db, agentId, at);
+		const chains = await loadLiveInboundRows(db, agentId, at, matching);
 		return chains.some((c) =>
 			c.permissions.some(
-				(p) => matchResource(p.resource, resource) && matchAction(p.actions, VAULT_ACTION),
+				(p) =>
+					matchResource(p.resource, resource, matching) && matchAction(p.actions, VAULT_ACTION),
 			),
 		);
 	}
@@ -140,7 +145,7 @@ export async function createTokenVault(config: TokenVaultConfig): Promise<TokenV
 			if (c.expiresAt && c.expiresAt <= at) continue;
 			if (c.delegationChainId) {
 				// The consent's chain must still be live: active, unexpired, and lent by a live delegator.
-				const live = await loadLiveInboundRows(db, input.agentId, at);
+				const live = await loadLiveInboundRows(db, input.agentId, at, matching);
 				if (!live.some((l) => l.id === c.delegationChainId)) continue;
 			}
 			if (isSubset(input.scopes, c.scopes)) return c.scopes;

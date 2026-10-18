@@ -2,6 +2,15 @@
 
 export type { AuthApiClient, TheAuthApiClient } from "./api/client.js";
 export type {
+	CreateEnrollmentTokenInput,
+	DeviceCredentialRow,
+	DeviceDetail,
+	DeviceFleetStats,
+	DeviceRow,
+	DeviceStatus,
+	EnrollmentToken,
+} from "./api/device-types.js";
+export type {
 	Agent,
 	AgentPermission,
 	AgentStatus,

@@ -70,6 +70,34 @@ err := client.Request(ctx, theauth.RequestOptions{
 
 `client.Do(ctx, method, path, query, body, &out)` is the short form without path parameters.
 
+## Devices
+
+`client.Devices` is the registry and needs a user or admin token. `client.Device` is what a device calls as itself.
+
+```go
+signer, _ := theauth.NewDeviceAssertionSigner("") // the key first, the id after registering
+spec, _ := theauth.JWKCredential(signer.PublicJWK())
+reg, err := client.Devices.Register(ctx, theauth.RegisterDeviceInput{
+    OwnerID:     "user-123",
+    Name:        "Pump 4",
+    Permissions: []theauth.Permission{{Resource: "mqtt:plant/a/pump4/#", Actions: []string{"publish"}}},
+    Credential:  &spec,
+})
+_ = signer.Bind(reg.Device.ID)
+
+res, err := client.Device.Authorize(ctx, signer, theauth.AuthorizeRequest{
+    Action: "publish", Resource: "mqtt:plant/a/pump4/temp",
+})
+```
+
+The signer makes a new `device-assertion+jwt` for every call, because the server accepts each `jti` once. A `DevicePSK` or `DeviceToken` works as the credential too.
+
+## Step-up and bound tokens
+
+A 401 with `error="insufficient_user_authentication"` (RFC 9470) returns `*theauth.ErrStepUpRequired`. `err.Challenge.AuthorizeParams()` gives the `acr_values` and `max_age` for the new authorization request. `ACRSatisfies` and `AuthIsFresh` check a token before you call.
+
+Set `Cnf: theauth.DPoPConfirmation(prover)` on `CreateAgentInput` to bind an agent token to a DPoP key (RFC 7800). `Agents.Rotate` keeps the binding and `Agents.RotateWith(ctx, id, theauth.RotateOptions{Unbind: true})` removes it. `AuthorizeRequest.Inputs` records what the model had in context for the audit log; the server hashes the content and does not store it.
+
 ## Errors
 
 | Check | Meaning |

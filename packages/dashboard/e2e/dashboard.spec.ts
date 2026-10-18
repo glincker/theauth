@@ -3,13 +3,11 @@ import { expect, test } from "@playwright/test";
 
 const THEME_KEY = "theauth-theme";
 
+// Core GET /dashboard/stats shape; the client maps it to the overview numbers.
 const STATS_FIXTURE = {
-	totalAgents: 3,
-	activeAgents: 2,
-	totalAuditEvents: 42,
-	recentAuditEvents: 5,
-	authAllowedRate: 80,
-	activeDelegations: 1,
+	agents: { total: 3, active: 2, revoked: 1, expired: 0 },
+	users: { total: 1 },
+	audit: { last24h: 5, allowed: 4, denied: 1, rateLimited: 0 },
 };
 
 const AGENTS_FIXTURE = [
@@ -26,24 +24,21 @@ const AGENTS_FIXTURE = [
 	},
 ];
 
-const AUDIT_FIXTURE = {
-	entries: [
-		{
-			id: "audit-1",
-			timestamp: "2026-03-29T12:05:00.000Z",
-			agentId: "agent-1",
-			agentName: "Test Agent",
-			action: "read",
-			resource: "users:123",
-			result: "allowed",
-			durationMs: 12,
-			metadata: {},
-		},
-	],
-	total: 1,
-	limit: 10,
-	offset: 0,
-};
+// Core GET /audit answers a bare array of rows (agentName is resolved by the client from /api/agents).
+const AUDIT_FIXTURE = [
+	{
+		id: "audit-1",
+		timestamp: "2026-03-29T12:05:00.000Z",
+		agentId: "agent-1",
+		userId: "user-1",
+		action: "read",
+		resource: "users:123",
+		result: "allowed",
+		parameters: {},
+		event: "authorize",
+		durationMs: 12,
+	},
+];
 
 const SETTINGS_FIXTURE = {
 	database: {

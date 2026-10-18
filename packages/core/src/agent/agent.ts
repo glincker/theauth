@@ -6,6 +6,7 @@ import { agents, permissions } from "../db/schema.js";
 import { createDelegationModule } from "../delegation/delegation.js";
 import { revocationRowExpiry } from "../mcp/revocation-bus.js";
 import type { McpRevocationBus } from "../mcp/revocation-types.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type {
 	AgentFilter,
 	AgentIdentity,
@@ -25,6 +26,8 @@ interface AgentModuleConfig {
 	tokenExpiry: string;
 	/** Receives agent and cascaded delegation revocations for the shared MCP denylist. Optional. */
 	revocations?: McpRevocationBus;
+	/** Top level `resourceMatching`, used by delegation subset checks. */
+	resourceMatching?: ResourceMatching;
 }
 
 /**
@@ -61,7 +64,11 @@ function parseTokenExpiry(expiry: string): Date {
 /** Create the agent identity module. Handles CRUD operations for AI agent identities. */
 export function createAgentModule(config: AgentModuleConfig) {
 	const { db, maxPerUser, tokenExpiry, revocations } = config;
-	const delegation = createDelegationModule({ db, revocations });
+	const delegation = createDelegationModule({
+		db,
+		revocations,
+		resourceMatching: config.resourceMatching,
+	});
 
 	async function create(input: CreateAgentInput): Promise<AgentIdentity & { token: string }> {
 		assertValidExpiry(input.expiresAt);

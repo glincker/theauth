@@ -3,6 +3,7 @@ import type { ExplainResult } from "./explain/types.js";
 import type { HookDelegationChain } from "./hooks/lifecycle.js";
 import type { McpIntrospectionResponse } from "./mcp/revocation-types.js";
 import type { McpActorClaim } from "./mcp/types.js";
+import { ADMIN_COMPONENT_SCHEMAS } from "./openapi-admin.js";
 import type { DecisionCode } from "./permission/codes.js";
 import { DECISION_CODES } from "./permission/codes.js";
 import type {
@@ -401,6 +402,7 @@ export const COMPONENT_SCHEMAS = {
 	ApprovalConsumed: ApprovalConsumedSchema,
 	IntrospectionResponse: IntrospectionResponseSchema,
 	AgentIntrospection: AgentIntrospectionSchema,
+	...ADMIN_COMPONENT_SCHEMAS,
 } as const;
 
 // Compile-time drift guards. Wire<T> is T as JSON: dates become strings.

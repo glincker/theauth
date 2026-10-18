@@ -45,6 +45,12 @@ export interface BuildRosPolicyOptions {
 	 * gate alone, which a participant holding the enclave key can bypass.
 	 */
 	gated?: "omit" | "include";
+	/** `path` when the server runs `resourceMatching: "path"`: `**` segments export as DDS globs. Default `colon`. */
+	resourceMatching?: "colon" | "path";
+	/**
+	 * A one level `*` segment cannot be written as a DDS topic glob: fnmatch `*` also crosses `/`, so the exported grant would reach deeper names than theAuth allows. "skip" (default) leaves it out. "widen" exports it anyway.
+	 */
+	singleLevel?: "skip" | "widen";
 }
 
 /** Constraint names that carry a real restriction. Empty arrays, false and undefined do not count. */
@@ -76,12 +82,21 @@ export function buildRosPolicy(
 	const skipped: SkippedPermission[] = [];
 
 	for (const permission of permissions) {
-		const parsed = parseRosResource(permission.resource);
+		const parsed = parseRosResource(permission.resource, options.resourceMatching);
 		if (!parsed.ok) {
 			skipped.push({
 				resource: permission.resource,
 				actions: [...permission.actions],
 				reason: parsed.reason,
+			});
+			continue;
+		}
+		if (parsed.singleLevel && options.singleLevel !== "widen") {
+			skipped.push({
+				resource: permission.resource,
+				actions: [...permission.actions],
+				reason:
+					"a one level * cannot be exported: a DDS glob would also match deeper names. Use ** or list exact names, or export with singleLevel widen",
 			});
 			continue;
 		}
@@ -107,7 +122,8 @@ export function buildRosPolicy(
 		for (const kind of parsed.kinds) {
 			const verbs = permission.actions.flatMap((action) => verbsForAction(kind, action));
 			if (verbs.length === 0) continue;
-			const name = parsed.name ?? "/*";
+			// DDS globs (fnmatch) use one `*` for any run of characters, so `**` becomes `*`.
+			const name = (parsed.name ?? "/*").replaceAll("**", "*");
 			const key = `${kind}\u0000${name}`;
 			const existing = merged.get(key);
 			const set = new Set([...(existing?.verbs ?? []), ...verbs]);

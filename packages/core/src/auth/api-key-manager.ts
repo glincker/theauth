@@ -22,11 +22,13 @@ import { eq } from "drizzle-orm";
 import { generateId, randomBytesHex, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { apiKeys as apiKeysTable } from "../db/schema.js";
+import type { ApiKeyScopeConfig } from "./api-key-scope.js";
+import { checkKeyPermissions, parsePermissionList } from "./api-key-scope.js";
 import type { HandlerGuardConfig } from "./handler-guard.js";
 import { forbidden, resolveHandlerActor } from "./handler-guard.js";
 import type { ModuleRequestDeps } from "./request-user.js";
 
-export interface ApiKeyManagerConfig extends HandlerGuardConfig {
+export interface ApiKeyManagerConfig extends HandlerGuardConfig, ApiKeyScopeConfig {
 	/** Prefix for API keys (default: "kos_") */
 	prefix?: string;
 	/** Default expiry in days (default: 365) */
@@ -255,19 +257,22 @@ export function createApiKeyManagerModule(
 				return json({ error: "Invalid JSON body" }, 400);
 			}
 			const b = body as Record<string, unknown>;
-			if (
-				typeof b.userId !== "string" ||
-				typeof b.name !== "string" ||
-				!Array.isArray(b.permissions)
-			) {
+			const permissions = parsePermissionList(b.permissions);
+			if (typeof b.userId !== "string" || typeof b.name !== "string" || !permissions) {
 				return json({ error: "Missing required fields: userId, name, permissions" }, 400);
 			}
 			if (actorId !== null && b.userId !== actorId) return forbidden();
+			if (actorId !== null) {
+				const scope = await checkKeyPermissions(actorId, permissions, config);
+				if (!scope.ok) {
+					return json({ error: "permissions_not_grantable", denied: scope.denied }, 403);
+				}
+			}
 			const expiresAt = b.expiresAt ? new Date(b.expiresAt as string) : undefined;
 			const result = await create({
 				userId: b.userId,
 				name: b.name,
-				permissions: b.permissions as string[],
+				permissions,
 				expiresAt,
 			});
 			return json(result, 201);

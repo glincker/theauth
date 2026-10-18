@@ -33,6 +33,7 @@ const RESULT_OPTIONS: Array<{ value: string; label: string }> = [
 	{ value: "allowed", label: "Allowed" },
 	{ value: "denied", label: "Denied" },
 	{ value: "rate_limited", label: "Rate limited" },
+	{ value: "escalated", label: "Escalated" },
 ];
 
 function FilterBar({ filters, agentOptions, onChange }: FilterBarProps) {
@@ -268,14 +269,13 @@ export function AuditPage({ client }: AuditPageProps) {
 	const logs = (logsResult?.success ? logsResult.data.entries : []).filter(
 		(e) => !codeFilter?.length || (e.code !== undefined && codeFilter.includes(e.code)),
 	);
-	const total = logsResult?.success ? logsResult.data.total : 0;
 	const agentOptions = agentsResult?.success
 		? agentsResult.data.map((a) => ({ id: a.id, name: a.name }))
 		: [];
 
 	const offset = filters.offset ?? 0;
 	const limit = filters.limit ?? PAGE_SIZE;
-	const hasMore = offset + limit < total;
+	const hasMore = logsResult?.success ? logsResult.data.hasMore : false;
 	const hasPrev = offset > 0;
 
 	return (
@@ -312,7 +312,7 @@ export function AuditPage({ client }: AuditPageProps) {
 					{/* Pagination */}
 					<div className="flex items-center justify-between mt-4 text-xs text-zinc-500">
 						<span>
-							{offset + 1} to {Math.min(offset + limit, total)} of {total} entries
+							{logs.length === 0 ? "No entries" : `${offset + 1} to ${offset + logs.length}`}
 						</span>
 						<div className="flex items-center gap-2">
 							<Button

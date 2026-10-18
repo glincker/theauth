@@ -7,6 +7,7 @@ import { permissions as permissionsTable } from "../db/schema.js";
 import { getDelegatedPermissions } from "../delegation/delegation.js";
 import type { Permission } from "../types.js";
 import type { createRbacResolver } from "./rbac.js";
+import type { ResourceMatching } from "./resource-match.js";
 import { normalizeProvenance } from "./taint.js";
 import type { EvaluateInput, PolicyDecision } from "./types.js";
 import { POLICY_ERROR_CODES } from "./types.js";
@@ -69,12 +70,13 @@ export async function resolveEffectivePermissions(
 	db: Database,
 	rbac: ReturnType<typeof createRbacResolver>,
 	input: EvaluateInput,
+	matching: ResourceMatching = "colon",
 ): Promise<Permission[]> {
 	const direct = input.subject.agentId
 		? await fetchDirectPermissions(db, input.subject.agentId)
 		: [];
 	const delegated = input.subject.agentId
-		? await getDelegatedPermissions(db, input.subject.agentId)
+		? await getDelegatedPermissions(db, input.subject.agentId, matching)
 		: [];
 	const roles = input.subject.userId
 		? await rbac.resolveRolePermissions({

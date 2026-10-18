@@ -42,7 +42,7 @@ export interface CreateAgentResponse {
 
 // Audit Log Types
 
-export type AuditResult = "allowed" | "denied" | "rate_limited";
+export type AuditResult = "allowed" | "denied" | "rate_limited" | "escalated";
 
 export type InputSourceKind = "user_message" | "tool_output" | "retrieved_document" | "agent";
 
@@ -85,9 +85,10 @@ export interface AuditLogFilters {
 	offset?: number;
 }
 
+/** One page of audit rows. Core `GET /audit` returns no total, so the page only knows if more follow. */
 export interface PaginatedAuditLogs {
 	entries: AuditLogEntry[];
-	total: number;
+	hasMore: boolean;
 	limit: number;
 	offset: number;
 }
@@ -138,10 +139,18 @@ export type AuthSettings = TheAuthSettings;
 export interface DashboardStats {
 	totalAgents: number;
 	activeAgents: number;
-	totalAuditEvents: number;
+	/** Audit rows in the last 24 hours (core reports no all-time total). */
 	recentAuditEvents: number;
+	/** Allowed share of the last 24 hours, 0 to 100. */
 	authAllowedRate: number;
 	activeDelegations: number;
+}
+
+/** What core's `GET /dashboard/stats` sends. */
+export interface CoreDashboardStats {
+	agents: { total: number; active: number; revoked: number; expired: number };
+	users: { total: number };
+	audit: { last24h: number; allowed: number; denied: number; rateLimited: number };
 }
 
 // User Types

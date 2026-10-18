@@ -9,6 +9,8 @@ import { rateLimits } from "../db/schema.js";
 import type { DenialCode } from "../permission/codes.js";
 import { codeForConstraint } from "../permission/codes.js";
 import type { Permission, PermissionConstraints } from "../types.js";
+import type { ResourceMatching } from "./resource-match.js";
+import { matchColonResource, matchPathResource } from "./resource-match.js";
 
 export interface ConstraintEvaluationInput {
 	subjectId: string; // agent id used for rate-limit row keying; "" if subject has no agent
@@ -26,20 +28,17 @@ export interface ConstraintResult {
 	needsApproval?: boolean;
 }
 
-/** Match a resource pattern against a requested resource. Supports wildcards: "mcp:github:*", "tool:*", "*". */
-export function matchResource(pattern: string, resource: string): boolean {
-	if (pattern === "*") return true;
-
-	const patternParts = pattern.split(":");
-	const resourceParts = resource.split(":");
-
-	for (let i = 0; i < patternParts.length; i++) {
-		const part = patternParts[i];
-		if (part === "*") return true;
-		if (part !== resourceParts[i]) return false;
-	}
-
-	return patternParts.length === resourceParts.length;
+/**
+ * Match a resource pattern against a requested resource. Supports wildcards: "mcp:github:*", "tool:*", "*". The optional mode is `colon` (default) or `path`, see resource-match.ts.
+ */
+export function matchResource(
+	pattern: string,
+	resource: string,
+	mode: ResourceMatching = "colon",
+): boolean {
+	return mode === "path"
+		? matchPathResource(pattern, resource)
+		: matchColonResource(pattern, resource);
 }
 
 /** Check if an action is allowed by a permission's actions list. */
@@ -207,9 +206,10 @@ export function findMatchingPermission(
 	permissions: Permission[],
 	action: string,
 	resource: string,
+	mode: ResourceMatching = "colon",
 ): { permission: Permission; index: number } | null {
 	const index = permissions.findIndex(
-		(p) => matchResource(p.resource, resource) && matchAction(p.actions, action),
+		(p) => matchResource(p.resource, resource, mode) && matchAction(p.actions, action),
 	);
 	const permission = index === -1 ? undefined : permissions[index];
 	return permission ? { permission, index } : null;

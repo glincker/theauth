@@ -85,7 +85,7 @@ export interface CookieSessionManager {
 	createSession(
 		userId: string,
 		metadata?: Record<string, unknown>,
-		options?: Pick<CreateSessionOptions, "rememberMe" | "authMethods">,
+		options?: Pick<CreateSessionOptions, "rememberMe" | "authMethods" | "idpAmr">,
 	): Promise<CreateSessionResult>;
 
 	/** Parses the Cookie header and looks up the session. Extends expiry when `autoRefresh` is on. */
@@ -156,7 +156,7 @@ export function createCookieSessionManager(
 	async function createSession(
 		userId: string,
 		metadata?: Record<string, unknown>,
-		options?: Pick<CreateSessionOptions, "rememberMe" | "authMethods">,
+		options?: Pick<CreateSessionOptions, "rememberMe" | "authMethods" | "idpAmr">,
 	): Promise<CreateSessionResult> {
 		const { session, token } = await raw.create(userId, metadata, options);
 		const cacheCookieHeaders = await seedCache(session, token, "");

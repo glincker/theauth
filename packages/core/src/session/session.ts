@@ -79,6 +79,8 @@ export interface CreateSessionOptions {
 	rememberMe?: boolean;
 	/** The methods the user just proved, for example `["password"]` or `["passkey"]`. Recorded with the current time. A refresh keeps the stored events and ignores this. */
 	authMethods?: AuthMethod[];
+	/** RFC 8176 `amr` values the identity provider reported, recorded on the `federated` event only. Informational, they never raise the session `acr`. */
+	idpAmr?: string[];
 }
 
 export interface SessionManager {
@@ -274,7 +276,10 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 		let events = options?.replacing ? normalizeEvents(split.authEvents) : [];
 		if (options?.authMethods) {
 			events = [];
-			for (const method of options.authMethods) events = recordAuthEvent(events, method, nowSec);
+			for (const method of options.authMethods) {
+				const idpAmr = method === "federated" ? options.idpAmr : undefined;
+				events = recordAuthEvent(events, method, nowSec, idpAmr);
+			}
 		}
 		const stored: Record<string, unknown> = {
 			...(split.metadata ?? {}),

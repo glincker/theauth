@@ -1,6 +1,7 @@
 import type { OperationMeta, QueryParam } from "../openapi-operations.js";
 import { AuthorizeResultSchema } from "../openapi-schemas.js";
 import {
+	AttestationNonceSchema,
 	DeviceBundleSchema,
 	DeviceCredentialSchema,
 	DeviceFleetStatsSchema,
@@ -142,6 +143,7 @@ export const DEVICE_OPERATIONS: Record<string, OperationMeta> = {
 		operationId: "getDeviceAttestationNonce",
 		tag: "Device API",
 		status: 200,
+		response: AttestationNonceSchema,
 		errors: { 404: "Devices are not configured" },
 	},
 	"POST /device/authorize": {

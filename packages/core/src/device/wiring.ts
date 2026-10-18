@@ -13,5 +13,9 @@ export function createConfiguredDeviceModule(
 			"TheAuth: `devices` needs `agents` to be configured, devices are backed by agent rows.",
 		);
 	}
-	return createDeviceModule({ ...deps, config: config.devices });
+	return createDeviceModule({
+		...deps,
+		config: config.devices,
+		resourceMatching: config.resourceMatching,
+	});
 }

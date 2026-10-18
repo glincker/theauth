@@ -1,5 +1,6 @@
 import type { DelegationLink } from "../hooks/lifecycle.js";
 import { matchAction, matchResource } from "../policy/abac.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type { Permission } from "../types.js";
 import type { NearMiss } from "./types.js";
 
@@ -12,8 +13,8 @@ export interface GrantCandidate {
 }
 
 /** Fraction of leading ":" segments the pattern shares with the resource. A wildcard segment covers the rest. */
-function segmentOverlap(pattern: string, resource: string): number {
-	if (matchResource(pattern, resource)) return 1;
+function segmentOverlap(pattern: string, resource: string, matching: ResourceMatching): number {
+	if (matchResource(pattern, resource, matching)) return 1;
 	const p = pattern.split(":");
 	const r = resource.split(":");
 	let shared = 0;
@@ -59,13 +60,14 @@ export function findNearMisses(
 	grants: GrantCandidate[],
 	action: string,
 	resource: string,
+	matching: ResourceMatching = "colon",
 ): NearMiss[] {
 	const found: NearMiss[] = [];
 	for (const { source, permission, link } of grants) {
-		const resourceOk = matchResource(permission.resource, resource);
+		const resourceOk = matchResource(permission.resource, resource, matching);
 		const actionOk = matchAction(permission.actions, action);
 		if (resourceOk && actionOk) continue;
-		const overlap = segmentOverlap(permission.resource, resource);
+		const overlap = segmentOverlap(permission.resource, resource, matching);
 		if (overlap === 0 && !actionOk) continue;
 		const mismatch: NearMiss["mismatch"] = [];
 		if (!resourceOk) mismatch.push("resource");

@@ -5,6 +5,7 @@ import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { evaluateConstraints, findMatchingPermission, inspectConstraints } from "../policy/abac.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type { AgentIdentity, AuthorizeRequest, AuthorizeResult } from "../types.js";
 import type { DecisionCode } from "./codes.js";
 import { DECISION_CODES } from "./codes.js";
@@ -12,11 +13,13 @@ import { DECISION_CODES } from "./codes.js";
 interface PermissionEngineConfig {
 	db: Database;
 	auditAll: boolean;
+	/** How a permission resource pattern is compared to the requested resource. Default `colon`. */
+	resourceMatching?: ResourceMatching;
 }
 
 /** Create the permission/authorization engine. */
 export function createPermissionEngine(config: PermissionEngineConfig) {
-	const { db, auditAll } = config;
+	const { db, auditAll, resourceMatching = "colon" } = config;
 
 	async function authorize(
 		agent: AgentIdentity,
@@ -33,6 +36,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 			agent.permissions,
 			request.action,
 			request.resource,
+			resourceMatching,
 		)?.permission;
 
 		if (!matchingPermission) {

@@ -6,6 +6,7 @@ import { users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
 import type { TheAuthConfig } from "../types.js";
 import { buildClearCookie, extractToken, json } from "./helpers.js";
+import type { createPluginRouter } from "./router.js";
 import type { PluginRegistry } from "./runner.js";
 import type { EndpointContext, TheAuthPlugin } from "./types.js";
 
@@ -131,4 +132,31 @@ export function registerSessionEndpoints(
 			});
 		},
 	});
+}
+
+/** The `theauth.plugins` facade: request routing, hooks and read access to plugin context. */
+export function createPluginsFacade(deps: {
+	pluginRegistry: PluginRegistry;
+	pluginRouter: ReturnType<typeof createPluginRouter>;
+	runRequestHooks: ReturnType<typeof createRequestHookRunner>;
+	endpointCtx: EndpointContext;
+}) {
+	const { pluginRegistry, pluginRouter, runRequestHooks, endpointCtx } = deps;
+	return {
+		/** Route a request through plugin endpoints. Returns null if no plugin handles it. */
+		async handleRequest(request: Request, basePath = ""): Promise<Response | null> {
+			const hooked = await runRequestHooks(request);
+			if (hooked instanceof Response) return hooked;
+			return pluginRouter.handle(hooked, basePath, endpointCtx);
+		},
+		/** Runs plugin `onRequest` hooks for requests TheAuth does not route itself, such as `/mcp/token`. */
+		runRequestHooks,
+		getEndpoints() {
+			return pluginRouter.getEndpoints();
+		},
+		getContext(): Record<string, unknown> {
+			return { ...pluginRegistry.pluginContext };
+		},
+		registry: pluginRegistry,
+	};
 }

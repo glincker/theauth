@@ -23,7 +23,10 @@ theAuth is not a safety system and nothing here makes a machine compliant with I
 
 The action `*` means every verb of that kind. Names must be absolute (`/scan`, not `scan` or `~/scan`) and made of letters, digits and underscores.
 
-A `*` works only as a whole segment. `ros2:/fleet/*` is not a pattern: theAuth's policy engine would never match it at runtime, so the exporter lists it as skipped instead of writing a DDS rule the runtime check disagrees with. List exact names.
+With the default matching, a `*` works only as a whole colon segment. `ros2:/fleet/*` is not a pattern: theAuth's policy engine would never match it at runtime, so the exporter lists it as skipped instead of writing a DDS rule the runtime check disagrees with. List exact names, or turn on [path matching](/permissions#path-matching-opt-in) (`resourceMatching: "path"` on the server, `--resource-matching path` on the export):
+
+- `ros2:/fleet/**` exports as the DDS glob `rt/fleet/*`.
+- `ros2:/fleet/*` (exactly one level) is skipped. A DDS permissions topic is an fnmatch pattern whose `*` also crosses `/`, so the grant would reach `/fleet/a/b` while theAuth denies it. Use `**`, list exact names, or pass `--single-level widen` to export the wider DDS grant on purpose. The runtime gate still enforces one level.
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
@@ -320,8 +323,8 @@ Prints the DDS topics that would be added or removed and the permissions that be
 
 - **Zenoh.** There is no Zenoh `access_control` exporter. rmw_zenoh's key expressions carry more than the topic name, and a config that looks right but matches nothing is worse than none. The `zenoh_security_tools` package from the rmw_zenoh repository generates Zenoh access control from an SROS2 policy file, so feed it the exported `policy.xml`.
 - **micro-ROS.** A microcontroller does not run a full DDS participant. Check eProsima's documentation for how the Micro XRCE-DDS agent and its client link are secured, and treat the agent as the trust boundary.
-- **Delegated permissions.** `--robot` reads the agent's own permission list. If the robot also holds delegated permissions, export from a file made from `theauth permissions <id> --json`.
-- **Certificate lifetimes.** DDS Security validity windows are absolute dates. Re-export and re-sign on a schedule shorter than the window.
+- **Delegated permissions.** `--robot` exports the robot's own permissions and the live permissions delegated to it (`GET /agents/:id?include=delegated`).
+- **Certificate lifetimes.** DDS Security validity windows are absolute dates. Pass `--enclave-cert <pem>` and the grant window defaults to the certificate's own window; a `--not-before` or `--not-after` outside it is refused. Re-export and re-sign on a schedule shorter than the window.
 - **Per node policy inside one process.** DDS Security grants apply per participant, and ROS 2 uses one participant per process, so two composed nodes share one grant.
 
 ## Sources

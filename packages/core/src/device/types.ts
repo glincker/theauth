@@ -212,6 +212,8 @@ export interface DeviceBundleClaims {
 	owner: string;
 	groups: string[];
 	perms: Permission[];
+	/** Resource matching mode of the issuer. Present only for `path`; absent means `colon`. The offline decision uses it so a device agrees with the server. */
+	rm?: "path";
 }
 
 export interface IssuedDeviceBundle {

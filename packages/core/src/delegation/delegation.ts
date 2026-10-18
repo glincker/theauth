@@ -6,6 +6,7 @@ import type { Database } from "../db/database.js";
 import { delegationChains, permissions } from "../db/schema.js";
 import { revocationRowExpiry } from "../mcp/revocation-bus.js";
 import type { McpRevocationBus } from "../mcp/revocation-types.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type {
 	DelegateInput,
 	DelegationChain,
@@ -16,39 +17,41 @@ import { assertValidExpiry } from "../validation.js";
 import { narrowConstraints } from "./constraints.js";
 import { resolveLineage } from "./lineage.js";
 import { loadLiveInboundRows } from "./liveness.js";
-import { isPermissionSubset, isResourceSubset } from "./subset.js";
+import { isPermissionSubset, resourcesOverlap } from "./subset.js";
 
 interface DelegationModuleConfig {
 	db: Database;
 	/** Receives every revoked link id so the shared MCP denylist and in-process caches see it. Optional. */
 	revocations?: McpRevocationBus;
+	/** Must equal the top level `resourceMatching`. Decides what counts as a subset of the parent. Default `colon`. */
+	resourceMatching?: ResourceMatching;
 }
 
 /** Active, unexpired permissions delegated to an agent by delegators that are still live (an agent delegator that is revoked, suspended or expired lends nothing), constraints included. The one merge source shared by auth.authorize, policy.evaluate and delegate(). */
 export async function getDelegatedPermissions(
 	db: Database,
 	agentId: string,
+	matching: ResourceMatching = "colon",
 ): Promise<Permission[]> {
-	const chains = await loadLiveInboundRows(db, agentId);
+	const chains = await loadLiveInboundRows(db, agentId, new Date(), matching);
 	return chains.flatMap((c) => (c.permissions as Permission[]).map((p) => ({ ...p })));
-}
-
-/** True when the two resource patterns can select a common resource, so either one may gate the other. */
-function resourcesOverlap(parent: string, child: string): boolean {
-	return isResourceSubset(parent, child) || isResourceSubset(child, parent);
 }
 
 /**
  * Apply the parent's constraints to each requested permission, one action at a time. For every action the first parent rule (in engine order) that overlaps the child's resource and grants that action supplies the constraints, so a rule that gates an action (for example requireApproval) is never skipped because a later rule covers more actions. Actions whose narrowed constraints are identical stay in one permission, others are split. Constraints only ever narrow.
  */
-function inheritConstraints(parentPerms: Permission[], requested: Permission[]): Permission[] {
+function inheritConstraints(
+	parentPerms: Permission[],
+	requested: Permission[],
+	mode: ResourceMatching,
+): Permission[] {
 	const out: Permission[] = [];
 	for (const child of requested) {
 		const groups = new Map<string, { actions: string[]; constraints?: PermissionConstraints }>();
 		for (const action of child.actions) {
 			const parent = parentPerms.find(
 				(p) =>
-					resourcesOverlap(p.resource, child.resource) &&
+					resourcesOverlap(p.resource, child.resource, mode) &&
 					(p.actions.includes(action) || p.actions.includes("*")),
 			);
 			const constraints = narrowConstraints(parent?.constraints, child.constraints);
@@ -94,6 +97,7 @@ interface RevokeSink {
 /** Create the delegation module. Handles agent-to-agent permission delegation with chain tracking. */
 export function createDelegationModule(config: DelegationModuleConfig) {
 	const { db, revocations } = config;
+	const matching = config.resourceMatching ?? "colon";
 
 	/**
 	 * Create a delegation from `input.fromAgent` to `input.toAgent`.
@@ -114,13 +118,15 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			constraints: r.constraints ?? undefined,
 		}));
 
-		const inbound = await loadLiveInboundRows(db, input.fromAgent, now);
+		const inbound = await loadLiveInboundRows(db, input.fromAgent, now, matching);
 		const inboundPermissions: Permission[] = inbound.flatMap((c) =>
 			(c.permissions as Permission[]).map((p) => ({ ...p })),
 		);
 
 		// Validate permissions are a subset of what the parent actually holds
-		if (!isPermissionSubset([...ownPermissions, ...inboundPermissions], input.permissions)) {
+		if (
+			!isPermissionSubset([...ownPermissions, ...inboundPermissions], input.permissions, matching)
+		) {
 			throw new DelegationError(
 				"DELEGATION_PERMISSION_SUBSET",
 				"Delegated permissions must be a subset of the parent agent's permissions. " +
@@ -131,7 +137,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		// A child never outlives the authority it was derived from. If the
 		// parent's own permissions cover the request, no inbound chain limits it.
 		let expiresAt = input.expiresAt;
-		if (inbound.length > 0 && !isPermissionSubset(ownPermissions, input.permissions)) {
+		if (inbound.length > 0 && !isPermissionSubset(ownPermissions, input.permissions, matching)) {
 			const parentExpiry = new Date(
 				inbound.reduce((min, c) => Math.min(min, c.expiresAt.getTime()), Infinity),
 			);
@@ -156,6 +162,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		const granted = inheritConstraints(
 			[...ownPermissions, ...inboundPermissions],
 			input.permissions,
+			matching,
 		);
 
 		await db.insert(delegationChains).values({
@@ -174,7 +181,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		// read above and the insert, the cascade may already have run and missed
 		// this row. Re-check and roll the insert back rather than leave an orphan
 		// grant. (Depth is derived from immutable chain rows, so it cannot drift.)
-		if (inbound.length > 0 && !isPermissionSubset(ownPermissions, input.permissions)) {
+		if (inbound.length > 0 && !isPermissionSubset(ownPermissions, input.permissions, matching)) {
 			const stillActive = await db
 				.select()
 				.from(delegationChains)
@@ -374,7 +381,7 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 
 	/** Get the effective permissions for an agent, including delegated permissions. */
 	async function getEffectivePermissions(agentId: string): Promise<Permission[]> {
-		return getDelegatedPermissions(db, agentId);
+		return getDelegatedPermissions(db, agentId, matching);
 	}
 
 	/** List the delegation chains an agent created as the delegator (`fromAgentId`). Inbound chains where the agent is the delegate are not included. */

@@ -33,6 +33,7 @@ function resultVariant(result: AuditResult): "green" | "red" | "yellow" {
 		case "denied":
 			return "red";
 		case "rate_limited":
+		case "escalated":
 			return "yellow";
 	}
 }
@@ -45,6 +46,8 @@ function resultLabel(result: AuditResult): string {
 			return "denied";
 		case "rate_limited":
 			return "rate limited";
+		case "escalated":
+			return "escalated";
 	}
 }
 
@@ -233,8 +236,8 @@ export function OverviewPage({ client, onNavigate }: OverviewPageProps) {
 						/>
 						<StatCard
 							title="Audit Events"
-							value={stats.totalAuditEvents.toLocaleString()}
-							subtitle={`${stats.recentAuditEvents} in last 24h`}
+							value={stats.recentAuditEvents.toLocaleString()}
+							subtitle="in the last 24h"
 							icon={CalendarClock}
 							iconColor="bg-violet-600"
 						/>

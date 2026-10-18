@@ -128,6 +128,11 @@ export const EnrollmentTokenSchema = z.object({
 	expiresAt: z.string(),
 });
 
+export const AttestationNonceSchema = z.object({
+	nonce: z.string().describe("Single use nonce to bind into the attestation evidence"),
+	expiresAt: z.string().describe("ISO 8601 time after which the nonce is refused"),
+});
+
 export const DeviceBundleSchema = z.object({
 	token: z.string().describe("Compact JWS, typ device-policy+jwt"),
 	claims: z.record(z.unknown()),

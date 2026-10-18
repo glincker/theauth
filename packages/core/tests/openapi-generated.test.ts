@@ -5,7 +5,11 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { listRoutes } from "../src/http/router.js";
 import { generateOpenAPISpec } from "../src/openapi.js";
+import { ADMIN_SHARED_WITH_CORE } from "../src/openapi-admin.js";
 import { ADMIN_API_ROUTES, OPERATIONS } from "../src/openapi-operations.js";
+
+const ADMIN_SOURCES = ["../src/admin-api/plugin.ts", "../src/admin-api/revocations.ts"];
+
 import { renderOpenAPIJson } from "../src/openapi-render.js";
 import { DECISION_CODES } from "../src/permission/codes.js";
 
@@ -54,13 +58,35 @@ describe("generated OpenAPI document", () => {
 		expect(new Set(ids).size).toBe(ids.length);
 	});
 
-	it("lists the admin API approval routes the plugin registers", () => {
-		const source = readFileSync(resolve(here, "../src/admin-api/plugin.ts"), "utf8");
+	it("lists every admin API route the plugin registers", () => {
 		const registered = [
-			...source.matchAll(/add\(\s*"(GET|POST|PATCH|DELETE)",\s*"(\/approvals[^"]*)"/g),
-		].map((m) => `${m[1]} ${m[2]}`);
-		const documented = ADMIN_API_ROUTES.map((r) => `${r.method} ${r.path}`);
+			...ADMIN_SOURCES.flatMap((file) => {
+				const source = readFileSync(resolve(here, file), "utf8");
+				return [...source.matchAll(/add\(\s*"(GET|POST|PATCH|PUT|DELETE)",\s*"(\/[^"]*)"/g)].map(
+					(m) => `${m[1]} ${m[2]}`,
+				);
+			}),
+		];
+		expect(registered.length).toBeGreaterThanOrEqual(14);
+		const documented = [
+			...ADMIN_API_ROUTES.map((r) => `${r.method} ${r.path}`),
+			...ADMIN_SHARED_WITH_CORE,
+		];
 		expect(documented.sort()).toEqual(registered.sort());
+		for (const key of documented) expect(OPERATIONS[key], key).toBeDefined();
+	});
+
+	it("documents the revocation routes with their request body", () => {
+		const spec = generateOpenAPISpec();
+		const post = spec.paths["/revocations"]?.post;
+		expect(post?.operationId).toBe("adminCreateRevocation");
+		const body = post?.requestBody?.content["application/json"]?.schema as Schema;
+		expect(JSON.stringify(body)).toContain("AdminRevocationInput");
+		expect(schemas().AdminRevocationInput?.required).toEqual(
+			expect.arrayContaining(["kind", "id"]),
+		);
+		expect(spec.paths["/revocations/delegations"]?.get).toBeDefined();
+		expect(spec.paths["/sessions"]?.get).toBeDefined();
 	});
 
 	it("AuthorizeResult carries code, one of the decision codes", () => {

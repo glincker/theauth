@@ -4,6 +4,8 @@ import { generateId } from "../crypto/web-crypto.js";
 import type { DecisionCode } from "../permission/codes.js";
 import { DECISION_CODES } from "../permission/codes.js";
 import { findMatchingPermission, inspectConstraints } from "../policy/abac.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
+import { resolveResourceMatching } from "../policy/resource-match.js";
 import type { Permission } from "../types.js";
 import type { DeviceBundleClaims, DeviceConfig, IssuedDeviceBundle } from "./types.js";
 
@@ -52,6 +54,8 @@ export interface SignBundleInput {
 	permissions: Permission[];
 	ttlSeconds: number;
 	nowMs?: number;
+	/** Written to the signed claims when `path`, so offline decisions match the server. */
+	resourceMatching?: ResourceMatching;
 }
 
 /** Sign an offline policy bundle (compact JWS). */
@@ -70,6 +74,7 @@ export async function signDeviceBundle(input: SignBundleInput): Promise<IssuedDe
 		owner: input.ownerId,
 		groups: input.groups,
 		perms: input.permissions.map(stripRelation),
+		...(input.resourceMatching === "path" && { rm: "path" as const }),
 	};
 	const key = await importJWK(input.signing.privateKey, input.signing.alg);
 	const token = await new SignJWT({ ...claims })
@@ -100,7 +105,7 @@ export type VerifyBundleResult =
 	| { ok: false; reason: "invalid" | "wrong_device" | "rollback"; message: string };
 
 /**
- * Device side check of a bundle: signature, typ, iss, sub and aud equal the device id, nbf and exp with 30 s skew, seq not lower than the last accepted. Runs anywhere jose runs (gateways, Workers, Node).
+ * Device side check of a bundle: signature, typ, iss, sub and aud equal the device id, nbf and exp (both required) with 30 s skew, a kid in the header, seq not lower than the last accepted. Runs anywhere jose runs (gateways, Workers, Node).
  */
 export async function verifyDeviceBundle(
 	token: string,
@@ -118,6 +123,11 @@ export async function verifyDeviceBundle(
 			currentDate: options.now,
 		});
 		payload = verified.payload as Record<string, unknown>;
+		// A bundle with no exp would never expire, and a header with no kid lets a verifier that holds
+		// one key skip key selection. The server always sets both, so refuse anything without them.
+		if (typeof payload.exp !== "number" || typeof verified.protectedHeader.kid !== "string") {
+			throw new Error("bundle has no exp or no kid");
+		}
 	} catch {
 		return {
 			ok: false,
@@ -164,7 +174,12 @@ export function evaluateDeviceBundle(
 	if (now.getTime() / 1000 > claims.exp + SKEW_SECONDS) {
 		return { allowed: false, code: DECISION_CODES.DEVICE_EXPIRED, reason: "Bundle has expired" };
 	}
-	const match = findMatchingPermission(claims.perms, input.action, input.resource);
+	const match = findMatchingPermission(
+		claims.perms,
+		input.action,
+		input.resource,
+		resolveResourceMatching(claims.rm),
+	);
 	if (!match) {
 		return {
 			allowed: false,

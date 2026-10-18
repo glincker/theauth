@@ -1,4 +1,5 @@
 /** Offline policy bundles: signed with an asymmetric key, short TTL, rollback protected, evaluated fail closed. */
+import { importJWK, SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import {
 	evaluateDeviceBundle,
@@ -151,5 +152,51 @@ describe("device bundles", () => {
 			use: "sig",
 		});
 		expect(key).not.toHaveProperty("d");
+	});
+});
+
+describe("device bundle verification is strict about lifetime and key id", () => {
+	/** Signs a bundle with the server's own key but lets the test drop `exp` or `kid`. */
+	async function forged(opts: { exp?: boolean; kid?: boolean }) {
+		const signing = await bundleKey();
+		const auth = await makeDeviceAuth({ bundleSigning: signing });
+		const devices = devicesOf(auth);
+		const { device } = await devices.register({ ownerId: "u1", name: "gw", permissions: [] });
+		const now = Math.floor(Date.now() / 1000);
+		const key = await importJWK(signing.privateKey, "ES256");
+		let jwt = new SignJWT({ seq: 1, perms: [] })
+			.setProtectedHeader({
+				alg: "ES256",
+				typ: "device-policy+jwt",
+				...(opts.kid === false ? {} : { kid: signing.kid }),
+			})
+			.setIssuer("theauth")
+			.setSubject(device.id)
+			.setAudience(device.id)
+			.setIssuedAt(now)
+			.setNotBefore(now);
+		if (opts.exp !== false) jwt = jwt.setExpirationTime(now + 3600);
+		return { token: await jwt.sign(key), keys: devices.jwks(), deviceId: device.id };
+	}
+
+	it("accepts a complete bundle (control)", async () => {
+		const b = await forged({});
+		expect(await verifyDeviceBundle(b.token, { keys: b.keys, deviceId: b.deviceId })).toMatchObject(
+			{ ok: true },
+		);
+	});
+
+	it("refuses a bundle with no exp, which would never expire", async () => {
+		const b = await forged({ exp: false });
+		expect(await verifyDeviceBundle(b.token, { keys: b.keys, deviceId: b.deviceId })).toMatchObject(
+			{ ok: false, reason: "invalid" },
+		);
+	});
+
+	it("refuses a bundle whose header has no kid", async () => {
+		const b = await forged({ kid: false });
+		expect(await verifyDeviceBundle(b.token, { keys: b.keys, deviceId: b.deviceId })).toMatchObject(
+			{ ok: false, reason: "invalid" },
+		);
 	});
 });

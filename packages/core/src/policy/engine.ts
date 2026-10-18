@@ -69,6 +69,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 	const auditEnabled = config.audit !== false;
 	const sampleRate = clampSampleRate(config.auditSampleRate);
 	const policyVersion = config.policyVersion;
+	const matching = config.resourceMatching ?? "colon";
 
 	async function evaluate(
 		input: EvaluateInput,
@@ -84,11 +85,12 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		const provenance = config.taint?.inputLabels
 			? withInputLabels(supplied, input.context?.inputs)
 			: supplied;
-		const tainted = applyTaint(risked, config.taint, {
-			resource: input.resource,
-			action: input.action,
-			provenance,
-		});
+		const tainted = applyTaint(
+			risked,
+			config.taint,
+			{ resource: input.resource, action: input.action, provenance },
+			matching,
+		);
 		// A hook escalate already spent input.approvalId; do not let it be spent twice.
 		const applied = await applyApproval(
 			tainted,
@@ -286,7 +288,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 
 		let effective: Permission[];
 		try {
-			effective = await resolveEffectivePermissions(db, rbac, input);
+			effective = await resolveEffectivePermissions(db, rbac, input, matching);
 		} catch {
 			return finalize(
 				makeDecision({
@@ -303,7 +305,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		let cacheUnsafeSeen = false;
 
 		for (const perm of effective) {
-			if (!matchResource(perm.resource, input.resource)) continue;
+			if (!matchResource(perm.resource, input.resource, matching)) continue;
 			if (!matchAction(perm.actions, input.action)) continue;
 
 			if (perm.relation) {

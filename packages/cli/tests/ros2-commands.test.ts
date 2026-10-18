@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	certificateWindow,
 	extractPermissions,
+	grantWindow,
 	parseRos2Args,
 	runRos2Diff,
 	runRos2Export,
@@ -164,5 +166,130 @@ describe("runRos2Diff", () => {
 		);
 		expect(await runRos2Diff(parseRos2Args(["diff", a, a]))).toBe(0);
 		expect(await runRos2Diff(parseRos2Args(["diff", a, b]))).toBe(2);
+	});
+});
+
+describe("path matching and certificate window", () => {
+	// Self signed test certificate, no private key kept. Valid 2026-10-18T18:21:39Z to 2026-11-17T18:21:39Z.
+	const PEM = `-----BEGIN CERTIFICATE-----
+MIIBYzCCAQqgAwIBAgIUJAcRT7Pazk5SUWF3Ts1gc5aewRMwCgYIKoZIzj0EAwIw
+GDEWMBQGA1UEAwwNZmxlZXQtcjEtdGVzdDAeFw0yNjEwMTgxODIxMzlaFw0yNjEx
+MTcxODIxMzlaMBgxFjAUBgNVBAMMDWZsZWV0LXIxLXRlc3QwWTATBgcqhkjOPQIB
+BggqhkjOPQMBBwNCAASXR40nro+fKGlzY4IsEuq2VCtUh3eFS8it4BPcEDbHU52l
+imtpES133cKSqzuwhuyEMLtR7IwNKMbG36gQ7yx0ozIwMDAdBgNVHQ4EFgQUCKt/
+ovXRYRVxnRkknjS779xg/lswDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNH
+ADBEAiEAgMIouQSjFydp7xy4nE0mgpjWTamCN/70bDfpAlyCsfkCHw5FbLurDs6L
+KjE40rK/Hv6FNxxqn9oIg0W/JyUUMYI=
+-----END CERTIFICATE-----
+`;
+
+	it("parses the new flags and rejects bad values", () => {
+		const a = parseRos2Args([
+			"export",
+			"--permissions",
+			"p.json",
+			"--enclave",
+			"/e",
+			"--out",
+			"o",
+			"--resource-matching",
+			"path",
+			"--single-level=widen",
+			"--enclave-cert",
+			"c.pem",
+		]);
+		expect(a).toMatchObject({
+			resourceMatching: "path",
+			singleLevel: "widen",
+			enclaveCert: "c.pem",
+			error: null,
+		});
+		expect(parseRos2Args(["export", "--resource-matching", "x"]).error).toContain("colon or path");
+		expect(parseRos2Args(["export", "--single-level", "x"]).error).toContain("skip or widen");
+	});
+
+	it("reads the certificate validity window", () => {
+		const w = certificateWindow(PEM);
+		expect(w.notBefore.toISOString()).toBe("2026-10-18T18:21:39.000Z");
+		expect(w.notAfter.toISOString()).toBe("2026-11-17T18:21:39.000Z");
+		expect(() => certificateWindow("nope")).toThrow("PEM certificate");
+	});
+
+	it("grantWindow defaults to the certificate and refuses a window outside it", () => {
+		const cert = certificateWindow(PEM);
+		const now = new Date("2026-10-19T00:00:00Z");
+		expect(grantWindow({}, cert, now)).toEqual(cert);
+		expect(() => grantWindow({ notAfter: "2027-01-01T00:00:00Z" }, cert, now)).toThrow(
+			"outside the certificate window",
+		);
+		expect(() => grantWindow({ notBefore: "2026-10-01T00:00:00Z" }, cert, now)).toThrow(
+			"outside the certificate window",
+		);
+		expect(grantWindow({ notAfter: "2026-11-01T00:00:00Z" }, cert, now).notAfter).toBe(
+			"2026-11-01T00:00:00Z",
+		);
+		expect(grantWindow({}, undefined, now).notBefore).toEqual(now);
+	});
+
+	it("exports path patterns and uses the certificate window end to end", async () => {
+		const pfile = join(dir, "p.json");
+		const cfile = join(dir, "c.pem");
+		await writeFile(pfile, JSON.stringify([{ resource: "ros2:/fleet/**", actions: ["publish"] }]));
+		await writeFile(cfile, PEM);
+		const args = parseRos2Args([
+			"export",
+			"--permissions",
+			pfile,
+			"--enclave",
+			"/fleet/r1",
+			"--out",
+			join(dir, "out"),
+			"--resource-matching",
+			"path",
+			"--enclave-cert",
+			cfile,
+		]);
+		expect(await runRos2Export(args)).toBe(0);
+		const xml = await readFile(join(dir, "out", "permissions.xml"), "utf-8");
+		expect(xml).toContain("rt/fleet/*");
+		expect(xml).toContain("2026-11-17T18:21:39");
+	});
+
+	it("--robot includes delegated permissions", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async (url: string) => {
+				expect(url).toContain("/agents/robot-1?include=delegated");
+				return new Response(
+					JSON.stringify({
+						data: {
+							permissions: [{ resource: "ros2:/own", actions: ["publish"] }],
+							delegatedPermissions: [{ resource: "ros2:/lent", actions: ["publish"] }],
+						},
+					}),
+				);
+			}),
+		);
+		const mod = await import("../src/ros2-commands.js");
+		const auth = await import("../src/auth/token-cache.js");
+		vi.spyOn(auth, "loadCredential").mockResolvedValue({
+			tokenType: "Bearer",
+			accessToken: "t",
+		} as never);
+		const args = mod.parseRos2Args([
+			"export",
+			"--robot",
+			"robot-1",
+			"--server",
+			"http://localhost:1",
+			"--enclave",
+			"/e",
+			"--out",
+			join(dir, "o2"),
+		]);
+		expect(await mod.runRos2Export(args)).toBe(0);
+		const json = JSON.parse(await readFile(join(dir, "o2", "theauth-export.json"), "utf-8"));
+		expect(json.rules.map((r: { name: string }) => r.name)).toEqual(["/lent", "/own"]);
+		vi.unstubAllGlobals();
 	});
 });

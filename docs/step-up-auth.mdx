@@ -36,8 +36,11 @@ session?.auth;
 | `totp` | Sign-in gate second factor, `POST /auth/2fa/verify` | `otp` |
 | `passkey` | Passkey assertion with user verification | `swk`, `user` (plus `mfa`) |
 | `passkey_presence` | Passkey assertion without user verification | `swk`, `user` |
+| `federated` | Social sign-in (OAuth callback and the native app exchange) | `fed`, plus any hints from the provider |
 
-Social login, one tap, SIWE and device sign-ins record nothing. A session that started that way reports `acr: "urn:theauth:acr:none"` until the user proves something theAuth can rate. A session created before this feature, or by your own code without `authMethods`, reports the same.
+One tap, SIWE and device sign-ins record nothing. A session that started that way reports `acr: "urn:theauth:acr:none"` until the user proves something theAuth can rate. A session created before this feature, or by your own code without `authMethods`, reports the same.
+
+A social sign-in counts as one factor (`single-factor`). A TOTP code or a passkey on top of it is a second, different kind of proof, so the session reaches `mfa`. When the provider returns an ID token with an `amr` claim (RFC 8176), the registered values are added to the session `amr` so you can see what the provider said. They are hints only. theAuth cannot check what the provider really did, so they never raise `acr`, and `mfa` from a provider is dropped. The hints are read from the ID token that came straight from the token endpoint (OpenID Connect Core section 3.1.3.7). They are not kept when the sign-in goes through a second factor challenge or the native app code exchange.
 
 The classes are ordered, weakest first:
 
@@ -62,7 +65,25 @@ So a user who logged in with a password two hours ago and entered a TOTP code te
 
 ### Recording a step-up
 
-`POST /auth/2fa/verify` and `POST /auth/2fa/otp/verify` record the proof on the session that made the request, when the code is correct. A passkey sign-in creates a new session that carries the passkey event. If you verify a proof yourself, record it after the check:
+`POST /auth/2fa/verify` and `POST /auth/2fa/otp/verify` record the proof on the session that made the request, when the code is correct. The headless handlers (`theauth.totp.handleRequest` for `/auth/2fa/verify`, `theauth.passkey.handleRequest` for `/auth/passkey/login/verify`) do the same when the request carries a session of that user.
+
+A passkey sign-in at `/auth/passkey/authenticate/verify` creates a new session. To step up the session the user already has, call the step-up pair instead. Both need a signed-in user:
+
+```ts
+// 1. Options limited to the signed-in user's own credentials.
+const options = await fetch("/auth/passkey/step-up/options", { method: "POST" }).then((r) => r.json());
+// 2. Run navigator.credentials.get(options), then post the result.
+const res = await fetch("/auth/passkey/step-up/verify", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ response: assertion }),
+});
+// { verified: true, recorded: true, userVerified: true }
+```
+
+The credential must belong to the signed-in user. Another user's passkey answers 401 and records nothing, and a proof is only ever recorded on a session of the same user. A passkey with user verification lifts the session to `phishing-resistant`; a presence only assertion counts as `passkey_presence`.
+
+If you verify a proof yourself, record it after the check:
 
 ```ts
 const sessions = theauth.auth.session;

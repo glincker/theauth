@@ -365,3 +365,33 @@ Sessions now remember how the user proved who they are, approvals can demand a f
 - The MCP `McpAuthModule.requireScopes` takes an optional third argument, and `McpPrincipal` has an `auth` field. `McpAuthErrorCode` gains `INSUFFICIENT_USER_AUTHENTICATION`.
 - Migrations: `0009-step-up-and-confirmation` adds `cnf` to `theauth_agents` and `required_acr` and `max_auth_age` to `theauth_approval_requests` (agents enabled). `0011-oauth-auth-evidence` adds `auth_acr`, `auth_amr` and `auth_time` to the OAuth code and token tables (OAuth enabled). All columns are nullable. With `database.skipMigrations`, apply them with `theauth db sql --dialect <sqlite|postgres|mysql> --from 0009`.
 - Action: add the new decision codes where you branch on them, add `recordAuth` to custom session managers, and run `theauth db up`.
+
+## The approval hash now equals theauth-go's
+
+`hashApprovalAction`, the `argumentsHash` in the `approval.pending` webhook and the check that binds an approval to its arguments now use the canonical form of theauth-go (`packages/core/src/approval/canonical.ts`). The hash of an ordinary request (ASCII text, integers, plain objects) does not change. It changes for arguments that contain `<`, `>`, `&`, U+2028 or U+2029 in a string or key, object keys that sort differently by UTF-8 bytes than by UTF-16 units (an astral character against U+E000 to U+FFFF), `-0`, or a lone surrogate. A pending request is compared by recomputing both sides, so in flight approvals keep working. Only a hash you stored from an old webhook payload for such arguments no longer matches a fresh one.
+
+Arguments that cannot be hashed now fail closed. `NaN` and `Infinity` used to hash as `null`, so an approval for `{ amount: null }` covered `{ amount: NaN }`. They now throw, and the call is denied with `approval_arguments_mismatch`. A function or symbol value is refused the same way.
+
+## Delegation subset check follows the runtime matcher, and path matching is opt in
+
+`delegate()` used to accept a child resource that was longer than an exact parent resource: a parent holding `tool:db` could delegate `tool:db:secrets` or `tool:db:*`, although the parent itself could not use either (`authorize()` matches `tool:db` only against `tool:db`). The child therefore held access the parent never had. The check now uses the same matcher as `authorize()`, so that delegation is refused with `DELEGATION_PERMISSION_SUBSET`. Delegations already stored are not rewritten. If you relied on it, give the parent a `tool:db:*` grant.
+
+New and opt in: `resourceMatching: "path"` (see [Path matching](/permissions#path-matching-opt-in)). The default is unchanged. With the default, `devices.register` and `devices.update` now refuse a device permission whose `*` is not the last segment (`mqtt:a:*:b`), because the default matcher lets a middle `*` swallow the rest of the resource. Existing devices keep working. In path mode a middle `*` means exactly one segment and is accepted.
+
+## Self service API keys are capped, and OIDC refresh reuse revokes the family
+
+A signed in user used to be able to create an API key with any permissions, including `*`. `POST /auth/api-keys` now checks the request against what the user holds and answers 403 `permissions_not_grantable` with the denied list. Tell the module what a user holds:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  apiKeys: {
+    grantablePermissions: async (userId) => loadPermissionsFor(userId),
+    adminOverride: async (userId) => isPlatformAdmin(userId),
+  },
+});
+```
+
+`*` covers everything, `agents:*` covers `agents:read` and `agents:read:own`. Without `grantablePermissions`, a self service request can only ask for an empty permission list, so keys with permissions stop working until you configure it. `theauth.apiKeys.create()` in your own server code and modules built with `trustedServerUse` are not capped. Rotating a key keeps the permissions it already has.
+
+OIDC provider refresh tokens now belong to a family (RFC 9700 section 4.14.2). Presenting a refresh token that was already rotated, or losing a rotation race with it, revokes every token in the family. Access tokens already issued stay valid until they expire. Migration `0012-oidc-refresh-family` adds a nullable `family_id` column to `theauth_oidc_refresh_tokens`. With `database.skipMigrations`, apply it with `theauth db sql --dialect <sqlite|postgres|mysql> --from 0012`. Refresh tokens issued before the migration have no family, so reuse of one revokes all refresh tokens of that user and client.

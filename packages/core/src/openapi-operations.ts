@@ -1,6 +1,7 @@
 import type { ZodTypeAny } from "zod";
 import { DEVICE_OPERATIONS } from "./device/openapi-operations.js";
 import type { RouteSpec } from "./http/types.js";
+import { ADMIN_BODIES, ADMIN_EXTRA_ROUTES, ADMIN_OPERATIONS } from "./openapi-admin.js";
 import {
 	AgentIntrospectionSchema,
 	AgentSchema,
@@ -342,6 +343,7 @@ export const OPERATIONS: Record<string, OperationMeta> = {
 	"POST /approvals": {
 		operationId: "openApproval",
 		tag: "Approvals",
+		bare: true,
 		status: 201,
 		response: ApprovalOpenedSchema,
 		errors: { 400: "Invalid input", 401: "Not signed in", 403: "Not an admin" },
@@ -349,6 +351,7 @@ export const OPERATIONS: Record<string, OperationMeta> = {
 	"GET /approvals": {
 		operationId: "listPendingApprovals",
 		tag: "Approvals",
+		bare: true,
 		status: 200,
 		response: PendingApprovalSchema,
 		list: true,
@@ -360,6 +363,7 @@ export const OPERATIONS: Record<string, OperationMeta> = {
 	"GET /approvals/:id": {
 		operationId: "getApproval",
 		tag: "Approvals",
+		bare: true,
 		status: 200,
 		response: ApprovalStatusSchema,
 		errors: { 404: "Approval not found" },
@@ -367,6 +371,7 @@ export const OPERATIONS: Record<string, OperationMeta> = {
 	"POST /approvals/:id/approve": {
 		operationId: "approveApproval",
 		tag: "Approvals",
+		bare: true,
 		status: 200,
 		response: ApprovalDecisionSchema,
 		errors: {
@@ -379,6 +384,7 @@ export const OPERATIONS: Record<string, OperationMeta> = {
 	"POST /approvals/:id/deny": {
 		operationId: "denyApproval",
 		tag: "Approvals",
+		bare: true,
 		status: 200,
 		response: ApprovalDecisionSchema,
 		errors: {
@@ -390,6 +396,7 @@ export const OPERATIONS: Record<string, OperationMeta> = {
 	"POST /approvals/:id/consume": {
 		operationId: "consumeApproval",
 		tag: "Approvals",
+		bare: true,
 		status: 200,
 		response: ApprovalConsumedSchema,
 		errors: {
@@ -399,12 +406,14 @@ export const OPERATIONS: Record<string, OperationMeta> = {
 		},
 	},
 	...DEVICE_OPERATIONS,
+	...ADMIN_OPERATIONS,
 };
 
 /** Request bodies of the admin API routes, which carry no Zod schema in the route table. */
 export const ADMIN_API_BODIES: Record<string, ZodTypeAny> = {
 	"POST /approvals": ApprovalOpenInputSchema,
 	"POST /approvals/:id/consume": ApprovalConsumeInputSchema,
+	...ADMIN_BODIES,
 };
 
 /**
@@ -434,4 +443,5 @@ export const ADMIN_API_ROUTES: RouteSpec[] = [
 		auth: "admin",
 		summary: "Spend an approved request once",
 	},
+	...ADMIN_EXTRA_ROUTES,
 ];

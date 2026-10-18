@@ -1,9 +1,14 @@
+import type { CoreAuditEntry } from "./audit.js";
+import { auditExportQuery, auditQuery, toAuditLogEntry } from "./audit.js";
+import type { DeviceApi } from "./devices.js";
+import { createDeviceApi } from "./devices.js";
 import type {
 	Agent,
 	AgentPermission,
 	ApiResult,
 	ApprovalDecision,
 	AuditLogFilters,
+	CoreDashboardStats,
 	CreateAgentInput,
 	CreateAgentResponse,
 	CreatePermissionTemplateInput,
@@ -24,9 +29,11 @@ import type {
 	User,
 } from "./types.js";
 
+const AUDIT_PAGE_SIZE = 50;
+
 // Client Factory
 
-export interface TheAuthApiClient {
+export interface TheAuthApiClient extends DeviceApi {
 	getStats: () => Promise<ApiResult<DashboardStats>>;
 
 	getAgents: () => Promise<ApiResult<Agent[]>>;
@@ -86,6 +93,7 @@ async function apiFetch<T>(
 	baseUrl: string,
 	path: string,
 	options?: RequestInit,
+	as: "json" | "text" = "json",
 ): Promise<ApiResult<T>> {
 	try {
 		const url = `${baseUrl.replace(/\/$/, "")}${path}`;
@@ -123,11 +131,12 @@ async function apiFetch<T>(
 				success: false,
 				error: {
 					code: errorBody.code ?? `HTTP_${response.status}`,
-					message: errorBody.message ?? response.statusText,
+					message: errorBody.message ?? errorBody.error?.message ?? response.statusText,
 				},
 			};
 		}
 
+		if (as === "text") return { success: true, data: (await response.text()) as T };
 		const data = (await response.json()) as T;
 		return { success: true, data };
 	} catch (err) {
@@ -148,10 +157,30 @@ export type AuthApiClient = TheAuthApiClient;
 
 export function createApiClient(apiUrl: string): TheAuthApiClient {
 	const fetch = <T>(path: string, options?: RequestInit) => apiFetch<T>(apiUrl, path, options);
+	const fetchText = (path: string) => apiFetch<string>(apiUrl, path, undefined, "text");
 
 	return {
+		...createDeviceApi(fetch),
 		// Dashboard Stats
-		getStats: () => fetch<DashboardStats>("/api/dashboard/stats"),
+		getStats: async () => {
+			const [stats, delegations] = await Promise.all([
+				fetch<CoreDashboardStats>("/api/dashboard/stats"),
+				fetch<DelegationChain[]>("/api/delegations"),
+			]);
+			if (!stats.success) return stats;
+			const { agents, audit } = stats.data;
+			const decided = audit.allowed + audit.denied + audit.rateLimited;
+			const mapped: DashboardStats = {
+				totalAgents: agents.total,
+				activeAgents: agents.active,
+				recentAuditEvents: audit.last24h,
+				authAllowedRate: decided === 0 ? 100 : (audit.allowed / decided) * 100,
+				activeDelegations: delegations.success
+					? delegations.data.filter((d) => d.status === "active").length
+					: 0,
+			};
+			return { success: true as const, data: mapped };
+		},
 
 		// Agents
 		getAgents: () => fetch<Agent[]>("/api/agents"),
@@ -176,36 +205,28 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 			fetch<AgentPermission[]>(`/api/agents/${agentId}/permissions`),
 
 		// Audit Logs
-		getAuditLogs: (filters?: AuditLogFilters) => {
-			const params = new URLSearchParams();
-			if (filters) {
-				if (filters.agentId) params.set("agentId", filters.agentId);
-				if (filters.action) params.set("action", filters.action);
-				if (filters.result) params.set("result", filters.result);
-				if (filters.codes?.length) params.set("codes", filters.codes.join(","));
-				if (filters.provenanceKind) params.set("provenanceKind", filters.provenanceKind);
-				if (filters.from) params.set("from", filters.from);
-				if (filters.to) params.set("to", filters.to);
-				if (filters.limit !== undefined) params.set("limit", String(filters.limit));
-				if (filters.offset !== undefined) params.set("offset", String(filters.offset));
-			}
-			const qs = params.toString();
-			return fetch<PaginatedAuditLogs>(`/api/audit${qs ? `?${qs}` : ""}`);
+		getAuditLogs: async (filters?: AuditLogFilters) => {
+			const limit = filters?.limit ?? AUDIT_PAGE_SIZE;
+			const offset = filters?.offset ?? 0;
+			const [rows, agents] = await Promise.all([
+				fetch<CoreAuditEntry[]>(`/api/audit${auditQuery(filters, limit)}`),
+				fetch<Array<{ id: string; name: string }>>("/api/agents"),
+			]);
+			if (!rows.success) return rows;
+			const names = new Map(agents.success ? agents.data.map((a) => [a.id, a.name]) : []);
+			return {
+				success: true,
+				data: {
+					entries: rows.data.slice(0, limit).map((row) => toAuditLogEntry(row, names)),
+					hasMore: rows.data.length > limit,
+					limit,
+					offset,
+				},
+			};
 		},
 
-		exportAuditLogs: (format: "json" | "csv", filters?: AuditLogFilters) => {
-			const params = new URLSearchParams();
-			params.set("format", format);
-			if (filters) {
-				if (filters.agentId) params.set("agentId", filters.agentId);
-				if (filters.action) params.set("action", filters.action);
-				if (filters.result) params.set("result", filters.result);
-				if (filters.codes?.length) params.set("codes", filters.codes.join(","));
-				if (filters.from) params.set("from", filters.from);
-				if (filters.to) params.set("to", filters.to);
-			}
-			return fetch<string>(`/api/audit/export?${params.toString()}`);
-		},
+		exportAuditLogs: (format: "json" | "csv", filters?: AuditLogFilters) =>
+			fetchText(`/api/audit/export${auditExportQuery(format, filters)}`),
 
 		// Approvals
 		explainDecision: (input: ExplainRequest) =>

@@ -15,6 +15,7 @@ import { withRateLimit } from "../rate-limit-middleware.js";
 import { createRateLimiter } from "../rate-limiter.js";
 import { signInGateRedirect } from "../sign-in-gate.js";
 import { OAuthTokenError } from "./errors.js";
+import { idpAmrFromTokens } from "./idp-amr.js";
 import type { MobileFlow, MobileOAuthConfig } from "./mobile.js";
 import { createMobileOAuth, MOBILE_COOKIE } from "./mobile.js";
 import { createOAuthModule } from "./module.js";
@@ -272,11 +273,11 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 
 							const remembered = getCookie(request, REMEMBER_COOKIE);
 							const rememberMe = remembered === "1" ? true : remembered === "0" ? false : undefined;
-							const { session, token } = await sessionManager.create(
-								userId,
-								undefined,
-								rememberMe === undefined ? undefined : { rememberMe },
-							);
+							const { session, token } = await sessionManager.create(userId, undefined, {
+								authMethods: ["federated"],
+								idpAmr: idpAmrFromTokens(result.tokens),
+								...(rememberMe !== undefined && { rememberMe }),
+							});
 							const isSecure = baseUrl.startsWith("https://");
 							const cookie = buildSessionSetCookie(
 								sessionManager.cookieName ?? "theauth_session",
@@ -334,7 +335,9 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 						const user = found?.[0];
 						if (!user) return jsonResponse({ error: "Invalid or expired code" }, 400);
 
-						const { session, token } = await sessionManager.create(userId);
+						const { session, token } = await sessionManager.create(userId, undefined, {
+							authMethods: ["federated"],
+						});
 						return jsonResponse({
 							data: {
 								token,

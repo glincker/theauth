@@ -39,6 +39,7 @@ export const oidcRefreshTokens = sqliteTable("theauth_oidc_refresh_tokens", {
 	userId: text("user_id").notNull(),
 	scopes: text("scopes").notNull(), // space-separated
 	revoked: bool("revoked").notNull().default(false),
+	familyId: text("family_id"), // first token of the rotation chain, null for tokens from before 0012
 	expiresAt: timestampSec("expires_at").notNull(),
 	createdAt: timestampSec("created_at").notNull(),
 });

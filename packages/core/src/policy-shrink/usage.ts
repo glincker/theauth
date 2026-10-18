@@ -3,6 +3,7 @@ import type { Database } from "../db/database.js";
 import { permissions as permissionsTable } from "../db/schema.js";
 import { loadLiveInboundRows } from "../delegation/liveness.js";
 import { compareStrings } from "../internal-compare.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type { Permission } from "../types.js";
 import { atomKey, classifyRow, createGrantMatcher, splitPermission } from "./permissions.js";
 import { readDecisionRows } from "./rows.js";
@@ -70,10 +71,10 @@ interface UseState {
 export function createUsageAccumulator(
 	agentId: string,
 	grants: Grant[],
-	window: { since?: Date; until?: Date } = {},
+	window: { since?: Date; until?: Date; resourceMatching?: ResourceMatching } = {},
 ) {
 	const atoms = grants.map((g) => g.permission);
-	const find = createGrantMatcher(atoms);
+	const find = createGrantMatcher(atoms, window.resourceMatching);
 	const used = new Map<number, UseState>();
 	const attempted = new Set<number>();
 	const denied = new Map<string, { action: string; resource: string }>();

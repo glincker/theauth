@@ -96,6 +96,8 @@ export { generateOpenAPISpec } from "./openapi.js";
 export * from "./permission/index.js";
 export * from "./plugin/index.js";
 export * from "./policies/index.js";
+export type { ResourceMatching } from "./policy/resource-match.js";
+export { matchPathResource, resolveResourceMatching } from "./policy/resource-match.js";
 export type { PolicyEngineConfig } from "./policy/types.js";
 export type {
 	AnalyzeOptions,

@@ -5,6 +5,7 @@ import type { Database } from "../db/database.js";
 import { delegationChains } from "../db/schema.js";
 import { createDelegatorLiveness } from "../delegation/liveness.js";
 import type { Result } from "../mcp/types.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type { AgentIdentity, Permission } from "../types.js";
 import type { SetEvaluation } from "./evaluate-set.js";
 import { evaluateSet } from "./evaluate-set.js";
@@ -71,8 +72,9 @@ function describeDecision(e: SetEvaluation): SimulationDecision {
 	return e.needsApproval ? "needs_approval" : "deny";
 }
 
-export function createSimulator(config: { db: Database }) {
+export function createSimulator(config: { db: Database; resourceMatching?: ResourceMatching }) {
 	const { db } = config;
+	const matching = config.resourceMatching ?? "colon";
 	const agentModule = createAgentModule({
 		db,
 		maxPerUser: Number.MAX_SAFE_INTEGER,
@@ -138,7 +140,15 @@ export function createSimulator(config: { db: Database }) {
 			});
 		}
 
-		const own = await evaluateSet(db, agent, ownPermissions, "agent permissions", input, now);
+		const own = await evaluateSet(
+			db,
+			agent,
+			ownPermissions,
+			"agent permissions",
+			input,
+			now,
+			matching,
+		);
 		trace.push(...own.steps);
 		let final = own;
 
@@ -146,7 +156,15 @@ export function createSimulator(config: { db: Database }) {
 			const chains = await resolveChains(agent.id, input, now, trace);
 			const delegated = chains.flatMap((c) => c.permissions);
 			if (delegated.length > 0) {
-				const viaChain = await evaluateSet(db, agent, delegated, "delegation chains", input, now);
+				const viaChain = await evaluateSet(
+					db,
+					agent,
+					delegated,
+					"delegation chains",
+					input,
+					now,
+					matching,
+				);
 				trace.push(...viaChain.steps);
 				// Mirror authorize: when both deny, the own-permission verdict stands.
 				if (viaChain.allowed) final = viaChain;

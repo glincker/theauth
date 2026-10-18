@@ -3,6 +3,7 @@ import {
 	Ban,
 	Bot,
 	ChevronRight,
+	Cpu,
 	GitBranch,
 	LayoutDashboard,
 	ListChecks,
@@ -82,6 +83,12 @@ const NAV_ITEMS: NavItem[] = [
 		label: "MCP Servers",
 		icon: Server,
 		description: "Registered MCP servers",
+	},
+	{
+		id: "devices",
+		label: "Devices",
+		icon: Cpu,
+		description: "Fleet health and enrollment",
 	},
 	{
 		id: "approvals",

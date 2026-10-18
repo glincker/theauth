@@ -38,6 +38,7 @@ import type { ObservabilityConfig, TheAuthLogger } from "./observability/types.j
 import type { DecisionCode } from "./permission/codes.js";
 import type { PermissionCatalog } from "./permission/typed.js";
 import type { TheAuthPlugin } from "./plugin/types.js";
+import type { ResourceMatching } from "./policy/resource-match.js";
 import type { PolicyEngineConfig } from "./policy/types.js";
 import type { RedirectConfig } from "./redirect/chain.js";
 import type { SessionFreshnessConfig } from "./session/freshness.js";
@@ -159,6 +160,11 @@ export interface TheAuthConfig {
 
 	/** Unified policy engine: LRU cache size and TTL, combine strategy, audit sampling. */
 	policy?: PolicyEngineConfig;
+
+	/**
+	 * How a permission `resource` pattern is compared to the requested resource, for authorize(), the policy engine, delegation, simulate, explain, device bundles and the token vault. `colon` (default) honors `*` only as a whole `:` segment. `path` also lets `/` separate segments inside a colon segment: `*` matches one, `**` matches one or more, never an empty, `.` or `..` segment. Turning it on only changes patterns that have a `*` or `**` path segment, which were literal text before. `policy.resourceMatching` overrides this for the unified policy engine alone.
+	 */
+	resourceMatching?: ResourceMatching;
 
 	/** Redirect chain configuration. Enables `theauth.redirects`. */
 	redirects?: RedirectConfig;

@@ -247,7 +247,7 @@ export function createOidcTokens(
 
 		const scopes = authCode.scopes.split(" ").filter(Boolean);
 		const sid = sidIndex ? await sidIndex.forCode(codeHash) : null;
-		return generateTokenSet(authCode.userId, clientId, scopes, authCode.nonce, sid);
+		return generateTokenSet(authCode.userId, clientId, scopes, authCode.nonce, sid, null);
 	}
 
 	async function handleRefreshGrant(data: {
@@ -292,6 +292,8 @@ export function createOidcTokens(
 		}
 
 		if (record.revoked) {
+			// A rotated token came back: assume it leaked and end the whole family (RFC 9700 4.14.2).
+			await revokeFamily(record);
 			return {
 				success: false,
 				error: makeError("REFRESH_TOKEN_REVOKED", "Refresh token has been revoked"),
@@ -307,6 +309,8 @@ export function createOidcTokens(
 			{ id: oidcRefreshTokens.id },
 		);
 		if (rotated === 0) {
+			// Lost the rotation race to another request with the same token, which is a reuse too.
+			await revokeFamily(record);
 			return {
 				success: false,
 				error: makeError("REFRESH_TOKEN_REVOKED", "Refresh token has been revoked"),
@@ -315,7 +319,29 @@ export function createOidcTokens(
 
 		const scopes = record.scopes.split(" ").filter(Boolean);
 		const sid = sidIndex ? await sidIndex.latest(record.userId, clientId) : null;
-		return generateTokenSet(record.userId, clientId, scopes, null, sid);
+		return generateTokenSet(
+			record.userId,
+			clientId,
+			scopes,
+			null,
+			sid,
+			record.familyId ?? record.id,
+		);
+	}
+
+	/** Revoke every refresh token in the family. Tokens from before migration 0012 have no family, so fall back to user and client. */
+	async function revokeFamily(record: {
+		userId: string;
+		clientId: string;
+		familyId: string | null;
+	}): Promise<void> {
+		const scope = record.familyId
+			? eq(oidcRefreshTokens.familyId, record.familyId)
+			: and(
+					eq(oidcRefreshTokens.userId, record.userId),
+					eq(oidcRefreshTokens.clientId, record.clientId),
+				);
+		await db.update(oidcRefreshTokens).set({ revoked: true }).where(scope);
 	}
 
 	async function authenticateClient(
@@ -352,7 +378,8 @@ export function createOidcTokens(
 		clientId: string,
 		scopes: string[],
 		nonce: string | null,
-		sid: string | null = null,
+		sid: string | null,
+		familyId: string | null,
 	): Promise<Result<TokenResponse>> {
 		const key = await getSigningKey();
 		const now = Math.floor(Date.now() / 1000);
@@ -400,9 +427,11 @@ export function createOidcTokens(
 		const refreshTokenHash = await hashSecret(rawRefreshToken);
 		const refreshExpiresAt = new Date((now + refreshTokenTtl) * 1000);
 
+		const refreshId = generateId();
 		try {
 			await db.insert(oidcRefreshTokens).values({
-				id: generateId(),
+				id: refreshId,
+				familyId: familyId ?? refreshId,
 				tokenHash: refreshTokenHash,
 				clientId,
 				userId,

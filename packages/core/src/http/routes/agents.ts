@@ -77,6 +77,11 @@ async function getAgent(ctx: RouteContext): Promise<Response> {
 	try {
 		const agent = await ctx.auth.agent.get(id);
 		if (!agent) return failure(new Error(`Agent "${id}" not found`), "Failed to get agent");
+		// `?include=delegated` adds the permissions currently delegated to the agent (live chains only), for exporters that need the full grant set.
+		if (ctx.url.searchParams.get("include") === "delegated") {
+			const delegatedPermissions = await ctx.auth.delegation.getEffectivePermissions(id);
+			return ok({ ...agent, delegatedPermissions });
+		}
 		return ok(agent);
 	} catch (err) {
 		return failure(err, "Failed to get agent");

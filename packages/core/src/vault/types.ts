@@ -1,5 +1,6 @@
 import type { OAuthProvider } from "../auth/oauth/types.js";
 import type { Database } from "../db/database.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import type { VaultAuthStyle } from "./presets.js";
 
@@ -24,6 +25,8 @@ export interface TokenVaultConfig {
 	providers: Record<string, VaultProviderConfig>;
 	/** Used for the refresh lock. Must be shared across instances in multi-node setups. */
 	storage: SecondaryStorage;
+	/** How a permission resource pattern is compared to `vault:<provider>`. Default `colon`. */
+	resourceMatching?: ResourceMatching;
 	/** Injectable for tests. */
 	fetch?: typeof fetch;
 	now?: () => number;

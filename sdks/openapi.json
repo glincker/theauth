@@ -1205,6 +1205,97 @@
             }
           }
         }
+      },
+      "get": {
+        "summary": "List delegation chains",
+        "operationId": "adminListDelegations",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminDelegation"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only links from or to this agent"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "revoked",
+                "expired"
+              ]
+            },
+            "description": "Effective status"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page size, at most 100 unless noted"
+          }
+        ]
       }
     },
     "/delegations/{id}": {
@@ -5600,7 +5691,36 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "Success"
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "nonce": {
+                          "type": "string",
+                          "description": "Single use nonce to bind into the attestation evidence"
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "description": "ISO 8601 time after which the nonce is refused"
+                        }
+                      },
+                      "required": [
+                        "nonce",
+                        "expiresAt"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "Devices are not configured",
@@ -5871,15 +5991,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ApprovalOpened"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ApprovalOpened"
                 }
               }
             }
@@ -5960,17 +6072,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/PendingApproval"
-                      }
-                    }
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PendingApproval"
                   }
                 }
               }
@@ -6040,15 +6144,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ApprovalStatus"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ApprovalStatus"
                 }
               }
             }
@@ -6114,15 +6210,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ApprovalDecision"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ApprovalDecision"
                 }
               }
             }
@@ -6198,15 +6286,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ApprovalDecision"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ApprovalDecision"
                 }
               }
             }
@@ -6282,15 +6362,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ApprovalConsumed"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ApprovalConsumed"
                 }
               }
             }
@@ -6368,6 +6440,494 @@
                   "action",
                   "resource"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audit/events": {
+      "post": {
+        "summary": "Record an admin MCP audit event",
+        "operationId": "recordAdminAuditEvent",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "recorded": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "recorded"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The audit event could not be stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminAuditEventInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}/disable": {
+      "post": {
+        "summary": "Disable a user and end its sessions",
+        "operationId": "adminDisableUser",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "disabled": {
+                      "type": "boolean"
+                    },
+                    "userId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "disabled",
+                    "userId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid id or reason, or the admin tried to disable itself",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Disabling an admin is not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions": {
+      "get": {
+        "summary": "List sessions without token material",
+        "operationId": "adminListSessions",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminSession"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only this user's sessions"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page size, at most 100 unless noted"
+          }
+        ]
+      }
+    },
+    "/revocations": {
+      "get": {
+        "summary": "List the revocation denylist and bus stats",
+        "operationId": "adminListRevocations",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRevocationsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "jti",
+                "dlg",
+                "agent",
+                "sub",
+                "client"
+              ]
+            },
+            "description": "Only this kind"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page size, at most 100 unless noted"
+          }
+        ]
+      },
+      "post": {
+        "summary": "Revoke a delegation, agent, subject, client or token id",
+        "operationId": "adminCreateRevocation",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "revoked"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Delegation not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "This instance has no revocation bus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRevocationInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/revocations/delegations": {
+      "get": {
+        "summary": "List delegation links with revoke impact",
+        "operationId": "adminListDelegationImpact",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminDelegationImpact"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
               }
             }
           }
@@ -7570,6 +8130,321 @@
         },
         "required": [
           "active"
+        ]
+      },
+      "AdminAuditEventInput": {
+        "type": "object",
+        "properties": {
+          "actor": {
+            "type": "string",
+            "description": "Who ran the admin MCP call, a label chosen by the caller"
+          },
+          "action": {
+            "type": "string",
+            "description": "Must look like admin_mcp.<name>"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write"
+            ]
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error",
+              "requested",
+              "pending",
+              "denied",
+              "executed",
+              "failed"
+            ]
+          },
+          "source": {
+            "type": "string"
+          },
+          "approvalId": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "actor",
+          "action",
+          "mode",
+          "result"
+        ]
+      },
+      "AdminDelegation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fromAgentId": {
+            "type": "string"
+          },
+          "toAgentId": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "resource": {
+                  "type": "string"
+                },
+                "actions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "resource",
+                "actions"
+              ]
+            }
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "maxDepth": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "revoked",
+              "expired"
+            ]
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "fromAgentId",
+          "toAgentId",
+          "permissions",
+          "depth",
+          "maxDepth",
+          "status",
+          "expiresAt",
+          "createdAt"
+        ]
+      },
+      "AdminSession": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "One way reference to the session, never the session id or a token"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ref",
+          "userId",
+          "createdAt",
+          "expiresAt",
+          "active"
+        ]
+      },
+      "AdminRevocationRow": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "jti",
+              "dlg",
+              "agent",
+              "sub",
+              "client"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "revokedAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "revokedAt",
+          "expiresAt",
+          "reason",
+          "sourceId"
+        ]
+      },
+      "AdminRevocationsView": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRevocationRow"
+            }
+          },
+          "stats": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "published": {
+                "type": "integer"
+              },
+              "rowsPushed": {
+                "type": "integer"
+              },
+              "retries": {
+                "type": "integer"
+              },
+              "pushFailures": {
+                "type": "integer"
+              },
+              "attemptFailures": {
+                "type": "integer"
+              },
+              "pruned": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "published",
+              "rowsPushed",
+              "retries",
+              "pushFailures",
+              "attemptFailures",
+              "pruned"
+            ]
+          }
+        },
+        "required": [
+          "rows",
+          "stats"
+        ]
+      },
+      "AdminDelegationImpact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fromAgentId": {
+            "type": "string"
+          },
+          "toAgentId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "cascade": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "This link plus every active downstream link"
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Agents that lose delegated authority"
+          },
+          "denied": {
+            "type": "boolean",
+            "description": "A revocation row already exists for this link"
+          },
+          "tokenRule": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "fromAgentId",
+          "toAgentId",
+          "expiresAt",
+          "cascade",
+          "agents",
+          "denied",
+          "tokenRule"
+        ]
+      },
+      "AdminRevocationInput": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "jti",
+              "dlg",
+              "agent",
+              "sub",
+              "client"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
         ]
       }
     },

@@ -26,7 +26,11 @@ export function exportRos2(
 	permissions: readonly RoboticsPermission[],
 	options: Ros2ExportOptions,
 ): Ros2Export {
-	const policy = buildRosPolicy(permissions, { gated: options.gated });
+	const policy = buildRosPolicy(permissions, {
+		gated: options.gated,
+		resourceMatching: options.resourceMatching,
+		singleLevel: options.singleLevel,
+	});
 	const permissionsOptions: PermissionsXmlOptions = {
 		enclave: options.enclave,
 		subjectName: options.subjectName,
@@ -39,6 +43,7 @@ export function exportRos2(
 		robotId: options.robotId ?? null,
 		enclave: options.enclave,
 		gatedMode: options.gated ?? "omit",
+		resourceMatching: options.resourceMatching ?? "colon",
 		rules: policy.rules,
 		gated: policy.gated,
 		skipped: policy.skipped,

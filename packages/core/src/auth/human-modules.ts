@@ -25,6 +25,8 @@ import type { PasswordResetModule } from "./password-reset.js";
 import { createPasswordResetModule } from "./password-reset.js";
 import type { PhoneAuthModule } from "./phone.js";
 import { createPhoneAuthModule } from "./phone.js";
+import { recordStepUpOnSession } from "./record-step-up.js";
+import type { ModuleRequestDeps } from "./request-user.js";
 import { createRequestUserResolver } from "./request-user.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import type { SsoModule } from "./sso.js";
@@ -58,8 +60,16 @@ export function createHumanAuthModules(
 			: null;
 
 	// Module handlers act on the signed-in user from the auth adapter or session, never a body userId.
-	const moduleDeps = {
+	const moduleDeps: ModuleRequestDeps = {
 		resolveUser: createRequestUserResolver(db, sessionManager, config.auth?.adapter),
+		recordStepUp: (request, method, userId) =>
+			recordStepUpOnSession(
+				sessionManager,
+				config.auth?.session?.cookieName,
+				request,
+				method,
+				userId,
+			),
 	};
 
 	const totpModule: TotpModule | null = config.totp
