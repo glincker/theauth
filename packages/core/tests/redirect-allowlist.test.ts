@@ -182,7 +182,7 @@ describe("redirect chain integration", () => {
 
 	it("pushed steps are checked when built", () => {
 		const chain = createRedirectChain();
-		chain.push("//evil.com");
+		chain.push(new Request("http://localhost/"), "//evil.com");
 		const entry = chain.createEntry("//evil.com");
 		expect(chain.buildUrl(entry)).toBe("/");
 	});

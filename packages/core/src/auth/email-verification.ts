@@ -33,6 +33,8 @@ import { users } from "../db/schema.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import { normalizeEmail } from "./normalize-email.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
+import type { ModuleRequestDeps } from "./request-user.js";
+import { authenticationRequired, requestUserId } from "./request-user.js";
 
 export type { AuthError, Result, TheAuthError };
 
@@ -82,6 +84,7 @@ export function createEmailVerificationModule(
 	config: EmailVerificationConfig,
 	db: Database,
 	tokenModule: OneTimeTokenModule,
+	deps: ModuleRequestDeps = {},
 ): EmailVerificationModule {
 	const tokenTtl = config.tokenTtlSeconds ?? DEFAULT_TOKEN_TTL_SECONDS;
 
@@ -215,11 +218,14 @@ export function createEmailVerificationModule(
 		const b = body as Record<string, unknown>;
 
 		if (pathname === "/auth/verify-email/send") {
-			if (typeof b.userId !== "string" || typeof b.email !== "string") {
-				return jsonResponse({ error: "Missing required fields: userId, email" }, 400);
+			// Sends for the signed-in user only. A body `userId` is ignored.
+			const userId = await requestUserId(request, deps.resolveUser);
+			if (!userId) return authenticationRequired();
+			if (typeof b.email !== "string") {
+				return jsonResponse({ error: "Missing required field: email" }, 400);
 			}
 
-			const result = await sendVerification(b.userId, b.email);
+			const result = await sendVerification(userId, b.email);
 			if (!result.success) {
 				const status = result.error.code === "USER_NOT_FOUND" ? 404 : 500;
 				return jsonResponse({ error: result.error.message }, status);

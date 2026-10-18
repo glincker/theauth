@@ -122,8 +122,8 @@ describe("push() and pop()", () => {
 		const c0 = extractCookieValue(chain.capture(originReq));
 		chain.parse(makeRequest("http://localhost/", c0));
 
-		chain.push("/step-one");
-		const c1 = extractCookieValue(chain.push("/step-two"));
+		const cA = extractCookieValue(chain.push(makeRequest("http://localhost/", c0), "/step-one"));
+		const c1 = extractCookieValue(chain.push(makeRequest("http://localhost/", cA), "/step-two"));
 
 		const r1 = chain.pop(makeRequest("http://localhost/", c1));
 		expect(r1.url).toBe("/step-one");
@@ -140,7 +140,9 @@ describe("push() and pop()", () => {
 			chain2.capture(makeRequest("http://localhost/final-destination")),
 		);
 		chain2.parse(makeRequest("http://localhost/", c2_0));
-		const c2_1 = extractCookieValue(chain2.push("/step-two"));
+		const c2_1 = extractCookieValue(
+			chain2.push(makeRequest("http://localhost/", c2_0), "/step-two"),
+		);
 
 		const r2 = chain2.pop(makeRequest("http://localhost/", c2_1));
 		expect(r2.url).toBe("/step-two");
@@ -185,10 +187,12 @@ describe("push() and pop()", () => {
 		const c0 = extractCookieValue(chain.capture(req));
 		chain.parse(makeRequest("http://localhost/", c0));
 
-		chain.push("/step-1");
-		chain.push("/step-2");
+		const a = extractCookieValue(chain.push(makeRequest("http://localhost/", c0), "/step-1"));
+		const b = extractCookieValue(chain.push(makeRequest("http://localhost/", a), "/step-2"));
 		// This one should be ignored (maxDepth = 2)
-		const c1 = extractCookieValue(chain.push("/step-3-should-be-dropped"));
+		const c1 = extractCookieValue(
+			chain.push(makeRequest("http://localhost/", b), "/step-3-should-be-dropped"),
+		);
 
 		const state = chain.parse(makeRequest("http://localhost/", c1));
 		expect(state?.steps.length).toBe(2);
@@ -202,7 +206,7 @@ describe("peek()", () => {
 		const req = makeRequest("http://localhost/origin");
 		const c0 = extractCookieValue(chain.capture(req));
 		chain.parse(makeRequest("http://localhost/", c0));
-		const c1 = extractCookieValue(chain.push("/next-step"));
+		const c1 = extractCookieValue(chain.push(makeRequest("http://localhost/", c0), "/next-step"));
 
 		const peeked = chain.peek(makeRequest("http://localhost/", c1));
 		expect(peeked?.url).toBe("/next-step");
@@ -238,8 +242,8 @@ describe("getOrigin()", () => {
 		const req = makeRequest("http://localhost/settings/billing");
 		const c0 = extractCookieValue(chain.capture(req));
 		chain.parse(makeRequest("http://localhost/", c0));
-		chain.push("/step-1");
-		const c1 = extractCookieValue(chain.push("/step-2"));
+		const a = extractCookieValue(chain.push(makeRequest("http://localhost/", c0), "/step-1"));
+		const c1 = extractCookieValue(chain.push(makeRequest("http://localhost/", a), "/step-2"));
 
 		// Even with steps pushed, origin should remain
 		const origin = chain.getOrigin(makeRequest("http://localhost/", c1));
@@ -441,5 +445,34 @@ describe("cookie attributes", () => {
 		const setCookie = chain.capture(req);
 
 		expect(setCookie).toContain("Domain=example.com");
+	});
+});
+
+describe("per-request state (no shared closure)", () => {
+	it("interleaved users never see each other's chain", () => {
+		const chain = createRedirectChain({ cookie: { secure: false } });
+		const cookieA = extractCookieValue(
+			chain.capture(makeRequest("http://localhost/billing/invoice/42?share_token=SECRET_A")),
+		);
+		const cookieB = extractCookieValue(chain.capture(makeRequest("http://localhost/b-home")));
+
+		// User B pushes a step while A's state was the last one touched.
+		const pushedB = chain.push(makeRequest("http://localhost/", cookieB), "/onboarding/mfa");
+		expect(pushedB).not.toContain("SECRET_A");
+		expect(decodeURIComponent(pushedB)).not.toContain("invoice");
+
+		const stateB = chain.parse(makeRequest("http://localhost/", extractCookieValue(pushedB)));
+		expect(stateB?.origin.path).toBe("/b-home");
+		expect(stateB?.steps.map((x) => x.path)).toEqual(["/onboarding/mfa"]);
+
+		// A pop afterwards for A is unaffected by B.
+		const popA = chain.pop(makeRequest("http://localhost/", cookieA));
+		expect(popA.url).toContain("/billing/invoice/42");
+
+		// A request with no cookie gets a fresh default chain, not the last user's.
+		const fresh = chain.push(makeRequest("http://localhost/"), "/x");
+		expect(fresh).not.toContain("SECRET_A");
+		const stateFresh = chain.parse(makeRequest("http://localhost/", extractCookieValue(fresh)));
+		expect(stateFresh?.origin.path).toBe("/");
 	});
 });

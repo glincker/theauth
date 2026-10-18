@@ -1,6 +1,8 @@
+import { HookBlockedError } from "../../hooks/safety.js";
 import type { AgentFilter, CreateAgentInput, Permission, UpdateAgentInput } from "../../types.js";
 import {
 	created,
+	errorResponse,
 	failure,
 	noContent,
 	ok,
@@ -11,6 +13,16 @@ import {
 } from "../respond.js";
 import { CreateAgentSchema, UpdateAgentSchema } from "../schemas.js";
 import type { HttpRoute, RouteContext } from "../types.js";
+
+/** A refusal by the `beforeAgentCreate` policy (on create or update) is a 403, not an opaque 500. */
+function agentFailure(err: unknown, fallback: string): Response {
+	if (err instanceof HookBlockedError) {
+		const message =
+			err.code === "hook_denied" ? err.message : "Agent policy check failed, request refused";
+		return errorResponse("FORBIDDEN", message, 403);
+	}
+	return failure(err, fallback);
+}
 
 export async function listAgents(ctx: RouteContext): Promise<Response> {
 	if (!ctx.scope) return scopeUnavailable();
@@ -47,7 +59,7 @@ async function createAgent(ctx: RouteContext): Promise<Response> {
 		};
 		return created(await ctx.auth.agent.create(input));
 	} catch (err) {
-		return failure(err, "Failed to create agent");
+		return agentFailure(err, "Failed to create agent");
 	}
 }
 
@@ -81,7 +93,7 @@ async function updateAgent(ctx: RouteContext): Promise<Response> {
 		};
 		return ok(await ctx.auth.agent.update(id, input));
 	} catch (err) {
-		return failure(err, "Failed to update agent");
+		return agentFailure(err, "Failed to update agent");
 	}
 }
 

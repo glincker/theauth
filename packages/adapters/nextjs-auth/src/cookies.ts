@@ -169,6 +169,8 @@ export function clearAllAuthCookies<TUser>(
 		`__Host-${sessionPrefix}-gate`,
 		`${sessionPrefix}-gate`,
 		config.cookies.refresh,
+		`__Host-${sessionPrefix}-refresh-token`,
+		`${sessionPrefix}-refresh-token`,
 		config.cookies.cacheName,
 		`${sessionPrefix}-session-cache`,
 	]) {
@@ -191,6 +193,8 @@ export async function clearAllAuthCookiesFromStore<TUser>(
 		`__Host-${sessionPrefix}-gate`,
 		`${sessionPrefix}-gate`,
 		config.cookies.refresh,
+		`__Host-${sessionPrefix}-refresh-token`,
+		`${sessionPrefix}-refresh-token`,
 		config.cookies.cacheName,
 		`${sessionPrefix}-session-cache`,
 	]) {

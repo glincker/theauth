@@ -27,7 +27,6 @@ import {
 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { usernameAccounts, users } from "../db/schema.js";
-import { parseRememberMe } from "../plugin/helpers.js";
 import type { SessionManager } from "../session/session.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import type { TrustedProxyConfig } from "./client-ip.js";
@@ -35,7 +34,8 @@ import { resolveClientIp } from "./client-ip.js";
 import type { LockoutLogger, LoginLockout, LoginLockoutConfig } from "./login-lockout.js";
 import { createLoginLockout, LoginLockedError, lockoutDisabledByEnv } from "./login-lockout.js";
 import type { SignInGate } from "./sign-in-gate.js";
-import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
+import { createSignInGate, SignInGateError } from "./sign-in-gate.js";
+import { CHANGE_PASSWORD_REFUSED, createUsernameRequestHandler } from "./username-http.js";
 
 export interface UsernameAuthConfig {
 	/** Minimum username length (default: 3) */
@@ -83,14 +83,17 @@ export interface UsernameAuthModule {
 		user: { id: string; username: string };
 		session: { token: string; expiresAt: Date; rememberMe?: boolean };
 	}>;
+	/** Verifies `current` under the per-account lockout (keyed by user id) and the per-IP backoff. An unknown account and a wrong password throw the same error. */
 	changePassword: (
 		userId: string,
 		current: string,
 		newPassword: string,
+		context?: { request?: Request },
 	) => Promise<{ success: boolean }>;
 	changeUsername: (userId: string, newUsername: string) => Promise<{ success: boolean }>;
 	/** Admin override: lift the lockout and clear failure counters for a username. */
 	unlockAccount: (username: string) => Promise<void>;
+	/** Serves sign-up and sign-in publicly; change-username and change-password need a session and act on its user only. */
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
@@ -108,13 +111,6 @@ async function hashPassword(password: string, iterations: number): Promise<strin
 
 async function verifyPassword(stored: string, candidate: string): Promise<boolean> {
 	return pbkdf2Verify(candidate, stored);
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-	return new Response(JSON.stringify(body), {
-		status,
-		headers: { "Content-Type": "application/json" },
-	});
 }
 
 export function createUsernameAuthModule(
@@ -301,17 +297,30 @@ export function createUsernameAuthModule(
 		userId: string,
 		current: string,
 		newPassword: string,
+		context?: { request?: Request },
 	): Promise<{ success: boolean }> {
+		const ip = context?.request ? resolveClientIp(context.request, config.trustedProxy) : null;
+		// "uid:" cannot collide with a username key: ":" is outside the allowed pattern.
+		const lockKey = `uid:${userId}`;
+		if (lockout) {
+			const state = await lockout.check(lockKey, ip);
+			if (state.locked)
+				throw new LoginLockedError(state.retryAfterSeconds, state.reason ?? "account");
+		}
+
 		const rows = await db
 			.select()
 			.from(usernameAccounts)
 			.where(eq(usernameAccounts.userId, userId));
-
 		const account = rows[0];
-		if (!account) throw new Error("Account not found");
 
-		const valid = await verifyPassword(account.passwordHash, current);
-		if (!valid) throw new Error("Current password is incorrect");
+		// Same hashing work and the same error whether or not the account exists.
+		const valid = await verifyPassword(account?.passwordHash ?? (await dummyHash()), current);
+		if (!account || !valid) {
+			await lockout?.recordFailure(lockKey, ip);
+			throw new Error(CHANGE_PASSWORD_REFUSED);
+		}
+		await lockout?.recordSuccess(lockKey, ip);
 
 		const passwordError = validatePassword(newPassword);
 		if (passwordError) throw new Error(passwordError);
@@ -379,124 +388,10 @@ export function createUsernameAuthModule(
 		return { success: true };
 	}
 
-	const HANDLED_PATHS = new Set([
-		"/auth/username/sign-up",
-		"/auth/username/sign-in",
-		"/auth/username/change-password",
-		"/auth/username/change-username",
-	]);
-
-	async function handleRequest(request: Request): Promise<Response | null> {
-		if (request.method !== "POST") return null;
-
-		const url = new URL(request.url);
-		const { pathname } = url;
-
-		if (!HANDLED_PATHS.has(pathname)) return null;
-
-		let body: unknown;
-		try {
-			body = await request.json();
-		} catch {
-			return jsonResponse({ error: "Invalid JSON body" }, 400);
-		}
-
-		const b = body as Record<string, unknown>;
-
-		if (pathname === "/auth/username/sign-up") {
-			if (typeof b.username !== "string" || typeof b.password !== "string") {
-				return jsonResponse({ error: "Missing required fields: username, password" }, 400);
-			}
-			try {
-				const result = await signUp({
-					username: b.username,
-					password: b.password,
-					name: typeof b.name === "string" ? b.name : undefined,
-				});
-				return jsonResponse(result, 201);
-			} catch (err) {
-				return jsonResponse({ error: err instanceof Error ? err.message : "Sign-up failed" }, 400);
-			}
-		}
-
-		if (pathname === "/auth/username/sign-in") {
-			if (typeof b.username !== "string" || typeof b.password !== "string") {
-				return jsonResponse({ error: "Missing required fields: username, password" }, 400);
-			}
-			try {
-				const rememberMe = parseRememberMe(b.rememberMe);
-				const result = await signIn(
-					{
-						username: b.username,
-						password: b.password,
-						...(rememberMe !== undefined && { rememberMe }),
-					},
-					{ request },
-				);
-				return jsonResponse(result);
-			} catch (err) {
-				if (err instanceof SignInGateError) {
-					return signInGateResponse(err);
-				}
-				if (err instanceof LoginLockedError) {
-					return new Response(
-						JSON.stringify({
-							error: err.message,
-							code: "SIGN_IN_LOCKED",
-							retryAfter: err.retryAfterSeconds,
-						}),
-						{
-							status: 429,
-							headers: {
-								"Content-Type": "application/json",
-								"Retry-After": String(err.retryAfterSeconds),
-							},
-						},
-					);
-				}
-				return jsonResponse({ error: "Invalid username or password" }, 401);
-			}
-		}
-
-		if (pathname === "/auth/username/change-password") {
-			if (
-				typeof b.userId !== "string" ||
-				typeof b.current !== "string" ||
-				typeof b.newPassword !== "string"
-			) {
-				return jsonResponse(
-					{ error: "Missing required fields: userId, current, newPassword" },
-					400,
-				);
-			}
-			try {
-				const result = await changePassword(b.userId, b.current, b.newPassword);
-				return jsonResponse(result);
-			} catch (err) {
-				return jsonResponse(
-					{ error: err instanceof Error ? err.message : "Change password failed" },
-					400,
-				);
-			}
-		}
-
-		if (pathname === "/auth/username/change-username") {
-			if (typeof b.userId !== "string" || typeof b.newUsername !== "string") {
-				return jsonResponse({ error: "Missing required fields: userId, newUsername" }, 400);
-			}
-			try {
-				const result = await changeUsername(b.userId, b.newUsername);
-				return jsonResponse(result);
-			} catch (err) {
-				return jsonResponse(
-					{ error: err instanceof Error ? err.message : "Change username failed" },
-					400,
-				);
-			}
-		}
-
-		return null;
-	}
+	const handleRequest = createUsernameRequestHandler(
+		{ signUp, signIn, changePassword, changeUsername },
+		sessionManager,
+	);
 
 	async function unlockAccount(username: string): Promise<void> {
 		await lockout?.unlock(normalise(username.trim()));

@@ -13,6 +13,7 @@ import type {
 	Permission,
 	UpdateAgentInput,
 } from "../types.js";
+import { assertValidExpiry } from "../validation.js";
 import { AGENT_TOKEN_PREFIX, agentTokenLookupPrefix, isAgentToken } from "./token-format.js";
 
 interface AgentModuleConfig {
@@ -61,6 +62,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 	const delegation = createDelegationModule({ db, revocations });
 
 	async function create(input: CreateAgentInput): Promise<AgentIdentity & { token: string }> {
+		assertValidExpiry(input.expiresAt);
 		// Check max agents per user
 		const existing = await db
 			.select()
@@ -182,6 +184,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 	}
 
 	async function update(agentId: string, input: UpdateAgentInput): Promise<AgentIdentity> {
+		assertValidExpiry(input.expiresAt);
 		const existing = await get(agentId);
 		if (!existing) throw new Error(`Agent ${agentId} not found.`);
 

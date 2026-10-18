@@ -1096,6 +1096,14 @@ describe("error codes", () => {
 });
 
 describe("handleRequest", () => {
+	// The test resolver treats an x-user header as the signed-in user.
+	const deps = {
+		resolveUser: async (r: Request) => {
+			const id = r.headers.get("x-user");
+			return id ? { id } : null;
+		},
+	};
+
 	it("returns null for unrelated routes", async () => {
 		const db = await makeDb();
 		const mod = createPasskeyModule(makeConfig(), db);
@@ -1105,29 +1113,29 @@ describe("handleRequest", () => {
 		expect(result).toBeNull();
 	});
 
-	it("POST /auth/passkey/register/options returns 400 when userId missing", async () => {
+	it("POST /auth/passkey/register/options returns 401 with no signed-in user, even with a body userId", async () => {
 		const db = await makeDb();
-		const mod = createPasskeyModule(makeConfig(), db);
+		const mod = createPasskeyModule(makeConfig(), db, deps);
 
 		const req = new Request("https://example.com/auth/passkey/register/options", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ userName: "Alice" }),
+			body: JSON.stringify({ userId: "victim", userName: "Alice" }),
 		});
 
 		const res = await mod.handleRequest(req);
 		expect(res).not.toBeNull();
-		expect(res?.status).toBe(400);
+		expect(res?.status).toBe(401);
 	});
 
 	it("POST /auth/passkey/register/options returns options for valid request", async () => {
 		const db = await makeDb();
-		const mod = createPasskeyModule(makeConfig(), db);
+		const mod = createPasskeyModule(makeConfig(), db, deps);
 
 		const req = new Request("https://example.com/auth/passkey/register/options", {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ userId: "user-9", userName: "Alice" }),
+			headers: { "Content-Type": "application/json", "x-user": "user-9" },
+			body: JSON.stringify({ userName: "Alice" }),
 		});
 
 		const res = await mod.handleRequest(req);
@@ -1158,22 +1166,22 @@ describe("handleRequest", () => {
 		expect(body.challenge).toBeTruthy();
 	});
 
-	it("GET /auth/passkey/credentials returns 400 when userId missing", async () => {
+	it("GET /auth/passkey/credentials returns 401 with no signed-in user, even with a userId query", async () => {
 		const db = await makeDb();
-		const mod = createPasskeyModule(makeConfig(), db);
+		const mod = createPasskeyModule(makeConfig(), db, deps);
 
-		const req = new Request("https://example.com/auth/passkey/credentials", {
+		const req = new Request("https://example.com/auth/passkey/credentials?userId=user-10", {
 			method: "GET",
 		});
 
 		const res = await mod.handleRequest(req);
 		expect(res).not.toBeNull();
-		expect(res?.status).toBe(400);
+		expect(res?.status).toBe(401);
 	});
 
 	it("GET /auth/passkey/credentials returns credential list", async () => {
 		const db = await makeDb();
-		const mod = createPasskeyModule(makeConfig(), db);
+		const mod = createPasskeyModule(makeConfig(), db, deps);
 
 		await seedUser(db, "user-10");
 		const now = new Date();
@@ -1187,8 +1195,9 @@ describe("handleRequest", () => {
 			lastUsedAt: now,
 		});
 
-		const req = new Request("https://example.com/auth/passkey/credentials?userId=user-10", {
+		const req = new Request("https://example.com/auth/passkey/credentials", {
 			method: "GET",
+			headers: { "x-user": "user-10" },
 		});
 
 		const res = await mod.handleRequest(req);
@@ -1202,7 +1211,7 @@ describe("handleRequest", () => {
 
 	it("DELETE /auth/passkey/credentials/:id removes a credential", async () => {
 		const db = await makeDb();
-		const mod = createPasskeyModule(makeConfig(), db);
+		const mod = createPasskeyModule(makeConfig(), db, deps);
 
 		await seedUser(db, "user-11");
 		const now = new Date();
@@ -1218,8 +1227,8 @@ describe("handleRequest", () => {
 
 		const req = new Request("https://example.com/auth/passkey/credentials/del-cred", {
 			method: "DELETE",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ userId: "user-11" }),
+			headers: { "Content-Type": "application/json", "x-user": "user-11" },
+			body: JSON.stringify({}),
 		});
 
 		const res = await mod.handleRequest(req);

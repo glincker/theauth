@@ -20,7 +20,11 @@ async function createDelegation(ctx: RouteContext): Promise<Response> {
 	if (!body.ok) return body.response;
 	const parsed = DelegateSchema.safeParse(body.data);
 	if (!parsed.success) return validationError(parsed.error.issues);
-	const denial = await ctx.scope.checkAgent(parsed.data.fromAgent);
+	// Owner only: the caller must own both ends. Granting into someone else's agent would
+	// hand it capabilities its owner never approved.
+	const denial =
+		(await ctx.scope.checkAgent(parsed.data.fromAgent)) ??
+		(await ctx.scope.checkAgent(parsed.data.toAgent));
 	if (denial) return scopeDenied(denial);
 	try {
 		const input: DelegateInput = {

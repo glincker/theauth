@@ -255,12 +255,15 @@ export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPl
 					requireAuth: true,
 					description: "Get additional fields for a user",
 				},
-				async handler(request, _endpointCtx) {
-					const url = new URL(request.url);
-					const userId = url.searchParams.get("userId");
-					if (!userId) {
-						return jsonResponse({ error: "Missing required query parameter: userId" }, 400);
+				async handler(request, endpointCtx) {
+					// The signed-in user's own fields only. A different `userId` is refused.
+					const user = await endpointCtx.getUser(request);
+					if (!user) return jsonResponse({ error: "Authentication required" }, 401);
+					const requested = new URL(request.url).searchParams.get("userId");
+					if (requested && requested !== user.id) {
+						return jsonResponse({ error: "You can only read your own fields" }, 403);
 					}
+					const userId = user.id;
 
 					try {
 						const fields = await mod.getUserFields(userId);
@@ -281,7 +284,9 @@ export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPl
 					requireAuth: true,
 					description: "Set additional fields on a user",
 				},
-				async handler(request, _endpointCtx) {
+				async handler(request, endpointCtx) {
+					const user = await endpointCtx.getUser(request);
+					if (!user) return jsonResponse({ error: "Authentication required" }, 401);
 					let body: Record<string, unknown>;
 					try {
 						body = (await request.json()) as Record<string, unknown>;
@@ -289,10 +294,11 @@ export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPl
 						return jsonResponse({ error: "Invalid JSON body" }, 400);
 					}
 
-					const userId = typeof body.userId === "string" ? body.userId : null;
-					if (!userId) {
-						return jsonResponse({ error: "Missing required field: userId" }, 400);
+					// The signed-in user's own fields only. A different body `userId` is refused.
+					if (body.userId !== undefined && body.userId !== user.id) {
+						return jsonResponse({ error: "You can only update your own fields" }, 403);
 					}
+					const userId = user.id;
 
 					const fields =
 						body.fields !== null &&

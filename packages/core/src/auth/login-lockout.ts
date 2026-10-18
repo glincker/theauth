@@ -5,6 +5,8 @@
  * - per account (any client IP): `maxFailures` failures inside `failureWindowSeconds` lock the account for `lockoutSeconds`. Each repeat lockout inside `strikeWindowSeconds` doubles the lock, capped at `maxLockoutSeconds`.
  * - per account plus client IP: after `graceFailures` misses the pair is delayed `baseDelaySeconds`, doubling per extra miss, capped at `maxDelaySeconds`.
  *
+ * `check()` reserves an attempt slot with an atomic `incr` before the password is verified, so a parallel burst of N guesses performs at most `maxFailures` password checks, not N. A correct password refunds (clears) the reservation.
+ *
  * Decisions come from stored counters only and are keyed by the submitted identifier, never by whether the account exists, so a real and an unknown username behave identically.
  *
  * Trade-off: a per-account lock lets an attacker who knows a username lock its owner out from any IP. The harm is bounded: attempts made while locked are refused before they are counted, so the lock never extends itself, the duration is capped by `maxLockoutSeconds`, escalation forgets after `strikeWindowSeconds`, and an admin can `unlock()` at once. A correct password from a client that is not locked clears the counters.
@@ -151,6 +153,7 @@ export function createLoginLockout(
 	const enc = (ident: string): string => encodeURIComponent(ident.slice(0, MAX_IDENT_LENGTH));
 	const keys = {
 		fail: (i: string) => `lockout:fail:${enc(i)}`,
+		attempt: (i: string) => `lockout:attempt:${enc(i)}`,
 		strike: (i: string) => `lockout:strike:${enc(i)}`,
 		lock: (i: string) => `lockout:lock:${enc(i)}`,
 		ipFail: (i: string, ip: string) => `lockout:ipfail:${enc(i)}:${ip}`,
@@ -187,7 +190,19 @@ export function createLoginLockout(
 			const accountUntil = await lockedUntil(keys.lock(identifier));
 			const ipUntil = ip ? await lockedUntil(keys.ipLock(identifier, ip)) : 0;
 			const until = Math.max(accountUntil, ipUntil);
-			if (until <= now) return { locked: false, retryAfterSeconds: 0 };
+			if (until <= now) {
+				// Reserve an attempt slot BEFORE the password is checked (atomic incr), so a parallel burst
+				// cannot all pass the check. `recordSuccess` refunds it; a failure keeps it.
+				const slot = await storage.incr(keys.attempt(identifier), failureWindow);
+				if (slot.count > maxFailures) {
+					return {
+						locked: true,
+						retryAfterSeconds: Math.max(1, Math.ceil((slot.expiresAt - now) / 1000)),
+						reason: "account",
+					};
+				}
+				return { locked: false, retryAfterSeconds: 0 };
+			}
 			return {
 				locked: true,
 				retryAfterSeconds: Math.max(1, Math.ceil((until - now) / 1000)),
@@ -204,12 +219,14 @@ export function createLoginLockout(
 		try {
 			const now = Date.now();
 			const acct = await storage.incr(keys.fail(identifier), failureWindow);
-			if (acct.count >= maxFailures) {
+			// Exactly one concurrent failure crosses the threshold, so a lock and its strike are set once.
+			if (acct.count === maxFailures) {
 				const strike = await storage.incr(keys.strike(identifier), strikeWindow);
 				const seconds = Math.min(lockSeconds * 2 ** Math.min(strike.count - 1, 30), maxLockSeconds);
 				const until = now + seconds * 1000;
 				// Reset the counter so the next window starts clean once the lock lapses.
 				await storage.delete(keys.fail(identifier));
+				await storage.delete(keys.attempt(identifier));
 				await storage.set(keys.lock(identifier), String(until), seconds);
 				await notify({
 					identifier,
@@ -248,6 +265,7 @@ export function createLoginLockout(
 	async function recordSuccess(identifier: string, ip: string | null): Promise<void> {
 		try {
 			await storage.delete(keys.fail(identifier));
+			await storage.delete(keys.attempt(identifier));
 			await storage.delete(keys.strike(identifier));
 			if (ip) {
 				await storage.delete(keys.ipFail(identifier, ip));
@@ -261,6 +279,7 @@ export function createLoginLockout(
 	async function unlock(identifier: string): Promise<void> {
 		await storage.delete(keys.lock(identifier));
 		await storage.delete(keys.fail(identifier));
+		await storage.delete(keys.attempt(identifier));
 		await storage.delete(keys.strike(identifier));
 		if (!storage.list) return;
 		for (const prefix of [

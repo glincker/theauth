@@ -19,7 +19,7 @@ export interface AdapterRateLimitOptions {
 	skip?: (request: Request, relativePath: string) => boolean;
 	/** What to do when the shared counter store errors. `false` (default) lets the request through so a store outage never takes sign-in and sign-up down. `true` refuses it with a 503, so an attacker cannot disable throttling by breaking the store. Only applies when a secondary store is in use; the in-process limiter cannot fail. */
 	failClosed?: boolean;
-	/** Replace the default client key (the client IP, or a credential digest when the IP is unknown). Return null to fall back to the default for a request. */
+	/** Replace the default client key (the client IP, or one of three fixed fallback buckets when the IP is unknown: anonymous, cookie, authorization). Without `trustedProxy` or this option limits are NOT per client. Return null to fall back to the default for a request. */
 	key?: (request: Request) => string | null;
 }
 
@@ -30,7 +30,7 @@ export interface AdapterAdmitOptions {
 	trustedOrigins?: string[];
 	/** `false` turns the cross-site check off. */
 	csrf?: boolean;
-	/** Receives the startup warning that rate limiting fails open (sign-in and sign-up included) when the counter store errors. */
+	/** Receives the warning that rate limiting fails open when the counter store errors, and the one-time warning on the first request whose client IP is unknown. */
 	logger?: Pick<TheAuthLogger, "warn">;
 }
 
@@ -56,23 +56,22 @@ function tierOf(method: string, path: string): Tier {
 	return SAFE_METHODS.has(method) ? "read" : "mutation";
 }
 
-/** Short non-cryptographic digest so raw credentials never sit in the limiter map. */
-function digest(value: string): string {
-	let h = 0x811c9dc5;
-	for (let i = 0; i < value.length; i++) {
-		h ^= value.charCodeAt(i);
-		h = Math.imul(h, 0x01000193);
-	}
-	return (h >>> 0).toString(36);
-}
-
-function bucketKey(request: Request, proxy: TrustedProxyConfig | undefined): string {
+/**
+ * Bucket for a client whose IP is unknown. Low cardinality on purpose: only the KIND of credential is
+ * used, never its value, so a random Cookie or Authorization header cannot mint a new bucket per request.
+ * Per-client limits need a trusted proxy setting or a `key` function (see `rateLimit.key`).
+ */
+function bucketKey(
+	request: Request,
+	proxy: TrustedProxyConfig | undefined,
+	onUnknown: () => void,
+): string {
 	const ip = resolveRequestIp(request, proxy);
 	if (ip) return `ip:${ip}`;
-	// Without a trusted proxy setting the IP is unknown. Split callers by their
-	// credential so one noisy client does not exhaust a shared bucket.
-	const cred = request.headers.get("authorization") ?? request.headers.get("cookie");
-	return cred ? `cred:${digest(cred)}` : "unknown";
+	onUnknown();
+	if (request.headers.get("authorization")) return "unknown:authorization";
+	if (request.headers.get("cookie")) return "unknown:cookie";
+	return "unknown:anonymous";
 }
 
 function originOf(value: string): string | null {
@@ -146,6 +145,16 @@ export function createAdapterAdmission(
 		);
 	}
 
+	let warnedUnknownIp = false;
+	const onUnknownIp = (): void => {
+		if (warnedUnknownIp) return;
+		warnedUnknownIp = true;
+		options?.logger?.warn(
+			"adapter rate limiting cannot see the client IP: requests share a few fallback buckets (anonymous, cookie, authorization) instead of per-client limits. Set trustedProxy or pass rateLimit.key (a getClientIp style function) for per-client limits.",
+			{ source: "adapter-admit", check: "unknown-client-ip" },
+		);
+	};
+
 	const customKey = limits?.key;
 	const skip = limits?.skip;
 
@@ -182,7 +191,7 @@ export function createAdapterAdmission(
 		async admit(request, relativePath) {
 			const tier = tierOf(request.method.toUpperCase(), relativePath);
 			const skipped = skip?.(request, relativePath) === true;
-			const key = customKey?.(request) ?? bucketKey(request, proxy);
+			const key = customKey?.(request) ?? bucketKey(request, proxy, onUnknownIp);
 			const limited = skipped ? null : await overLimit(tier, key);
 			if (limited) return limited;
 			return csrf ? crossSiteDenial(request, trusted) : null;

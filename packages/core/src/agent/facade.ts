@@ -54,9 +54,30 @@ export function createAgentFacade(deps: AgentFacadeDeps) {
 			return agentModule.rotate(...args);
 		},
 
+		/**
+		 * Runs the `beforeAgentCreate` policy on the agent as it would look after the update,
+		 * with the same fail closed handling as create, so an update can never grant what a
+		 * create would have been refused (for example widening a compliant agent to `*`).
+		 */
+		async update(...args: Parameters<AgentModule["update"]>): ReturnType<AgentModule["update"]> {
+			const [agentId, input] = args;
+			const existing = await agentModule.get(agentId);
+			if (!existing) throw new Error(`Agent ${agentId} not found.`);
+			const expiresAt = input.expiresAt ?? existing.expiresAt ?? undefined;
+			await guardAgentCreate({
+				ownerId: existing.ownerId,
+				...(existing.tenantId !== undefined && { tenantId: existing.tenantId }),
+				name: input.name ?? existing.name,
+				type: existing.type,
+				permissions: input.permissions ?? existing.permissions,
+				...(expiresAt && { expiresAt }),
+				...(input.metadata !== undefined && { metadata: input.metadata }),
+			});
+			return agentModule.update(agentId, input);
+		},
+
 		get: agentModule.get,
 		list: agentModule.list,
-		update: agentModule.update,
 		validateToken: agentModule.validateToken,
 	};
 
@@ -65,6 +86,11 @@ export function createAgentFacade(deps: AgentFacadeDeps) {
 		if (!parentAgent) throw new Error(`Parent agent "${input.fromAgent}" not found`);
 		if (parentAgent.status !== "active") {
 			throw new Error(`Parent agent "${parentAgent.name}" is ${parentAgent.status}`);
+		}
+		const childAgent = await agentModule.get(input.toAgent);
+		if (!childAgent) throw new Error(`Target agent "${input.toAgent}" not found`);
+		if (childAgent.status !== "active") {
+			throw new Error(`Target agent "${childAgent.name}" is ${childAgent.status}`);
 		}
 		return delegationModule.delegate(input);
 	}

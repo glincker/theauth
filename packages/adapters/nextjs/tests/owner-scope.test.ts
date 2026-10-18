@@ -137,9 +137,21 @@ describe("nextjs adapter owner scope with the default guard", () => {
 			...body,
 		});
 		expect(bad.status).toBe(404);
-		const good = await w.call(h, "u1", "POST", "/delegations", {
+		const own = await w.auth.agent.create({
+			ownerId: "u1",
+			name: "a3",
+			type: "autonomous",
+			permissions: READ_DOCS,
+		});
+		const foreignTarget = await w.call(h, "u1", "POST", "/delegations", {
 			fromAgent: w.a1,
 			toAgent: w.a2,
+			...body,
+		});
+		expect(foreignTarget.status).toBe(404);
+		const good = await w.call(h, "u1", "POST", "/delegations", {
+			fromAgent: w.a1,
+			toAgent: own.id,
 			...body,
 		});
 		expect(good.status).toBe(201);

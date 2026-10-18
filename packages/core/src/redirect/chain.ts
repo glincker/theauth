@@ -48,8 +48,16 @@ export interface RedirectChainManager {
 	/** Captures the current request's URL as the origin destination. Call it in your auth middleware. */
 	capture(request: Request): string;
 
-	/** Pushes an intermediate step onto the chain, e.g. onboarding or email verification after sign-up. */
-	push(path: string, options?: { label?: string; query?: Record<string, string> }): string;
+	/**
+	 * Pushes an intermediate step onto the chain carried by `request`'s cookie (a fresh chain when it has none),
+	 * e.g. onboarding or email verification after sign-up. State comes only from that request, never from a
+	 * previous caller, so concurrent users cannot see each other's chain. Returns the Set-Cookie value.
+	 */
+	push(
+		request: Request,
+		path: string,
+		options?: { label?: string; query?: Record<string, string> },
+	): string;
 
 	/** Pops the next destination from the chain. */
 	pop(request: Request): { url: string; done: boolean; clearCookie: string | null };
@@ -189,10 +197,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		domain: config?.cookie?.domain,
 	};
 
-	// Internal state held in memory for push() which doesn't take a request.
-	// Updated on every parse/capture/push/pop call.
-	let currentState: RedirectChainState | null = null;
-
 	function buildCookieHeader(value: string, age: number): string {
 		return serializeCookie(cookieName, value, {
 			path: cookieOpts.path,
@@ -209,7 +213,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 	}
 
 	function serializeAndSetCookie(state: RedirectChainState): string {
-		currentState = state;
 		const encoded = encodeState(state);
 		return buildCookieHeader(encoded, maxAge);
 	}
@@ -224,7 +227,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		const elapsed = Date.now() - state.createdAt;
 		if (elapsed > maxAge * 1000) return null;
 
-		currentState = state;
 		return state;
 	}
 
@@ -301,36 +303,34 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 			return serializeAndSetCookie(state);
 		},
 
-		push(path: string, options?: { label?: string; query?: Record<string, string> }): string {
-			if (!currentState) {
-				currentState = {
-					origin: {
-						id: generateId(),
-						path: defaultPath,
-						query: {},
-						hash: "",
-						createdAt: Date.now(),
-					},
-					steps: [],
+		push(
+			request: Request,
+			path: string,
+			options?: { label?: string; query?: Record<string, string> },
+		): string {
+			const state: RedirectChainState = parseFromRequest(request) ?? {
+				origin: {
+					id: generateId(),
+					path: defaultPath,
+					query: {},
+					hash: "",
 					createdAt: Date.now(),
-				};
-			}
+				},
+				steps: [],
+				createdAt: Date.now(),
+			};
 
-			if (currentState.steps.length >= maxDepth) {
-				return serializeAndSetCookie(currentState);
-			}
+			if (state.steps.length >= maxDepth) return serializeAndSetCookie(state);
 
-			const entry: RedirectEntry = {
+			state.steps.push({
 				id: generateId(),
 				path,
 				query: options?.query ?? {},
 				hash: "",
 				createdAt: Date.now(),
 				label: options?.label,
-			};
-
-			currentState.steps.push(entry);
-			return serializeAndSetCookie(currentState);
+			});
+			return serializeAndSetCookie(state);
 		},
 
 		pop(request: Request): { url: string; done: boolean; clearCookie: string | null } {
@@ -343,15 +343,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 				const next = state.steps.shift() as RedirectEntry;
 				const url = buildUrlFromEntry(next);
 
-				if (state.steps.length === 0) {
-					currentState = state;
-					return {
-						url,
-						done: false,
-						clearCookie: null,
-					};
-				}
-
 				return {
 					url,
 					done: false,
@@ -360,7 +351,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 			}
 
 			const url = buildUrlFromEntry(state.origin);
-			currentState = null;
 			return {
 				url,
 				done: true,
@@ -393,7 +383,6 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		},
 
 		clear(): string {
-			currentState = null;
 			return buildClearCookie();
 		},
 

@@ -13,6 +13,8 @@ import type {
 	PasskeyModule,
 } from "./passkey-types.js";
 import { PasskeyError } from "./passkey-types.js";
+import type { ModuleRequestDeps } from "./request-user.js";
+import { authenticationRequired, requestUserId } from "./request-user.js";
 
 export type { PasskeyConfig, PasskeyCredential, PasskeyModule } from "./passkey-types.js";
 export { PASSKEY_ERROR, PasskeyError } from "./passkey-types.js";
@@ -21,7 +23,11 @@ const MAX_CHALLENGE_TIMEOUT = 300_000;
 
 const DEFAULT_CHALLENGE_TIMEOUT = 60_000;
 
-export function createPasskeyModule(config: PasskeyConfig, db: Database): PasskeyModule {
+export function createPasskeyModule(
+	config: PasskeyConfig,
+	db: Database,
+	deps: ModuleRequestDeps = {},
+): PasskeyModule {
 	const timeout = Math.min(
 		config.challengeTimeout ?? DEFAULT_CHALLENGE_TIMEOUT,
 		MAX_CHALLENGE_TIMEOUT,
@@ -95,12 +101,12 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			segments[2] === "register" &&
 			segments[3] === "options"
 		) {
+			// Registration binds a credential to the signed-in user, never to a body `userId`.
+			const userId = await requestUserId(request, deps.resolveUser);
+			if (!userId) return authenticationRequired();
 			const body = await parseBody(request);
-			const userId = typeof body.userId === "string" ? body.userId : null;
 			const userName = typeof body.userName === "string" ? body.userName : null;
-			if (!userId || !userName) {
-				return jsonResponse({ error: "userId and userName required" }, 400);
-			}
+			if (!userName) return jsonResponse({ error: "userName required" }, 400);
 			try {
 				const options = await getRegistrationOptions(userId, userName);
 				return jsonResponse(options);
@@ -118,9 +124,9 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			segments[2] === "register" &&
 			segments[3] === "verify"
 		) {
+			const userId = await requestUserId(request, deps.resolveUser);
+			if (!userId) return authenticationRequired();
 			const body = await parseBody(request);
-			const userId = typeof body.userId === "string" ? body.userId : null;
-			if (!userId) return jsonResponse({ error: "userId required" }, 400);
 
 			const resp = body.response as Parameters<PasskeyModule["verifyRegistration"]>[1] | undefined;
 			if (!resp) return jsonResponse({ error: "response required" }, 400);
@@ -183,8 +189,8 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			segments[1] === "passkey" &&
 			segments[2] === "credentials"
 		) {
-			const userId = url.searchParams.get("userId");
-			if (!userId) return jsonResponse({ error: "userId query param required" }, 400);
+			const userId = await requestUserId(request, deps.resolveUser);
+			if (!userId) return authenticationRequired();
 
 			try {
 				const creds = await listCredentials(userId);
@@ -204,9 +210,8 @@ export function createPasskeyModule(config: PasskeyConfig, db: Database): Passke
 			const credentialId = segments[3];
 			if (!credentialId) return jsonResponse({ error: "Credential ID required" }, 400);
 
-			const body = await parseBody(request);
-			const userId = typeof body.userId === "string" ? body.userId : null;
-			if (!userId) return jsonResponse({ error: "userId required" }, 400);
+			const userId = await requestUserId(request, deps.resolveUser);
+			if (!userId) return authenticationRequired();
 
 			try {
 				await removeCredential(credentialId, userId);

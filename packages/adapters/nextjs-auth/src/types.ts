@@ -28,7 +28,7 @@ export interface AuthCookieConfig {
 	 * Prod uses the __Host- variant of each name.
 	 */
 	sessionPrefix: string;
-	/** Override the refresh-token cookie name. Default: "{prefix}-refresh-token" */
+	/** Override the refresh-token cookie name. Default: "__Host-{prefix}-refresh-token", or "{prefix}-refresh-token" when `secure` is false (plain http localhost development). */
 	refresh: string;
 }
 

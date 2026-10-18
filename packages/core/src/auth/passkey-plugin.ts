@@ -45,7 +45,8 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 					}
 
 					const body = await parseBody(request);
-					const userId = typeof body.userId === "string" ? body.userId : user.id;
+					// Always the signed-in user: a body `userId` would bind a passkey to someone else.
+					const userId = user.id;
 					const userName =
 						typeof body.userName === "string" ? body.userName : (user.email ?? user.id);
 
@@ -78,7 +79,7 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 					}
 
 					const body = await parseBody(request);
-					const userId = typeof body.userId === "string" ? body.userId : user.id;
+					const userId = user.id;
 					const response = body.response as
 						| Parameters<typeof module.verifyRegistration>[1]
 						| undefined;

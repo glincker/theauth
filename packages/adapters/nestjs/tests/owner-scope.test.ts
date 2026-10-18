@@ -163,23 +163,36 @@ describe("nestjs adapter owner scope with the default guard", () => {
 		).toBe(404);
 		expect(
 			(await post("/delegations", { fromAgent: w.a1.id, toAgent: w.a2.id, ...delegate })).status,
+		).toBe(404);
+		const own = await w.auth.agent.create({
+			ownerId: "u1",
+			name: "a3",
+			type: "autonomous",
+			permissions: READ_DOCS,
+		});
+		expect(
+			(await post("/delegations", { fromAgent: w.a1.id, toAgent: own.id, ...delegate })).status,
 		).toBe(201);
 		expect((await get(`/delegations/${w.a2.id}`)).status).toBe(404);
 		expect((await get(`/delegations/${w.a1.id}`)).status).toBe(200);
 
 		const audit = await get("/audit");
-		expect(audit.body.data).toEqual([]);
+		const auditRows = audit.body.data as { userId: string }[];
+		expect(auditRows.every((r) => r.userId === "u1")).toBe(true);
 		expect((await get("/audit?userId=u2")).status).toBe(403);
 		expect((await get("/dashboard/audit?userId=u2")).status).toBe(403);
 		const exported = await get("/audit/export?format=json");
-		expect(JSON.parse(exported.text)).toEqual([]);
+		const exportedRows = JSON.parse(exported.text) as { userId: string }[];
+		expect(exportedRows.every((r) => r.userId === "u1")).toBe(true);
 
 		const stats = await get("/dashboard/stats");
-		expect(stats.body.data.agents.total).toBe(1);
+		expect(stats.body.data.agents.total).toBe(2);
 		expect(stats.body.data.users.total).toBe(1);
 		expect((await get("/dashboard/agents?userId=u2")).status).toBe(403);
 		const dash = await get("/dashboard/agents");
-		expect(dash.body.data.map((a: { id: string }) => a.id)).toEqual([w.a1.id]);
+		expect(dash.body.data.map((a: { id: string }) => a.id).sort()).toEqual(
+			[w.a1.id, own.id].sort(),
+		);
 	});
 
 	it("revokes only chains the caller owns", async () => {

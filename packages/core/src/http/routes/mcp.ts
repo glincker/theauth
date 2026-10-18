@@ -3,7 +3,15 @@ import {
 	applyMountedToServerMetadata,
 } from "../../mcp/metadata.js";
 import type { McpClientRegistrationRequest } from "../../mcp/types.js";
-import { mcpError, mcpNoStore, mcpOk, notFound, readJsonBody } from "../respond.js";
+import {
+	BodyTooLargeError,
+	mcpError,
+	mcpNoStore,
+	mcpOk,
+	notFound,
+	readBoundedText,
+	readJsonBody,
+} from "../respond.js";
 import type { HttpRoute, RouteContext } from "../types.js";
 
 const NOT_CONFIGURED = "MCP module not configured";
@@ -25,22 +33,28 @@ async function boundedFormRequest(ctx: RouteContext, formOnly: boolean): Promise
 	if (formOnly && !contentType.toLowerCase().includes(FORM_TYPE)) {
 		return refuse("invalid_request", `Content-Type must be ${FORM_TYPE}`, 400);
 	}
-	const declared = Number(request.headers.get("content-length"));
-	if (Number.isFinite(declared) && declared > maxBodyBytes) {
-		return refuse("invalid_request", "Request body is too large", 413);
-	}
 	let text: string;
 	try {
-		text = await request.text();
-	} catch {
+		text = await readBoundedText(request, maxBodyBytes);
+	} catch (err) {
+		if (err instanceof BodyTooLargeError) {
+			return refuse("invalid_request", "Request body is too large", 413);
+		}
 		return refuse("invalid_request", "Malformed request body", 400);
-	}
-	if (new TextEncoder().encode(text).length > maxBodyBytes) {
-		return refuse("invalid_request", "Request body is too large", 413);
 	}
 	const headers = new Headers(request.headers);
 	headers.delete("content-length");
 	return { ok: true, request: new Request(request.url, { method: "POST", headers, body: text }) };
+}
+
+/** Fixed-text 500: the original error goes to the observability logger, never to the caller. */
+function serverError(ctx: RouteContext, route: string, err: unknown, message: string): Response {
+	ctx.auth.observability.logger.error(`mcp ${route} failed`, {
+		source: "http",
+		route,
+		error: err instanceof Error ? err.message : String(err),
+	});
+	return mcpError("server_error", message, 500);
 }
 
 /** 401 for a failed client authentication, with the challenge RFC 6749 section 5.2 asks for. */
@@ -85,11 +99,7 @@ async function register(ctx: RouteContext): Promise<Response> {
 		if (!result.success) return mcpError("invalid_client_metadata", result.error.message, 400);
 		return mcpNoStore(result.data, 201);
 	} catch (err) {
-		return mcpError(
-			"server_error",
-			err instanceof Error ? err.message : "Registration failed",
-			500,
-		);
+		return serverError(ctx, "register", err, "Registration failed");
 	}
 }
 
@@ -113,11 +123,7 @@ async function authorize(ctx: RouteContext): Promise<Response> {
 		}
 		return Response.redirect(result.data.redirectUri, 302);
 	} catch (err) {
-		return mcpError(
-			"server_error",
-			err instanceof Error ? err.message : "Authorization failed",
-			500,
-		);
+		return serverError(ctx, "authorize", err, "Authorization failed");
 	}
 }
 
@@ -130,8 +136,10 @@ function withNonce(res: Response, details: Record<string, unknown> | undefined):
 async function token(ctx: RouteContext): Promise<Response> {
 	const mcp = ctx.mcp;
 	if (!mcp) return notFound(NOT_CONFIGURED);
+	const bounded = await boundedFormRequest(ctx, false);
+	if (!bounded.ok) return bounded.response;
 	try {
-		const result = await mcp.token(ctx.request);
+		const result = await mcp.token(bounded.request);
 		if (!result.success) {
 			const status = result.error.code === "INVALID_CLIENT" ? 401 : 400;
 			return withNonce(
@@ -144,13 +152,10 @@ async function token(ctx: RouteContext): Promise<Response> {
 		}
 		return mcpNoStore(result.data);
 	} catch (err) {
-		return mcpNoStore(
-			{
-				error: "server_error",
-				error_description: err instanceof Error ? err.message : "Token exchange failed",
-			},
-			500,
-		);
+		const res = serverError(ctx, "token", err, "Token exchange failed");
+		res.headers.set("Cache-Control", "no-store");
+		res.headers.set("Pragma", "no-cache");
+		return res;
 	}
 }
 
@@ -234,7 +239,7 @@ async function jwks(ctx: RouteContext): Promise<Response> {
 	try {
 		return mcpOk(await mcp.getJwks(), 200, { "Cache-Control": "public, max-age=300" });
 	} catch (err) {
-		return mcpError("server_error", err instanceof Error ? err.message : "JWKS unavailable", 500);
+		return serverError(ctx, "jwks", err, "JWKS unavailable");
 	}
 }
 

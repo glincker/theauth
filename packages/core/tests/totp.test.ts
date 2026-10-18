@@ -394,7 +394,13 @@ describe("createTotpModule: handleRequest", () => {
 
 	beforeEach(async () => {
 		db = await createTestDb();
-		totp = createTotpModule({}, db);
+		// The test resolver treats an x-user header as the signed-in user.
+		totp = createTotpModule({}, db, {
+			resolveUser: async (r) => {
+				const id = r.headers.get("x-user");
+				return id ? { id } : null;
+			},
+		});
 	});
 
 	it("returns null for unrecognised paths", async () => {
@@ -412,8 +418,8 @@ describe("createTotpModule: handleRequest", () => {
 	it("POST /auth/2fa/setup returns setup data", async () => {
 		const request = new Request("http://localhost/auth/2fa/setup", {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ userId: TEST_USER_ID }),
+			headers: { "Content-Type": "application/json", "x-user": TEST_USER_ID },
+			body: JSON.stringify({}),
 		});
 		const response = await totp.handleRequest(request);
 		expect(response).not.toBeNull();
@@ -424,14 +430,15 @@ describe("createTotpModule: handleRequest", () => {
 		expect(body.backupCodes).toHaveLength(10);
 	});
 
-	it("POST /auth/2fa/setup returns 400 when userId is missing", async () => {
+	it("POST /auth/2fa/setup returns 401 with no signed-in user, even with a body userId", async () => {
 		const request = new Request("http://localhost/auth/2fa/setup", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({}),
+			body: JSON.stringify({ userId: TEST_USER_ID }),
 		});
 		const response = await totp.handleRequest(request);
-		expect(response?.status).toBe(400);
+		expect(response?.status).toBe(401);
+		expect(await totp.isEnabled(TEST_USER_ID)).toBe(false);
 	});
 
 	it("POST /auth/2fa/enable enables 2FA via HTTP", async () => {
@@ -439,8 +446,8 @@ describe("createTotpModule: handleRequest", () => {
 		const code = generateTestTotp(secret);
 		const request = new Request("http://localhost/auth/2fa/enable", {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ userId: TEST_USER_ID, code }),
+			headers: { "Content-Type": "application/json", "x-user": TEST_USER_ID },
+			body: JSON.stringify({ code }),
 		});
 		const response = await totp.handleRequest(request);
 		expect(response?.status).toBe(200);
@@ -456,8 +463,8 @@ describe("createTotpModule: handleRequest", () => {
 		const verifyCode = generateTestTotp(secret);
 		const request = new Request("http://localhost/auth/2fa/verify", {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ userId: TEST_USER_ID, code: verifyCode }),
+			headers: { "Content-Type": "application/json", "x-user": TEST_USER_ID },
+			body: JSON.stringify({ code: verifyCode }),
 		});
 		const response = await totp.handleRequest(request);
 		expect(response?.status).toBe(200);

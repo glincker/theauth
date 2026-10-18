@@ -16,6 +16,9 @@ export interface TheAuthNestjsOptions extends TheAuthHandlerOptions {
 
 export type TheAuthMiddleware = (req: Request, res: Response, next: NextFunction) => Promise<void>;
 
+/** Upper bound on distinct mount points served by one adapter instance. */
+const MAX_MOUNTS = 32;
+
 const FORM_TYPE = /^application\/x-www-form-urlencoded/i;
 
 /** Express `urlencoded()` leaves an object behind; the web layer needs the encoded string back. */
@@ -32,17 +35,24 @@ export function theAuthMiddleware(options: TheAuthNestjsOptions): TheAuthMiddlew
 	// Built now so an unsafe config fails at startup. Used when mounted at the root.
 	const handlers = new Map<string, TheAuthHandler>([
 		[
-			options.basePath ?? "",
+			(options.basePath ?? "").toLowerCase(),
 			createTheAuthHandler(theauth, { ...handlerOptions, basePath: options.basePath ?? "" }),
 		],
 	]);
 	return async (req, res, next) => {
 		try {
 			const mount = options.basePath ?? req.baseUrl;
-			let handler = handlers.get(mount);
+			// Key on the lowercased mount: Express matches mounts case-insensitively, so every spelling of
+			// the same mount must share one handler. The cache is also bounded, never grown by request data.
+			const key = mount.toLowerCase();
+			let handler = handlers.get(key);
 			if (!handler) {
+				if (handlers.size >= MAX_MOUNTS) {
+					res.status(404).json({ error: { code: "NOT_FOUND", message: "Not found" } });
+					return;
+				}
 				handler = createTheAuthHandler(theauth, { ...handlerOptions, basePath: mount });
-				handlers.set(mount, handler);
+				handlers.set(key, handler);
 			}
 			restoreFormBody(req);
 			const web = await toWebRequest(req, {

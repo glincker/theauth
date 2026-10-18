@@ -12,6 +12,9 @@ import { Router } from "express";
 /** Options for {@link theAuthExpress}: the core handler options. `basePath` defaults to where the router is mounted. */
 export type TheAuthExpressOptions = TheAuthHandlerOptions;
 
+/** Upper bound on distinct mount points served by one adapter instance. */
+const MAX_MOUNTS = 32;
+
 const FORM_TYPE = /^application\/x-www-form-urlencoded/i;
 
 /** Express `urlencoded()` leaves an object behind; the web layer needs the encoded string back. */
@@ -31,17 +34,24 @@ export function theAuthExpress(auth: TheAuth, options?: TheAuthExpressOptions): 
 	// Built now so an unsafe config fails at startup. Used when the router is mounted at the root.
 	const handlers = new Map<string, TheAuthHandler>([
 		[
-			options?.basePath ?? "",
+			(options?.basePath ?? "").toLowerCase(),
 			createTheAuthHandler(auth, { ...options, basePath: options?.basePath ?? "" }),
 		],
 	]);
 	const handle: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const mount = options?.basePath ?? req.baseUrl;
-			let handler = handlers.get(mount);
+			// Key on the lowercased mount: Express matches mounts case-insensitively, so every spelling of
+			// the same mount must share one handler. The cache is also bounded, never grown by request data.
+			const key = mount.toLowerCase();
+			let handler = handlers.get(key);
 			if (!handler) {
+				if (handlers.size >= MAX_MOUNTS) {
+					res.status(404).json({ error: { code: "NOT_FOUND", message: "Not found" } });
+					return;
+				}
 				handler = createTheAuthHandler(auth, { ...options, basePath: mount });
-				handlers.set(mount, handler);
+				handlers.set(key, handler);
 			}
 			restoreFormBody(req);
 			const web = await toWebRequest(req, {

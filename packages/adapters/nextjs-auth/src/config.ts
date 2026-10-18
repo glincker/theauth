@@ -54,7 +54,13 @@ export function createAuthConfig<TUser = DefaultUser>(
 	const useHostPrefix = secure && isProd;
 
 	const sessionPrefix = input.cookies?.sessionPrefix ?? "glinr";
-	const refreshCookieName = input.cookies?.refresh ?? `${sessionPrefix}-refresh-token`;
+	// The refresh cookie is the most valuable one and is the credential the middleware trusts when no
+	// access token is present, so it gets `__Host-` (Secure, Path=/, no Domain) whenever `secure` is on,
+	// independent of `isProd`. A sibling subdomain cannot set or overwrite a `__Host-` cookie.
+	// `secure: false` (plain http localhost development) is the only way to the unprefixed name.
+	const refreshCookieName =
+		input.cookies?.refresh ??
+		(secure ? `__Host-${sessionPrefix}-refresh-token` : `${sessionPrefix}-refresh-token`);
 
 	const sessionName = useHostPrefix ? `__Host-${sessionPrefix}-token` : `${sessionPrefix}-token`;
 	const csrfName = useHostPrefix ? `__Host-${sessionPrefix}-csrf` : `${sessionPrefix}-csrf`;

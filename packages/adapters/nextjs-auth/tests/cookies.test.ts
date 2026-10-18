@@ -38,8 +38,28 @@ describe("createAuthConfig: cookie name resolution", () => {
 		});
 		expect(config.cookies.sessionName).toBe("__Host-myapp-token");
 		expect(config.cookies.csrfName).toBe("__Host-myapp-csrf");
-		expect(config.cookies.refresh).toBe("myapp-refresh-token");
+		expect(config.cookies.refresh).toBe("__Host-myapp-refresh-token");
 		expect(config.cookies.cacheName).toBe("__Host-myapp-session-cache");
+	});
+
+	it("uses the __Host- refresh cookie by default, even outside production", () => {
+		const config = createAuthConfig({
+			secret: TEST_SECRET,
+			backendUrl: "https://api.example.com",
+			appUrl: "https://example.com",
+			isProd: false,
+		});
+		expect(config.cookies.refresh).toBe("__Host-glinr-refresh-token");
+	});
+
+	it("drops the __Host- refresh prefix only when secure is false (plain http localhost)", () => {
+		const config = createAuthConfig({
+			secret: TEST_SECRET,
+			backendUrl: "http://localhost:3001",
+			appUrl: "http://localhost:3000",
+			secure: false,
+		});
+		expect(config.cookies.refresh).toBe("glinr-refresh-token");
 	});
 
 	it("allows custom refresh cookie name override", () => {

@@ -69,19 +69,51 @@ export function failure(err: unknown, fallback: string): Response {
 
 type BodyResult = { ok: true; data: unknown } | { ok: false; response: Response };
 
-/** Read a JSON body, refusing anything over `maxBytes`. */
-export async function readJsonBody(request: Request, maxBytes: number): Promise<BodyResult> {
+/** Thrown by `readBoundedText` when the body exceeds the cap. */
+export class BodyTooLargeError extends Error {
+	constructor() {
+		super("Request body is too large");
+		this.name = "BodyTooLargeError";
+	}
+}
+
+/**
+ * Read a request body as text while STREAMING: refuse up front on a Content-Length over the cap, and cancel the
+ * reader as soon as the running total passes it, so a chunked body never gets buffered past `maxBytes`.
+ */
+export async function readBoundedText(request: Request, maxBytes: number): Promise<string> {
 	const declared = Number(request.headers.get("content-length"));
-	const tooLarge = (): BodyResult => ({
-		ok: false,
-		response: errorResponse("PAYLOAD_TOO_LARGE", "Request body is too large", 413),
-	});
-	if (Number.isFinite(declared) && declared > maxBytes) return tooLarge();
+	if (Number.isFinite(declared) && declared > maxBytes) throw new BodyTooLargeError();
+	if (!request.body) return "";
+	const reader = request.body.getReader();
+	const decoder = new TextDecoder();
+	let total = 0;
+	let text = "";
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		total += value.byteLength;
+		if (total > maxBytes) {
+			await reader.cancel().catch(() => undefined);
+			throw new BodyTooLargeError();
+		}
+		text += decoder.decode(value, { stream: true });
+	}
+	return text + decoder.decode();
+}
+
+/** Read a JSON body, refusing anything over `maxBytes` (enforced while streaming). */
+export async function readJsonBody(request: Request, maxBytes: number): Promise<BodyResult> {
 	try {
-		const text = await request.text();
-		if (new TextEncoder().encode(text).length > maxBytes) return tooLarge();
+		const text = await readBoundedText(request, maxBytes);
 		return { ok: true, data: JSON.parse(text) as unknown };
-	} catch {
+	} catch (err) {
+		if (err instanceof BodyTooLargeError) {
+			return {
+				ok: false,
+				response: errorResponse("PAYLOAD_TOO_LARGE", "Request body is too large", 413),
+			};
+		}
 		return { ok: false, response: badRequest("Invalid JSON body") };
 	}
 }
