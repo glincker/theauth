@@ -58,8 +58,6 @@ async function setup() {
 	return { theauth, agent, events, needed, open };
 }
 
-const flush = () => new Promise((r) => setTimeout(r, 10));
-
 afterEach(() => vi.unstubAllGlobals());
 
 describe("approval lifecycle", () => {
@@ -164,7 +162,10 @@ describe("approval lifecycle", () => {
 		await theauth.approval.approve(a.id, "user-1");
 		const b = await open();
 		await theauth.approval.deny(b.id, "user-1");
-		await flush();
+		// Decision events fire off the request path, so wait until all four have arrived.
+		await vi.waitFor(() => expect(events.filter((e) => e.source === "approval")).toHaveLength(4), {
+			timeout: 3000,
+		});
 		const approval = events.filter((e) => e.source === "approval");
 		expect(approval.map((e) => e.code)).toEqual([
 			"approval_pending",

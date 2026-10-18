@@ -1,6 +1,6 @@
 /** Input provenance capture (hash only), the provenance filter, and rotating pseudonyms. */
 import { eq } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { guardTool } from "../src/agent-tools/guard.js";
 import { createAuditModule } from "../src/audit/audit.js";
 import {
@@ -20,7 +20,7 @@ import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
 import { agents, auditLogs, auditSecrets, users } from "../src/db/schema.js";
-import { auditRows, makeTheAuth, newAgent, pause, READ_GITHUB } from "./hook-test-utils.js";
+import { auditRows, makeTheAuth, newAgent, READ_GITHUB } from "./hook-test-utils.js";
 
 const KEY = "prov-key";
 const DAY = 24 * 60 * 60 * 1000;
@@ -185,7 +185,10 @@ describe("input provenance capture", () => {
 			},
 		});
 		expect(d.allowed).toBe(true);
-		await pause(30);
+		// The audit write runs off the request path, so wait for the row instead of guessing a delay.
+		await vi.waitFor(async () => expect(await auditRows(theauth, agent.id)).toHaveLength(1), {
+			timeout: 3000,
+		});
 		const [r] = await auditRows(theauth, agent.id);
 		const prov = r?.inputProvenance as { labels: unknown; sources: { kind: string }[] };
 		expect(prov.labels).toEqual({ "*": ["untrusted_web"] });
@@ -205,7 +208,10 @@ describe("input provenance capture", () => {
 			{ execute: async (args: { q: string }) => args.q },
 		);
 		await tool.execute({ q: "private question" });
-		await pause(30);
+		// The audit write runs off the request path, so wait for the row instead of guessing a delay.
+		await vi.waitFor(async () => expect(await auditRows(theauth, agent.id)).toHaveLength(1), {
+			timeout: 3000,
+		});
 		const [r] = await auditRows(theauth, agent.id);
 		expect(JSON.stringify(r?.inputProvenance)).not.toContain("private question");
 		const found = await theauth.audit.query({
