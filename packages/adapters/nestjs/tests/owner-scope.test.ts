@@ -79,7 +79,7 @@ async function makeWorld(
 				return { forRoutes: () => consumer };
 			},
 		};
-		const moduleOptions: TheAuthModuleOptions = { theauth: auth, ...options };
+		const moduleOptions: TheAuthModuleOptions = { theauth: auth, basePath: BASE, ...options };
 		new TheAuthModule(moduleOptions).configure(consumer as never);
 		if (!captured) throw new Error("module did not register middleware");
 		const mw = captured;

@@ -40,6 +40,34 @@ const handlers = theAuthTanStack(theauth, { authenticate, trustedProxy: { truste
 
 On Cloudflare use `trustedHeader: "cf-connecting-ip"`. Only trust a header your edge overwrites.
 
+## Options
+
+`theAuthTanStack(theauth, options?)` takes the same options as the core handler (`createTheAuthHandler` from `@glinr/theauth/http`), so they are identical on every adapter:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `mcp` | `McpAuthModule` | Enables the MCP OAuth 2.1 endpoints |
+| `basePath` | `string` | URL prefix before the catch-all segment. Defaults to `/api/theauth` |
+| `routes` | `{ management?, mcp?, plugins?, explain? }` | Turn route groups off. `mcp` also takes `{ register, authorize, token, revoke, jwks }` booleans |
+| `maxBodyBytes` | `number` | Largest request body, default 1 MiB (413 above it) |
+| `authenticate`, `allowUnauthenticated`, `trustedProxy`, `rateLimit`, `trustedOrigins`, `csrf` | | Shared security options |
+
+Every route and status code is listed on the [route reference](https://docs.theauth.dev/adapters/routes).
+
+## Protect a route with `requireScope`
+
+```typescript
+import { requireScope } from '@glinr/theauth-tanstack';
+
+GET: requireScope(
+  theauth,
+  { action: 'read', resource: 'invoices' },
+  (event, agent) => Response.json({ agent: agent.id }),
+),
+```
+
+`requireScope(theauth, { action, resource }, handler)` reads the agent bearer token and checks it may perform the action. It answers 401 (`invalid_token`, `agent_not_found`, `agent_revoked`, `agent_expired`) or 403 (any other denial) with body `{ "error": { "code", "message" } }`, and otherwise passes the agent (without its token) on via the second argument (and `context.agent` when the route context has one). Pass `clientIp` to feed `ipAllowlist` constraints.
+
 ## Docs
 
 [docs.theauth.dev/adapters/tanstack](https://docs.theauth.dev/adapters/tanstack)

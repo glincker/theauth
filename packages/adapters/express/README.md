@@ -58,6 +58,8 @@ When `mcp` is provided, the OAuth 2.1 endpoints are enabled:
 - `POST /mcp/register`
 - `GET /mcp/authorize`
 - `POST /mcp/token`
+- `POST /mcp/revoke`
+- `GET /mcp/jwks`
 
 ## Management routes and client IP
 
@@ -69,17 +71,23 @@ The adapter does not read forwarded headers for the client IP. Behind a proxy, s
 app.use("/api/theauth", theAuthExpress(theauth, { authenticate, trustedProxy: { trustedProxyCount: 1 } }));
 ```
 
-On Cloudflare use `trustedHeader: "cf-connecting-ip"`. Only trust a header your edge overwrites. Without `trustedProxy` the adapter uses `req.ip`, which is the socket peer unless your server framework is configured to trust the proxy.
+On Cloudflare use `trustedHeader: "cf-connecting-ip"`. Only trust a header your edge overwrites.
 
-## API surface
+## Options and routes
 
-`theAuthExpress(theauth, options?)` returns an Express `Router`. Pass it to `app.use()` with your chosen prefix.
+The adapter is a thin wrapper around `createTheAuthHandler` from `@glinr/theauth/http`, so it serves the same routes with the same status codes as every other adapter. See the [route reference](https://docs.theauth.dev/adapters/routes).
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `mcp` | `McpAuthModule` | Enables MCP OAuth 2.1 endpoints |
+| Option | Description |
+|--------|-------------|
+| `mcp` | `McpAuthModule`. Enables the MCP OAuth 2.1 endpoints (register, authorize, token, revoke, jwks, and the two well-known documents) |
+| `basePath` | URL prefix the handler is mounted under. Defaults to where you mount the router. |
+| `routes` | Turn route groups off: `management`, `mcp`, `plugins`, `explain` |
+| `maxBodyBytes` | Largest accepted body. Default 1 MiB, larger gets 413 |
+| `authenticate`, `allowUnauthenticated`, `trustedProxy`, `rateLimit`, `trustedOrigins`, `csrf` | Shared security options |
 
-For full docs on agent identity, permissions, delegation, and audit, see the main [@glinr/theauth](https://www.npmjs.com/package/@glinr/theauth) package.
+### Upgrading to 2.0
+
+Options are the core handler options, and the deprecated aliases are gone. See the changeset notes in the changelog.
 
 ## Links
 
@@ -101,7 +109,7 @@ app.get("/invoices", requireScope(theauth, { action: "read", resource: "invoices
 });
 ```
 
-Missing or invalid bearer token returns 401, a denied scope returns 403 with the reason. See the [requireScope guide](https://docs.theauth.dev/require-scope).
+Missing or invalid bearer token returns 401, a denied scope returns 403. The body is `{ "error": { "code", "message" } }` where `code` is the decision code (for example `no_permission`). See the [requireScope guide](https://docs.theauth.dev/require-scope).
 
 ## Learn more
 

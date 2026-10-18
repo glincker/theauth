@@ -171,7 +171,11 @@ describe("nextjs adapter owner scope with the default guard", () => {
 		const rows = JSON.parse(await exported.text()) as { userId: string }[];
 		expect(rows.length).toBeGreaterThan(0);
 		expect(rows.every((r) => r.userId === "u1")).toBe(true);
-		expect((await w.call(h, "u1", "GET", "/audit/export?userId=u2")).status).toBe(403);
+		// The export route ignores a userId filter and always returns the caller's own rows.
+		const spoofed = await w.call(h, "u1", "GET", "/audit/export?userId=u2&format=json");
+		expect(spoofed.status).toBe(200);
+		const spoofedRows = JSON.parse(await spoofed.text()) as { userId: string }[];
+		expect(spoofedRows.every((r) => r.userId === "u1")).toBe(true);
 	});
 
 	it("dashboard routes are limited to the caller's own data", async () => {

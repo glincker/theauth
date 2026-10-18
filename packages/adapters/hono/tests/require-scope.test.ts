@@ -68,7 +68,7 @@ describe("requireScope (hono)", () => {
 		const res = await app.request("/w", { headers: { Authorization: `Bearer ${token}` } });
 		expect(res.status).toBe(403);
 		const body = (await res.json()) as { error: { code: string; message: string } };
-		expect(body.error.code).toBe("FORBIDDEN");
+		expect(body.error.code).toBe("no_permission");
 		expect(body.error.message.length).toBeGreaterThan(0);
 	});
 

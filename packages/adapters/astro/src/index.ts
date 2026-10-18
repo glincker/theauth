@@ -1,7 +1,4 @@
-export type {
-	AuthAstroHandlers,
-	AuthAstroOptions,
-	TheAuthAstroHandlers,
-	TheAuthAstroOptions,
-} from "./adapter.js";
-export { authAstro, theAuthAstro } from "./adapter.js";
+export type { TheAuthAstroHandlers, TheAuthAstroOptions } from "./adapter.js";
+export { theAuthAstro } from "./adapter.js";
+export type { AgentLocals, AuthenticatedAgent, RequireScopeOptions } from "./require-scope.js";
+export { requireScope } from "./require-scope.js";

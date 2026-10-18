@@ -121,7 +121,7 @@ describe("SolidStart adapter", () => {
 				body: JSON.stringify({ action: "read", resource: "mcp:github" }),
 			}),
 		);
-		expect(denyRes.status).toBe(403);
+		expect(denyRes.status).toBe(401); // revoked agent: identity failure, 401 on every adapter
 		const denyBody = (await denyRes.json()) as { data: { allowed: boolean; reason: string } };
 		expect(denyBody.data.allowed).toBe(false);
 		expect(denyBody.data.reason).toContain("Invalid or expired");

@@ -1,76 +1,46 @@
-import type { AdapterSecurityOptions, TheAuth } from "@glinr/theauth";
-import { createAdapterGuard } from "@glinr/theauth";
-import type { McpAuthModule } from "@glinr/theauth/mcp";
-import { dispatch } from "./dispatch.js";
+import type { TheAuth } from "@glinr/theauth";
+import type { TheAuthHandlerOptions } from "@glinr/theauth/http";
+import { createTheAuthHandler } from "@glinr/theauth/http";
 
-export interface TheAuthTanStackOptions extends AdapterSecurityOptions {
-	mcp?: McpAuthModule;
-	/** URL path prefix before the `$` splat segment. Defaults to `/api/theauth`. */
-	basePath?: string;
+/** Same options as the core handler: `mcp`, `basePath`, `routes`, `maxBodyBytes` plus the shared security options. */
+export type TheAuthTanStackOptions = TheAuthHandlerOptions;
+
+/** What a TanStack route receives: the server route context (has `request`), or a bare `Request`. */
+export interface TanStackEventLike {
+	request: Request;
+	context?: Record<string, unknown>;
 }
+export type TanStackInput = Request | TanStackEventLike;
+
+export type TanStackRouteHandler = (input: TanStackInput) => Promise<Response>;
 
 export interface TheAuthTanStackHandlers {
-	GET: (request: Request) => Promise<Response>;
-	POST: (request: Request) => Promise<Response>;
-	PATCH: (request: Request) => Promise<Response>;
-	DELETE: (request: Request) => Promise<Response>;
-	OPTIONS: (request: Request) => Promise<Response>;
+	GET: TanStackRouteHandler;
+	POST: TanStackRouteHandler;
+	PATCH: TanStackRouteHandler;
+	DELETE: TanStackRouteHandler;
+	OPTIONS: TanStackRouteHandler;
 }
 
-/** @deprecated Use `TheAuthTanStackOptions` instead. Will be removed in a future major version. */
-export type AuthTanStackOptions = TheAuthTanStackOptions;
-
-/** @deprecated Use `TheAuthTanStackHandlers` instead. Will be removed in a future major version. */
-export type AuthTanStackHandlers = TheAuthTanStackHandlers;
+/** The Request inside a TanStack event, or the Request itself. */
+export function requestOf(input: TanStackInput): Request {
+	return input instanceof Request ? input : input.request;
+}
 
 /**
- * Create TanStack Start API route handlers for all TheAuth REST API routes.
- *
- * Mount in `app/routes/api/auth.$.ts`:
+ * Create TanStack API route handlers for all TheAuth REST API routes.
+ * Mount in `src/routes/api/theauth/[...auth].ts`:
  *
  * @example
  * ```typescript
- * import { createTheAuth } from '@glinr/theauth';
- * import { theAuthTanStack } from '@glinr/theauth-tanstack';
- *
- * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
- * const handlers = theAuthTanStack(auth);
- *
- * export const GET = handlers.GET;
- * export const POST = handlers.POST;
- * export const PATCH = handlers.PATCH;
- * export const DELETE = handlers.DELETE;
- * export const OPTIONS = handlers.OPTIONS;
- * ```
- *
- * With MCP OAuth 2.1:
- * ```typescript
- * import { createMcpModule } from '@glinr/theauth/mcp';
- * const mcp = createMcpModule({ ... });
- * const handlers = theAuthTanStack(auth, { mcp });
+ * export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthTanStack(auth, { mcp });
  * ```
  */
 export function theAuthTanStack(
 	auth: TheAuth,
 	options?: TheAuthTanStackOptions,
 ): TheAuthTanStackHandlers {
-	const mcp = options?.mcp;
-	const basePath = options?.basePath ?? "/api/theauth";
-	// Fails closed at construction when nothing can authenticate callers.
-	const guard = createAdapterGuard(auth, options, "theAuthTanStack");
-
-	// The TanStack request already hands over a Web API Request, so it goes straight to dispatch.
-	const handler = (request: Request): Promise<Response> =>
-		dispatch(request, auth, mcp, basePath, guard);
-
-	return {
-		GET: handler,
-		POST: handler,
-		PATCH: handler,
-		DELETE: handler,
-		OPTIONS: handler,
-	};
+	const handle = createTheAuthHandler(auth, options);
+	const handler: TanStackRouteHandler = (input) => handle(requestOf(input));
+	return { GET: handler, POST: handler, PATCH: handler, DELETE: handler, OPTIONS: handler };
 }
-
-/** @deprecated Use `theAuthTanStack` instead. Will be removed in a future major version. */
-export const authTanStack = theAuthTanStack;

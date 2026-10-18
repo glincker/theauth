@@ -66,7 +66,7 @@ describe("requireScope (express)", () => {
 			.get("/docs")
 			.set("Authorization", `Bearer ${token}`);
 		expect(res.status).toBe(403);
-		expect(res.body.error.code).toBe("FORBIDDEN");
+		expect(res.body.error.code).toBe("no_permission");
 		expect(res.body.error.message.length).toBeGreaterThan(0);
 	});
 

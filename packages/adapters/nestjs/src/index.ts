@@ -1,9 +1,6 @@
-export type { AuthNestjsOptions, TheAuthNestjsOptions } from "./adapter.js";
-export {
-	authMiddleware,
-	buildAuthRouter,
-	buildTheAuthRouter,
-	theAuthMiddleware,
-} from "./adapter.js";
-export type { AuthModuleOptions, TheAuthModuleOptions } from "./module.js";
-export { AuthModule, TheAuthModule } from "./module.js";
+export type { TheAuthMiddleware, TheAuthNestjsOptions } from "./adapter.js";
+export { buildTheAuthRouter, theAuthMiddleware } from "./adapter.js";
+export type { TheAuthModuleOptions } from "./module.js";
+export { TheAuthModule } from "./module.js";
+export type { RequireScopeOptions } from "./require-scope.js";
+export { getAgent, requireScope } from "./require-scope.js";

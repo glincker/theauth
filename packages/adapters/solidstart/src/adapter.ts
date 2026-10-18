@@ -1,76 +1,46 @@
-import type { AdapterSecurityOptions, TheAuth } from "@glinr/theauth";
-import { createAdapterGuard } from "@glinr/theauth";
-import type { McpAuthModule } from "@glinr/theauth/mcp";
-import { dispatch } from "./dispatch.js";
+import type { TheAuth } from "@glinr/theauth";
+import type { TheAuthHandlerOptions } from "@glinr/theauth/http";
+import { createTheAuthHandler } from "@glinr/theauth/http";
 
-export interface TheAuthSolidStartOptions extends AdapterSecurityOptions {
-	mcp?: McpAuthModule;
-	/** URL path prefix before the catch-all segment. Defaults to `/api/theauth`. */
-	basePath?: string;
+/** Same options as the core handler: `mcp`, `basePath`, `routes`, `maxBodyBytes` plus the shared security options. */
+export type TheAuthSolidStartOptions = TheAuthHandlerOptions;
+
+/** What a SolidStart route receives: the `APIEvent` (has `request`), or a bare `Request`. */
+export interface SolidStartEventLike {
+	request: Request;
+	locals?: Record<string, unknown>;
 }
+export type SolidStartInput = Request | SolidStartEventLike;
 
-/** @deprecated Use `TheAuthSolidStartOptions` instead. Will be removed in a future major version. */
-export type AuthSolidStartOptions = TheAuthSolidStartOptions;
+export type SolidStartRouteHandler = (input: SolidStartInput) => Promise<Response>;
 
 export interface TheAuthSolidStartHandlers {
-	GET: (request: Request) => Promise<Response>;
-	POST: (request: Request) => Promise<Response>;
-	PATCH: (request: Request) => Promise<Response>;
-	DELETE: (request: Request) => Promise<Response>;
-	OPTIONS: (request: Request) => Promise<Response>;
+	GET: SolidStartRouteHandler;
+	POST: SolidStartRouteHandler;
+	PATCH: SolidStartRouteHandler;
+	DELETE: SolidStartRouteHandler;
+	OPTIONS: SolidStartRouteHandler;
 }
 
-/** @deprecated Use `TheAuthSolidStartHandlers` instead. Will be removed in a future major version. */
-export type AuthSolidStartHandlers = TheAuthSolidStartHandlers;
+/** The Request inside a SolidStart event, or the Request itself. */
+export function requestOf(input: SolidStartInput): Request {
+	return input instanceof Request ? input : input.request;
+}
 
 /**
  * Create SolidStart API route handlers for all TheAuth REST API routes.
- *
- * Mount in `src/routes/api/auth/[...auth].ts`:
+ * Mount in `src/routes/api/theauth/[...auth].ts`:
  *
  * @example
  * ```typescript
- * import { createTheAuth } from '@glinr/theauth';
- * import { theAuthSolidStart } from '@glinr/theauth-solidstart';
- *
- * const auth = createTheAuth({ database: { provider: 'sqlite', url: 'theauth.db' } });
- * const handlers = theAuthSolidStart(auth);
- *
- * export const GET = handlers.GET;
- * export const POST = handlers.POST;
- * export const PATCH = handlers.PATCH;
- * export const DELETE = handlers.DELETE;
- * export const OPTIONS = handlers.OPTIONS;
- * ```
- *
- * With MCP OAuth 2.1:
- * ```typescript
- * import { createMcpModule } from '@glinr/theauth/mcp';
- * const mcp = createMcpModule({ ... });
- * const handlers = theAuthSolidStart(auth, { mcp });
+ * export const { GET, POST, PATCH, DELETE, OPTIONS } = theAuthSolidStart(auth, { mcp });
  * ```
  */
 export function theAuthSolidStart(
 	auth: TheAuth,
 	options?: TheAuthSolidStartOptions,
 ): TheAuthSolidStartHandlers {
-	const mcp = options?.mcp;
-	const basePath = options?.basePath ?? "/api/theauth";
-	// Fails closed at construction when nothing can authenticate callers.
-	const guard = createAdapterGuard(auth, options, "theAuthSolidStart");
-
-	// The SolidStart event already hands over a Web API Request, so it goes straight to dispatch.
-	const handler = (request: Request): Promise<Response> =>
-		dispatch(request, auth, mcp, basePath, guard);
-
-	return {
-		GET: handler,
-		POST: handler,
-		PATCH: handler,
-		DELETE: handler,
-		OPTIONS: handler,
-	};
+	const handle = createTheAuthHandler(auth, options);
+	const handler: SolidStartRouteHandler = (input) => handle(requestOf(input));
+	return { GET: handler, POST: handler, PATCH: handler, DELETE: handler, OPTIONS: handler };
 }
-
-/** @deprecated Use `theAuthSolidStart` instead. Will be removed in a future major version. */
-export const authSolidStart = theAuthSolidStart;

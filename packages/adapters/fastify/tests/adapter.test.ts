@@ -132,7 +132,7 @@ describe("Fastify adapter", () => {
 			},
 			payload: { action: "read", resource: "mcp:github" },
 		});
-		expect(denyRes.statusCode).toBe(403);
+		expect(denyRes.statusCode).toBe(401);
 		const denyBody = denyRes.json() as { data: { allowed: boolean; reason: string } };
 		expect(denyBody.data.allowed).toBe(false);
 		expect(denyBody.data.reason).toContain("Invalid or expired");

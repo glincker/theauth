@@ -58,7 +58,41 @@ The adapter does not read forwarded headers for the client IP. Behind a proxy, s
 TheAuthModule.forRoot({ theauth, authenticate, trustedProxy: { trustedProxyCount: 1 } })
 ```
 
-On Cloudflare use `trustedHeader: "cf-connecting-ip"`. Only trust a header your edge overwrites. Without `trustedProxy` the adapter uses `req.ip`, which is the socket peer unless your server framework is configured to trust the proxy.
+On Cloudflare use `trustedHeader: "cf-connecting-ip"`. Only trust a header your edge overwrites.
+
+## Options and routes
+
+The adapter is a thin wrapper around `createTheAuthHandler` from `@glinr/theauth/http`, so it serves the same routes with the same status codes as every other adapter. See the [route reference](https://docs.theauth.dev/adapters/routes).
+
+| Option | Description |
+|--------|-------------|
+| `mcp` | `McpAuthModule`. Enables the MCP OAuth 2.1 endpoints (register, authorize, token, revoke, jwks, and the two well-known documents) |
+| `basePath` | URL prefix the handler is mounted under. Defaults to `/api/theauth` in `TheAuthModule`, and to the mount point for `theAuthMiddleware`. |
+| `routes` | Turn route groups off: `management`, `mcp`, `plugins`, `explain` |
+| `maxBodyBytes` | Largest accepted body. Default 1 MiB, larger gets 413 |
+| `authenticate`, `allowUnauthenticated`, `trustedProxy`, `rateLimit`, `trustedOrigins`, `csrf` | Shared security options |
+
+## Protect a route for agents
+
+```ts
+import { Controller, Get, Req, UseGuards } from "@nestjs/common";
+import { getAgent, requireScope } from "@glinr/theauth-nestjs";
+
+@Controller("invoices")
+export class InvoicesController {
+  @Get()
+  @UseGuards(requireScope(theauth, { action: "read", resource: "invoices" }))
+  list(@Req() req: { agent?: { id: string } }) {
+    return { agentId: getAgent(req)?.id };
+  }
+}
+```
+
+Missing or invalid bearer token returns 401, a denied scope returns 403. The body is `{ "error": { "code", "message" } }` where `code` is the decision code (for example `no_permission`). See the [requireScope guide](https://docs.theauth.dev/require-scope).
+
+### Upgrading to 2.0
+
+Options are the core handler options, and the deprecated aliases are gone. See the changeset notes in the changelog.
 
 ## Docs
 
