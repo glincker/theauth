@@ -1,5 +1,6 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { canonicalJson } from "../audit/chain.js";
+import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { approvalRequests } from "../db/schema.js";
@@ -40,7 +41,9 @@ export async function hashApprovalAction(
 	resource: string,
 	args: Record<string, unknown> | null | undefined,
 ): Promise<string> {
-	return sha256(canonicalJson({ action, resource, arguments: args ?? {} }));
+	return sha256(
+		canonicalJson({ action, resource, arguments: stripReservedAuditKeys(args ?? undefined) ?? {} }),
+	);
 }
 
 /** Hash a presented argument bag. Anything that cannot be canonicalized (a cycle) never matches. */

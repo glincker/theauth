@@ -63,6 +63,18 @@ describe("approval bound to arguments", () => {
 		expect(good.allowed).toBe(true);
 	});
 
+	it("an approvalId carried inside the tool arguments does not change the hash", async () => {
+		const { theauth, agent } = await setup();
+		const approvalId = await approved(theauth, agent.id, { amount: 10, to: "alice" });
+		const result = await theauth.authorize(agent.id, {
+			action: "execute",
+			resource: "bank:transfer",
+			arguments: { amount: 10, to: "alice", approvalId },
+			approvalId,
+		});
+		expect(result.allowed).toBe(true);
+	});
+
 	it("an approval created without arguments covers only an argument-less call", async () => {
 		const { theauth, agent } = await setup();
 		const approvalId = await approved(theauth, agent.id);
