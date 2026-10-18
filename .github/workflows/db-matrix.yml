@@ -1,0 +1,96 @@
+name: DB matrix
+
+# Runs the dialect contract suite (packages/core/tests/dialect) against real servers:
+# Postgres 17 and MySQL 8.4. Each suite file is skipped unless its URL variable is set,
+# so a leg only runs the suite for its own database. The static MySQL DDL checks
+# (mysql-ddl.test.ts) need no server and run on both legs.
+#
+# Not yet run in CI. MySQL stays gated (THEAUTH_MYSQL_UNSUPPORTED) until a leg of this job is green.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/core/src/db/**"
+      - "packages/core/src/mcp/**"
+      - "packages/core/tests/dialect/**"
+      - ".github/workflows/db-matrix.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/core/src/db/**"
+      - "packages/core/src/mcp/**"
+      - "packages/core/tests/dialect/**"
+      - ".github/workflows/db-matrix.yml"
+  schedule:
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  contract:
+    name: contract (${{ matrix.db }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - db: postgres-17
+            url_var: THEAUTH_TEST_PG_URL
+            url: postgres://postgres:postgres@127.0.0.1:5432/theauth_test
+          - db: mysql-8.4
+            url_var: THEAUTH_TEST_MYSQL_URL
+            url: mysql://root:root@127.0.0.1:3306/theauth_test
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: theauth_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: theauth_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.6.5
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Contract suite (${{ matrix.db }})
+        env:
+          THEAUTH_TEST_PG_URL: ${{ matrix.url_var == 'THEAUTH_TEST_PG_URL' && matrix.url || '' }}
+          THEAUTH_TEST_MYSQL_URL: ${{ matrix.url_var == 'THEAUTH_TEST_MYSQL_URL' && matrix.url || '' }}
+        run: pnpm --filter @glinr/theauth exec vitest run tests/dialect tests/claim.test.ts tests/database-mysql-gate.test.ts

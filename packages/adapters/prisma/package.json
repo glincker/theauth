@@ -38,7 +38,7 @@
     "directory": "packages/adapters/prisma"
   },
   "peerDependencies": {
-    "@glinr/theauth": ">=0.6.0 <2.0.0",
+    "@glinr/theauth": ">=0.6.0 <3.0.0",
     "@prisma/client": ">=5.0.0"
   },
   "devDependencies": {

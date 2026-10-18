@@ -173,6 +173,28 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  examples/agent-delegation-e2e:
+    dependencies:
+      '@glinr/theauth':
+        specifier: workspace:*
+        version: link:../../packages/core
+      better-sqlite3:
+        specifier: ^12.9.0
+        version: 12.9.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.4(@cloudflare/workers-types@4.20260418.1)(@libsql/client@0.17.2)(@opentelemetry/api@1.9.0)(@prisma/client@7.5.0(typescript@6.0.3))(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(@types/sql.js@1.4.11)(better-sqlite3@12.9.0)(mysql2@3.24.5(@types/node@25.6.0))(pg@8.20.0)(sql.js@1.14.1)
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   examples/basic-agent:
     dependencies:
       '@glinr/theauth':

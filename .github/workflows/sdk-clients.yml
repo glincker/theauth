@@ -1,0 +1,88 @@
+name: SDK clients
+
+# Keeps the generated OpenAPI document (sdks/openapi.json) and the Go and Python clients
+# that read it in step. The drift check is also covered by the core vitest test
+# packages/core/tests/openapi-generated.test.ts, this job just fails earlier and cheaper.
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - "sdks/**"
+      - "packages/core/src/openapi*.ts"
+      - "packages/core/src/http/**"
+      - "packages/core/scripts/generate-openapi.ts"
+      - ".github/workflows/sdk-clients.yml"
+  pull_request:
+    branches: [main]
+    paths: *paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  openapi-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.6.5
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Regenerate sdks/openapi.json and compare
+        run: pnpm --filter @glinr/theauth exec jiti scripts/generate-openapi.ts check
+
+  go:
+    needs: openapi-drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: sdks/go/go.mod
+          cache-dependency-path: sdks/go/go.sum
+      - name: Vet and test the Go client (reads ../openapi.json)
+        working-directory: sdks/go
+        run: |
+          go vet ./...
+          go test ./...
+
+  python:
+    needs: openapi-drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: sdks/python/pyproject.toml
+      - name: Install
+        working-directory: sdks/python
+        run: python -m pip install -e ".[dev]"
+      - name: Pytest (tests/test_parity.py reads ../openapi.json)
+        working-directory: sdks/python
+        run: python -m pytest -q
