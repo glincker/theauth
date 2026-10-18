@@ -49,3 +49,7 @@ createTheAuth({ baseUrl: "https://app.example.com", allowedHosts: ["app.example.
 ### Token cookie binding
 
 The encrypted token cookie is bound to the identity cookie, so one user's token cookie cannot be swapped into another user's session. Cookies written before the binding existed (no `v2:` prefix) are refused by default. If you upgrade with live sessions and want to keep them, set `acceptLegacyTokenCookies: true` for one cookie lifetime (`maxAge`). Legacy cookies are re-sealed in the bound format as they are read, and `onDeprecation` reports each one. Users whose cookie is refused sign in again once.
+
+## Secure cookies by default
+
+Session, cache, refresh and plugin cookies are `Secure` on every runtime, with no `NODE_ENV` check. See [Cookie options](/cookies) for the https, trusted proxy and localhost rules and for `__Host-` prefix validation.

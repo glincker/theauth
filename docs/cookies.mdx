@@ -14,13 +14,23 @@ Cookie handling is configured on the cookie session manager (`createCookieSessio
 |---|---|
 | Name | `theauth_session` (`sessionName`) |
 | `HttpOnly` | `true` |
-| `Secure` | `true` when `NODE_ENV` is `production`, otherwise `false` |
+| `Secure` | `true` on every runtime. Never read from `NODE_ENV` |
 | `SameSite` | `Lax` |
 | `Path` | `/` |
 | `Domain` | unset (host-only) |
 | `Max-Age` | 7 days (`maxAge`), sliding by default (`autoRefresh`) |
 
-The `Secure` default for the cookie session manager comes from `NODE_ENV`, not from your URL. If your deployment does not set `NODE_ENV=production`, set `cookieOptions.secure: true` yourself. Cookies that the plugins set directly (for example the passkey sign-in response) mark the cookie `Secure` when `baseUrl` starts with `https://`.
+`Secure` is on by default and does not depend on `NODE_ENV`, which is unset or different on Cloudflare Workers, Deno and Bun. Every `Set-Cookie` from core goes through one serializer (`serializeCookie` in `@glinr/theauth/session`), so the rule is the same everywhere.
+
+- Without a request, the cookie is `Secure`.
+- `resolveCookieSecure(request, { trustProxy })` (or `serializeCookie(..., { request })`) gives `Secure` for https URLs and for `x-forwarded-proto: https` when the proxy is trusted (`trustProxy: true`, or `trustedProxyCount` / `trustedHeader` set). Untrusted forwarded headers are ignored.
+- It gives no `Secure` only for plain `http://localhost`, `127.0.0.1`, `[::1]` or `*.localhost` during development, or when you pass `secure: false` explicitly.
+
+Chrome and Firefox accept `Secure` cookies on `http://localhost`, so the default also works for local development. Safari does not, so pass `secure: false` there or use https.
+
+### Prefixes and attribute checks
+
+The serializer throws on combinations browsers reject: a `__Host-` cookie must be `Secure`, `Path=/` and have no `Domain`; a `__Secure-` cookie must be `Secure`; `Partitioned` and `SameSite=None` require `Secure`.
 
 ## Overriding
 
@@ -105,7 +115,7 @@ export async function GET(req: Request) {
 
 <AccordionGroup>
 <Accordion title="Cookie missing in production, present in dev" icon="bug">
-The cookie is probably being sent without `Secure` over HTTPS, or `Secure` is set but the request is plain HTTP. The cookie session manager sets `Secure` only when `NODE_ENV=production` (or when you pass `cookieOptions.secure`), and browsers drop `Secure` cookies sent over plain HTTP. Make sure production runs over HTTPS and set `cookieOptions.secure: true` explicitly.
+The cookie is probably being sent without `Secure` over HTTPS, or `Secure` is set but the request is plain HTTP. `Secure` is now on by default, and browsers drop `Secure` cookies sent over plain HTTP (except on localhost in most browsers). Make sure the site runs over HTTPS, or pass `cookieOptions.secure: false` for a plain-HTTP development setup.
 </Accordion>
 
 <Accordion title="Cookie missing on a subdomain" icon="bug">

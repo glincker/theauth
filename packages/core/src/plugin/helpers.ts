@@ -1,5 +1,7 @@
 /** Shared helpers for TheAuth plugin endpoints. */
 
+import { serializeCookie, serializeCookieDeletion } from "../session/cookie.js";
+
 /** Create a JSON response with proper headers. */
 export function json(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -31,7 +33,7 @@ export function getCookie(request: Request, name: string): string | null {
 	return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
-/** Build a Set-Cookie header value. */
+/** Build a Set-Cookie header value through the shared cookie serializer. */
 export function buildSetCookie(
 	name: string,
 	value: string,
@@ -39,20 +41,12 @@ export function buildSetCookie(
 	path = "/",
 	secure = true,
 ): string {
-	const parts = [
-		`${name}=${encodeURIComponent(value)}`,
-		"HttpOnly",
-		"SameSite=Lax",
-		`Path=${path}`,
-		`Max-Age=${maxAge}`,
-	];
-	if (secure) parts.splice(1, 0, "Secure");
-	return parts.join("; ");
+	return serializeCookie(name, value, { maxAge, path, secure, httpOnly: true, sameSite: "lax" });
 }
 
 /** Build a Set-Cookie header that clears a cookie. */
-export function buildClearCookie(name: string, path = "/"): string {
-	return `${name}=; HttpOnly; Secure; SameSite=Lax; Path=${path}; Max-Age=0`;
+export function buildClearCookie(name: string, path = "/", secure = true): string {
+	return serializeCookieDeletion(name, { path, secure, httpOnly: true, sameSite: "lax" });
 }
 
 /** Extract a Bearer token from the Authorization header, or fall back to a named cookie. */

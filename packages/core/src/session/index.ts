@@ -5,6 +5,7 @@ export {
 	getCookie,
 	parseCookies,
 	parseCookiesFromRequest,
+	resolveCookieSecure,
 	serializeCookie,
 	serializeCookieDeletion,
 } from "./cookie.js";

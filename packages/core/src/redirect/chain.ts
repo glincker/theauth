@@ -1,4 +1,5 @@
 import { generateId } from "../crypto/web-crypto.js";
+import { serializeCookie } from "../session/cookie.js";
 
 export interface RedirectConfig {
 	/** Cookie name for storing the redirect chain (default: "theauth_redirect") */
@@ -186,14 +187,14 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 	let currentState: RedirectChainState | null = null;
 
 	function buildCookieHeader(value: string, age: number): string {
-		const parts = [`${cookieName}=${value}`, `Path=${cookieOpts.path}`, `Max-Age=${age}`];
-		if (cookieOpts.httpOnly) parts.push("HttpOnly");
-		if (cookieOpts.secure) parts.push("Secure");
-		parts.push(
-			`SameSite=${cookieOpts.sameSite.charAt(0).toUpperCase()}${cookieOpts.sameSite.slice(1)}`,
-		);
-		if (cookieOpts.domain) parts.push(`Domain=${cookieOpts.domain}`);
-		return parts.join("; ");
+		return serializeCookie(cookieName, value, {
+			path: cookieOpts.path,
+			maxAge: age,
+			httpOnly: cookieOpts.httpOnly,
+			secure: cookieOpts.secure,
+			sameSite: cookieOpts.sameSite,
+			...(cookieOpts.domain ? { domain: cookieOpts.domain } : {}),
+		});
 	}
 
 	function buildClearCookie(): string {

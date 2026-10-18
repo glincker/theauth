@@ -18,7 +18,13 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { generateId, pbkdf2Hash, pbkdf2Verify } from "../crypto/web-crypto.js";
+import {
+	generateId,
+	pbkdf2Hash,
+	pbkdf2NeedsRehash,
+	pbkdf2Verify,
+	resolvePbkdf2Iterations,
+} from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { usernameAccounts, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
@@ -34,6 +40,8 @@ export interface UsernameAuthConfig {
 	allowedPattern?: RegExp;
 	/** Whether usernames are case-sensitive (default: false, normalise to lowercase) */
 	caseSensitive?: boolean;
+	/** PBKDF2-SHA256 iteration target (default: `THEAUTH_PBKDF2_ITERATIONS` or 600000). Hashes below it are upgraded on successful sign-in. */
+	pbkdf2Iterations?: number;
 	password?: {
 		/** Minimum password length (default: 8) */
 		minLength?: number;
@@ -72,8 +80,8 @@ const DEFAULT_ALLOWED_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const DEFAULT_MIN_PASSWORD = 8;
 const DEFAULT_MAX_PASSWORD = 128;
 
-async function hashPassword(password: string): Promise<string> {
-	return pbkdf2Hash(password);
+async function hashPassword(password: string, iterations: number): Promise<string> {
+	return pbkdf2Hash(password, undefined, iterations);
 }
 
 async function verifyPassword(stored: string, candidate: string): Promise<boolean> {
@@ -100,6 +108,12 @@ export function createUsernameAuthModule(
 	const caseSensitive = config.caseSensitive ?? false;
 	const minPasswordLen = config.password?.minLength ?? DEFAULT_MIN_PASSWORD;
 	const maxPasswordLen = config.password?.maxLength ?? DEFAULT_MAX_PASSWORD;
+	const iterationTarget = resolvePbkdf2Iterations(config.pbkdf2Iterations);
+	let dummy: Promise<string> | null = null;
+	const dummyHash = (): Promise<string> => {
+		dummy ??= hashPassword(generateId(), iterationTarget);
+		return dummy;
+	};
 
 	function normalise(username: string): string {
 		return caseSensitive ? username : username.toLowerCase();
@@ -149,7 +163,7 @@ export function createUsernameAuthModule(
 
 		const now = new Date();
 		const userId = generateId();
-		const passwordHash = await hashPassword(input.password);
+		const passwordHash = await hashPassword(input.password, iterationTarget);
 
 		await db.insert(users).values({
 			id: userId,
@@ -191,10 +205,28 @@ export function createUsernameAuthModule(
 			.where(eq(usernameAccounts.username, normalisedUsername));
 
 		const account = rows[0];
-		if (!account) throw new Error("Invalid username or password");
+		if (!account) {
+			// Spend the same hashing time so response time does not reveal which usernames exist.
+			await verifyPassword(await dummyHash(), input.password);
+			throw new Error("Invalid username or password");
+		}
 
 		const valid = await verifyPassword(account.passwordHash, input.password);
 		if (!valid) throw new Error("Invalid username or password");
+
+		if (pbkdf2NeedsRehash(account.passwordHash, iterationTarget)) {
+			try {
+				await db
+					.update(usernameAccounts)
+					.set({
+						passwordHash: await hashPassword(input.password, iterationTarget),
+						updatedAt: new Date(),
+					})
+					.where(eq(usernameAccounts.userId, account.userId));
+			} catch {
+				// A failed upgrade must never turn a correct password into a failed sign-in.
+			}
+		}
 
 		const decision = await gate.evaluate({
 			userId: account.userId,
@@ -230,7 +262,7 @@ export function createUsernameAuthModule(
 		const passwordError = validatePassword(newPassword);
 		if (passwordError) throw new Error(passwordError);
 
-		const newHash = await hashPassword(newPassword);
+		const newHash = await hashPassword(newPassword, iterationTarget);
 		await db
 			.update(usernameAccounts)
 			.set({ passwordHash: newHash, updatedAt: new Date() })
@@ -259,7 +291,10 @@ export function createUsernameAuthModule(
 		if (passwordError) return { error: passwordError };
 		await db
 			.update(usernameAccounts)
-			.set({ passwordHash: await hashPassword(newPassword), updatedAt: new Date() })
+			.set({
+				passwordHash: await hashPassword(newPassword, iterationTarget),
+				updatedAt: new Date(),
+			})
 			.where(eq(usernameAccounts.userId, userId));
 		return "changed";
 	});
