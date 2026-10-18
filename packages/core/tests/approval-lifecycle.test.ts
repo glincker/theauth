@@ -180,11 +180,14 @@ describe("approval lifecycle", () => {
 		vi.stubGlobal("fetch", fetchMock);
 		const { needed, open } = await setup();
 		const req = await open({ amount: 123456 });
-		await flush();
 		expect(needed.map((r) => r.id)).toEqual([req.id]);
-		const calls = fetchMock.mock.calls as unknown as Array<[string, { body: string }]>;
-		expect(calls).toHaveLength(1);
-		const body = JSON.parse(calls[0]?.[1].body ?? "{}");
+		const sent = () =>
+			(fetchMock.mock.calls as unknown as Array<[string, { body: string }]>)
+				.map((c) => JSON.parse(c[1].body ?? "{}"))
+				.filter((b) => b.event === "approval.pending" && b.data?.approvalId === req.id);
+		// Delivery runs off the request path, so wait for it instead of guessing a delay.
+		await vi.waitFor(() => expect(sent()).toHaveLength(1), { timeout: 3000 });
+		const body = sent()[0];
 		expect(body.event).toBe("approval.pending");
 		expect(body.data).toMatchObject({ approvalId: req.id, userId: "user-1" });
 		expect(body.data.argumentsHash).toMatch(/^[0-9a-f]{64}$/);

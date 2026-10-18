@@ -202,11 +202,19 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 		};
 	}
 
+	// Pre-registered clients are written while the module starts. A request that arrives first must wait
+	// for them, or a client that is configured would answer as unknown (and a failed write would be lost).
+	let preRegistered: Promise<void> = Promise.resolve();
+	const findStoredClient = required("findClient");
+
 	// Build the context shared by all handlers
 	const ctx: McpAuthContext = {
 		config: resolvedConfig,
 		storeClient: required("storeClient"),
-		findClient: required("findClient"),
+		findClient: async (clientId) => {
+			await preRegistered;
+			return findStoredClient(clientId);
+		},
 		storeAuthorizationCode: required("storeAuthorizationCode"),
 		consumeAuthorizationCode: required("consumeAuthorizationCode"),
 		storeToken: required("storeToken"),
@@ -267,8 +275,10 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 		}
 	})();
 
-	// Expose the promise so tests/callers can await full initialisation.
-	void preRegistrationPromise;
+	// Client lookups await this promise. A failed write is rethrown to the first lookup instead of
+	// surfacing as an unhandled rejection at startup.
+	preRegistered = preRegistrationPromise;
+	preRegistrationPromise.catch(() => undefined);
 
 	// Return the public module API
 	return {
