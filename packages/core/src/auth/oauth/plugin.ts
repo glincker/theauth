@@ -1,6 +1,12 @@
 import { eq } from "drizzle-orm";
 import { users } from "../../db/schema.js";
-import { buildClearCookie, buildSetCookie, getCookie } from "../../plugin/helpers.js";
+import {
+	buildClearCookie,
+	buildSessionSetCookie,
+	buildSetCookie,
+	getCookie,
+	parseRememberMe,
+} from "../../plugin/helpers.js";
 import type { PluginInitResult, TheAuthPlugin } from "../../plugin/types.js";
 import { createBaseUrlResolver } from "../../session/base-url.js";
 import { normalizeEmail } from "../normalize-email.js";
@@ -30,12 +36,15 @@ function jsonResponse(body: unknown, status = 200): Response {
 	});
 }
 
-function redirectResponse(url: string): Response {
+function redirectResponse(url: string, setCookie?: string): Response {
 	return new Response(null, {
 		status: 302,
-		headers: { Location: url },
+		headers: { Location: url, ...(setCookie && { "Set-Cookie": setCookie }) },
 	});
 }
+
+/** Carries the optional `rememberMe` choice from the authorize redirect to the callback. Short lived, never holds a secret. */
+const REMEMBER_COOKIE = "theauth_oauth_remember";
 
 const TOKEN_ERROR_STATUS: Record<OAuthTokenError["code"], number> = {
 	no_account: 404,
@@ -132,7 +141,19 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 								},
 							});
 						}
-						return redirectResponse(authUrl);
+						const rememberMe = parseRememberMe(url.searchParams.get("rememberMe"));
+						return redirectResponse(
+							authUrl,
+							rememberMe === undefined
+								? undefined
+								: buildSetCookie(
+										REMEMBER_COOKIE,
+										rememberMe ? "1" : "0",
+										600,
+										"/",
+										baseUrl.startsWith("https://"),
+									),
+						);
 					} catch (err) {
 						return jsonResponse(
 							{ error: err instanceof Error ? err.message : "Failed to build authorization URL" },
@@ -249,22 +270,25 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 								});
 							}
 
-							const { session, token } = await sessionManager.create(userId);
-							const maxAge = Math.floor((session.expiresAt.getTime() - Date.now()) / 1000);
+							const remembered = getCookie(request, REMEMBER_COOKIE);
+							const rememberMe = remembered === "1" ? true : remembered === "0" ? false : undefined;
+							const { session, token } = await sessionManager.create(
+								userId,
+								undefined,
+								rememberMe === undefined ? undefined : { rememberMe },
+							);
 							const isSecure = baseUrl.startsWith("https://");
-							const cookie = buildSetCookie("theauth_session", token, maxAge, "/", isSecure);
+							const cookie = buildSessionSetCookie("theauth_session", token, session, isSecure);
 
 							// Pass user info (not the token) as a URL param for the frontend
 							const userInfo = encodeURIComponent(JSON.stringify({ id: userId, email }));
 							const callbackUrl = `${baseUrl}/?auth_user=${userInfo}`;
 
-							return new Response(null, {
-								status: 302,
-								headers: {
-									Location: callbackUrl,
-									"Set-Cookie": cookie,
-								},
-							});
+							const headers = new Headers({ Location: callbackUrl });
+							headers.append("Set-Cookie", cookie);
+							if (remembered !== null)
+								headers.append("Set-Cookie", buildClearCookie(REMEMBER_COOKIE));
+							return new Response(null, { status: 302, headers });
 						}
 
 						// Fallback: return JSON if userId is still pending

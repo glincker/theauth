@@ -54,7 +54,8 @@ describe("theauth db", () => {
 			expect(all.code).toBe(0);
 			expect(all.out).toContain("theauth_schema_migrations");
 			expect(all.out).toContain("/* Migration 0000: baseline");
-			expect(all.out).toContain("/* Migration 0003: audit-recorded-at-ms");
+			expect(all.out).toContain("/* Migration 0003: epoch-timestamps");
+			expect(all.out).toContain("/* Migration 0004: audit-recorded-at-ms");
 		}
 		const from = await executeDb(
 			parseDbArgs(["sql", "--dialect", "postgres", "--from", "0002"]),
@@ -81,7 +82,11 @@ describe("theauth db", () => {
 		const before = await executeDb(parseDbArgs(["status", "--json"]), env);
 		expect(before.code).toBe(1);
 		const pending = (JSON.parse(before.out) as { pending: Array<{ id: string }> }).pending;
-		expect(pending.map((p) => p.id)).toEqual(["0000", "0001", "0002", "0003"]);
+		const ids = pending.map((p) => p.id);
+		// New migrations land at the end, so assert the stable prefix and ordering, not the total.
+		expect(ids.slice(0, 5)).toEqual(["0000", "0001", "0002", "0003", "0004"]);
+		expect([...ids].sort()).toEqual(ids);
+		expect(new Set(ids).size).toBe(ids.length);
 
 		const dry = await executeDb(parseDbArgs(["up", "--dry-run"]), env);
 		expect(dry.code).toBe(0);
@@ -89,7 +94,7 @@ describe("theauth db", () => {
 
 		const up = await executeDb(parseDbArgs(["up"]), env);
 		expect(up.err).toBe("");
-		expect(up.out).toBe("Applied 0000, 0001, 0002, 0003.\n");
+		expect(up.out).toBe(`Applied ${ids.join(", ")}.\n`);
 
 		const after = await executeDb(parseDbArgs(["status"]), env);
 		expect(after.code).toBe(0);
@@ -109,8 +114,15 @@ describe("theauth db", () => {
 			configFile,
 			`export default { database: { provider: "sqlite-native", url: ${JSON.stringify(file)} } };\n`,
 		);
+		// No agents in the config, so the audit migrations do not apply. The epoch timestamp
+		// migration needs no feature, so it is still pending after the partial run.
+		const before = await executeDb(parseDbArgs(["status", "--config", configFile]), {});
+		expect(before.code).toBe(1);
+		expect(before.out).toContain("0003  epoch-timestamps");
+		expect(before.out).not.toContain("audit-decision-code");
+		const up = await executeDb(parseDbArgs(["up", "--config", configFile]), {});
+		expect(up.err).toBe("");
 		const status = await executeDb(parseDbArgs(["status", "--config", configFile]), {});
-		// No agents in the config, so the audit migrations do not apply.
 		expect(status.code).toBe(0);
 		expect(status.out).toContain("Pending (0):");
 	});

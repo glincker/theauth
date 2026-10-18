@@ -1,6 +1,8 @@
 /** Shared helpers for TheAuth plugin endpoints. */
 
 import { serializeCookie, serializeCookieDeletion } from "../session/cookie.js";
+import type { Session } from "../session/session.js";
+import { buildSessionCookie } from "../session/session-cookie.js";
 
 /** Create a JSON response with proper headers. */
 export function json(body: unknown, status = 200): Response {
@@ -42,6 +44,30 @@ export function buildSetCookie(
 	secure = true,
 ): string {
 	return serializeCookie(name, value, { maxAge, path, secure, httpOnly: true, sameSite: "lax" });
+}
+
+/**
+ * Session cookie for a freshly signed in session. `rememberMe: false` sends a browser session cookie (no `Max-Age`), `true` a persistent one until `session.expiresAt`, and an unset choice keeps the persistent legacy cookie.
+ */
+export function buildSessionSetCookie(
+	name: string,
+	token: string,
+	session: Pick<Session, "expiresAt" | "rememberMe">,
+	secure = true,
+): string {
+	return buildSessionCookie(name, token, session, {
+		path: "/",
+		secure,
+		httpOnly: true,
+		sameSite: "lax",
+	});
+}
+
+/** Read an optional `rememberMe` choice: a boolean, or the strings "true"/"false" (query strings). Anything else is unset, so the default is unchanged. */
+export function parseRememberMe(value: unknown): boolean | undefined {
+	if (value === true || value === "true") return true;
+	if (value === false || value === "false") return false;
+	return undefined;
 }
 
 /** Build a Set-Cookie header that clears a cookie. */

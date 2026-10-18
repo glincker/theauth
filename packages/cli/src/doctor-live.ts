@@ -2,6 +2,11 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { TheAuthConfig } from "@glinr/theauth";
+import {
+	auditSecretsCollisionRule,
+	resolveDoctorDatabase,
+	sqliteFileMissing,
+} from "./doctor-database.js";
 import type { DoctorRule } from "./doctor-rules.js";
 import { configRules } from "./doctor-rules.js";
 import { satisfiesRange } from "./doctor-versions.js";
@@ -158,16 +163,10 @@ async function schemaCheck(
 	env: Record<string, string | undefined>,
 	config: TheAuthConfig | null,
 ): Promise<DoctorCheck | null> {
-	const db = config?.database;
-	const fromConfig = db && "url" in db ? db : null;
-	const url = env["DATABASE_URL"] ?? fromConfig?.url;
-	if (!url) return null;
-	const provider: "postgres" | "mysql" | "sqlite-native" = /^postgres(ql)?:\/\//.test(url)
-		? "postgres"
-		: /^mysql:\/\//.test(url)
-			? "mysql"
-			: "sqlite-native";
-	if (provider === "sqlite-native" && url !== ":memory:" && !existsSync(resolve(cwd, url))) {
+	const target = resolveDoctorDatabase(env, config);
+	if (!target) return null;
+	const { provider, url } = target;
+	if (sqliteFileMissing(cwd, target)) {
 		return {
 			id: "schema",
 			status: "warn",
@@ -240,6 +239,8 @@ export async function runProjectDoctorChecks(input: {
 	if (schema) checks.push(schema);
 	checks.push(...misconfigChecks(input.cwd, input.env, config));
 	checks.push(...configRules(config, input.env));
+	const collision = await auditSecretsCollisionRule(input.cwd, input.env, config);
+	if (collision) checks.push(collision);
 	return checks;
 }
 
@@ -465,5 +466,5 @@ export async function runDoctor(
 			})),
 		);
 	}
-	return formatDoctor(checks, options.json);
+	return formatDoctor(checks, options.json, options.failOn);
 }

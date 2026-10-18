@@ -1,5 +1,8 @@
 import { emitCimdHook } from "./cimd-events.js";
 import { canonicalizeClientIdUrl, checkClientIdUrl } from "./cimd-url.js";
+import { invalidateFreshnessCache } from "./freshness.js";
+import { revocationRowExpiry } from "./revocation-bus.js";
+import type { McpRevocationStore } from "./revocation-types.js";
 import type { McpAuthContext } from "./types.js";
 import type { McpCimdAdmin, McpCimdEvent } from "./types-cimd.js";
 import { CIMD_DISABLED_REASON_BLOCKED } from "./types-cimd.js";
@@ -10,6 +13,14 @@ const NO_BLOCK_STORE =
 /** Fire and forget: an event hook must never slow or break the request path. */
 export function emitCimdEvent(ctx: McpAuthContext, event: McpCimdEvent): void {
 	emitCimdHook(ctx.config.clientIdMetadataDocuments, event);
+}
+
+function isRevocationStore(value: unknown): value is McpRevocationStore {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		typeof (value as Record<string, unknown>).revokeMany === "function"
+	);
 }
 
 /** A host rule is a bare hostname: "evil.example". A leading "*." is accepted and means the same (subdomains are always covered). */
@@ -59,6 +70,21 @@ export function createCimdAdmin(
 		const denylist = ctx.config.jtiDenylist;
 		if (revoked && denylist) {
 			for (const { jti, expiresAt } of revoked.jtis) await denylist.revoke(jti, expiresAt);
+		}
+		// A shared revocation store also gets a `client` watermark row: every token this client holds is
+		// refused at once in live mode, on every instance, including tokens a token store forgot about.
+		if (isRevocationStore(denylist)) {
+			const now = new Date();
+			const ttlMs = (ctx.config.accessTokenTtl ?? 3600) * 1000 + 60_000;
+			await denylist.revokeMany([
+				{
+					kind: "client",
+					id: clientId,
+					expiresAt: revocationRowExpiry(new Date(now.getTime() + ttlMs), now),
+					reason: "cimd.block",
+				},
+			]);
+			invalidateFreshnessCache(ctx);
 		}
 	}
 

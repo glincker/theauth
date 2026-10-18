@@ -1,6 +1,8 @@
 /** RFC 7009 /mcp/revoke writes the shared denylist: a revoke on one instance is refused by the others on the same database. */
 import { describe, expect, it } from "vitest";
 import { createTheAuthHandler } from "../src/http/index.js";
+import { freshnessCacheSize } from "../src/mcp/freshness.js";
+import type { McpRevocationStore } from "../src/mcp/revocation-types.js";
 import { validateAccessToken } from "../src/mcp/validate.js";
 import {
 	bootEndpoints,
@@ -142,5 +144,65 @@ describe("/mcp/revoke on the shared denylist", () => {
 		const unauth = await post("token=nope", {});
 		expect(unauth.status).toBe(401);
 		expect(unauth.headers.get("www-authenticate")).toMatch(/^Basic/);
+	});
+});
+
+describe("/mcp/revoke when the revocation store is down (RFC 7009 section 2.2.1)", () => {
+	async function bootBroken() {
+		const w = await bootEndpoints({ revocation: { mode: "cached", maxStalenessMs: 60_000 } });
+		const real = w.ctx.config.jtiDenylist as McpRevocationStore;
+		const broken: McpRevocationStore = {
+			...real,
+			revokeMany: async () => {
+				throw new Error("db down");
+			},
+			revoke: async () => {
+				throw new Error("db down");
+			},
+		};
+		return { w, ctx: w.instance({ jtiDenylist: broken }) };
+	}
+
+	it("returns SERVER_ERROR with retryAfter and drops the local freshness cache", async () => {
+		const { w, ctx } = await bootBroken();
+		const { jwt } = await w.issue();
+		expect((await validateAccessToken(ctx, jwt, { expectedAudience: RS_AUDIENCE })).success).toBe(
+			true,
+		);
+		expect(freshnessCacheSize(ctx)).toBeGreaterThan(0);
+		const res = await revokeAs(ctx, "app", jwt, "access_token");
+		expect(res.success).toBe(false);
+		if (!res.success) {
+			expect(res.error.code).toBe("SERVER_ERROR");
+			expect(Number(res.error.details?.retryAfter)).toBeGreaterThan(0);
+		}
+		expect(freshnessCacheSize(ctx)).toBe(0);
+	});
+
+	it("answers 503 temporarily_unavailable with Retry-After over HTTP, and 200 for unknown tokens", async () => {
+		const { w, ctx } = await bootBroken();
+		const handler = createTheAuthHandler(w.d.auth, {
+			mcp: w.module(ctx),
+			rateLimit: false,
+			routes: { management: false, explain: false },
+		});
+		const { jwt } = await w.issue();
+		const post = (token: string) =>
+			handler(
+				new Request("http://localhost/api/theauth/mcp/revoke", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/x-www-form-urlencoded",
+						...basicAuth("app", SECRETS.app ?? ""),
+					},
+					body: new URLSearchParams({ token }).toString(),
+				}),
+			);
+		const down = await post(jwt);
+		expect(down.status).toBe(503);
+		expect(down.headers.get("retry-after")).toMatch(/^\d+$/);
+		expect(down.headers.get("cache-control")).toBe("no-store");
+		expect(await down.json()).toMatchObject({ error: "temporarily_unavailable" });
+		expect((await post("does-not-exist")).status).toBe(200);
 	});
 });

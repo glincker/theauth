@@ -93,7 +93,7 @@ Revocations are rows in `theauth_mcp_revocations`, created by migration `0007`. 
 | `sub` | Every token of a user minted at or before the revoke | `accessTokenTtl` plus 60 seconds |
 | `client` | Every token of a client minted at or before the revoke | `accessTokenTtl` plus 60 seconds |
 
-`sub` and `client` rows are watermarks on `iat`. Validation reads both kinds, but nothing in theAuth writes a `client` row today, so use it only from your own code through the store. A token minted in the same second as the revoke also dies, which fails closed. Rows are pruned lazily, 500 at a time, at most once a minute per instance. The delegation and agent tables stay the source of truth for live checks. The rows exist to speed up the fail path and to drive cache invalidation across instances.
+`sub` and `client` rows are watermarks on `iat`. Validation reads both kinds (a hit reports `client_revoked`). `mcp.cimd.block` writes a `client` row for the blocked client when the denylist is the shared store, so its tokens are refused at once in live mode on every instance (see [Client ID Metadata Documents](/mcp-client-id-metadata)). You can also write one yourself through the store. A token minted in the same second as the revoke also dies, which fails closed. Rows are pruned lazily, 500 at a time, at most once a minute per instance. The delegation and agent tables stay the source of truth for live checks. The rows exist to speed up the fail path and to drive cache invalidation across instances.
 
 With `auth`, `config.jtiDenylist` defaults to this shared store, so a token revoked on one instance is refused on all of them. An explicit `jtiDenylist` always wins. With `createInMemoryJtiDenylist()` the denylist is per process.
 
@@ -112,7 +112,7 @@ An agent whose `expiresAt` passes is not pushed. Expiry is read from the agent r
 
 ## Introspection and revocation endpoints
 
-`POST /mcp/revoke` is RFC 7009. A client may revoke its own tokens, and a `client_id` mismatch answers 200 without doing anything, as the RFC asks.
+`POST /mcp/revoke` is RFC 7009. A client may revoke its own tokens, and a `client_id` mismatch answers 200 without doing anything, as the RFC asks. An unknown token also answers 200. When the revocation store cannot record the revoke, the endpoint answers 503 with `Retry-After` and `{ "error": "temporarily_unavailable" }` (RFC 7009 section 2.2.1) instead of a 500. This instance still treats the token as revoked locally (its freshness cache is dropped), but other instances learn about it only after a successful retry, so the client should retry.
 
 `POST /mcp/introspect` is RFC 7662, for resource servers that cannot or should not trust the JWT alone. It is off until you enable it:
 

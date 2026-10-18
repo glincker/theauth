@@ -27,6 +27,7 @@ import {
 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { usernameAccounts, users } from "../db/schema.js";
+import { parseRememberMe } from "../plugin/helpers.js";
 import type { SessionManager } from "../session/session.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import type { TrustedProxyConfig } from "./client-ip.js";
@@ -76,11 +77,11 @@ export interface UsernameAuthModule {
 	}>;
 	/** Throws `SignInGateError` (message "Password reset required" or "Two-factor authentication required") with a challenge when the sign-in gate does not allow a session yet. */
 	signIn: (
-		input: { username: string; password: string },
+		input: { username: string; password: string; rememberMe?: boolean },
 		context?: { request?: Request },
 	) => Promise<{
 		user: { id: string; username: string };
-		session: { token: string; expiresAt: Date };
+		session: { token: string; expiresAt: Date; rememberMe?: boolean };
 	}>;
 	changePassword: (
 		userId: string,
@@ -223,11 +224,11 @@ export function createUsernameAuthModule(
 	}
 
 	async function signIn(
-		input: { username: string; password: string },
+		input: { username: string; password: string; rememberMe?: boolean },
 		context?: { request?: Request },
 	): Promise<{
 		user: { id: string; username: string };
-		session: { token: string; expiresAt: Date };
+		session: { token: string; expiresAt: Date; rememberMe?: boolean };
 	}> {
 		const normalisedUsername = normalise(input.username.trim());
 		const ip = context?.request ? resolveClientIp(context.request, config.trustedProxy) : null;
@@ -280,11 +281,19 @@ export function createUsernameAuthModule(
 		});
 		if (decision.action !== "allow") throw new SignInGateError(decision);
 
-		const { token, session } = await sessionManager.create(account.userId);
+		const { token, session } = await sessionManager.create(
+			account.userId,
+			undefined,
+			input.rememberMe === undefined ? undefined : { rememberMe: input.rememberMe },
+		);
 
 		return {
 			user: { id: account.userId, username: normalisedUsername },
-			session: { token, expiresAt: session.expiresAt },
+			session: {
+				token,
+				expiresAt: session.expiresAt,
+				...(session.rememberMe !== undefined && { rememberMe: session.rememberMe }),
+			},
 		};
 	}
 
@@ -415,7 +424,15 @@ export function createUsernameAuthModule(
 				return jsonResponse({ error: "Missing required fields: username, password" }, 400);
 			}
 			try {
-				const result = await signIn({ username: b.username, password: b.password }, { request });
+				const rememberMe = parseRememberMe(b.rememberMe);
+				const result = await signIn(
+					{
+						username: b.username,
+						password: b.password,
+						...(rememberMe !== undefined && { rememberMe }),
+					},
+					{ request },
+				);
 				return jsonResponse(result);
 			} catch (err) {
 				if (err instanceof SignInGateError) {

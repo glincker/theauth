@@ -164,6 +164,16 @@ async function revoke(ctx: RouteContext): Promise<Response> {
 		const result = await mcp.revoke(body.request);
 		if (!result.success) {
 			if (result.error.code === "INVALID_CLIENT") return clientAuthFailure(result);
+			if (result.error.code === "SERVER_ERROR") {
+				// RFC 7009 section 2.2.1: an unavailable server answers 503 with Retry-After.
+				const wait = Number(result.error.details?.retryAfter);
+				const res = mcpNoStore(
+					{ error: "temporarily_unavailable", error_description: result.error.message },
+					503,
+				);
+				res.headers.set("Retry-After", String(Number.isFinite(wait) && wait > 0 ? wait : 5));
+				return res;
+			}
 			return withNonce(
 				mcpNoStore(
 					{ error: result.error.code.toLowerCase(), error_description: result.error.message },

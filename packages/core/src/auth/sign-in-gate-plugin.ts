@@ -3,7 +3,13 @@
  * `createTheAuth` registers this plugin automatically when `auth.session` is configured, unless a plugin with id `theauth-sign-in-gate` is already present.
  */
 
-import { buildSetCookie, json, parseBody } from "../plugin/helpers.js";
+import {
+	buildSessionSetCookie,
+	buildSetCookie,
+	json,
+	parseBody,
+	parseRememberMe,
+} from "../plugin/helpers.js";
 import type { PluginContext, TheAuthPlugin } from "../plugin/types.js";
 import type { Session } from "../session/session.js";
 import type { SignInGate, SignInGateDecision, TrustedDeviceCookie } from "./sign-in-gate.js";
@@ -29,26 +35,26 @@ export function signInGatePlugin(): TheAuthPlugin {
 
 			async function issueSession(
 				userId: string,
-				extra: { twoFactor: boolean },
+				extra: { twoFactor: boolean; rememberMe?: boolean },
 				deviceCookie?: TrustedDeviceCookie,
 			): Promise<Response> {
 				if (!sessionManager) return json({ error: "Sessions are not configured" }, 500);
 				const metadata = extra.twoFactor ? { twoFactor: true } : undefined;
 				let created: { session: Session; token: string };
 				try {
-					created = await sessionManager.create(userId, metadata);
+					created = await sessionManager.create(
+						userId,
+						metadata,
+						extra.rememberMe === undefined ? undefined : { rememberMe: extra.rememberMe },
+					);
 				} catch (err) {
 					const message = err instanceof Error ? err.message : "Failed to create session";
 					return json({ error: message }, 429);
 				}
-				const maxAge = Math.max(
-					0,
-					Math.floor((created.session.expiresAt.getTime() - Date.now()) / 1000),
-				);
 				const headers = new Headers({ "Content-Type": "application/json" });
 				headers.append(
 					"Set-Cookie",
-					buildSetCookie(sessionCookie, created.token, maxAge, "/", secure),
+					buildSessionSetCookie(sessionCookie, created.token, created.session, secure),
 				);
 				if (deviceCookie) {
 					headers.append(
@@ -96,7 +102,11 @@ export function signInGatePlugin(): TheAuthPlugin {
 						const status = result.reason === "too_many_attempts" ? 429 : 401;
 						return json({ error: { code: result.reason.toUpperCase() } }, status);
 					}
-					return issueSession(result.userId, { twoFactor: true }, result.trustedDeviceCookie);
+					return issueSession(
+						result.userId,
+						{ twoFactor: true, ...rememberChoice(body.data.rememberMe) },
+						result.trustedDeviceCookie,
+					);
 				},
 			});
 
@@ -124,7 +134,10 @@ export function signInGatePlugin(): TheAuthPlugin {
 						);
 					}
 					if (result.next.action === "allow") {
-						return issueSession(result.userId, { twoFactor: false });
+						return issueSession(result.userId, {
+							twoFactor: false,
+							...rememberChoice(body.data.rememberMe),
+						});
 					}
 					return decisionResponse(result.next);
 				},
@@ -134,6 +147,11 @@ export function signInGatePlugin(): TheAuthPlugin {
 			return undefined;
 		},
 	};
+}
+
+function rememberChoice(value: unknown): { rememberMe?: boolean } {
+	const rememberMe = parseRememberMe(value);
+	return rememberMe === undefined ? {} : { rememberMe };
 }
 
 function registerTrustedDeviceRoutes(ctx: PluginContext, gate: SignInGate): void {

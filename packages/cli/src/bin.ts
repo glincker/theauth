@@ -60,7 +60,7 @@ Commands:
   policy        Test policy suites against explain(): theauth policy test <suite>
   simulate      Ask what an agent could do, no side effects (--json)
   permissions   Show an agent's effective permissions (--json)
-  doctor        Check your setup and a running server (--live <url>, --json)
+  doctor        Check your setup and a running server (--live <url>, --json, --fail-on <severity>)
   secret        Generate random secrets (--env NAME, --json)
   completions   Print shell completions (bash, zsh, fish)
   version      Show version

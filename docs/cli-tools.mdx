@@ -57,6 +57,7 @@ Re-running `init` is safe: files that exist are reported as `skipped` and left a
 npx theauth doctor
 npx theauth doctor --json                                       # for CI
 npx theauth doctor --live http://localhost:3000/api/theauth     # also call the running server
+npx theauth doctor --fail-on warn                               # exit 1 on warnings too
 ```
 
 Reads the process environment plus `.env` and `.env.local` in the current directory (the process environment wins), then checks:
@@ -112,12 +113,21 @@ When `theauth.config.mjs` or `theauth.config.js` is present, the doctor reads it
 | `hooks.timeout_disabled` | warn | a `beforeAuthorize` or `beforeAgentCreate` hook runs with `timeoutMs` 0 |
 | `audit.hmac_key_missing` | warn | `audit.tamperEvident` is on without `audit.hmacKey` |
 | `audit.tamper_evident_off` | info | `audit.tamperEvident` is not on, so audit rows are not hash-chained |
+| `audit.secrets_table_collision` | warn | `theauth_audit_secrets` in the database (`DATABASE_URL` or the config url) has the layout theauth-go creates (integer `id`, binary `secret`), so both libraries share one database and TheAuth refuses to migrate it |
 
-Fixes for each id are in the `fix` field of the output.
+`audit.secrets_table_collision` is the one rule that reads the database. It runs a dry run of the migrator, which checks the table layout first and writes nothing, and it is left out when there is no database url, the SQLite file does not exist yet, or the database cannot be read (`schema` reports that). Fixes for each id are in the `fix` field of the output.
 
 ### Exit code and JSON
 
-Exit code is 1 when any check fails. Warnings do not fail the run. With `--json` the output is:
+Exit code is 1 when any check reaches the `--fail-on` severity, and 0 otherwise. Severities order as `info` < `warn` < `fail`:
+
+| `--fail-on` | Exit 1 when |
+|-------------|-------------|
+| `fail` (default) | a check failed. Warnings and info findings do not fail the run |
+| `warn` | a check warned or failed. Info findings do not fail |
+| `info` | any check is not a pass, info findings included |
+
+A check counts as its `severity` when it has one (config rules and some live checks), otherwise as its `status`. A value other than `info`, `warn` or `fail` is a usage error (exit 1, help text printed). With `--json` the `ok` field is false exactly when the exit code would be 1. The default is unchanged, so existing CI that runs `theauth doctor` behaves as before. With `--json` the output is:
 
 ```json
 {

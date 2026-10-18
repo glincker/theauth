@@ -53,9 +53,25 @@ export async function revokeFamilyAndTokens(
 	if (record) await revokeStoredAccessToken(ctx, record);
 }
 
+/** Seconds a client should wait before retrying a revoke the store could not record. */
+const REVOKE_RETRY_AFTER_SECONDS = 5;
+
+/** The store could not record a revoke. The token is still treated as revoked locally: the freshness cache drops its positive verdicts, so this instance never keeps serving the token from cache. */
+function revokeUnavailable(ctx: McpAuthContext): Result<Record<string, never>> {
+	invalidateFreshnessCache(ctx);
+	return {
+		success: false,
+		error: {
+			code: "SERVER_ERROR",
+			message: "Revocation could not be recorded, retry shortly",
+			details: { retryAfter: REVOKE_RETRY_AFTER_SECONDS },
+		},
+	};
+}
+
 /**
  * RFC 7009 token revocation.
- * The caller must authenticate as a client and can only revoke tokens issued to that client. Unknown or foreign tokens still return success (the RFC forbids revealing whether a token exists), they just are not touched. An assertion must be addressed to the revocation endpoint (`<baseUrl>/mcp/revoke`) or the issuer, and each `jti` is accepted once across the token, revocation and introspection endpoints.
+ * The caller must authenticate as a client and can only revoke tokens issued to that client. A store failure while recording the revoke is a `SERVER_ERROR` with `details.retryAfter` (503 over HTTP). Unknown or foreign tokens still return success (the RFC forbids revealing whether a token exists), they just are not touched. An assertion must be addressed to the revocation endpoint (`<baseUrl>/mcp/revoke`) or the issuer, and each `jti` is accepted once across the token, revocation and introspection endpoints.
  */
 export async function handleRevocation(
 	ctx: McpAuthContext,
@@ -95,10 +111,14 @@ export async function handleRevocation(
 			(await ctx.findTokenByRefreshToken(hash)) ?? (await ctx.findTokenByRefreshToken(token));
 		if (record) {
 			if (record.clientId !== clientId) return ok; // not this client's token
-			if (record.familyId) {
-				await revokeFamilyAndTokens(ctx, record.familyId, record);
-			} else {
-				await revokeStoredAccessToken(ctx, record);
+			try {
+				if (record.familyId) {
+					await revokeFamilyAndTokens(ctx, record.familyId, record);
+				} else {
+					await revokeStoredAccessToken(ctx, record);
+				}
+			} catch {
+				return revokeUnavailable(ctx);
 			}
 			return ok;
 		}
@@ -119,11 +139,15 @@ export async function handleRevocation(
 		// Invalid or expired token: nothing to revoke.
 	}
 	if (verified) {
-		await revokeStoredAccessToken(ctx, {
-			accessToken: await hashToken(token),
-			jti: verified.jti,
-			expiresAt: verified.exp,
-		});
+		try {
+			await revokeStoredAccessToken(ctx, {
+				accessToken: await hashToken(token),
+				jti: verified.jti,
+				expiresAt: verified.exp,
+			});
+		} catch {
+			return revokeUnavailable(ctx);
+		}
 	}
 	return ok;
 }
