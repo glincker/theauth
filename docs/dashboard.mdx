@@ -173,7 +173,7 @@ The dashboard has nine pages accessible from the sidebar.
 
 **MCP Servers**: Register MCP servers with their endpoints, tools, and auth requirements. Monitor status and token validation activity.
 
-**Audit Log**: Full queryable log of every authorization decision. Filter by agent, action, resource, result, and date range. Export as JSON or CSV for compliance.
+**Audit Log**: Full queryable log of every authorization decision. Filter by agent, action, result, decision code, and date range. Each row shows its decision code, and the Why button opens a drawer that explains the decision through `POST /explain`. Export as JSON or CSV for compliance. See [Observability](/observability).
 
 **Security**: Security-focused view showing rate-limited agents, recent denials, revoked agents, and expired tokens.
 

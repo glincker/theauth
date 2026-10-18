@@ -18,6 +18,7 @@ import { createDidModule } from "./did/module.js";
 import { createExplainer } from "./explain/explain.js";
 import { createHookRuntime } from "./hooks/runtime.js";
 import { createMcpServerRegistry } from "./mcp/server-registry.js";
+import { createObservability } from "./observability/index.js";
 import { createPermissionEngine } from "./permission/engine.js";
 import {
 	createEndpointContext,
@@ -57,11 +58,12 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	const approvalModule = createApprovalModule(config.approval ?? {}, db);
 	const hooks = config.hooks ?? {};
 	const { runBeforeAuthorize, guardAgentCreate } = createHookRuntime(hooks, config.hookSafety);
+	const observability = createObservability(config.observability, config.logger);
 	const policyEngine: PolicyEngine = createPolicyEngine({
 		db,
 		config: config.policy,
 		approval: approvalModule,
-		// Only when a hook exists, so policy.evaluate pays nothing without one.
+		observability,
 		runBeforeAuthorize: hooks.beforeAuthorize ? runBeforeAuthorize : undefined,
 	});
 
@@ -103,6 +105,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		db,
 		hooks,
 		runBeforeAuthorize,
+		observability,
 		agentModule,
 		permissionEngine,
 		delegationModule,
@@ -118,7 +121,6 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	const policyModule = createPolicyModule(db);
 	const trustModule = createTrustModule({}, db);
 	const didModule = createDidModule(db, config.did);
-
 	const {
 		magicLinkModule,
 		emailOtpModule,
@@ -138,7 +140,6 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	} = createHumanAuthModules(config, db, sessionManager, signInGate);
 
 	const redirectChain: RedirectChainManager = createRedirectChain(config.redirects);
-
 	// Runs after core modules so plugins can depend on them.
 	assertSecondaryStorageConfig(config.secondaryStorage);
 	const secondaryStorage = createSecondaryStorageResolver(config.secondaryStorage, db);
@@ -153,7 +154,6 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 
 	const endpointCtx = createEndpointContext(db, config, sessionManager);
 	const runRequestHooks = createRequestHookRunner(pluginRegistry);
-
 	const pluginRouter = createPluginRouter(pluginRegistry.endpoints, {
 		trustedProxy: config.trustedProxy,
 	});
@@ -182,6 +182,8 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		authorizeByToken,
 		/** Read-only account of what `authorize()` would decide and why. No audit rows, no counters. */
 		explain,
+		/** Logger and decision event counters: `stats()` reports emitted, errors and slow listener calls. */
+		observability: { logger: observability.logger, stats: observability.stats },
 		delegate,
 		delegation,
 		audit: createAuditFacade(auditModule),

@@ -7,7 +7,7 @@ import type { Database } from "../db/database.js";
 import type { agents } from "../db/schema.js";
 import { resolveHookChain } from "../delegation/lineage.js";
 import type { HookDelegationChain } from "../hooks/lifecycle.js";
-import type { BeforeAuthorizeRunner } from "../hooks/run.js";
+import type { BeforeAuthorizeRunner, HookOutcome } from "../hooks/run.js";
 import type { DecisionCode } from "../permission/codes.js";
 import type { AgentIdentity } from "../types.js";
 import { fetchDirectPermissions } from "./engine-support.js";
@@ -26,6 +26,10 @@ export interface HookTrace {
 	detail?: Record<string, unknown>;
 	/** Approval spent to satisfy a hook escalate. */
 	consumed?: ConsumedApproval;
+	/** The raw beforeAuthorize outcome, for decision events. Undefined when no hook ran. */
+	outcome?: HookOutcome;
+	/** Owner of the agent subject, for decision events. */
+	ownerId?: string;
 }
 
 export type HookGateResult =
@@ -96,7 +100,7 @@ export async function runPolicyHook(
 		delegationChain: resolved.path,
 	};
 	const detail = hookAuditDetail(outcome);
-	if (!isHookBlock(outcome)) return { kind: "proceed", principal, trace: { detail } };
+	if (!isHookBlock(outcome)) return { kind: "proceed", principal, trace: { detail, outcome } };
 
 	if (outcome.kind === "deny") {
 		return {
@@ -105,7 +109,7 @@ export async function runPolicyHook(
 			code: outcome.code,
 			reason: outcome.reason,
 			principal,
-			trace: { detail },
+			trace: { detail, outcome },
 		};
 	}
 	// Escalate. An approved request is spent here and evaluation then continues through the
@@ -123,6 +127,7 @@ export async function runPolicyHook(
 				principal,
 				trace: {
 					detail,
+					outcome,
 					consumed: { approvalId: spent.approvalId, approverId: spent.approverId },
 				},
 			};
@@ -133,7 +138,7 @@ export async function runPolicyHook(
 			code: "approval_invalid",
 			reason: spent.code,
 			principal,
-			trace: { detail },
+			trace: { detail, outcome },
 		};
 	}
 	return {
@@ -143,6 +148,6 @@ export async function runPolicyHook(
 		reason: outcome.reason,
 		escalation: { tier: "hook", requirement: "approval", reason: outcome.reason },
 		principal,
-		trace: { detail },
+		trace: { detail, outcome },
 	};
 }

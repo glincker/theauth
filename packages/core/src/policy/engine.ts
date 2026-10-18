@@ -11,6 +11,8 @@ import type { Database } from "../db/database.js";
 import { agents } from "../db/schema.js";
 import { resolveLineage } from "../delegation/lineage.js";
 import type { BeforeAuthorizeRunner } from "../hooks/run.js";
+import { depthOfPath, hookFieldsOf } from "../observability/events.js";
+import type { Observability } from "../observability/index.js";
 import type { DenialCode } from "../permission/codes.js";
 import type { Permission } from "../types.js";
 import { evaluateConstraints, isCacheUnsafe, matchAction, matchResource } from "./abac.js";
@@ -53,10 +55,12 @@ export interface PolicyEngineDeps {
 	approval?: ApprovalModule;
 	/** Set only when a beforeAuthorize hook is configured. Runs for agent subjects, ahead of the cache; its verdict is never cached. */
 	runBeforeAuthorize?: BeforeAuthorizeRunner;
+	/** Receives one decision event per evaluate(). Omitted, nothing is emitted. */
+	observability?: Observability;
 }
 
 export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
-	const { db, config = {}, approval, runBeforeAuthorize } = deps;
+	const { db, config = {}, approval, runBeforeAuthorize, observability } = deps;
 	const cache: PolicyCache = createPolicyCache(config.cache ?? {});
 	const rbac = createRbacResolver({ db });
 	const rebac = createRebacBridge({ db });
@@ -69,6 +73,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		input: EvaluateInput,
 		options: EvaluateOptions = {},
 	): Promise<PolicyDecision> {
+		const startedAt = performance.now();
 		const trace: HookTrace = {};
 		const base = await evaluateBase(input, trace);
 		// Risk is applied after the cache so it never poisons cached decisions.
@@ -91,8 +96,34 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		const auditId = decision.auditId ?? (consumed && auditEnabled ? generateId() : undefined);
 		const finalDecision = auditId === decision.auditId ? decision : { ...decision, auditId };
 		emitAudit(finalDecision, input, auditId, consumed, trace.detail).catch(noop);
+		if (observability?.enabled) emitDecisionEvent(finalDecision, input, trace, startedAt);
 		if (finalDecision.decision !== "escalate" || !options.openApproval) return finalDecision;
 		return openApprovalFor(finalDecision, input);
+	}
+
+	function emitDecisionEvent(
+		decision: PolicyDecision,
+		input: EvaluateInput,
+		trace: HookTrace,
+		startedAt: number,
+	): void {
+		const durationMs = performance.now() - startedAt;
+		observability?.emit(() => ({
+			source: "policy.evaluate",
+			agentId: input.subject.agentId,
+			ownerId: trace.ownerId ?? input.subject.ownerId ?? decision.principal?.subjectId,
+			action: input.action,
+			resource: input.resource,
+			allowed: decision.allowed,
+			decision: decision.decision,
+			code: decision.code,
+			durationMs,
+			cacheHit: decision.cacheHit,
+			delegationDepth: depthOfPath(decision.principal?.delegationChain),
+			...hookFieldsOf(trace.outcome),
+			auditId: decision.auditId ?? "",
+			at: new Date(),
+		}));
 	}
 
 	/** Spend input.approvalId when the decision escalates for approval. */
@@ -200,6 +231,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 				);
 			}
 			agentRow = gate.row;
+			trace.ownerId = gate.row?.ownerId;
 		}
 
 		// beforeAuthorize runs after the agent gate and before the cache, every time: a hook

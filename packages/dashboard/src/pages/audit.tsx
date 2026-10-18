@@ -1,48 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Download, Filter, RefreshCw, ScrollText } from "lucide-react";
+import { Download, Filter, RefreshCw } from "lucide-react";
 import { useRef, useState } from "react";
 import type { TheAuthApiClient } from "../api/client.js";
-import type { AuditLogFilters, AuditResult } from "../api/types.js";
-import { Badge } from "../components/badge.js";
+import type { AuditLogEntry, AuditLogFilters, AuditResult } from "../api/types.js";
 import { Button } from "../components/button.js";
+import { DECISION_CODE_OPTIONS } from "../components/decision-code.js";
+import { ExplainDrawer } from "../components/explain-drawer.js";
 import { Select } from "../components/input.js";
 import { PageHeader } from "../components/layout.js";
-import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
-
-// Helpers
-
-function resultVariant(result: AuditResult) {
-	switch (result) {
-		case "allowed":
-			return "green" as const;
-		case "denied":
-			return "red" as const;
-		case "rate_limited":
-			return "yellow" as const;
-	}
-}
-
-function formatTimestamp(iso: string) {
-	const date = new Date(iso);
-	return {
-		date: date.toLocaleDateString("en-US", {
-			month: "short",
-			day: "numeric",
-		}),
-		time: date.toLocaleTimeString("en-US", {
-			hour: "2-digit",
-			minute: "2-digit",
-			second: "2-digit",
-			hour12: false,
-		}),
-	};
-}
-
-function formatDuration(ms: number) {
-	if (ms < 1) return "<1ms";
-	if (ms < 1000) return `${ms}ms`;
-	return `${(ms / 1000).toFixed(1)}s`;
-}
+import { AuditTable } from "./audit-table.js";
 
 // Filter Bar
 
@@ -118,6 +84,22 @@ function FilterBar({ filters, agentOptions, onChange }: FilterBarProps) {
 				))}
 			</Select>
 
+			<Select
+				value={filters.codes?.[0] ?? ""}
+				onChange={(e) =>
+					onChange({ ...filters, codes: e.target.value ? [e.target.value] : undefined, offset: 0 })
+				}
+				aria-label="Decision code"
+				className="flex-1 min-w-[150px] max-w-[190px] py-1.5 text-xs"
+			>
+				<option value="">All codes</option>
+				{DECISION_CODE_OPTIONS.map((c) => (
+					<option key={c} value={c}>
+						{c}
+					</option>
+				))}
+			</Select>
+
 			<input
 				type="date"
 				value={filters.from ? filters.from.slice(0, 10) : ""}
@@ -146,7 +128,12 @@ function FilterBar({ filters, agentOptions, onChange }: FilterBarProps) {
 				aria-label="To date"
 			/>
 
-			{(filters.agentId ?? filters.action ?? filters.result ?? filters.from ?? filters.to) && (
+			{(filters.agentId ??
+				filters.action ??
+				filters.result ??
+				filters.codes ??
+				filters.from ??
+				filters.to) && (
 				<button
 					type="button"
 					onClick={() => onChange({ limit: filters.limit, offset: 0 })}
@@ -256,7 +243,11 @@ export function AuditPage({ client }: AuditPageProps) {
 		queryFn: () => client.getAgents(),
 	});
 
-	const logs = logsResult?.success ? logsResult.data.entries : [];
+	const [explaining, setExplaining] = useState<AuditLogEntry | null>(null);
+	const codeFilter = filters.codes;
+	const logs = (logsResult?.success ? logsResult.data.entries : []).filter(
+		(e) => !codeFilter?.length || (e.code !== undefined && codeFilter.includes(e.code)),
+	);
 	const total = logsResult?.success ? logsResult.data.total : 0;
 	const agentOptions = agentsResult?.success
 		? agentsResult.data.map((a) => ({ id: a.id, name: a.name }))
@@ -294,84 +285,9 @@ export function AuditPage({ client }: AuditPageProps) {
 				<div className="flex items-center justify-center py-16">
 					<div className="w-5 h-5 border-2 border-zinc-300 dark:border-zinc-700 border-t-amber-500 rounded-full animate-spin" />
 				</div>
-			) : logs.length === 0 ? (
-				<Table>
-					<TableHead>
-						<Th>Timestamp</Th>
-						<Th>Agent</Th>
-						<Th>Action</Th>
-						<Th>Resource</Th>
-						<Th>Result</Th>
-						<Th>Duration</Th>
-					</TableHead>
-					<TableBody>
-						<tr>
-							<td colSpan={6}>
-								<EmptyState
-									icon={<ScrollText className="w-6 h-6" />}
-									title="No audit events yet"
-									description="Events are created automatically when agents call theauth.authorize(). Every allow and deny decision is recorded here."
-									docsLink="https://theauth.dev/docs/audit"
-								/>
-							</td>
-						</tr>
-					</TableBody>
-				</Table>
 			) : (
 				<>
-					<Table>
-						<TableHead>
-							<Th>Timestamp</Th>
-							<Th>Agent</Th>
-							<Th>Action</Th>
-							<Th>Resource</Th>
-							<Th>Result</Th>
-							<Th>Duration</Th>
-						</TableHead>
-						<TableBody>
-							{logs.map((entry) => {
-								const ts = formatTimestamp(entry.timestamp);
-								return (
-									<Tr key={entry.id}>
-										<Td>
-											<div className="flex items-center gap-1.5">
-												<Clock className="w-3 h-3 text-zinc-600 flex-shrink-0" />
-												<div>
-													<span className="text-xs text-zinc-700 dark:text-zinc-300 font-mono">
-														{ts.time}
-													</span>
-													<span className="block text-[10px] text-zinc-600">{ts.date}</span>
-												</div>
-											</div>
-										</Td>
-										<Td>
-											<span className="text-xs font-medium text-zinc-800 dark:text-zinc-200">
-												{entry.agentName}
-											</span>
-										</Td>
-										<Td>
-											<code className="text-xs font-mono text-zinc-400">{entry.action}</code>
-										</Td>
-										<Td>
-											<code className="text-xs font-mono text-zinc-400 max-w-[200px] truncate block">
-												{entry.resource}
-											</code>
-										</Td>
-										<Td>
-											<Badge variant={resultVariant(entry.result)}>
-												{entry.result.replace("_", " ")}
-											</Badge>
-										</Td>
-										<Td>
-											<span className="text-xs text-zinc-500 font-mono">
-												{formatDuration(entry.durationMs)}
-											</span>
-										</Td>
-									</Tr>
-								);
-							})}
-						</TableBody>
-					</Table>
+					<AuditTable entries={logs} onExplain={setExplaining} />
 
 					{/* Pagination */}
 					<div className="flex items-center justify-between mt-4 text-xs text-zinc-500">
@@ -404,6 +320,8 @@ export function AuditPage({ client }: AuditPageProps) {
 					</div>
 				</>
 			)}
+
+			<ExplainDrawer client={client} entry={explaining} onClose={() => setExplaining(null)} />
 		</div>
 	);
 }

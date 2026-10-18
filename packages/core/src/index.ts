@@ -84,6 +84,13 @@ export { createEmailTemplates } from "./email/index.js";
 export * from "./explain/index.js";
 export * from "./hooks/index.js";
 export * from "./i18n/index.js";
+export type {
+	DecisionEvent,
+	DecisionHookOutcome,
+	ObservabilityConfig,
+	ObservabilityStats,
+	TheAuthLogger,
+} from "./observability/types.js";
 export { generateOpenAPISpec } from "./openapi.js";
 export * from "./permission/index.js";
 export * from "./plugin/index.js";

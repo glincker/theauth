@@ -29,6 +29,7 @@ import type { DidWebConfig } from "./did/types.js";
 import type { TheAuthHooks } from "./hooks/lifecycle.js";
 import type { HookSafetyConfig } from "./hooks/safety.js";
 import type { McpConfig, Result } from "./mcp/types.js";
+import type { ObservabilityConfig, TheAuthLogger } from "./observability/types.js";
 import type { DecisionCode } from "./permission/codes.js";
 import type { PermissionCatalog } from "./permission/typed.js";
 import type { TheAuthPlugin } from "./plugin/types.js";
@@ -69,6 +70,14 @@ export interface TheAuthConfig {
 	 * Timeout and failure policy for `hooks.beforeAuthorize` and `hooks.beforeAgentCreate`. Sibling of `hooks` so the hooks object stays a plain map of functions. Defaults: 2000 ms timeout, deny on timeout or error for beforeAuthorize, throw for beforeAgentCreate. Env: THEAUTH_HOOK_TIMEOUT_MS, THEAUTH_HOOK_ON_TIMEOUT, THEAUTH_HOOK_ON_ERROR.
 	 */
 	hookSafety?: HookSafetyConfig;
+	/**
+	 * Structured logger for library diagnostics (hook timeouts, listener failures, startup warnings). Default: no-op, the SDK never writes to the console on its own.
+	 */
+	logger?: TheAuthLogger;
+	/**
+	 * Decision events for metrics and tracing: `onDecision(event)` fires once per authorize, authorizeByToken and policy.evaluate decision, off the request path. See `docs/observability.mdx`.
+	 */
+	observability?: ObservabilityConfig;
 
 	did?: {
 		/** did:web config, required for generating did:web identities. */
