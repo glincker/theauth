@@ -28,8 +28,10 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 
 ```json
 {
-  "code": "AGENT_NOT_FOUND",
-  "message": "Agent agt_01abc does not exist or has been revoked."
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Admin access required"
+  }
 }
 ```
 
@@ -46,7 +48,7 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 | `ip_not_allowed` | The IP is missing or not in `ipAllowlist`. | `ip_blocked` |
 | `time_restricted` | Outside the permission's `timeWindow`. | `time_restricted` |
 | `argument_rejected` | An argument failed `allowedArgPatterns`, or a pattern is not a valid regex. | `permission_denied` |
-| `approval_required` | The permission has `requireApproval` and no approval id was given. | `approval_required` |
+| `approval_required` | The permission has `requireApproval` and no approval id was given, or a `beforeAuthorize` hook returned `escalate`. | `approval_required` |
 | `approval_invalid` | The approval id is unknown, not approved, already used, or for another call. | `approval_required` |
 | `agent_not_found` | No agent with that id. | `permission_denied` |
 | `agent_revoked` | The agent is revoked. | `permission_denied` |
@@ -54,8 +56,8 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 | `invalid_token` | `authorizeByToken` got an unknown, revoked or expired token. | `permission_denied` |
 | `owner_mismatch` | `policy.evaluate` was given an owner that does not own the agent. | `permission_denied` |
 | `hook_denied` | A `beforeAuthorize` hook blocked the call. | `permission_denied` |
-| `hook_timeout` | Reserved for a hook that timed out. | `permission_denied` |
-| `hook_error` | Reserved for a hook that threw. | `permission_denied` |
+| `hook_timeout` | A `beforeAuthorize` hook timed out and the default `deny` mode blocked the call. | `permission_denied` |
+| `hook_error` | A `beforeAuthorize` hook threw or returned a malformed verdict and the default `deny` mode blocked the call. | `permission_denied` |
 | `taint_violation` | A taint rule matched the call's input provenance. | `permission_denied` |
 | `risk_escalation` | A risk tier requires approval or step up. | `permission_denied` |
 | `policy_indeterminate` | The policy engine could not decide (invalid input, graph error). It denies. | `permission_denied` |
@@ -65,54 +67,79 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 ## Error code reference
 
 <Warning>
-`theauth.authorize()` and `theauth.delegate()` do not return the permission and delegation codes in the tables below. `authorize()` returns `{ allowed, reason, auditId, code }` where `reason` is free-form text (for example `No permission grants agent "x" access to "write" on "mcp:github:repos"`), and `delegate()` throws a plain `Error` with a descriptive message (a subset violation or a depth overrun). Treat the Agent, Permission, Token, and Delegation tables as a reference vocabulary for your own HTTP layer, not as values the TypeScript core emits. The MCP module returns `Result` errors with codes such as `INVALID_CLIENT`, `INVALID_GRANT`, `LOGIN_REQUIRED`, `INVALID_TOKEN`, `TOKEN_EXPIRED`, `INVALID_AUDIENCE`, `INVALID_ISSUER`, `INSUFFICIENT_SCOPE`, `UNAUTHORIZED`, and `SERVER_ERROR`.
+`theauth.authorize()` does not return HTTP-style codes. It returns `{ allowed, reason, auditId, code }` where `code` is one of the lowercase decision codes above and `reason` is free-form text. Agent calls such as `agent.create()` (at the `maxPerUser` limit), `agent.update()`, `agent.revoke()` and `agent.rotate()` throw a plain `Error` with a descriptive message, so there are no `AGENT_*` or `PERMISSION_*` REST codes to branch on. Use the decision codes for authorization outcomes. The tables below list the uppercase codes that core, the adapters and the gateway really emit.
 </Warning>
 
-### Agent errors
-
-| Code | HTTP status | Description |
-|------|-------------|-------------|
-| `AGENT_NOT_FOUND` | 404 | No agent with the given ID exists. |
-| `AGENT_LIMIT_EXCEEDED` | 422 | The user has reached their `maxPerUser` agent limit. |
-| `AGENT_REVOKED` | 403 | The agent has been explicitly revoked and cannot be used. |
-| `AGENT_EXPIRED` | 403 | The agent's `expiresAt` is in the past. |
-
-### Permission errors
-
-| Code | HTTP status | Description |
-|------|-------------|-------------|
-| `PERMISSION_DENIED` | 403 | The agent does not have a permission matching the requested resource and action. |
-| `RATE_LIMITED` | 429 | The agent has exceeded its `maxCallsPerHour` constraint for this resource. |
-| `OUTSIDE_TIME_WINDOW` | 403 | The current time falls outside the permission's `timeWindow` constraint. |
-| `IP_NOT_ALLOWED` | 403 | The request IP is not in the permission's `ipAllowlist`. |
-| `REQUIRES_APPROVAL` | 202 | The action requires human approval (`requireApproval: true`). An approval request has been created. |
-
-### Token errors
-
-| Code | HTTP status | Description |
-|------|-------------|-------------|
-| `INVALID_TOKEN` | 401 | The token cannot be verified (bad signature, malformed, or unknown). |
-| `TOKEN_EXPIRED` | 401 | The token's `exp` claim is in the past. |
+REST errors from the adapters and the gateway use `{ "error": { "code", "message" } }`. MCP OAuth endpoints use the RFC 6749 wire shape `{ "error": "invalid_grant", "error_description": "..." }`, with the code lowercased.
 
 ### Delegation errors
 
-| Code | HTTP status | Description |
-|------|-------------|-------------|
-| `DELEGATION_DEPTH_EXCEEDED` | 422 | The delegation would exceed the `maxDepth` limit. |
-| `INSUFFICIENT_PERMISSIONS` | 403 | The delegating agent is attempting to grant permissions it does not hold. |
-| `DELEGATION_NOT_FOUND` | 404 | No delegation with the given ID exists. |
-| `DELEGATION_EXPIRED` | 403 | The delegation chain's `expiresAt` is in the past. |
-
-### MCP / OAuth errors
+`theauth.delegate()` throws a `DelegationError` (a typed `Error` with a `code`). The framework adapters map it to HTTP 400 and send `code` through as the REST error code.
 
 | Code | HTTP status | Description |
 |------|-------------|-------------|
-| `MCP_CLIENT_NOT_FOUND` | 401 | The OAuth `client_id` is not registered. |
-| `MCP_INVALID_GRANT` | 400 | The authorization code or refresh token is invalid, expired, or already consumed. |
-| `MCP_INVALID_REDIRECT_URI` | 400 | The `redirect_uri` does not match the registered client. |
-| `MCP_PKCE_FAILED` | 400 | The `code_verifier` does not match the stored `code_challenge`. |
-| `MCP_SCOPE_INSUFFICIENT` | 403 | The token does not carry the required scopes for this endpoint. |
-| `MCP_CLIENT_DISABLED` | 403 | The OAuth client has been disabled by an administrator. |
+| `DELEGATION_PERMISSION_SUBSET` | 400 | The delegating agent is trying to grant a permission it does not hold, or a wider one. |
+| `DELEGATION_DEPTH_EXCEEDED` | 400 | The delegation would exceed the `maxDepth` limit. |
+| `DELEGATION_PARENT_REVOKED` | 400 | The parent delegation in the chain has been revoked. |
+
+### User errors
+
+`theauth.user.create()` throws a `UserError`. Branch on `code`.
+
+| Code | Description |
+|------|-------------|
+| `USER_INVALID_INPUT` | The input failed schema validation. The message lists the failing fields. |
+| `USER_EMAIL_CONFLICT` | The email is already registered under a different user id than the one you passed. |
+| `USER_ID_CONFLICT` | The id is already in use by another email. |
+
+### Hook errors
+
+| Code | Where | Description |
+|------|-------|-------------|
+| `hook_timeout`, `hook_error` | `HookBlockedError.code` | A `beforeAgentCreate` hook timed out or failed and the mode was `deny`. For `beforeAuthorize` the same strings come back as decision codes. |
+| `HOOK_TIMEOUT` | `HookTimeoutError.code` | A hook timed out and the mode was `throw`. |
+
+### Agent tool errors
+
+| Code | Description |
+|------|-------------|
+| `TOOL_APPROVAL_REQUIRED` | A guarded tool needs human approval or step up. Do not retry until it is granted. |
+| `TOOL_GUARD_FAILED` | The policy check for a guarded tool could not complete, so the tool was blocked. |
+
+### Token errors
+
+Returned by the MCP token validator as `Result` errors. Over HTTP they are a 401 with a `WWW-Authenticate: Bearer resource_metadata="..."` challenge.
+
+| Code | HTTP status | Description |
+|------|-------------|-------------|
+| `INVALID_TOKEN` | 401 | The token cannot be verified, has been revoked, or is malformed. |
+| `TOKEN_EXPIRED` | 401 | The token's `exp` claim is in the past. |
+| `INVALID_AUDIENCE` | 401 | The token's `aud` does not match this resource. |
+| `INVALID_ISSUER` | 401 | The token's `iss` does not match this server. |
+
+### MCP and OAuth errors
+
+The MCP module returns `Result` errors with these codes. The token, registration and revocation endpoints answer 401 for `INVALID_CLIENT` and 400 for the rest.
+
+| Code | HTTP status | Description |
+|------|-------------|-------------|
+| `INVALID_REQUEST` | 400 | A required parameter is missing or malformed, or `code_challenge_method` is not `S256`. |
+| `INVALID_CLIENT` | 401 | The `client_id` is unknown, or client authentication failed. |
+| `INVALID_GRANT` | 400 | The authorization code or refresh token is invalid, expired or consumed, the `redirect_uri` does not match, or PKCE verification failed. |
+| `INVALID_REDIRECT_URI` | 400 | The `redirect_uri` does not match the registered client. |
+| `INVALID_SCOPE` | 400 | A requested scope is not allowed for this client or grant. |
+| `INVALID_TARGET` | 400 | The `resource` parameter does not match the one bound to the grant. |
+| `INVALID_CLIENT_METADATA` | 400 | Dynamic client registration metadata is invalid. |
+| `INVALID_DPOP_PROOF` | 400 | A DPoP proof is missing or invalid. |
+| `USE_DPOP_NONCE` | 400 | The client must retry with the server-issued DPoP nonce. |
+| `UNAUTHORIZED_CLIENT` | 400 | The client is not allowed to use this grant type. |
+| `UNSUPPORTED_GRANT_TYPE` | 400 | The grant type is not supported. |
+| `LOGIN_REQUIRED` | 400 | The user is not signed in at the authorization endpoint. With a `loginPage` configured the response redirects there instead. |
+| `INSUFFICIENT_SCOPE` | 403 | The token does not carry a required scope. See below. |
+| `UNAUTHORIZED` | 401 | No Bearer token was presented. |
+| `SERVER_ERROR` | 500 | The server could not complete validation. |
+
+`requireMcpAuth` and gateway policies with `requiredScopes` answer a scope shortfall with 403 and a `WWW-Authenticate` challenge carrying `error="insufficient_scope"` and the missing `scope`. The body lists `required_scopes` and `current_scopes`. The step-up helper adds an `upgrade_url` so the client can re-authorize with the extra scopes.
 
 ### General errors
 
@@ -120,8 +147,13 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 |------|-------------|-------------|
 | `BAD_REQUEST` | 400 | The request body or parameters failed validation. |
 | `UNAUTHORIZED` | 401 | No valid credential was provided. |
-| `FORBIDDEN` | 403 | The credential is valid but does not have access to this resource. |
+| `FORBIDDEN` | 403 | The credential is valid but does not have access to this resource. The gateway also uses it for a disallowed origin or a failed `requiredPermissions` check. |
 | `NOT_FOUND` | 404 | The requested resource does not exist. |
+| `RATE_LIMITED` | 429 | Too many requests. A `Retry-After` header says when to retry. |
+| `CSRF_REJECTED` | 403 | A cross-site write was refused for a cookie session. |
+| `PAYLOAD_TOO_LARGE` | 413 | Gateway only: the request body is over the limit. |
+| `BAD_GATEWAY` | 502 | Gateway only: the upstream is unreachable. |
+| `GATEWAY_TIMEOUT` | 504 | Gateway only: the upstream did not respond in time. |
 | `INTERNAL_ERROR` | 500 | An unexpected error occurred. Check server logs for details. |
 
 ## Related
