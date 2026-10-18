@@ -1,7 +1,8 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { clearSessionCache } from "./cookies.js";
+import { REFRESH_MAX_AGE_S, sessionCookieAttrs } from "./cookie-options.js";
+import { clearAllAuthCookiesFromStore, clearSessionCache } from "./cookies.js";
 import { generateCsrfToken } from "./csrf.js";
 import type { RefreshResult, ResolvedAuthConfig } from "./types.js";
 
@@ -45,7 +46,7 @@ export async function refreshSession<TUser>(
 
 	if (!response.ok) {
 		if (response.status === 401 || response.status === 403) {
-			await _clearSessionCookiesFromStore(config, store);
+			await clearAllAuthCookiesFromStore(config);
 		}
 		return null;
 	}
@@ -61,13 +62,7 @@ export async function refreshSession<TUser>(
 
 	const newCsrf = generateCsrfToken();
 
-	const sessionOpts = {
-		httpOnly: true,
-		secure: config.isProd,
-		sameSite: "lax" as const,
-		path: "/",
-		maxAge: 60 * 60 * 24 * 7, // 7 days
-	};
+	const sessionOpts = sessionCookieAttrs(config);
 
 	store.set(config.cookies.sessionName, data.accessToken, sessionOpts);
 	store.set(config.cookies.csrfName, newCsrf, {
@@ -78,7 +73,7 @@ export async function refreshSession<TUser>(
 	if (data.refreshToken) {
 		store.set(config.cookies.refresh, data.refreshToken, {
 			...sessionOpts,
-			maxAge: 60 * 60 * 24 * 30, // 30 days
+			maxAge: REFRESH_MAX_AGE_S,
 		});
 	}
 
@@ -90,17 +85,4 @@ export async function refreshSession<TUser>(
 		refreshToken: data.refreshToken,
 		csrfToken: newCsrf,
 	};
-}
-
-async function _clearSessionCookiesFromStore<TUser>(
-	config: ResolvedAuthConfig<TUser>,
-	store: Awaited<ReturnType<typeof cookies>>,
-): Promise<void> {
-	const { sessionPrefix } = config.cookies;
-	store.delete(`__Host-${sessionPrefix}-token`);
-	store.delete(`${sessionPrefix}-token`);
-	store.delete(`__Host-${sessionPrefix}-csrf`);
-	store.delete(`${sessionPrefix}-csrf`);
-	store.delete(config.cookies.refresh);
-	store.delete(config.cookies.cacheName);
 }

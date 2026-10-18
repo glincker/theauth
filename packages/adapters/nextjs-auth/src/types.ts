@@ -33,6 +33,18 @@ export interface AuthCookieConfig {
 }
 
 export interface AuthConfig<TUser = DefaultUser> {
+	/**
+	 * Required. Secret (at least 32 bytes) used to sign the session cache cookie with HMAC-SHA256.
+	 * Keep it server-only (for example `process.env.THEAUTH_SESSION_SECRET`). Rotating it
+	 * invalidates every cache cookie, which only costs one backend call per user.
+	 */
+	secret: string;
+	/**
+	 * Set the `Secure` attribute on cookies. Default: true, regardless of NODE_ENV. Pass `false`
+	 * only for localhost development over plain http. Cookies are always Secure when the incoming
+	 * request is https, even with `secure: false`.
+	 */
+	secure?: boolean;
 	/** Backend URL, no trailing slash. E.g. "https://api.example.com" */
 	backendUrl: string;
 	/** Public app URL used for Origin / X-Client-Origin headers. */
@@ -57,8 +69,8 @@ export interface AuthConfig<TUser = DefaultUser> {
 	 */
 	mapUser?: (raw: unknown) => TUser | null;
 	/**
-	 * Whether the app is running on HTTPS. Controls __Host-/plain cookie
-	 * prefix selection. Auto-detected from NODE_ENV when omitted.
+	 * Controls only the __Host-/plain cookie name prefix (prefix is used when true and `secure` is
+	 * not disabled). Auto-detected from NODE_ENV when omitted. Does not affect the `Secure` flag.
 	 */
 	isProd?: boolean;
 }
@@ -78,6 +90,7 @@ export interface ResolvedAuthConfig<TUser = DefaultUser> {
 	expiryRefreshBufferS: number;
 	mapUser: (raw: unknown) => TUser | null;
 	isProd: boolean;
+	secure: boolean;
 }
 
 /** Returned by refreshSession() on success. */
@@ -87,7 +100,7 @@ export interface RefreshResult {
 	csrfToken: string;
 }
 
-/** Shape stored inside the session cache cookie. */
+/** Shape of a verified session cache entry (the cookie itself is signed, see session-cache-codec). */
 export interface SessionCacheEntry<TUser = DefaultUser> {
 	user: TUser;
 	expiresAt: string | null; // ISO string

@@ -12,6 +12,20 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Security
+
+- **Fixed session forgery in 0.2.0 and earlier.** The session cache cookie was unsigned JSON that `getServerSession` trusted without a session token. It is now HMAC-SHA256 signed, bound to the session token and an expiry, and verified in constant time; anything else is ignored and the backend is asked. Unsigned legacy cookies are treated as no cache.
+
+### Breaking
+
+- `createAuthConfig` requires `secret` (at least 32 bytes) and throws otherwise.
+- Cookies are `Secure` by default regardless of `NODE_ENV`. Use `secure: false` for localhost development. `isProd` now only affects cookie name prefixes.
+- The cache cookie name gets the `__Host-` prefix when the prefix is in use.
+
+### Added
+
+- `safeRedirectPath` open-redirect guard; `withAuth` rejects a non same-origin `signInPath`.
+
 ### Changed
 
 - **`createSignOutHandler`** replaces `createSignOutAction` as the primary export name. The previous implementation inlined a `"use server"` directive inside the returned function body, which caused a Next.js build error when the adapter was reachable from any client-component graph (`It is not allowed to define inline "use server" annotated Server Actions in Client Components`). The new implementation returns a plain `async function` with no inline directive. Consumers must wrap it in their own `"use server"` file. See README §4 Sign out.

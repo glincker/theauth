@@ -1,6 +1,6 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { clearAllAuthCookiesFromStore } from "./cookies.js";
 import { buildAuthHeaders } from "./headers.js";
 import type { ResolvedAuthConfig } from "./types.js";
 
@@ -27,14 +27,7 @@ export function createSignOutHandler<TUser>(
 			// Ignored, the local cookie clear is the critical part
 		}
 
-		const store = await cookies();
-		const { sessionPrefix } = config.cookies;
-		store.delete(`__Host-${sessionPrefix}-token`);
-		store.delete(`${sessionPrefix}-token`);
-		store.delete(`__Host-${sessionPrefix}-csrf`);
-		store.delete(`${sessionPrefix}-csrf`);
-		store.delete(config.cookies.refresh);
-		store.delete(config.cookies.cacheName);
+		await clearAllAuthCookiesFromStore(config);
 
 		return { success: true };
 	};

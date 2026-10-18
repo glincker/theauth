@@ -5,12 +5,15 @@
 
 import type { NextRequest, NextResponse as NextResponseType } from "next/server";
 import { NextResponse } from "next/server";
+import { isHttpsForwarded, REFRESH_MAX_AGE_S, sessionCookieAttrs } from "./cookie-options.js";
 import { generateCsrfToken } from "./csrf.js";
 import { isTokenExpiring } from "./jwt.js";
+import { safeRedirectPath } from "./safe-redirect.js";
 import type { ResolvedAuthConfig } from "./types.js";
 
 export { createAuthConfig } from "./config.js";
 export { readJwtExp } from "./jwt.js";
+export { safeRedirectPath } from "./safe-redirect.js";
 export type { AuthConfig, AuthSession, DefaultUser, ResolvedAuthConfig } from "./types.js";
 
 interface MiddlewareOptions {
@@ -63,6 +66,12 @@ export function withAuth<TUser>(
 ): (req: NextRequest) => Promise<NextResponseType> {
 	const { protectedPaths = [], signInPath = "/signin", refreshTimeoutMs = 4000 } = options;
 
+	if (!signInPath.startsWith("/") || signInPath.startsWith("//") || signInPath.includes("\\")) {
+		throw new Error(
+			'[theauth-nextjs-auth] signInPath must be a same-origin path such as "/signin".',
+		);
+	}
+
 	return async function authMiddleware(req: NextRequest): Promise<NextResponseType> {
 		const pathname = req.nextUrl.pathname;
 
@@ -88,7 +97,13 @@ export function withAuth<TUser>(
 			const refreshed = await _tryRefresh(config, refreshToken, refreshTimeoutMs);
 			if (refreshed) {
 				hasValidSession = true;
-				_writeSessionCookies(response, refreshed, config);
+				_writeSessionCookies(
+					response,
+					refreshed,
+					config,
+					req.nextUrl.protocol === "https:" ||
+						isHttpsForwarded(req.headers.get("x-forwarded-proto")),
+				);
 			} else if (!accessToken) {
 				// No existing token at all AND refresh failed → definitely unauthenticated.
 				hasValidSession = false;
@@ -104,7 +119,7 @@ export function withAuth<TUser>(
 			if (isProtected) {
 				const signInUrl = req.nextUrl.clone();
 				signInUrl.pathname = signInPath;
-				signInUrl.searchParams.set("next", pathname);
+				signInUrl.searchParams.set("next", safeRedirectPath(pathname + req.nextUrl.search, "/"));
 				return NextResponse.redirect(signInUrl, { status: 307 });
 			}
 		}
@@ -156,14 +171,9 @@ function _writeSessionCookies<TUser>(
 	response: NextResponseType,
 	tokens: { accessToken: string; refreshToken?: string; csrfToken: string },
 	config: ResolvedAuthConfig<TUser>,
+	https: boolean,
 ): void {
-	const sessionOpts = {
-		httpOnly: true,
-		secure: config.isProd,
-		sameSite: "lax" as const,
-		path: "/",
-		maxAge: 60 * 60 * 24 * 7,
-	};
+	const sessionOpts = sessionCookieAttrs(config, https);
 
 	response.cookies.set(config.cookies.sessionName, tokens.accessToken, sessionOpts);
 	response.cookies.set(config.cookies.csrfName, tokens.csrfToken, {
@@ -174,7 +184,7 @@ function _writeSessionCookies<TUser>(
 	if (tokens.refreshToken) {
 		response.cookies.set(config.cookies.refresh, tokens.refreshToken, {
 			...sessionOpts,
-			maxAge: 60 * 60 * 24 * 30,
+			maxAge: REFRESH_MAX_AGE_S,
 		});
 	}
 }

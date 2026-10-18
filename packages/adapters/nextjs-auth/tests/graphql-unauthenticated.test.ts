@@ -2,6 +2,8 @@ import type { MockInstance } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthConfig } from "../src/config.js";
 
+const TEST_SECRET = "test-secret-test-secret-test-secret-0123456789";
+
 // Covers HTTP 200 responses that carry UNAUTHENTICATED or UNAUTHORIZED GraphQL error codes.
 
 vi.mock("server-only", () => ({}));
@@ -19,6 +21,7 @@ vi.mock("next/headers", () => ({
 const { graphqlWithRefresh, GraphQLRequestError } = await import("../src/backend-fetch.js");
 
 const config = createAuthConfig({
+	secret: TEST_SECRET,
 	backendUrl: "https://api.example.com",
 	appUrl: "https://example.com",
 	isProd: false,

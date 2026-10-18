@@ -23,6 +23,11 @@ export const getServerSession = cache(_getServerSessionImpl) as <TUser>(
 async function _getServerSessionImpl<TUser>(
 	config: ResolvedAuthConfig<TUser>,
 ): Promise<AuthSession<TUser> | null> {
+	// No token means no session, whatever any other cookie says.
+	const token = await getSessionToken(config);
+	if (!token) return null;
+
+	// Only a verified (signed, token-bound, unexpired) cache entry skips the backend.
 	const cached = await readSessionCache(config);
 	if (cached) {
 		return {
@@ -31,12 +36,9 @@ async function _getServerSessionImpl<TUser>(
 		};
 	}
 
-	const token = await getSessionToken(config);
-	if (!token) return null;
-
 	const session = await _fetchMe(config);
 	if (session) {
-		await _stampSessionCache(config, session);
+		await _stampSessionCache(config, session, token);
 		return session;
 	}
 
@@ -45,7 +47,7 @@ async function _getServerSessionImpl<TUser>(
 
 	const retrySession = await _fetchMe(config);
 	if (retrySession) {
-		await _stampSessionCache(config, retrySession);
+		await _stampSessionCache(config, retrySession, refreshed.accessToken);
 	}
 	return retrySession;
 }
@@ -87,11 +89,12 @@ async function _fetchMe<TUser>(
 async function _stampSessionCache<TUser>(
 	config: ResolvedAuthConfig<TUser>,
 	session: AuthSession<TUser>,
+	token: string,
 ): Promise<void> {
 	const entry: SessionCacheEntry<TUser> = {
 		user: session.user,
 		expiresAt: session.expiresAt ? session.expiresAt.toISOString() : null,
 		stampedAt: Date.now(),
 	};
-	await writeSessionCache(config, entry);
+	await writeSessionCache(config, entry, token);
 }

@@ -14,6 +14,7 @@ export { generateCsrfToken } from "./csrf.js";
 export { buildAuthHeaders, buildClientHeaders } from "./headers.js";
 export { refreshSession } from "./refresh.js";
 export { createSignOutAction, createSignOutHandler } from "./route-handlers.js";
+export { safeRedirectPath } from "./safe-redirect.js";
 export { getServerSession } from "./server-session.js";
 
 export type {
