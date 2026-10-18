@@ -15,34 +15,34 @@ declare const typed: Typed;
 declare const untyped: TheAuth;
 
 describe("typed permissions", () => {
-	it("exact pattern accepts only its literal resource", () => {
-		typed.authorize("a", { resource: "tool:file_read", action: "execute" });
+	it("exact pattern accepts only its literal resource", async () => {
+		await typed.authorize("a", { resource: "tool:file_read", action: "execute" });
 		// @ts-expect-error resource is not declared
-		typed.authorize("a", { resource: "tool:file_write", action: "execute" });
+		await typed.authorize("a", { resource: "tool:file_write", action: "execute" });
 	});
 
-	it("wildcard pattern accepts any suffix and rejects other prefixes", () => {
-		typed.authorize("a", { resource: "mcp:github:issues", action: "read" });
+	it("wildcard pattern accepts any suffix and rejects other prefixes", async () => {
+		await typed.authorize("a", { resource: "mcp:github:issues", action: "read" });
 		// @ts-expect-error other prefix
-		typed.authorize("a", { resource: "mcp:gitlab:issues", action: "read" });
+		await typed.authorize("a", { resource: "mcp:gitlab:issues", action: "read" });
 	});
 
-	it("actions are correlated with the matching pattern", () => {
+	it("actions are correlated with the matching pattern", async () => {
 		// @ts-expect-error "execute" is not listed for mcp:github:*
-		typed.authorize("a", { resource: "mcp:github:issues", action: "execute" });
+		await typed.authorize("a", { resource: "mcp:github:issues", action: "execute" });
 		// @ts-expect-error "read" belongs to another pattern
-		typed.authorize("a", { resource: "tool:file_read", action: "read" });
+		await typed.authorize("a", { resource: "tool:file_read", action: "read" });
 		// @ts-expect-error same for tokens
-		typed.authorizeByToken("t", { resource: "mcp:github:x", action: "execute" });
+		await typed.authorizeByToken("t", { resource: "mcp:github:x", action: "execute" });
 	});
 
-	it("untyped createTheAuth keeps accepting arbitrary strings", () => {
+	it("untyped createTheAuth keeps accepting arbitrary strings", async () => {
 		expectTypeOf(createTheAuth).returns.resolves.toMatchTypeOf<TheAuth | Typed>();
-		untyped.authorize("a", { resource: "anything:goes", action: "whatever" });
+		await untyped.authorize("a", { resource: "anything:goes", action: "whatever" });
 	});
 
-	it("agent.create and delegate reject undeclared resources and allow wildcard actions", () => {
-		typed.agent.create({
+	it("agent.create and delegate reject undeclared resources and allow wildcard actions", async () => {
+		await typed.agent.create({
 			ownerId: "u",
 			name: "n",
 			type: "autonomous",
@@ -51,18 +51,18 @@ describe("typed permissions", () => {
 				{ resource: "tool:file_read", actions: ["execute"] },
 			],
 		});
-		typed.agent.create({
+		await typed.agent.create({
 			ownerId: "u",
 			name: "n",
 			type: "autonomous",
 			// @ts-expect-error undeclared resource
 			permissions: [{ resource: "db:users", actions: ["read"] }],
 		});
-		typed.agent.update("a", {
+		await typed.agent.update("a", {
 			// @ts-expect-error undeclared action
 			permissions: [{ resource: "mcp:github:*", actions: ["delete"] }],
 		});
-		typed.delegate({
+		await typed.delegate({
 			fromAgent: "a",
 			toAgent: "b",
 			expiresAt: new Date(),
@@ -71,16 +71,16 @@ describe("typed permissions", () => {
 		});
 	});
 
-	it("explain accepts a declared action and resource", () => {
-		typed.explain("a", "read", "mcp:github:issues");
-		typed.explain("a", "execute", "tool:file_read", { runHooks: false });
+	it("explain accepts a declared action and resource", async () => {
+		await typed.explain("a", "read", "mcp:github:issues");
+		await typed.explain("a", "execute", "tool:file_read", { runHooks: false });
 	});
 
-	it("explain rejects a typo in the resource or an undeclared action", () => {
+	it("explain rejects a typo in the resource or an undeclared action", async () => {
 		// @ts-expect-error resource typo
-		typed.explain("a", "read", "mcp:gihtub:issues");
+		await typed.explain("a", "read", "mcp:gihtub:issues");
 		// @ts-expect-error "execute" is not listed for mcp:github:*
-		typed.explain("a", "execute", "mcp:github:issues");
+		await typed.explain("a", "execute", "mcp:github:issues");
 	});
 
 	it("TypedTheAuth can be cast to TheAuth for adapters", () => {

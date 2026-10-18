@@ -387,10 +387,13 @@ describe("validateCimdDocument acceptance", () => {
 	});
 
 	it("strips bidi overrides and controls from client_name, empty becomes null", async () => {
-		const res = await validateCimdDocument(ID, doc({ client_name: "Ap‮p⁦ \u0000One​" }));
+		const res = await validateCimdDocument(
+			ID,
+			doc({ client_name: "Ap\u202ep\u2066 \u0000One\u200b" }),
+		);
 		if (!res.ok) throw new Error("expected valid");
 		expect(res.client.clientName).toBe("App One");
-		const empty = await validateCimdDocument(ID, doc({ client_name: " ‮ " }));
+		const empty = await validateCimdDocument(ID, doc({ client_name: " \u202e " }));
 		if (!empty.ok) throw new Error("expected valid");
 		expect(empty.client.clientName).toBeNull();
 	});

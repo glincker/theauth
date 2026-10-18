@@ -30,7 +30,7 @@ const ACCEPTED_URLS: string[] = [
 	"https://app1.example.com/c",
 	"https://a.b.c.d.e.example.com/c",
 	"https://modelcontextprotocol.io/clients/x.json",
-	"https://example.com/ünicode".replace("ü", "%C3%BC"),
+	"https://example.com/ünicode".replaceAll("ü", "%C3%BC"),
 ];
 
 const REFUSED_URLS: Array<[string, string]> = [
@@ -96,9 +96,9 @@ const REFUSED_URLS: Array<[string, string]> = [
 	["https://client.example/c\nd", "newline in path"],
 	["https://client.example/c\r\nHost: evil", "crlf"],
 	["https://client.example/c\u0000", "nul char"],
-	["https://client.example/‮c", "bidi override"],
-	["https://client.example/c​", "zero width space"],
-	["https://client.example/c ", "nbsp"],
+	["https://client.example/\u202ec", "bidi override"],
+	["https://client.example/c\u200b", "zero width space"],
+	["https://client.example/c\u00a0", "nbsp"],
 	["https://client.example/é", "non ascii path"],
 	["https://münchen.example/c", "idn unicode host"],
 	["https://аpple.com/c", "cyrillic a homograph"],

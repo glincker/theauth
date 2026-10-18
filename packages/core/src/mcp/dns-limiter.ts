@@ -15,14 +15,8 @@ export function createConcurrencyLimiter(max: number, maxQueue: number): Concurr
 			return new Promise<T>((resolve, reject) => {
 				const start = (): void => {
 					active++;
-					let p: Promise<T>;
-					try {
-						p = fn();
-					} catch (err) {
-						next();
-						reject(err);
-						return;
-					}
+					// The executor turns a synchronous throw from fn into a rejection of p.
+					const p = new Promise<T>((res) => res(fn()));
 					p.then(resolve, reject).finally(next);
 				};
 				if (active < max) start();

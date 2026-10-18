@@ -1,5 +1,5 @@
 /** Guard protocol wire helpers. Self-contained: the conformance package does not depend on core. */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const GUARD_PROTOCOL_VERSION = "2026-10";
 export const TIMESTAMP_HEADER = "x-theauth-timestamp";
@@ -41,7 +41,7 @@ export interface CanaryOptions {
 export function canaryEnvelope(opts: CanaryOptions): Record<string, unknown> {
 	return {
 		version: GUARD_PROTOCOL_VERSION,
-		requestId: `conformance-${Math.random().toString(36).slice(2, 12)}`,
+		requestId: `conformance-${randomBytes(6).toString("hex")}`,
 		issuedAt: new Date().toISOString(),
 		input: {
 			agentId: "agent_conformance",

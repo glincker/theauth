@@ -93,14 +93,14 @@ describe("webhook signing rotation", () => {
 		expect(await verify({ ...base, timestamp: String(Number(timestamp) - 1000) })).toBe(false);
 	});
 
-	it("rotation form validates secrets", () => {
-		expect(() => buildWebhookHeaders([NEW, "short"], BODY, "e", "d", ts())).rejects.toThrow(
+	it("rotation form validates secrets", async () => {
+		await expect(buildWebhookHeaders([NEW, "short"], BODY, "e", "d", ts())).rejects.toThrow(
 			/at least 32/,
 		);
-		expect(() => buildWebhookHeaders([NEW, NEW], BODY, "e", "d", ts())).rejects.toThrow(
+		await expect(buildWebhookHeaders([NEW, NEW], BODY, "e", "d", ts())).rejects.toThrow(
 			/duplicate/,
 		);
-		expect(() => buildWebhookHeaders("", BODY, "e", "d", ts())).rejects.toThrow(/empty/);
+		await expect(buildWebhookHeaders("", BODY, "e", "d", ts())).rejects.toThrow(/empty/);
 	});
 
 	it("webhooks() fails fast on a bad endpoint secret and delivers with the current key", async () => {

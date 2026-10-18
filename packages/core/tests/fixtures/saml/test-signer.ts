@@ -3,7 +3,7 @@
  * canonicalizer (validated separately against xmllint in sso-saml-c14n.test.ts). Never used by src/.
  */
 
-import { createHash, createSign, generateKeyPairSync } from "node:crypto";
+import { createHash, createSign, generateKeyPairSync, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { excC14n } from "../../../src/auth/saml-c14n.js";
@@ -93,11 +93,11 @@ export function buildResponse(o: ResponseOptions = {}): string {
 			? ""
 			: `<saml:AudienceRestriction><saml:Audience>${audience}</saml:Audience></saml:AudienceRestriction>`;
 	return (
-		`<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="_resp_${Math.random().toString(16).slice(2)}" Version="2.0" IssueInstant="${iso(0)}"` +
+		`<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="_resp_${randomBytes(8).toString("hex")}" Version="2.0" IssueInstant="${iso(0)}"` +
 		`${attr("Destination", o.destination === undefined ? "https://app.example.com/auth/sso/saml/conn1/acs" : o.destination)}${attr("InResponseTo", respIrt)}>` +
 		(respIssuer === null ? "" : `<saml:Issuer>${respIssuer}</saml:Issuer>`) +
 		`<samlp:Status><samlp:StatusCode Value="${o.status ?? "urn:oasis:names:tc:SAML:2.0:status:Success"}"/></samlp:Status>` +
-		`<saml:Assertion ID="${o.assertionId ?? `_a_${Math.random().toString(16).slice(2)}`}" Version="2.0" IssueInstant="${iso(0)}">` +
+		`<saml:Assertion ID="${o.assertionId ?? `_a_${randomBytes(8).toString("hex")}`}" Version="2.0" IssueInstant="${iso(0)}">` +
 		`<saml:Issuer>${idp}</saml:Issuer>` +
 		`<saml:Subject><saml:NameID>${o.email ?? "user@example.com"}</saml:NameID>` +
 		`<saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"><saml:SubjectConfirmationData${attr("InResponseTo", irt)}${attr("NotOnOrAfter", scdNoa)} Recipient="${o.recipient ?? "https://app.example.com/auth/sso/saml/conn1/acs"}"/></saml:SubjectConfirmation></saml:Subject>` +

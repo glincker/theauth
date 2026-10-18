@@ -52,12 +52,8 @@ export async function runWithTimeout<T>(
 			}, timeoutMs);
 		}
 	});
-	let work: Promise<T>;
-	try {
-		work = Promise.resolve(fn(controller.signal));
-	} catch (error) {
-		return { ok: false, timedOut: false, error };
-	}
+	// The executor turns a synchronous throw from fn into a rejection, handled below.
+	const work = new Promise<T>((res) => res(fn(controller.signal)));
 	// Swallow a late rejection after the timeout won the race.
 	work.catch(() => undefined);
 	const settled = work.then(

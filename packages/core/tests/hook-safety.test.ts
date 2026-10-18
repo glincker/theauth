@@ -348,3 +348,19 @@ describe("hook safety wiring: beforeAgentCreate", () => {
 		await expect(theauth.agent.create(input)).rejects.toThrow("sandbox");
 	});
 });
+
+describe("runWithTimeout synchronous throw", () => {
+	it("fails closed with the thrown error and does not leave the timer running", async () => {
+		vi.useFakeTimers();
+		try {
+			const boom = new Error("sync boom");
+			const res = await runWithTimeout(() => {
+				throw boom;
+			}, 1000);
+			expect(res).toEqual({ ok: false, timedOut: false, error: boom });
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});

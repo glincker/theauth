@@ -15,6 +15,9 @@ const PROVIDERS_INDEX = join(PACKAGES_DIR, "core", "src", "auth", "oauth", "prov
 const CORE_PACKAGE_JSON = join(PACKAGES_DIR, "core", "package.json");
 const OUTPUT = join(ROOT, "docs", "stats.json");
 
+// Code unit order, identical to the default sort, made explicit.
+const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
 // Adapter directories that are not web framework adapters.
 // prisma is a database adapter; nextjs-auth is a companion to the nextjs adapter.
 const NON_FRAMEWORK_ADAPTERS = new Set(["prisma", "nextjs-auth"]);
@@ -69,11 +72,11 @@ function countProviders() {
 		firstClass: [...slugs.entries()]
 			.filter(([, n]) => /^create/.test(n))
 			.map(([s]) => s)
-			.sort(),
+			.sort(byCodeUnit),
 		legacyPresets: [...slugs.entries()]
 			.filter(([, n]) => !/^create/.test(n))
 			.map(([s]) => s)
-			.sort(),
+			.sort(byCodeUnit),
 	};
 }
 
@@ -82,18 +85,18 @@ function countAdapters() {
 		const pkg = join(ADAPTERS_DIR, d, "package.json");
 		return statSync(join(ADAPTERS_DIR, d)).isDirectory() && existsSync(pkg);
 	});
-	const framework = dirs.filter((d) => !NON_FRAMEWORK_ADAPTERS.has(d)).sort();
+	const framework = dirs.filter((d) => !NON_FRAMEWORK_ADAPTERS.has(d)).sort(byCodeUnit);
 	return {
 		totalPackages: dirs.length,
 		frameworkAdapters: framework.length,
 		frameworks: framework,
-		excluded: [...NON_FRAMEWORK_ADAPTERS].sort(),
+		excluded: [...NON_FRAMEWORK_ADAPTERS].sort(byCodeUnit),
 	};
 }
 
 function countRuntimeDeps() {
 	const pkg = JSON.parse(readFileSync(CORE_PACKAGE_JSON, "utf8"));
-	const deps = Object.keys(pkg.dependencies ?? {}).sort();
+	const deps = Object.keys(pkg.dependencies ?? {}).sort(byCodeUnit);
 	return { count: deps.length, names: deps };
 }
 

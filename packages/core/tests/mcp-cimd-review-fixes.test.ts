@@ -311,7 +311,7 @@ describe("finding 3: anonymous requests do not fetch or persist", () => {
 		// another host is unaffected
 		await resolveClient(ctx, "https://other.example.org/c/1");
 		expect(calls.length).toBeGreaterThan(0);
-		expect(calls.some((u) => u.startsWith("https://other.example.org"))).toBe(true);
+		expect(calls.some((u) => new URL(u).host === "other.example.org")).toBe(true);
 	});
 
 	it("caps stored unconsented rows and prunes stale ones", async () => {
@@ -541,5 +541,17 @@ describe("finding 10: negative cache survives junk ids", () => {
 		for (let i = 0; i < 1100; i++) await resolveClient(ctx, `https://junk${i}.example.net/c`);
 		await resolveClient(ctx, target);
 		expect(calls.filter((u) => u === target)).toHaveLength(1);
+	});
+});
+
+describe("concurrency limiter sync throw", () => {
+	it("rejects, releases the slot and keeps serving", async () => {
+		const limiter = createConcurrencyLimiter(1, 1);
+		await expect(
+			limiter.run(() => {
+				throw new Error("sync boom");
+			}),
+		).rejects.toThrow("sync boom");
+		await expect(limiter.run(async () => "ok")).resolves.toBe("ok");
 	});
 });

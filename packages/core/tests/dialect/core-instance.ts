@@ -52,9 +52,11 @@ export function defineCoreInstanceTests(booter: CoreBooter): void {
 			const a = await sessions.create(user.id, { device: "laptop" });
 			const b = await sessions.create(user.id);
 			expect((await sessions.validate(a.token))?.userId).toBe(user.id);
-			expect((await sessions.list(user.id)).map((s) => s.id).sort()).toEqual(
-				[a.session.id, b.session.id].sort(),
-			);
+			expect(
+				(await sessions.list(user.id))
+					.map((s) => s.id)
+					.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+			).toEqual([a.session.id, b.session.id].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
 			expect(a.session.expiresAt.getTime()).toBeGreaterThan(Date.now());
 			await sessions.revoke(a.session.id);
 			expect(await sessions.validate(a.token)).toBeNull();

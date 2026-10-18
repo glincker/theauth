@@ -149,6 +149,13 @@ function warnAboutRiskyOptions(
 	}
 }
 
+/** Linear-time trailing slash trim (a `/\/+$/` regex backtracks quadratically on long slash runs). */
+function trimTrailingSlashes(value: string): string {
+	let end = value.length;
+	while (end > 0 && value.charCodeAt(end - 1) === 47) end--;
+	return value.slice(0, end);
+}
+
 /**
  * Build the single web-standard HTTP handler for TheAuth: `(Request) => Promise<Response>`.
  * Framework adapters only translate their request and response types around it.
@@ -158,7 +165,7 @@ export function createTheAuthHandler(
 	auth: TheAuth,
 	options?: TheAuthHandlerOptions,
 ): TheAuthHandler {
-	const basePath = (options?.basePath ?? DEFAULT_BASE_PATH).replace(/\/+$/, "");
+	const basePath = trimTrailingSlashes(options?.basePath ?? DEFAULT_BASE_PATH);
 	const maxBodyBytes = options?.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
 	const mounted = resolveMountedMcpRoutes(options);
 	const gate = buildGate(auth, options);
