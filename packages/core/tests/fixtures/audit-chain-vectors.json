@@ -90,7 +90,10 @@
             "id": "r3",
             "action": "write",
             "parameters": null,
-            "delegationChain": ["d1", "d2"],
+            "delegationChain": [
+              "d1",
+              "d2"
+            ],
             "timestamp": 1790812802000,
             "hashVersion": 1
           },
@@ -203,7 +206,10 @@
             "id": "r3",
             "action": "write",
             "parameters": null,
-            "delegationChain": ["d1", "d2"],
+            "delegationChain": [
+              "d1",
+              "d2"
+            ],
             "timestamp": 1790812802000,
             "hashVersion": 1
           },
@@ -324,7 +330,10 @@
             "id": "r3",
             "action": "write",
             "parameters": null,
-            "delegationChain": ["d1", "d2"],
+            "delegationChain": [
+              "d1",
+              "d2"
+            ],
             "timestamp": 1790812802000,
             "hashVersion": 2,
             "idPseudonyms": {
@@ -469,7 +478,10 @@
             "id": "r3",
             "action": "write",
             "parameters": null,
-            "delegationChain": ["d1", "d2"],
+            "delegationChain": [
+              "d1",
+              "d2"
+            ],
             "timestamp": 1790812802000,
             "hashVersion": 2,
             "idPseudonyms": {

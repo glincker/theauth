@@ -13,6 +13,8 @@ export {
 	enableAuditChain,
 	insertAuditRow,
 } from "./chain.js";
+export type { ChainCheckpointOptions, ChainCheckpointResult } from "./chain-anchor.js";
+export { checkpointChains } from "./chain-anchor.js";
 export type { CreateCheckpointOptions, ProofOptions } from "./checkpoint.js";
 export {
 	createCheckpoint,
@@ -39,6 +41,14 @@ export type {
 	VerifyFailureReason,
 	VerifyOutcome,
 } from "./checkpoint-types.js";
+export type {
+	GoAuditRow,
+	GoChainFailure,
+	GoChainFailureReason,
+	GoChainVerifyOptions,
+	GoChainVerifyResult,
+} from "./go-chain-verify.js";
+export { goChainPayload, verifyGoAuditChain } from "./go-chain-verify.js";
 export { decodeAuditCursor, encodeAuditCursor, isInvalidAuditCursor } from "./query.js";
 export type { AuditWriteError, AuditWriteErrorHandler, RecordedEvent } from "./record.js";
 export {
@@ -58,7 +68,9 @@ export type {
 	TimelineKind,
 } from "./replay.js";
 export { exportAudit, replayAgent, verifyAuditExport } from "./replay.js";
+export { isReservedAuditKey, stripReservedAuditKeys } from "./reserved.js";
 export type {
+	ChainAnchor,
 	ChainBreak,
 	ChainBreakReason,
 	ChainHead,

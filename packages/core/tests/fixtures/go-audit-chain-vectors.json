@@ -1,0 +1,420 @@
+{
+  "chainHashVersion": 1,
+  "chains": [
+    {
+      "name": "org1-rich",
+      "chainKey": "01JC0000000000000000000001",
+      "rows": [
+        {
+          "row": {
+            "action": "agent.authorize",
+            "actorPseudonym": "",
+            "actorUserPseudonym": "",
+            "approverPseudonym": "",
+            "chainSeq": 1,
+            "createdAt": "2025-10-09T03:53:20-05:00",
+            "hash": "a069f1bc7db82b3a7321805faa40220ecbb5dd3c11256be650115cbcafcb26a4",
+            "id": "01JB0000000000000000000001",
+            "organizationId": "01JC0000000000000000000001",
+            "subjectPseudonym": ""
+          },
+          "payload": "{\"v\":1,\"chainKey\":\"01JC0000000000000000000001\",\"seq\":1,\"prev\":\"\",\"id\":\"01JB0000000000000000000001\",\"org\":\"01JC0000000000000000000001\",\"actorUserPseudonym\":\"\",\"actorSession\":\"\",\"action\":\"agent.authorize\",\"targetType\":\"\",\"targetId\":\"\",\"metadata\":\"{}\",\"ip\":\"\",\"userAgent\":\"\",\"createdAt\":1760000000000000,\"subjectPseudonym\":\"\",\"actorPseudonym\":\"\",\"policyVersion\":\"\",\"approverPseudonym\":\"\",\"delegationChain\":\"[]\",\"inputProvenance\":\"{}\"}",
+          "hash": "a069f1bc7db82b3a7321805faa40220ecbb5dd3c11256be650115cbcafcb26a4"
+        },
+        {
+          "row": {
+            "action": "agent.authorize",
+            "actorId": "agent_9",
+            "actorPseudonym": "25c86cb81cfb1f3aba2c3c5f48381017b113922f24e98591a41e7dc582399f04",
+            "actorSessionId": "01JE0000000000000000000001",
+            "actorUserId": "01JD0000000000000000000001",
+            "actorUserPseudonym": "6c5d7cfae412b31561760c22adaa64a61d06266ae9beaa7a48b36141ef2d4675",
+            "approverId": "user_2",
+            "approverPseudonym": "6b3d9abdcd8300743853e6c9deec87b28d8db414cdd320961a9680f8a614b82e",
+            "chainSeq": 2,
+            "createdAt": "2025-10-09T03:53:20.123456-05:00",
+            "delegationChain": ["agent_1", "agent_9"],
+            "hash": "f9520498f6767f47c7045575f19b401df879ecebea4aee85416a724c2cc05eb2",
+            "id": "01JB0000000000000000000002",
+            "inputProvenance": {
+              "chain": {
+                "a": 2,
+                "b": 1
+              },
+              "source": "tool_output"
+            },
+            "ip": "203.0.113.7",
+            "metadata": {
+              "a": "x",
+              "b": 2,
+              "n": {
+                "y": [3, "\u003ck\u003e"],
+                "z": 1
+              }
+            },
+            "organizationId": "01JC0000000000000000000001",
+            "policyVersion": "v7",
+            "prevHash": "a069f1bc7db82b3a7321805faa40220ecbb5dd3c11256be650115cbcafcb26a4",
+            "subjectId": "user_1",
+            "subjectPseudonym": "d5d5049093a10decdfe5f66e20ff1349a3f00b221809871b1d58d8f2054a7d8d",
+            "targetId": "t1",
+            "targetType": "tool",
+            "userAgent": "golden"
+          },
+          "payload": "{\"v\":1,\"chainKey\":\"01JC0000000000000000000001\",\"seq\":2,\"prev\":\"a069f1bc7db82b3a7321805faa40220ecbb5dd3c11256be650115cbcafcb26a4\",\"id\":\"01JB0000000000000000000002\",\"org\":\"01JC0000000000000000000001\",\"actorUserPseudonym\":\"6c5d7cfae412b31561760c22adaa64a61d06266ae9beaa7a48b36141ef2d4675\",\"actorSession\":\"01JE0000000000000000000001\",\"action\":\"agent.authorize\",\"targetType\":\"tool\",\"targetId\":\"t1\",\"metadata\":\"{\\\"a\\\":\\\"x\\\",\\\"b\\\":2,\\\"n\\\":{\\\"y\\\":[3,\\\"\\\\u003ck\\\\u003e\\\"],\\\"z\\\":1}}\",\"ip\":\"203.0.113.7\",\"userAgent\":\"golden\",\"createdAt\":1760000000123456,\"subjectPseudonym\":\"d5d5049093a10decdfe5f66e20ff1349a3f00b221809871b1d58d8f2054a7d8d\",\"actorPseudonym\":\"25c86cb81cfb1f3aba2c3c5f48381017b113922f24e98591a41e7dc582399f04\",\"policyVersion\":\"v7\",\"approverPseudonym\":\"6b3d9abdcd8300743853e6c9deec87b28d8db414cdd320961a9680f8a614b82e\",\"delegationChain\":\"[\\\"agent_1\\\",\\\"agent_9\\\"]\",\"inputProvenance\":\"{\\\"chain\\\":{\\\"a\\\":2,\\\"b\\\":1},\\\"source\\\":\\\"tool_output\\\"}\"}",
+          "hash": "f9520498f6767f47c7045575f19b401df879ecebea4aee85416a724c2cc05eb2"
+        },
+        {
+          "row": {
+            "action": "policy.decision",
+            "actorId": "agent_😀",
+            "actorPseudonym": "8fb3af111094a1f532908253414d5d42cd141fbdc893fda5cde3a376651ec837",
+            "actorUserPseudonym": "",
+            "approverPseudonym": "",
+            "chainSeq": 3,
+            "createdAt": "2025-10-09T03:53:20.999999-05:00",
+            "hash": "63ab54c36dd69d174dca52119b1a4742ca32dd2df204dc19dd24ae00c8de3727",
+            "id": "01JB0000000000000000000003",
+            "metadata": {
+              "ctl": "a\tb\nc\u0001\b\f\"\\",
+              "html": "\u003cb\u003e\u0026\u003c/b\u003e",
+              "uni": "café 😀 \u2028 \u2029 "
+            },
+            "organizationId": "01JC0000000000000000000001",
+            "prevHash": "f9520498f6767f47c7045575f19b401df879ecebea4aee85416a724c2cc05eb2",
+            "subjectId": "user_é",
+            "subjectPseudonym": "b58553f4e34ce2b00821c41f3cec80e82eef9ac3580155ad1e18af8889ab2a1a"
+          },
+          "payload": "{\"v\":1,\"chainKey\":\"01JC0000000000000000000001\",\"seq\":3,\"prev\":\"f9520498f6767f47c7045575f19b401df879ecebea4aee85416a724c2cc05eb2\",\"id\":\"01JB0000000000000000000003\",\"org\":\"01JC0000000000000000000001\",\"actorUserPseudonym\":\"\",\"actorSession\":\"\",\"action\":\"policy.decision\",\"targetType\":\"\",\"targetId\":\"\",\"metadata\":\"{\\\"ctl\\\":\\\"a\\\\tb\\\\nc\\\\u0001\\\\b\\\\f\\\\\\\"\\\\\\\\\\\",\\\"html\\\":\\\"\\\\u003cb\\\\u003e\\\\u0026\\\\u003c/b\\\\u003e\\\",\\\"uni\\\":\\\"café 😀 \\\\u2028 \\\\u2029 \\\"}\",\"ip\":\"\",\"userAgent\":\"\",\"createdAt\":1760000000999999,\"subjectPseudonym\":\"b58553f4e34ce2b00821c41f3cec80e82eef9ac3580155ad1e18af8889ab2a1a\",\"actorPseudonym\":\"8fb3af111094a1f532908253414d5d42cd141fbdc893fda5cde3a376651ec837\",\"policyVersion\":\"\",\"approverPseudonym\":\"\",\"delegationChain\":\"[]\",\"inputProvenance\":\"{}\"}",
+          "hash": "63ab54c36dd69d174dca52119b1a4742ca32dd2df204dc19dd24ae00c8de3727"
+        },
+        {
+          "row": {
+            "action": "agent.authorize_denied",
+            "actorPseudonym": "",
+            "actorUserPseudonym": "",
+            "approverPseudonym": "",
+            "chainSeq": 4,
+            "createdAt": "2025-10-09T03:53:21-05:00",
+            "hash": "1ca00f33b9b78237a2d4e4e2c9737502cbc7517d56ebec07352746e87ecbc5f7",
+            "id": "01JB0000000000000000000004",
+            "organizationId": "01JC0000000000000000000001",
+            "prevHash": "63ab54c36dd69d174dca52119b1a4742ca32dd2df204dc19dd24ae00c8de3727",
+            "subjectPseudonym": ""
+          },
+          "payload": "{\"v\":1,\"chainKey\":\"01JC0000000000000000000001\",\"seq\":4,\"prev\":\"63ab54c36dd69d174dca52119b1a4742ca32dd2df204dc19dd24ae00c8de3727\",\"id\":\"01JB0000000000000000000004\",\"org\":\"01JC0000000000000000000001\",\"actorUserPseudonym\":\"\",\"actorSession\":\"\",\"action\":\"agent.authorize_denied\",\"targetType\":\"\",\"targetId\":\"\",\"metadata\":\"{}\",\"ip\":\"\",\"userAgent\":\"\",\"createdAt\":1760000001000000,\"subjectPseudonym\":\"\",\"actorPseudonym\":\"\",\"policyVersion\":\"\",\"approverPseudonym\":\"\",\"delegationChain\":\"[]\",\"inputProvenance\":\"{}\"}",
+          "hash": "1ca00f33b9b78237a2d4e4e2c9737502cbc7517d56ebec07352746e87ecbc5f7"
+        },
+        {
+          "row": {
+            "action": "vault.token.issued",
+            "actorPseudonym": "25c86cb81cfb1f3aba2c3c5f48381017b113922f24e98591a41e7dc582399f04",
+            "actorUserPseudonym": "5cb5ddf2345be18dc5f9aead0117cd59e69d8c362788a6452c5f119dda9dc184",
+            "approverPseudonym": "",
+            "chainSeq": 5,
+            "createdAt": "2025-10-09T03:53:22.5-05:00",
+            "hash": "b2af5369dddd432810819d2d9c83b6ead69fd39ad31b8c1ebfe93d43d3df1cf4",
+            "id": "01JB0000000000000000000005",
+            "metadata": {
+              "big": 123456789012345680000,
+              "f1": 1.5,
+              "f2": 0.000001,
+              "f3": 1e-7,
+              "f4": 1e21,
+              "f5": 100,
+              "max": 9007199254740991,
+              "neg": -5,
+              "nil": null,
+              "t": true
+            },
+            "organizationId": "01JC0000000000000000000001",
+            "prevHash": "1ca00f33b9b78237a2d4e4e2c9737502cbc7517d56ebec07352746e87ecbc5f7",
+            "subjectPseudonym": "d5d5049093a10decdfe5f66e20ff1349a3f00b221809871b1d58d8f2054a7d8d"
+          },
+          "payload": "{\"v\":1,\"chainKey\":\"01JC0000000000000000000001\",\"seq\":5,\"prev\":\"1ca00f33b9b78237a2d4e4e2c9737502cbc7517d56ebec07352746e87ecbc5f7\",\"id\":\"01JB0000000000000000000005\",\"org\":\"01JC0000000000000000000001\",\"actorUserPseudonym\":\"5cb5ddf2345be18dc5f9aead0117cd59e69d8c362788a6452c5f119dda9dc184\",\"actorSession\":\"\",\"action\":\"vault.token.issued\",\"targetType\":\"\",\"targetId\":\"\",\"metadata\":\"{\\\"big\\\":123456789012345680000,\\\"f1\\\":1.5,\\\"f2\\\":0.000001,\\\"f3\\\":1e-7,\\\"f4\\\":1e+21,\\\"f5\\\":100,\\\"max\\\":9007199254740991,\\\"neg\\\":-5,\\\"nil\\\":null,\\\"t\\\":true}\",\"ip\":\"\",\"userAgent\":\"\",\"createdAt\":1760000002500000,\"subjectPseudonym\":\"d5d5049093a10decdfe5f66e20ff1349a3f00b221809871b1d58d8f2054a7d8d\",\"actorPseudonym\":\"25c86cb81cfb1f3aba2c3c5f48381017b113922f24e98591a41e7dc582399f04\",\"policyVersion\":\"\",\"approverPseudonym\":\"\",\"delegationChain\":\"[]\",\"inputProvenance\":\"{}\"}",
+          "hash": "b2af5369dddd432810819d2d9c83b6ead69fd39ad31b8c1ebfe93d43d3df1cf4"
+        },
+        {
+          "row": {
+            "action": "tool_approval.approved",
+            "actorPseudonym": "de37e09a0d44a3c43da039366fb52e5f730441c51ace5f6006f99d55d28cf9c8",
+            "actorUserPseudonym": "",
+            "approverPseudonym": "45cf3f8865c711acbfbb9badf2c9e9f97ed35af98dcdda0486c6eaea6b116066",
+            "chainSeq": 6,
+            "createdAt": "2025-10-09T03:53:23.000001-05:00",
+            "hash": "c354d22d0da7909fb246052da25efc4a8efc05d79a37ddef3333cf5f5e0d4efb",
+            "id": "01JB0000000000000000000006",
+            "organizationId": "01JC0000000000000000000001",
+            "prevHash": "b2af5369dddd432810819d2d9c83b6ead69fd39ad31b8c1ebfe93d43d3df1cf4",
+            "subjectPseudonym": "e99a7059b7eee22a2a4f1fb751bd0adbe9b355e699840922a7b3682e6648b7e9"
+          },
+          "payload": "{\"v\":1,\"chainKey\":\"01JC0000000000000000000001\",\"seq\":6,\"prev\":\"b2af5369dddd432810819d2d9c83b6ead69fd39ad31b8c1ebfe93d43d3df1cf4\",\"id\":\"01JB0000000000000000000006\",\"org\":\"01JC0000000000000000000001\",\"actorUserPseudonym\":\"\",\"actorSession\":\"\",\"action\":\"tool_approval.approved\",\"targetType\":\"\",\"targetId\":\"\",\"metadata\":\"{}\",\"ip\":\"\",\"userAgent\":\"\",\"createdAt\":1760000003000001,\"subjectPseudonym\":\"e99a7059b7eee22a2a4f1fb751bd0adbe9b355e699840922a7b3682e6648b7e9\",\"actorPseudonym\":\"de37e09a0d44a3c43da039366fb52e5f730441c51ace5f6006f99d55d28cf9c8\",\"policyVersion\":\"\",\"approverPseudonym\":\"45cf3f8865c711acbfbb9badf2c9e9f97ed35af98dcdda0486c6eaea6b116066\",\"delegationChain\":\"[]\",\"inputProvenance\":\"{}\"}",
+          "hash": "c354d22d0da7909fb246052da25efc4a8efc05d79a37ddef3333cf5f5e0d4efb"
+        }
+      ]
+    },
+    {
+      "name": "org2-short",
+      "chainKey": "01JC0000000000000000000002",
+      "rows": [
+        {
+          "row": {
+            "action": "agent.created",
+            "actorId": "agent_b",
+            "actorPseudonym": "f7bcfc6ba669643678982818280ffba735d144a71bc41ba8ada93bb83bf49272",
+            "actorUserPseudonym": "",
+            "approverPseudonym": "",
+            "chainSeq": 1,
+            "createdAt": "2025-10-09T03:53:20.00001-05:00",
+            "hash": "dbd72a140f00ada5a8a104b47477aa789fc091b9e167d418ef1b22bdb044066b",
+            "id": "01JB0000000000000000000011",
+            "organizationId": "01JC0000000000000000000002",
+            "subjectPseudonym": ""
+          },
+          "payload": "{\"v\":1,\"chainKey\":\"01JC0000000000000000000002\",\"seq\":1,\"prev\":\"\",\"id\":\"01JB0000000000000000000011\",\"org\":\"01JC0000000000000000000002\",\"actorUserPseudonym\":\"\",\"actorSession\":\"\",\"action\":\"agent.created\",\"targetType\":\"\",\"targetId\":\"\",\"metadata\":\"{}\",\"ip\":\"\",\"userAgent\":\"\",\"createdAt\":1760000000000010,\"subjectPseudonym\":\"\",\"actorPseudonym\":\"f7bcfc6ba669643678982818280ffba735d144a71bc41ba8ada93bb83bf49272\",\"policyVersion\":\"\",\"approverPseudonym\":\"\",\"delegationChain\":\"[]\",\"inputProvenance\":\"{}\"}",
+          "hash": "dbd72a140f00ada5a8a104b47477aa789fc091b9e167d418ef1b22bdb044066b"
+        },
+        {
+          "row": {
+            "action": "agent.revoked",
+            "actorId": "agent_b",
+            "actorPseudonym": "f7bcfc6ba669643678982818280ffba735d144a71bc41ba8ada93bb83bf49272",
+            "actorUserPseudonym": "",
+            "approverPseudonym": "",
+            "chainSeq": 2,
+            "createdAt": "2025-10-09T03:53:20.00002-05:00",
+            "hash": "2d1da459da5e02c9009e380c4d3499ea9ad70d09603868dfb3f28045c8b1a2fb",
+            "id": "01JB0000000000000000000012",
+            "metadata": {
+              "reason": "rotated"
+            },
+            "organizationId": "01JC0000000000000000000002",
+            "prevHash": "dbd72a140f00ada5a8a104b47477aa789fc091b9e167d418ef1b22bdb044066b",
+            "subjectPseudonym": ""
+          },
+          "payload": "{\"v\":1,\"chainKey\":\"01JC0000000000000000000002\",\"seq\":2,\"prev\":\"dbd72a140f00ada5a8a104b47477aa789fc091b9e167d418ef1b22bdb044066b\",\"id\":\"01JB0000000000000000000012\",\"org\":\"01JC0000000000000000000002\",\"actorUserPseudonym\":\"\",\"actorSession\":\"\",\"action\":\"agent.revoked\",\"targetType\":\"\",\"targetId\":\"\",\"metadata\":\"{\\\"reason\\\":\\\"rotated\\\"}\",\"ip\":\"\",\"userAgent\":\"\",\"createdAt\":1760000000000020,\"subjectPseudonym\":\"\",\"actorPseudonym\":\"f7bcfc6ba669643678982818280ffba735d144a71bc41ba8ada93bb83bf49272\",\"policyVersion\":\"\",\"approverPseudonym\":\"\",\"delegationChain\":\"[]\",\"inputProvenance\":\"{}\"}",
+          "hash": "2d1da459da5e02c9009e380c4d3499ea9ad70d09603868dfb3f28045c8b1a2fb"
+        },
+        {
+          "row": {
+            "action": "delegation.granted",
+            "actorPseudonym": "",
+            "actorUserPseudonym": "",
+            "approverPseudonym": "",
+            "chainSeq": 3,
+            "createdAt": "2025-10-09T03:53:20.00003-05:00",
+            "delegationChain": ["agent_b"],
+            "hash": "51c092df8ee5da519a3df3162e545d843725220b4406d95d233e9eac55f227c9",
+            "id": "01JB0000000000000000000013",
+            "organizationId": "01JC0000000000000000000002",
+            "prevHash": "2d1da459da5e02c9009e380c4d3499ea9ad70d09603868dfb3f28045c8b1a2fb",
+            "subjectPseudonym": ""
+          },
+          "payload": "{\"v\":1,\"chainKey\":\"01JC0000000000000000000002\",\"seq\":3,\"prev\":\"2d1da459da5e02c9009e380c4d3499ea9ad70d09603868dfb3f28045c8b1a2fb\",\"id\":\"01JB0000000000000000000013\",\"org\":\"01JC0000000000000000000002\",\"actorUserPseudonym\":\"\",\"actorSession\":\"\",\"action\":\"delegation.granted\",\"targetType\":\"\",\"targetId\":\"\",\"metadata\":\"{}\",\"ip\":\"\",\"userAgent\":\"\",\"createdAt\":1760000000000030,\"subjectPseudonym\":\"\",\"actorPseudonym\":\"\",\"policyVersion\":\"\",\"approverPseudonym\":\"\",\"delegationChain\":\"[\\\"agent_b\\\"]\",\"inputProvenance\":\"{}\"}",
+          "hash": "51c092df8ee5da519a3df3162e545d843725220b4406d95d233e9eac55f227c9"
+        }
+      ]
+    },
+    {
+      "name": "global",
+      "chainKey": "",
+      "rows": [
+        {
+          "row": {
+            "action": "audit.events_dropped",
+            "actorPseudonym": "",
+            "actorUserPseudonym": "",
+            "approverPseudonym": "",
+            "chainSeq": 1,
+            "createdAt": "2025-10-09T03:53:20.000005-05:00",
+            "hash": "a609abfdb0e93ccf025420a411bc44f5a0376c7df9b617766fc2a94f11a559d4",
+            "id": "01JB0000000000000000000021",
+            "metadata": {
+              "dropped": 3
+            },
+            "subjectPseudonym": ""
+          },
+          "payload": "{\"v\":1,\"chainKey\":\"\",\"seq\":1,\"prev\":\"\",\"id\":\"01JB0000000000000000000021\",\"org\":\"\",\"actorUserPseudonym\":\"\",\"actorSession\":\"\",\"action\":\"audit.events_dropped\",\"targetType\":\"\",\"targetId\":\"\",\"metadata\":\"{\\\"dropped\\\":3}\",\"ip\":\"\",\"userAgent\":\"\",\"createdAt\":1760000000000005,\"subjectPseudonym\":\"\",\"actorPseudonym\":\"\",\"policyVersion\":\"\",\"approverPseudonym\":\"\",\"delegationChain\":\"[]\",\"inputProvenance\":\"{}\"}",
+          "hash": "a609abfdb0e93ccf025420a411bc44f5a0376c7df9b617766fc2a94f11a559d4"
+        },
+        {
+          "row": {
+            "action": "agent.created",
+            "actorId": "agent_g",
+            "actorPseudonym": "8dc6cb2886c1fedcbad0cc1a2f91506835364c82b0787b7658af78defbff14cd",
+            "actorUserPseudonym": "",
+            "approverPseudonym": "",
+            "chainSeq": 2,
+            "createdAt": "2025-10-09T03:53:20.000006-05:00",
+            "hash": "106c94f9b38d0d18dc131ed708105444bef164cec0a72efaca5d0f1bc5bfc71c",
+            "id": "01JB0000000000000000000022",
+            "prevHash": "a609abfdb0e93ccf025420a411bc44f5a0376c7df9b617766fc2a94f11a559d4",
+            "subjectPseudonym": ""
+          },
+          "payload": "{\"v\":1,\"chainKey\":\"\",\"seq\":2,\"prev\":\"a609abfdb0e93ccf025420a411bc44f5a0376c7df9b617766fc2a94f11a559d4\",\"id\":\"01JB0000000000000000000022\",\"org\":\"\",\"actorUserPseudonym\":\"\",\"actorSession\":\"\",\"action\":\"agent.created\",\"targetType\":\"\",\"targetId\":\"\",\"metadata\":\"{}\",\"ip\":\"\",\"userAgent\":\"\",\"createdAt\":1760000000000006,\"subjectPseudonym\":\"\",\"actorPseudonym\":\"8dc6cb2886c1fedcbad0cc1a2f91506835364c82b0787b7658af78defbff14cd\",\"policyVersion\":\"\",\"approverPseudonym\":\"\",\"delegationChain\":\"[]\",\"inputProvenance\":\"{}\"}",
+          "hash": "106c94f9b38d0d18dc131ed708105444bef164cec0a72efaca5d0f1bc5bfc71c"
+        }
+      ]
+    }
+  ],
+  "format": "theauth.audit.go-chain-vectors",
+  "formatVersion": 1,
+  "hashFormat": "go-v1",
+  "negative": [
+    {
+      "chain": 0,
+      "expect": "hash_mismatch",
+      "failsAtRow": 1,
+      "mutate": {
+        "field": "metadata",
+        "kind": "set_field",
+        "row": 1,
+        "value": {
+          "a": "y"
+        }
+      },
+      "name": "tamper_metadata"
+    },
+    {
+      "chain": 0,
+      "expect": "hash_mismatch",
+      "failsAtRow": 2,
+      "mutate": {
+        "field": "action",
+        "kind": "set_field",
+        "row": 2,
+        "value": "policy.other"
+      },
+      "name": "tamper_action"
+    },
+    {
+      "chain": 0,
+      "expect": "hash_mismatch",
+      "failsAtRow": 2,
+      "mutate": {
+        "field": "createdAt",
+        "kind": "set_field",
+        "row": 2,
+        "value": "2025-10-09T08:53:20.999998Z"
+      },
+      "name": "tamper_created_at_one_micro"
+    },
+    {
+      "chain": 0,
+      "expect": "seq_gap",
+      "failsAtRow": 1,
+      "mutate": {
+        "a": 1,
+        "b": 2,
+        "kind": "swap_rows"
+      },
+      "name": "reorder_rows"
+    },
+    {
+      "chain": 0,
+      "expect": "seq_gap",
+      "failsAtRow": 2,
+      "mutate": {
+        "kind": "drop_row",
+        "row": 2
+      },
+      "name": "drop_middle_row"
+    },
+    {
+      "chain": 0,
+      "expect": "seq_duplicate",
+      "failsAtRow": 2,
+      "mutate": {
+        "kind": "dup_row",
+        "row": 1
+      },
+      "name": "duplicate_row"
+    },
+    {
+      "chain": 0,
+      "expect": "prev_hash_mismatch",
+      "failsAtRow": 3,
+      "mutate": {
+        "field": "prevHash",
+        "kind": "set_field",
+        "row": 3,
+        "value": "00"
+      },
+      "name": "wrong_prev"
+    },
+    {
+      "chain": 1,
+      "expect": "prev_hash_mismatch",
+      "failsAtRow": 0,
+      "mutate": {
+        "field": "prevHash",
+        "kind": "set_field",
+        "row": 0,
+        "value": "ab"
+      },
+      "name": "prev_not_empty_at_seq1"
+    },
+    {
+      "chain": 1,
+      "expect": "unsupported_hash_version",
+      "failsAtRow": 1,
+      "mutate": {
+        "field": "hashVersion",
+        "kind": "set_field",
+        "row": 1,
+        "value": 2
+      },
+      "name": "version_2_unsupported"
+    },
+    {
+      "chain": 0,
+      "expect": "pseudonym_mismatch",
+      "failsAtRow": 1,
+      "mutate": {
+        "field": "actorId",
+        "kind": "set_field",
+        "row": 1,
+        "value": "agent_evil"
+      },
+      "name": "raw_actor_edited"
+    },
+    {
+      "chain": 1,
+      "expect": "seq_gap",
+      "failsAtRow": 1,
+      "mutate": {
+        "field": "organizationId",
+        "kind": "set_field",
+        "row": 1,
+        "value": "01JC0000000000000000000001"
+      },
+      "name": "org_moved_to_other_chain"
+    },
+    {
+      "chain": 2,
+      "expect": "hash_mismatch",
+      "failsAtRow": 0,
+      "mutate": {
+        "field": "hash",
+        "kind": "set_field",
+        "row": 0,
+        "value": "00"
+      },
+      "name": "hash_edited"
+    },
+    {
+      "chain": 2,
+      "expect": "malformed_row",
+      "failsAtRow": 1,
+      "mutate": {
+        "field": "id",
+        "kind": "set_field",
+        "row": 1,
+        "value": null
+      },
+      "name": "malformed_missing_id"
+    }
+  ],
+  "producer": "theauth-go internal/audit @ fb0f78f",
+  "pseudonymSecretHex": "3031323334353637383961626364656630313233343536373839616263646566"
+}

@@ -12,5 +12,8 @@ export function createAuditFacade(auditModule: AuditModule) {
 		cleanup: (options: { retentionDays: number }) => auditModule.cleanup(options),
 		replayAgent: (agentId: string, opts?: Parameters<AuditModule["replayAgent"]>[1]) =>
 			auditModule.replayAgent(agentId, opts),
+		verifyAuditChain: (opts?: Parameters<AuditModule["verifyAuditChain"]>[0]) =>
+			auditModule.verifyAuditChain(opts),
+		checkpoint: (opts?: Parameters<AuditModule["checkpoint"]>[0]) => auditModule.checkpoint(opts),
 	};
 }

@@ -151,6 +151,49 @@ Check order for a chain: `prev` equals the previous row's `hash` (`null` for the
 
 A chain cut off at its tail still verifies row by row. Detecting that needs a signed checkpoint or an `expectedHeads` anchor, which is why checkpoints exist.
 
+The vectors above test the row hash only. `verifyAuditChain` on a live database also checks where each chain starts. The oldest remaining row must be seq 1 with `prev = null`, or be explained by an `audit.checkpoint` row: either the one retention cleanup writes (`throughSeq` and `lastHash` match the first row's link) or the anchor `theauth.audit.checkpoint()` writes (`firstSeq`, `firstId` and `firstHash` name the first row). Both are chained rows and carry a `mac`: `hex(HMAC-SHA256(key, "theauth.audit.anchor.v1:" + canonicalJson(fields)))`, with the same key as the pseudonyms. Otherwise the result is `truncated_prefix`. `checkpoint()` also returns the anchors and heads, so you can keep them outside the database and pass them back as `anchors` and `expectedHeads`; a pinned anchor whose row is gone gives `truncated_prefix`, one whose hash differs gives `anchor_mismatch`. It anchors chains as they are when called, so verify first. `allowUnanchoredPrefix: true` turns the start check off.
+
+`audit.erasure` records follow the same rule. They are chained rows, and each entry is MACed under `"theauth.audit.erasure.v1:"` over the erased row's id, agent, seq, hash, `prevHash`, `hashVersion`, reason (`anonymized` or `deleted`) and, for an anonymized version 1 row, the hash of the row as erasure left it. A record that is not on a chain gives `erasure_unchained`, an entry with a bad MAC gives `erasure_forged`, and a row whose `hash_version` went back to 1 (or NULL) gives `version_downgrade`.
+
+## Verifying a Go export from TypeScript
+
+`verifyGoAuditChain(rows, options?)` recomputes the hash chain of rows exported by theauth-go. It is a separate verifier from `verifyAuditChain`, because the Go chain is a different format (see the table at the top). It is pure and runs on Web Crypto only, so it works in a browser, a worker or Node.
+
+```ts
+import { verifyGoAuditChain } from "@glinr/theauth";
+
+const result = await verifyGoAuditChain(rows, { pseudonymSecret: secretHex });
+if (!result.ok) console.error(result.firstFailure); // { reason, chainKey, rowId, seq, index }
+```
+
+From a shell: `theauth audit verify-go export.json [--secret-hex <hex>] [--partial] [--json]` (a JSON array, `{"rows": [...]}` or NDJSON). It reads the file and nothing else.
+
+Rows use the JSON of Go's `models.AuditEvent` (`id`, `organizationId`, `action`, `createdAt`, `chainSeq`, `prevHash`, `hash`, and so on). The four hashed pseudonyms are not part of that struct, so the export must add `actorUserPseudonym`, `subjectPseudonym`, `actorPseudonym` and `approverPseudonym` (empty or absent for ids that were never set). Without them you must pass `pseudonymSecret` (the 32 raw bytes as `Uint8Array`, or hex), and erased rows can then not be verified.
+
+What is checked, per chain key (the organization id, or `""` for global events), in this order, stopping at the first failure:
+
+| Check | Reason on failure |
+|---|---|
+| Row shape (`id`, `action`, `createdAt` as RFC 3339, `chainSeq` >= 1, `hash`) | `malformed_row` |
+| `hashVersion` absent or `1` | `unsupported_hash_version` |
+| `chainSeq` continues from 1 without a repeat or gap, rows in order | `seq_duplicate`, `seq_gap` |
+| `prevHash` equals the previous row's `hash` (empty at seq 1) | `prev_hash_mismatch` |
+| SHA-256 of the rebuilt `json.Marshal` bytes equals `hash` | `hash_mismatch` |
+| Pseudonym inputs are present | `missing_pseudonym_input` |
+| With `pseudonymSecret`: each raw id still present matches its pseudonym | `pseudonym_mismatch` |
+
+Erasure works as in Go: a row whose raw id is blank while its pseudonym is set counts as erased and still verifies through the pseudonym. Rows with no hash are skipped and counted as `unchained`. Interleaved chains are fine. `allowPartialStart` trusts the first row of each chain, for an export window.
+
+What is not checked:
+
+- **Truncation.** A chain cut at its tail still verifies. Only a signed checkpoint or an externally kept head detects that.
+- **Keys.** The Go chain is plain SHA-256, with no HMAC mode, so anyone who can write the table can rewrite a suffix and recompute every hash. This verifier cannot change that, and it has no HMAC support because there is nothing to support. Without `pseudonymSecret` the pseudonyms are trusted as exported (`pseudonymsUnchecked` counts those rows).
+- **Fields outside the hash.** `event`, `recordedAtUs` and the native columns of a database are not hashed.
+- **Numbers beyond 2^53** inside `metadata` or `inputProvenance`: JavaScript parses them as floats, so the rebuilt text can differ from Go's. Metadata with such values reports `hash_mismatch`.
+- **Storage.** It checks an export, not that the export matches the database.
+
+The conformance vectors are `packages/core/tests/fixtures/go-audit-chain-vectors.json`, produced by running the real Go hashing code. The generator source and the steps to rerun it are in `scripts/go-chain-vectors/`.
+
 ## Running both libraries
 
 Do not point both libraries at one database or schema. Both create a table named `theauth_audit_secrets`, with incompatible layouts:

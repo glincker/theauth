@@ -210,7 +210,7 @@ export async function generate() {
 	};
 }
 
-const text = `${JSON.stringify(await generate(), null, "\t")}\n`;
+const text = `${JSON.stringify(await generate(), null, 2)}\n`;
 if (process.argv.includes("--stdout")) process.stdout.write(text);
 else {
 	writeFileSync(OUT, text);

@@ -1,6 +1,6 @@
 /**
  * Erasure of personal ids from audit rows (GDPR deleteUser).
- * Version 2 chain rows hash keyed pseudonyms of the ids (see pseudonym.ts), so blanking the raw columns leaves their hashes valid and nothing else is needed. Version 1 rows (released format, hash_version NULL or 1) hash the raw agentId and userId, so rewriting those columns cannot keep the hash. For those rows, and for rows deleted outright, an unchained `audit.erasure` side record names each affected row with its stored hash and link, and the verifier reports them as erased instead of as tamper. Destroying the key is a further option and is not implemented (no key shredding).
+ * Version 2 chain rows hash keyed pseudonyms of the ids (see pseudonym.ts), so blanking the raw columns leaves their hashes valid and nothing else is needed. Version 1 rows (released format, hash_version NULL or 1) hash the raw agentId and userId, so rewriting those columns cannot keep the hash. For those rows, and for rows deleted outright, an `audit.erasure` record names each affected row with its stored hash and link, and the verifier reports them as erased instead of as tamper. The record is appended to the agent's hash chain like any other row, and every entry carries an HMAC made with the audit key (see integrity.ts), so a record written by hand without the key excuses nothing. Destroying the key is a further option and is not implemented (no key shredding).
  */
 
 import { eq, inArray, or } from "drizzle-orm";
@@ -8,7 +8,11 @@ import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { agents, auditLogs, users } from "../db/schema.js";
 import { isUniqueViolation } from "../db/unique-violation.js";
-import { ERASURE_ACTION } from "./chain.js";
+import type { AuditRow } from "./chain.js";
+import { computeRowHash, ERASURE_ACTION, getAuditChainConfig, insertAuditRow } from "./chain.js";
+import type { UnsignedErasureEntry } from "./integrity.js";
+import { signErasureEntry } from "./integrity.js";
+import { resolvePseudonymKey } from "./pseudonym.js";
 
 export interface EraseAuditOptions {
 	userId: string;
@@ -20,14 +24,6 @@ export interface EraseAuditOptions {
 	anonAgentId: (agentId: string) => string;
 	/** true: keep the rows with ids replaced. false: delete the user's rows. */
 	keepRows: boolean;
-}
-
-interface ErasedRowRecord {
-	id: string;
-	agentId: string;
-	seq: number;
-	hash: string;
-	prevHash: string | null;
 }
 
 /**
@@ -104,33 +100,29 @@ async function anonymizeRows(db: Database, opts: EraseAuditOptions): Promise<num
 		opts.agentIds.length > 0
 			? or(inArray(auditLogs.agentId, opts.agentIds), eq(auditLogs.userId, opts.userId))
 			: eq(auditLogs.userId, opts.userId);
-	const rows = await db
-		.select({
-			id: auditLogs.id,
-			agentId: auditLogs.agentId,
-			seq: auditLogs.chainSeq,
-			hash: auditLogs.hash,
-			prevHash: auditLogs.prevHash,
-			hashVersion: auditLogs.hashVersion,
-		})
-		.from(auditLogs)
-		.where(match);
+	const rows: AuditRow[] = await db.select().from(auditLogs).where(match);
 	let affected = 0;
 	if (rows.length > 0) {
 		await ensureTombstoneUser(db, opts.anonUserId);
 		const owned = new Set(opts.agentIds);
+		const hmacKey = getAuditChainConfig(db)?.hmacKey;
 		// Version 1 chained rows lose their hash validity once agentId or userId change.
-		const legacy = new Map<string, ErasedRowRecord[]>();
+		const legacy = new Map<string, UnsignedErasureEntry[]>();
 		for (const r of rows) {
 			const newAgentId = owned.has(r.agentId) ? opts.anonAgentId(r.agentId) : r.agentId;
-			if (r.seq !== null && r.hash !== null && (r.hashVersion ?? 1) < 2) {
+			if (r.chainSeq !== null && r.hash !== null && (r.hashVersion ?? 1) < 2) {
+				// Both updates below set userId to the placeholder on every matched row.
+				const rewritten = { ...r, agentId: newAgentId, userId: opts.anonUserId };
 				const list = legacy.get(newAgentId) ?? [];
 				list.push({
 					id: r.id,
 					agentId: newAgentId,
-					seq: r.seq,
+					seq: r.chainSeq,
 					hash: r.hash,
 					prevHash: r.prevHash,
+					hashVersion: r.hashVersion ?? 1,
+					reason: "anonymized",
+					erasedHash: await computeRowHash(rewritten, r.chainSeq, r.prevHash, hmacKey),
 				});
 				legacy.set(newAgentId, list);
 			}
@@ -174,13 +166,14 @@ async function deleteRows(db: Database, opts: EraseAuditOptions): Promise<number
 			seq: auditLogs.chainSeq,
 			hash: auditLogs.hash,
 			prevHash: auditLogs.prevHash,
+			hashVersion: auditLogs.hashVersion,
 		})
 		.from(auditLogs)
 		.where(eq(auditLogs.userId, opts.userId));
 	if (rows.length === 0) return 0;
 	await ensureTombstoneUser(db, opts.anonUserId);
 	const owned = new Set(opts.agentIds);
-	const byAgent = new Map<string, ErasedRowRecord[]>();
+	const byAgent = new Map<string, UnsignedErasureEntry[]>();
 	const tombstoneAgents = new Set<string>();
 	for (const r of rows) {
 		if (r.seq === null || r.hash === null) continue;
@@ -188,7 +181,16 @@ async function deleteRows(db: Database, opts: EraseAuditOptions): Promise<number
 		const recordAgentId = owned.has(r.agentId) ? opts.anonAgentId(r.agentId) : r.agentId;
 		if (owned.has(r.agentId)) tombstoneAgents.add(recordAgentId);
 		const list = byAgent.get(recordAgentId) ?? [];
-		list.push({ id: r.id, agentId: recordAgentId, seq: r.seq, hash: r.hash, prevHash: r.prevHash });
+		list.push({
+			id: r.id,
+			agentId: recordAgentId,
+			seq: r.seq,
+			hash: r.hash,
+			prevHash: r.prevHash,
+			hashVersion: r.hashVersion ?? 1,
+			reason: "deleted",
+			erasedHash: null,
+		});
 		byAgent.set(recordAgentId, list);
 	}
 	for (const [agentId, list] of byAgent) {
@@ -199,13 +201,17 @@ async function deleteRows(db: Database, opts: EraseAuditOptions): Promise<number
 	return rows.length;
 }
 
+/** Sign each entry and append the record to the agent's chain. Written before a hard delete, so a chain whose head is deleted still links to the record. */
 async function writeErasureRecord(
 	db: Database,
 	agentId: string,
 	anonUserId: string,
-	rows: ErasedRowRecord[],
+	entries: UnsignedErasureEntry[],
 ): Promise<void> {
-	await db.insert(auditLogs).values({
+	const key = await resolvePseudonymKey(db, getAuditChainConfig(db)?.hmacKey, true);
+	if (!key) throw new Error("no audit key available to sign the erasure record");
+	const rows = await Promise.all(entries.map((e) => signErasureEntry(key, e)));
+	await insertAuditRow(db, {
 		id: `era_${generateId()}`,
 		agentId,
 		userId: anonUserId,

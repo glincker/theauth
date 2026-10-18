@@ -4,6 +4,10 @@ import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
 import type { AuditEntry, AuditExportOptions, AuditFilter, AuditPage } from "../types.js";
 import { CHECKPOINT_ACTION, getAuditChainConfig, insertAuditRow } from "./chain.js";
+import type { ChainCheckpointOptions } from "./chain-anchor.js";
+import { checkpointChains } from "./chain-anchor.js";
+import { signAnchor } from "./integrity.js";
+import { resolvePseudonymKey } from "./pseudonym.js";
 import { pageAuditEntries, queryAuditEntries } from "./query.js";
 import type { AuditChainExportOptions, ReplayOptions } from "./replay.js";
 import { exportAudit, replayAgent } from "./replay.js";
@@ -89,6 +93,8 @@ export function createAuditModule(config: AuditModuleConfig) {
 		let checkpoints = 0;
 
 		if (chain) {
+			const anchorKey = await resolvePseudonymKey(db, chain.hmacKey, true);
+			if (!anchorKey) throw new Error("no audit key available to sign the checkpoint");
 			const agentRows = await db
 				.selectDistinct({ agentId: auditLogs.agentId })
 				.from(auditLogs)
@@ -112,6 +118,12 @@ export function createAuditModule(config: AuditModuleConfig) {
 					last = r;
 				}
 				if (!last || last.seq === null || last.hash === null || count === 0) continue;
+				const mac = await signAnchor(anchorKey, {
+					kind: "retention",
+					agentId,
+					throughSeq: last.seq,
+					lastHash: last.hash,
+				});
 				await insertAuditRow(db, {
 					id: `chk_${generateId()}`,
 					agentId,
@@ -123,6 +135,7 @@ export function createAuditModule(config: AuditModuleConfig) {
 						lastHash: last.hash,
 						deletedCount: count,
 						cutoff: cutoff.toISOString(),
+						mac,
 					},
 					result: "allowed",
 					reason: "retention",
@@ -166,7 +179,9 @@ export function createAuditModule(config: AuditModuleConfig) {
 		page,
 		export: exportLogs,
 		cleanup,
-		verifyAuditChain: (opts: VerifyAuditChainOptions) => verifyAuditChain(db, opts, hmacKey),
+		verifyAuditChain: (opts: VerifyAuditChainOptions = {}) => verifyAuditChain(db, opts, hmacKey),
+		/** Append an HMAC signed anchor for each chain's current first row and return the anchors and heads to pin outside the database. */
+		checkpoint: (opts: ChainCheckpointOptions = {}) => checkpointChains(db, opts),
 		replayAgent: (agentId: string, opts: ReplayOptions = {}) =>
 			replayAgent(db, agentId, opts, hmacKey),
 		exportAudit: (opts: AuditChainExportOptions = {}) => exportAudit(db, opts, hmacKey),

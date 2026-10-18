@@ -6,6 +6,7 @@ import { ADD_HELP, formatAdd, listItems, parseAddArgs, runAdd } from "./add-comm
 import { INIT_AGENT_HELP, parseInitAgentArgs, runInitAgent } from "./agent/init-agent.js";
 import { serveStdio } from "./agent/mcp-server.js";
 import { AUDIT_HELP, openAuditModule, parseAuditArgs, runAudit } from "./audit-commands.js";
+import { runVerifyGo } from "./audit-verify-go.js";
 import { AUTH_HELP, parseAuthArgs, runLogin, runLogout, runWhoami } from "./auth-commands.js";
 import { CODEMOD_HELP, formatSummary, parseCodemodArgs, runRenameCodemod } from "./codemod-run.js";
 import { startDashboardServer } from "./dashboard-server.js";
@@ -294,6 +295,12 @@ async function handleAudit(): Promise<void> {
 	if (parsed.error !== null) {
 		stdout.write(`${parsed.error}\n${AUDIT_HELP}`);
 		exit(1);
+		return;
+	}
+	if (parsed.subcommand === "verify-go") {
+		const out = await runVerifyGo(parsed);
+		stdout.write(out.output);
+		if (out.code !== 0) exit(out.code);
 		return;
 	}
 	const opened = await openAuditModule(parsed, process.env);

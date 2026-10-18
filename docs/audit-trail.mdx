@@ -85,7 +85,7 @@ Timestamps are hashed at one-second precision, because that is what the SQLite c
 
 Rows with `hash_version` 2 hash keyed pseudonyms of `user_id`, `agent_id`, `subject_id`, `actor_id` and `approver_id` instead of the raw ids, and store the pseudonyms on the row. The key is `audit.hmacKey` when set, otherwise a random secret stored in `theauth_audit_secrets`. GDPR erasure (`deleteUser`) can then blank or replace the raw ids and the row hash still verifies.
 
-Rows written before this format (`hash_version` null or 1) hash the raw ids, so rewriting them would break the hash. For those rows, and for rows deleted outright, erasure writes an `audit.erasure` record naming each affected row with its stored hash. `verifyAuditChain` reports them in an `erased` count instead of as tampering.
+Rows written before this format (`hash_version` null or 1) hash the raw ids, so rewriting them would break the hash. For those rows, and for rows deleted outright, erasure appends an `audit.erasure` record to the chain naming each affected row with its stored hash, and signs each entry with the audit key. `verifyAuditChain` reports them in an `erased` count instead of as tampering. A record without a valid signature, or one that is not on the chain, is reported as `erasure_forged` or `erasure_unchained` and excuses nothing.
 
 A pseudonym is linkable by whoever holds the key, so this is pseudonymization, not anonymization. Destroying the key is not implemented. The erasure path rewrites rows with SQLite-specific statements.
 
@@ -117,7 +117,7 @@ if (result.success && !result.data.ok) {
 }
 ```
 
-Break reasons: `hash_mismatch` (a row was edited), `seq_gap` (a row was deleted), `prev_hash_mismatch` (rows were reordered or relinked), `missing_hash`, `truncated`, and `pseudonym_mismatch` (a raw id was edited after the row was written). The result also reports `unchained` and `erased` counts. Retention cleanup (`audit.cleanup`) writes an `audit.checkpoint` row recording where the chain was cut, so removing the oldest rows on purpose does not read as a break.
+Break reasons: `hash_mismatch` (a row was edited), `seq_gap` (a row was deleted), `prev_hash_mismatch` (rows were reordered or relinked), `missing_hash`, `truncated`, `pseudonym_mismatch` (a raw id was edited after the row was written), `truncated_prefix` (the oldest rows are gone with no signed anchor), `anchor_mismatch`, `erasure_unchained`, `erasure_forged` and `version_downgrade` (see [audit receipts](/audit-receipts)). The result also reports `unchained` and `erased` counts. Retention cleanup (`audit.cleanup`) writes a signed `audit.checkpoint` row recording where the chain was cut, so removing the oldest rows on purpose does not read as a break. For a chain cut some other way, run `theauth.audit.checkpoint()` once to anchor its current start.
 
 Deleting the newest rows of a chain leaves a shorter chain that still verifies. To catch that, keep a chain head somewhere the database owner cannot edit (an export manifest works) and pass it back:
 
