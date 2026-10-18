@@ -11,6 +11,7 @@ import type { ResolvedUser } from "../auth/types.js";
 import { sha256 } from "../crypto/web-crypto.js";
 import { delegationChains, sessions } from "../db/schema.js";
 import { createDelegationModule } from "../delegation/delegation.js";
+import { revokeDelegationResponse } from "../http/delegation-revoke.js";
 import { json } from "../plugin/helpers.js";
 import type { EndpointContext, PluginEndpoint, TheAuthPlugin } from "../plugin/types.js";
 import { decideApproval, listPendingApprovals } from "./approval-decisions.js";
@@ -401,9 +402,14 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						.where(eq(delegationChains.id, id))
 						.limit(1);
 					if (!row) return fail(404, "NOT_FOUND", "Delegation not found");
-					const revoked = await delegations.revokeDelegation(id);
-					await audit(p, "admin_api.delegation.revoke", `delegation:${id}`, "allowed", { revoked });
-					return json({ revoked });
+					return revokeDelegationResponse(
+						() => delegations.revokeDelegation(id),
+						async (revoked) => {
+							await audit(p, "admin_api.delegation.revoke", `delegation:${id}`, "allowed", {
+								revoked,
+							});
+						},
+					);
 				},
 			);
 

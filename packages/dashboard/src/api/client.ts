@@ -136,6 +136,8 @@ async function apiFetch<T>(
 			};
 		}
 
+		// 204 has no body (revoking a credential or an enrollment token): nothing to parse.
+		if (response.status === 204) return { success: true, data: undefined as T };
 		if (as === "text") return { success: true, data: (await response.text()) as T };
 		const data = (await response.json()) as T;
 		return { success: true, data };

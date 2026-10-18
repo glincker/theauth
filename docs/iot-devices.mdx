@@ -225,7 +225,18 @@ Management routes need a signed in owner and only show that owner's devices:
 | POST | `/devices/:id/suspend`, `/devices/:id/resume` | pause and resume |
 | POST, DELETE | `/devices/:id/credentials[/:credentialId]` | add, revoke a credential |
 | POST | `/devices/:id/bundle` | issue a bundle |
-| POST, DELETE | `/devices/enrollment-tokens[/:id]` | create, revoke an enrollment token |
+| GET, POST | `/devices/enrollment-tokens` | list, create an enrollment token |
+| DELETE | `/devices/enrollment-tokens/:id` | revoke an enrollment token |
+
+`GET /devices/enrollment-tokens` takes `ownerId`, `limit` and `offset`. Each row has `id`, `kind`, `ownerId`, `maxUses`, `uses`, `groups`, `status` (`active`, `expired`, `revoked` or `used_up`) and the dates. It never returns the plaintext token or its hash, so a lost token cannot be recovered from the list: revoke it and create another.
+
+```ts
+const res = await fetch(`${base}/devices/enrollment-tokens?limit=20`, {
+  headers: { authorization: `Bearer ${sessionToken}` },
+});
+const { data } = await res.json();
+for (const t of data) console.log(t.id, t.status, `${t.uses}/${t.maxUses}`);
+```
 
 Device facing routes (turn them off with `routes: { devices: false }`):
 

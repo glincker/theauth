@@ -4,7 +4,9 @@ import { useState } from "react";
 import type { TheAuthApiClient } from "../api/client.js";
 import type { DeviceRow, DeviceStatus, EnrollmentToken } from "../api/device-types.js";
 import { Button } from "../components/button.js";
+import { DeviceActions } from "../components/device-actions.js";
 import { DeviceDetailPanel, DeviceTable, FleetStats } from "../components/device-tables.js";
+import { EnrollmentTokenTable } from "../components/enrollment-token-table.js";
 import { FormGroup, Input, Label, Select } from "../components/input.js";
 import { PageHeader } from "../components/layout.js";
 import { Modal } from "../components/modal.js";
@@ -55,6 +57,21 @@ export function DevicesPage({ client }: { client: TheAuthApiClient }) {
 		queryKey: ["devices", "detail", selected?.id],
 		queryFn: () => client.getDevice(selected?.id ?? ""),
 		enabled: selected !== null,
+	});
+
+	const tokens = useQuery({
+		queryKey: ["devices", "enrollment-tokens"],
+		queryFn: () => client.listEnrollmentTokens(),
+		refetchInterval: POLL_MS,
+	});
+	const revokeToken = useMutation({
+		mutationFn: (id: string) => client.revokeEnrollmentToken(id),
+		onSuccess: (result) => {
+			if (result.success) toast("success", "Enrollment token revoked");
+			else toast("error", result.error.message);
+			refresh();
+		},
+		onError: () => toast("error", "Request failed"),
 	});
 
 	function refresh() {
@@ -167,6 +184,15 @@ export function DevicesPage({ client }: { client: TheAuthApiClient }) {
 				onRevoke={(device) => setPending({ device, action: "revoke" })}
 			/>
 
+			<h2 className="mt-8 mb-3 text-sm font-semibold text-zinc-900 dark:text-white">
+				Enrollment tokens
+			</h2>
+			<EnrollmentTokenTable
+				tokens={tokens.data?.success ? tokens.data.data : []}
+				busyId={revokeToken.isPending ? revokeToken.variables : null}
+				onRevoke={(token) => revokeToken.mutate(token.id)}
+			/>
+
 			<Modal
 				open={pending !== null}
 				onClose={() => setPending(null)}
@@ -196,7 +222,10 @@ export function DevicesPage({ client }: { client: TheAuthApiClient }) {
 				title={selected?.name ?? "Device"}
 			>
 				{detail.data?.success ? (
-					<DeviceDetailPanel device={detail.data.data} />
+					<>
+						<DeviceDetailPanel device={detail.data.data} />
+						<DeviceActions key={detail.data.data.id} client={client} device={detail.data.data} />
+					</>
 				) : detail.data ? (
 					<p role="alert" className="text-xs text-red-400">
 						{detail.data.error.message}

@@ -171,6 +171,8 @@ The dashboard has nine pages accessible from the sidebar.
 
 **Delegations**: View all active delegation chains. Shows the from/to agents, delegated permissions, depth, and expiry countdown.
 
+**Devices**: Fleet counters, the device list with suspend, resume and revoke, and the enrollment token list with usage (`uses / maxUses`) and state. The secret of a token is shown once when you create it and is never listed again. Open a device to edit its groups, add a pre shared key, public JWK or certificate thumbprint, revoke a credential, or issue a signed policy bundle. A generated key is shown once. See [IoT devices](/iot-devices).
+
 **MCP Servers**: Register MCP servers with their endpoints, tools, and auth requirements. Monitor status and token validation activity.
 
 **Audit Log**: Full queryable log of every authorization decision. Filter by agent, action, result, decision code, and date range. Each row shows its decision code, and the Why button opens a drawer that explains the decision through `POST /explain`. Export as JSON or CSV for compliance. See [Observability](/observability).
@@ -201,7 +203,7 @@ The dashboard calls these REST endpoints on `${apiUrl}`, each under an `/api` pr
 | GET | `/audit` | Query audit logs (supports filters) |
 | GET | `/audit/export` | Export logs as JSON or CSV |
 | GET | `/delegations` | List delegation chains |
-| DELETE | `/delegations/:id` | Revoke a delegation |
+| DELETE | `/delegations/:id` | Revoke a delegation chain, answers 204 with no body |
 | GET | `/permissions/templates` | List permission templates |
 | POST | `/permissions/templates` | Create a template |
 | PATCH | `/permissions/templates/:id` | Update a template |

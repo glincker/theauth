@@ -1,10 +1,14 @@
 import type {
+	AddedDeviceCredential,
 	CreateEnrollmentTokenInput,
+	DeviceBundle,
+	DeviceCredentialInput,
 	DeviceDetail,
 	DeviceFilters,
 	DeviceFleetStats,
 	DeviceRow,
 	EnrollmentToken,
+	EnrollmentTokenSummary,
 } from "./device-types.js";
 import type { ApiResult } from "./types.js";
 
@@ -22,6 +26,16 @@ export interface DeviceApi {
 		reason?: string,
 	) => Promise<ApiResult<{ revokedDelegations: string[] }>>;
 	createEnrollmentToken: (input: CreateEnrollmentTokenInput) => Promise<ApiResult<EnrollmentToken>>;
+	/** Ids, usage and state only. The plaintext is shown once, at creation. */
+	listEnrollmentTokens: () => Promise<ApiResult<EnrollmentTokenSummary[]>>;
+	revokeEnrollmentToken: (id: string) => Promise<ApiResult<undefined>>;
+	updateDeviceGroups: (id: string, groups: string[]) => Promise<ApiResult<DeviceRow>>;
+	addDeviceCredential: (
+		id: string,
+		input: DeviceCredentialInput,
+	) => Promise<ApiResult<AddedDeviceCredential>>;
+	revokeDeviceCredential: (id: string, credentialId: string) => Promise<ApiResult<undefined>>;
+	issueDeviceBundle: (id: string, ttlSeconds?: number) => Promise<ApiResult<DeviceBundle>>;
 }
 
 /** Query string for GET /devices. Only keys the route reads. */
@@ -57,6 +71,28 @@ export function createDeviceApi(fetch: Fetcher): DeviceApi {
 			fetch<EnrollmentToken>("/api/devices/enrollment-tokens", {
 				method: "POST",
 				body: JSON.stringify(input),
+			}),
+		listEnrollmentTokens: () => fetch<EnrollmentTokenSummary[]>("/api/devices/enrollment-tokens"),
+		revokeEnrollmentToken: (tokenId) =>
+			fetch<undefined>(`/api/devices/enrollment-tokens/${id(tokenId)}`, { method: "DELETE" }),
+		updateDeviceGroups: (deviceId, groups) =>
+			fetch<DeviceRow>(`/api/devices/${id(deviceId)}`, {
+				method: "PATCH",
+				body: JSON.stringify({ groups }),
+			}),
+		addDeviceCredential: (deviceId, input) =>
+			fetch<AddedDeviceCredential>(`/api/devices/${id(deviceId)}/credentials`, {
+				method: "POST",
+				body: JSON.stringify(input),
+			}),
+		revokeDeviceCredential: (deviceId, credentialId) =>
+			fetch<undefined>(`/api/devices/${id(deviceId)}/credentials/${id(credentialId)}`, {
+				method: "DELETE",
+			}),
+		issueDeviceBundle: (deviceId, ttlSeconds) =>
+			fetch<DeviceBundle>(`/api/devices/${id(deviceId)}/bundle`, {
+				method: "POST",
+				body: JSON.stringify(ttlSeconds ? { ttlSeconds } : {}),
 			}),
 	};
 }

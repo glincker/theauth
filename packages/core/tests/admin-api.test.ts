@@ -351,7 +351,7 @@ describe("admin api: audit, delegations, users, sessions", () => {
 		expect((await h.call("DELETE", "/delegations/nope", { token: "admin-token" })).status).toBe(
 			404,
 		);
-		expect((await h.call("DELETE", "/delegations/d1", { token: "admin-token" })).status).toBe(200);
+		expect((await h.call("DELETE", "/delegations/d1", { token: "admin-token" })).status).toBe(204);
 		const [row] = await h.db.select().from(delegationChains).where(eq(delegationChains.id, "d1"));
 		expect(row?.status).toBe("revoked");
 	});

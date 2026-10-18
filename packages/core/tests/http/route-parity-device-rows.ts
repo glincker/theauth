@@ -69,6 +69,14 @@ export const DEVICE_ROWS: DeviceRow[] = [
 	},
 	{
 		...admin,
+		method: "GET",
+		spec: "/devices/enrollment-tokens",
+		allowed: 200,
+		forbidden: 403,
+		call: () => ({ method: "GET", path: "/devices/enrollment-tokens?ownerId=alice" }),
+	},
+	{
+		...admin,
 		method: "POST",
 		spec: "/devices/enrollment-tokens",
 		allowed: 201,

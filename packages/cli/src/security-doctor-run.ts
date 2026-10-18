@@ -17,7 +17,8 @@ Usage:
 
 Lints the security settings of a theauth config: secrets, session and redirect cookie
 settings, PBKDF2 iterations, the rateLimit plugin, login lockout, allowed hosts, redirect
-allowlist, MCP revocation mode, and org or apiKeys handlers opened with trustedServerUse.
+allowlist, MCP revocation mode, org or apiKeys handlers opened with trustedServerUse, API key
+scoping, device matching, bundle lifetime and attestation, approval step-up and DPoP for agents.
 
   --config <file>  JSON or ES module config. Default: theauth.config.mjs, .js or .json in --cwd.
   --json           Machine readable report: { ok, failOn, findings[] }.

@@ -162,6 +162,27 @@ export interface EnrollmentToken {
 	expiresAt: Date;
 }
 
+/** One row of the enrollment token list. Never carries the plaintext token or its hash. */
+export interface EnrollmentTokenSummary {
+	id: string;
+	kind: "claim" | "bulk";
+	ownerId: string;
+	maxUses: number;
+	uses: number;
+	groups: string[];
+	deviceKind?: string;
+	status: "active" | "expired" | "revoked" | "used_up";
+	expiresAt: Date;
+	createdAt: Date;
+	revokedAt?: Date;
+}
+
+export interface EnrollmentTokenFilter {
+	ownerId?: string;
+	limit?: number;
+	offset?: number;
+}
+
 export interface EnrollDeviceInput {
 	token: string;
 	name: string;

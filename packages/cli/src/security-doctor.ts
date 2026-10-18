@@ -3,6 +3,8 @@
  * It reads a loaded config object, never a database or a network, and reports stable finding ids.
  */
 
+import { FLEET_FINDING_IDS, fleetFindings } from "./security-doctor-fleet.js";
+
 export type SecuritySeverity = "high" | "medium" | "low";
 
 export const SECURITY_SEVERITY_RANK: Record<SecuritySeverity, number> = {
@@ -51,7 +53,23 @@ export interface SecurityConfig {
 	/** `trustedServerUse` is the fail-open opt out of the org handler. */
 	org?: { trustedServerUse?: boolean };
 	/** `trustedServerUse` is the fail-open opt out of the API key handler. */
-	apiKeys?: { trustedServerUse?: boolean };
+	apiKeys?: { trustedServerUse?: boolean; grantablePermissions?: unknown };
+	/** IoT devices. Only the fields the device rules read. */
+	devices?: {
+		bundleTtlSeconds?: number;
+		attestation?: { required?: boolean; verify?: unknown };
+	};
+	/** `path` is the opt in matcher for "/" separated resources. */
+	resourceMatching?: string;
+	/** Declared permission catalog: resource pattern to actions. Not enforced at runtime, but it names the resources in use. */
+	permissions?: Readonly<Record<string, readonly string[]>>;
+	/** Step-up rules of approval requests. */
+	approval?: { requireAcr?: string; maxAuthAge?: number; stepUp?: unknown };
+	agents?: {
+		enabled?: boolean;
+		defaultPermissions?: string[];
+		confirmation?: { required?: boolean };
+	};
 }
 
 export const PBKDF2_MIN_ITERATIONS = 600_000;
@@ -281,6 +299,7 @@ export function lintSecurity(config: SecurityConfig, env: SecurityEnv = {}): Sec
 		...originFindings(config),
 		...mcpFindings(config, env),
 		...mountFindings(config),
+		...fleetFindings(config),
 	];
 	return all.sort(
 		(a, b) =>
@@ -303,6 +322,7 @@ export const SECURITY_FINDING_IDS = [
 	"sec.mcp.revocation_offline",
 	"sec.org.no_auth",
 	"sec.api_keys.no_auth",
+	...FLEET_FINDING_IDS,
 ] as const;
 
 export interface SecurityReport {

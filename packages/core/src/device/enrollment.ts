@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { generateId, sha256 } from "../crypto/web-crypto.js";
 import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
@@ -23,6 +23,8 @@ import type {
 	EnrollDeviceInput,
 	EnrolledDevice,
 	EnrollmentToken,
+	EnrollmentTokenFilter,
+	EnrollmentTokenSummary,
 } from "./types.js";
 
 const NONCE_TTL_SECONDS = 300;
@@ -124,6 +126,39 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 				.where(and(eq(deviceEnrollments.id, id), isNull(deviceEnrollments.revokedAt))),
 		);
 		return n > 0;
+	}
+
+	/** Token rows for an operator view. The plaintext and the hash are never returned, only ids, usage and state. */
+	async function listTokens(filter: EnrollmentTokenFilter = {}): Promise<EnrollmentTokenSummary[]> {
+		const limit = Math.min(Math.max(filter.limit ?? 100, 1), 1000);
+		const rows = await db
+			.select()
+			.from(deviceEnrollments)
+			.where(filter.ownerId ? eq(deviceEnrollments.ownerId, filter.ownerId) : undefined)
+			.orderBy(desc(deviceEnrollments.createdAt), desc(deviceEnrollments.id))
+			.limit(limit)
+			.offset(Math.max(filter.offset ?? 0, 0));
+		const now = nowSec();
+		return rows.map((row) => ({
+			id: row.id,
+			kind: row.kind,
+			ownerId: row.ownerId,
+			maxUses: row.maxUses,
+			uses: row.uses,
+			groups: row.template.groups,
+			...(row.template.kind !== undefined && { deviceKind: row.template.kind }),
+			status:
+				row.revokedAt !== null
+					? "revoked"
+					: row.expiresAt <= now
+						? "expired"
+						: row.uses >= row.maxUses
+							? "used_up"
+							: "active",
+			expiresAt: new Date(row.expiresAt * 1000),
+			createdAt: new Date(row.createdAt * 1000),
+			...(row.revokedAt !== null && { revokedAt: new Date(row.revokedAt * 1000) }),
+		}));
 	}
 
 	/** Single use nonce for attestation evidence freshness (RFC 9334 section 10). */
@@ -247,5 +282,5 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 		return { device: created.device, credential: created.credential };
 	}
 
-	return { createToken, getToken, revokeToken, attestationNonce, enroll };
+	return { createToken, listTokens, getToken, revokeToken, attestationNonce, enroll };
 }

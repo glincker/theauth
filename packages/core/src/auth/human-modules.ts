@@ -8,6 +8,7 @@ import type { AdminModule } from "./admin.js";
 import { createAdminModule } from "./admin.js";
 import type { ApiKeyManagerModule } from "./api-key-manager.js";
 import { createApiKeyManagerModule } from "./api-key-manager.js";
+import { orgPermissionCheck } from "./api-key-scope.js";
 import type { CaptchaModule } from "./captcha.js";
 import { createCaptchaModule } from "./captcha.js";
 import type { EmailOtpModule } from "./email-otp.js";
@@ -102,7 +103,13 @@ export function createHumanAuthModules(
 		: null;
 
 	const apiKeyManagerModule: ApiKeyManagerModule | null = config.apiKeys
-		? createApiKeyManagerModule(config.apiKeys, db, moduleDeps)
+		? createApiKeyManagerModule(
+				orgModule && !config.apiKeys.grantablePermissions && !config.apiKeys.canGrant
+					? { ...config.apiKeys, canGrant: orgPermissionCheck(orgModule) }
+					: config.apiKeys,
+				db,
+				moduleDeps,
+			)
 		: null;
 
 	const usernameModule: UsernameAuthModule | null =

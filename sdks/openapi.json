@@ -3384,6 +3384,149 @@
       }
     },
     "/devices/enrollment-tokens": {
+      "get": {
+        "summary": "List enrollment tokens with usage and state (never the plaintext)",
+        "operationId": "listDeviceEnrollmentTokens",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "claim",
+                              "bulk"
+                            ]
+                          },
+                          "ownerId": {
+                            "type": "string"
+                          },
+                          "maxUses": {
+                            "type": "integer"
+                          },
+                          "uses": {
+                            "type": "integer"
+                          },
+                          "groups": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "deviceKind": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "expired",
+                              "revoked",
+                              "used_up"
+                            ]
+                          },
+                          "expiresAt": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "revokedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "ownerId",
+                          "maxUses",
+                          "uses",
+                          "groups",
+                          "status",
+                          "expiresAt",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ownerId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only tokens of this owner"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page size, default 100, max 1000"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Rows to skip"
+          }
+        ]
+      },
       "post": {
         "summary": "Create a claim code or bulk enrollment token",
         "operationId": "createDeviceEnrollmentToken",

@@ -93,6 +93,38 @@ The linter reads the real `createTheAuth` config (`TheAuthConfig`). Settings tha
 ### sec.api_keys.no_auth (high)
 `apiKeys.trustedServerUse` is `true`. Same risk and fix as the org handler.
 
+<a id="sec-api-keys-no-scope-resolver"></a>
+### sec.api_keys.no_scope_resolver (low)
+`apiKeys` is set without `grantablePermissions` and there is no `org` module. Self service creation then fails closed and can only mint keys with an empty permission list. With the org module present, core defaults the cap to the creator's org roles (see below), so the linter stays quiet. A resolver is a function, so a JSON config can never carry one: lint the `.mjs` config for this rule.
+
+<a id="sec-device-path-matching-off"></a>
+### sec.device.path_matching_off (medium)
+`devices` is set, `resourceMatching` is not `path`, and a key of `permissions` contains `/` plus a `*`, `**`, `+` or `#` segment. In the default mode `*` counts only as a whole `:` segment, so `mqtt:fleet/*/temp` is plain text and never matches a real topic. Set `resourceMatching: "path"`.
+
+<a id="sec-device-mid-wildcard"></a>
+### sec.device.mid_wildcard (medium)
+`devices` is set and a `permissions` resource has a wildcard before its last segment. In the default mode a mid `*` or `**` grants more than it reads. In every mode `#` must be the last level of a topic filter (MQTT 5, section 4.7.1.2).
+
+<a id="sec-device-bundle-ttl-long"></a>
+### sec.device.bundle_ttl_long (medium)
+`devices.bundleTtlSeconds` is above 3600. An offline policy bundle cannot be revoked once issued, so a revoked device keeps its permissions until the bundle expires.
+
+<a id="sec-device-no-attestation"></a>
+### sec.device.no_attestation (medium)
+`devices` is set without `attestation.verify`. Enrollment tokens can then be issued, and whoever holds one can register any hardware. The verifier is a function, so a JSON config always fires this rule.
+
+<a id="sec-approval-no-step-up"></a>
+### sec.approval.no_step_up (medium)
+`approval` is set with no `requireAcr`, `maxAuthAge` or `stepUp`. A `requireApproval` permission can then be approved from any signed in session, with no proof of a strong or recent login. A rule passed per request to `approval.request()` is not visible to the linter.
+
+<a id="sec-agent-dpop-not-required"></a>
+### sec.agent.dpop_not_required (medium)
+`agents.enabled` with `agents.confirmation.required` off, while a `permissions` catalog action or an `agents.defaultPermissions` entry is a write action (`write`, `create`, `update`, `delete`, `admin`, `manage`, `publish`, `execute`, `send` or `*`). A leaked token then works as a bearer token. Require a bound token (RFC 9449 DPoP or RFC 8705 mutual TLS).
+
+## API key scope default
+
+When `apiKeys` has no `grantablePermissions` and the `org` module is on, a self service key can carry a permission only if `org.hasPermission` allows it for the creator in at least one org they belong to. Owners pass for everything, a user with no org membership holds nothing, and a failing lookup denies. The match is exact: a role entry such as `agents:*` does not cover `agents:read`, so use an explicit `grantablePermissions` when your roles use patterns. An explicit `grantablePermissions` still wins, and trusted server code calling `create()` is not capped.
+
 ## Dropped checks
 
 - `sec.session.stateless_no_ban_check`: the stateless session manager is created in code, not in `TheAuthConfig`, and its ban check (`db` or `isBanned`) cannot be read from a config file.

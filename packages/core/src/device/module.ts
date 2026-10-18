@@ -315,6 +315,7 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 		revokeCredential,
 		listCredentials: registry.listCredentials,
 		createEnrollmentToken,
+		listEnrollmentTokens: enrollment.listTokens,
 		revokeEnrollmentToken: enrollment.revokeToken,
 		getEnrollmentToken: enrollment.getToken,
 		attestationNonce: enrollment.attestationNonce,

@@ -7,6 +7,7 @@ import {
 	DeviceFleetStatsSchema,
 	DeviceSchema,
 	EnrollmentTokenSchema,
+	EnrollmentTokenSummarySchema,
 	JwksSchema,
 	RegisteredDeviceSchema,
 	RevokedDeviceSchema,
@@ -43,6 +44,18 @@ export const DEVICE_OPERATIONS: Record<string, OperationMeta> = {
 		status: 201,
 		response: RegisteredDeviceSchema,
 		errors: { 400: "Invalid input", 409: "Duplicate hardware id or key, or device cap reached" },
+	},
+	"GET /devices/enrollment-tokens": {
+		operationId: "listDeviceEnrollmentTokens",
+		tag: "Devices",
+		status: 200,
+		response: EnrollmentTokenSummarySchema,
+		list: true,
+		query: [
+			{ name: "ownerId", description: "Only tokens of this owner" },
+			{ name: "limit", description: "Page size, default 100, max 1000", type: "integer" },
+			{ name: "offset", description: "Rows to skip", type: "integer" },
+		],
 	},
 	"POST /devices/enrollment-tokens": {
 		operationId: "createDeviceEnrollmentToken",

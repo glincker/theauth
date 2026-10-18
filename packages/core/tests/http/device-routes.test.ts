@@ -76,6 +76,55 @@ describe("device management routes", () => {
 	});
 });
 
+describe("enrollment token list", () => {
+	it("shows usage and state without the secret, scoped to the owner", async () => {
+		const { call, t1, t2 } = await setup();
+		const made = await call("POST", "/devices/enrollment-tokens", {
+			token: t1,
+			body: { ownerId: "u1", kind: "bulk", maxUses: 3, groups: ["lab"] },
+		});
+		const { data: token } = (await made.json()) as { data: { id: string; token: string } };
+		const enroll = await call("POST", "/device/enroll", {
+			body: { token: token.token, name: "a", credential: { kind: "psk" } },
+		});
+		expect(enroll.status).toBe(201);
+		const listed = await call("GET", "/devices/enrollment-tokens", { token: t1 });
+		expect(listed.status).toBe(200);
+		const text = await listed.text();
+		expect(text).not.toContain(token.token);
+		expect(text).not.toContain("tokenHash");
+		const rows = (JSON.parse(text) as { data: Array<Record<string, unknown>> }).data;
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			id: token.id,
+			kind: "bulk",
+			maxUses: 3,
+			uses: 1,
+			groups: ["lab"],
+			status: "active",
+		});
+		expect(
+			(
+				(await (await call("GET", "/devices/enrollment-tokens", { token: t2 })).json()) as {
+					data: unknown[];
+				}
+			).data,
+		).toHaveLength(0);
+		expect((await call("GET", "/devices/enrollment-tokens?ownerId=u1", { token: t2 })).status).toBe(
+			403,
+		);
+		expect((await call("GET", "/devices/enrollment-tokens")).status).toBe(401);
+		await call("DELETE", `/devices/enrollment-tokens/${token.id}`, { token: t1 });
+		const after = (await (
+			await call("GET", "/devices/enrollment-tokens", { token: t1 })
+		).json()) as {
+			data: Array<{ status: string; revokedAt?: string }>;
+		};
+		expect(after.data[0]?.status).toBe("revoked");
+		expect(after.data[0]?.revokedAt).toBeDefined();
+	});
+});
+
 describe("device facing routes", () => {
 	it("enroll with a claim code, authorize with the PSK, fetch a bundle and the JWKS", async () => {
 		const { call, t1, t2 } = await setup();

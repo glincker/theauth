@@ -10,7 +10,12 @@ import {
 	RegisterDeviceSchema,
 	UpdateDeviceSchema,
 } from "../../device/schemas.js";
-import type { Device, DeviceCredentialInput, DeviceFilter } from "../../device/types.js";
+import type {
+	Device,
+	DeviceCredentialInput,
+	DeviceFilter,
+	EnrollmentTokenFilter,
+} from "../../device/types.js";
 import { HookBlockedError } from "../../hooks/safety.js";
 import type { Permission } from "../../types.js";
 import {
@@ -289,6 +294,31 @@ async function createEnrollmentToken(ctx: RouteContext): Promise<Response> {
 	}
 }
 
+async function listEnrollmentTokens(ctx: RouteContext): Promise<Response> {
+	const devices = ctx.auth.device;
+	if (!devices) return devicesUnavailable();
+	if (!ctx.scope) return scopeUnavailable();
+	const q = ctx.url.searchParams;
+	const filter: EnrollmentTokenFilter = {};
+	const ownerId = q.get("ownerId");
+	if (ownerId) filter.ownerId = ownerId;
+	const limit = Number(q.get("limit"));
+	if (Number.isInteger(limit) && limit > 0) filter.limit = limit;
+	const offset = Number(q.get("offset"));
+	if (Number.isInteger(offset) && offset > 0) filter.offset = offset;
+	if (ctx.scope.restricted) {
+		if (filter.ownerId !== undefined && filter.ownerId !== ctx.scope.ownerId) {
+			return errorResponse("FORBIDDEN", "You can only act on your own resources", 403);
+		}
+		filter.ownerId = ctx.scope.ownerId ?? "";
+	}
+	try {
+		return ok(await devices.listEnrollmentTokens(filter));
+	} catch (err) {
+		return deviceFailure(err, "Failed to list enrollment tokens");
+	}
+}
+
 async function revokeEnrollmentToken(ctx: RouteContext): Promise<Response> {
 	const devices = ctx.auth.device;
 	if (!devices) return devicesUnavailable();
@@ -322,6 +352,13 @@ export const deviceAdminRoutes: HttpRoute[] = [
 		body: RegisterDeviceSchema,
 		summary: "Register a device",
 		handle: registerDevice,
+	},
+	{
+		...admin,
+		method: "GET",
+		path: "/devices/enrollment-tokens",
+		summary: "List enrollment tokens with usage and state (never the plaintext)",
+		handle: listEnrollmentTokens,
 	},
 	{
 		...admin,

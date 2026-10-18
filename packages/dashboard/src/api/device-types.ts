@@ -72,3 +72,35 @@ export interface EnrollmentToken {
 	maxUses: number;
 	expiresAt: string;
 }
+
+/** One row of GET /devices/enrollment-tokens. The plaintext token is never listed. */
+export interface EnrollmentTokenSummary {
+	id: string;
+	kind: "claim" | "bulk";
+	ownerId: string;
+	maxUses: number;
+	uses: number;
+	groups: string[];
+	deviceKind?: string;
+	status: "active" | "expired" | "revoked" | "used_up";
+	expiresAt: string;
+	createdAt: string;
+	revokedAt?: string;
+}
+
+/** Body of POST /devices/:id/credentials. */
+export type DeviceCredentialInput =
+	| { kind: "psk" }
+	| { kind: "jwk"; jwk: Record<string, unknown> }
+	| { kind: "x509"; thumbprint: string };
+
+/** The `secret` of a pre shared key is returned once, when the credential is added. */
+export interface AddedDeviceCredential extends DeviceCredentialRow {
+	secret?: string;
+}
+
+/** POST /devices/:id/bundle: a signed policy bundle (typ device-policy+jwt). */
+export interface DeviceBundle {
+	token: string;
+	claims: Record<string, unknown>;
+}

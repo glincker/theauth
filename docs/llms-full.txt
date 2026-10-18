@@ -13848,7 +13848,18 @@ Management routes need a signed in owner and only show that owner's devices:
 | POST | `/devices/:id/suspend`, `/devices/:id/resume` | pause and resume |
 | POST, DELETE | `/devices/:id/credentials[/:credentialId]` | add, revoke a credential |
 | POST | `/devices/:id/bundle` | issue a bundle |
-| POST, DELETE | `/devices/enrollment-tokens[/:id]` | create, revoke an enrollment token |
+| GET, POST | `/devices/enrollment-tokens` | list, create an enrollment token |
+| DELETE | `/devices/enrollment-tokens/:id` | revoke an enrollment token |
+
+`GET /devices/enrollment-tokens` takes `ownerId`, `limit` and `offset`. Each row has `id`, `kind`, `ownerId`, `maxUses`, `uses`, `groups`, `status` (`active`, `expired`, `revoked` or `used_up`) and the dates. It never returns the plaintext token or its hash, so a lost token cannot be recovered from the list: revoke it and create another.
+
+```ts
+const res = await fetch(`${base}/devices/enrollment-tokens?limit=20`, {
+  headers: { authorization: `Bearer ${sessionToken}` },
+});
+const { data } = await res.json();
+for (const t of data) console.log(t.id, t.status, `${t.uses}/${t.maxUses}`);
+```
 
 Device facing routes (turn them off with `routes: { devices: false }`):
 
@@ -18531,13 +18542,17 @@ guardFunctionTool(definition, {
 
 `agentId` may be a function of the run context, the second argument of `execute`. `requestApproval`, `action`, `resource` and `onDecision` work as in the [Vercel AI SDK helper](/integrations/vercel-ai-sdk). Use `guardFunctionTools(definitions, options)` for a list.
 
+## Python
+
+The Python Agents SDK has the same guard, `guard_function_tool` from `theauth.integrations`. It wraps the `FunctionTool` that `@function_tool` returns. See [LangGraph and CrewAI](/integrations/langgraph-crewai) for the setup and a snippet.
+
 ---
 
 # LangGraph and CrewAI
 
 Source: https://docs.theauth.dev/integrations/langgraph-crewai
 
-LangGraph and CrewAI are Python frameworks, so there is no Python package in this repo. Any process that can make an HTTP call can ask theAuth before running a tool. This page has a REST recipe for Python and a TypeScript guard, `createHttpGuard`, for Node orchestrators such as LangGraph.js.
+LangGraph, CrewAI and the OpenAI Agents SDK are Python frameworks. The Python SDK (`pip install theauth`) has guards for all three and a generic decorator in `theauth.integrations`. Any other process that can make an HTTP call can ask theAuth before running a tool with the REST endpoint below. For Node orchestrators such as LangGraph.js there is a TypeScript guard, `createHttpGuard`.
 
 ## The endpoint
 
@@ -18558,69 +18573,149 @@ curl -s -X POST https://YOUR_HOST/api/auth/authorize/token \
 
 `data.code` is the decision code, for example `no_permission`, `rate_limited` or `approval_required`. Treat any non 200 answer, and any network error, as a denial.
 
-## Python recipe (LangGraph)
+## Python guards
+
+The Python SDK ships the guards in `theauth.integrations`. They match the TypeScript helpers: `authorize` runs before the tool, and a refusal comes back as a structured denial with the decision code and `approvalRequired`. Nothing is imported from LangGraph, CrewAI or the OpenAI Agents SDK when you import `theauth`, so the frameworks stay optional.
+
+```bash
+pip install theauth
+```
+
+Every guard is built on one `Gate`. Build it once from a client and the agent bearer token. The gate fails closed: a network error, a timeout, a malformed answer or an exception in your own callback becomes a denial with code `guard_error`, and the tool does not run.
 
 ```python
 import os
-import requests
 
-AUTH_URL = os.environ["THEAUTH_URL"]  # e.g. https://YOUR_HOST/api/auth
-AGENT_TOKEN = os.environ["THEAUTH_AGENT_TOKEN"]
+from theauth import TheAuthSyncClient
+from theauth.integrations import Gate
 
-def authorize(tool_name, arguments):
-    try:
-        res = requests.post(
-            f"{AUTH_URL}/authorize/token",
-            headers={"authorization": f"Bearer {AGENT_TOKEN}"},
-            json={"action": "execute", "resource": f"tool:{tool_name}", "arguments": arguments},
-            timeout=5,
-        )
-        body = res.json()
-    except Exception as exc:
-        return {"denied": True, "code": "guard_error", "reason": str(exc)}
-    data = body.get("data") or {}
-    if res.status_code == 200 and data.get("allowed") is True:
-        return None
-    return {
-        "denied": True,
-        "code": data.get("code") or (body.get("error") or {}).get("code", "guard_error"),
-        "reason": data.get("reason") or (body.get("error") or {}).get("message", "denied"),
-        "approval_required": data.get("code") == "approval_required",
-    }
-
-def guarded(tool_name, fn):
-    def run(**kwargs):
-        refusal = authorize(tool_name, kwargs)
-        return refusal if refusal else fn(**kwargs)
-    return run
+client = TheAuthSyncClient(base_url=os.environ["THEAUTH_URL"], timeout=5)  # e.g. https://YOUR_HOST/api/auth
+gate = Gate.from_token(client, os.environ["THEAUTH_AGENT_TOKEN"])
 ```
 
-With LangGraph, return the refusal dict as the tool message content so the graph continues:
+Use `TheAuthClient` for an async app. The same gate then works in async tools, because it checks with `await` when the tool is a coroutine function. To check by agent id instead of token, pass `client.authorize` and the id: `Gate(client.authorize, "agent_123")`.
+
+## Python (LangGraph)
+
+Wrap the tool function. The signature and docstring are kept, so LangChain still builds the argument schema from them.
 
 ```python
 from langchain_core.tools import StructuredTool
+
+from theauth.integrations import guard_tool
 
 def refund(order_id: str, amount: float) -> dict:
     return {"order_id": order_id, "refunded": amount}
 
 refund_tool = StructuredTool.from_function(
-    func=guarded("refund", refund), name="refund", description="Refund an order"
+    func=guard_tool(gate, refund, "refund"),
+    name="refund",
+    description="Refund an order",
 )
 ```
 
-## Python recipe (CrewAI)
+A refused call returns the denial dict as the tool message content, so the graph continues and the model can tell the user:
+
+```json
+{"ok": false, "denied": true, "toolName": "refund", "code": "approval_required", "reason": "...", "approvalRequired": true, "auditId": "..."}
+```
+
+To guard every tool in one place, wrap the node that executes tool calls. `guard_node` checks each pending call of the last AI message before the node runs. If one is refused, the node does not run: refused calls get the denial as a tool message and the others get a `skipped` notice, so every `tool_call_id` is answered.
+
+```python
+from langgraph.prebuilt import ToolNode
+
+from theauth.integrations import guard_node
+
+tool_node = guard_node(ToolNode([refund_tool]), gate)
+# graph.add_node("tools", tool_node)
+```
+
+For an async graph use `aguard_node` with `TheAuthClient` and `Gate.from_token(async_client, token)`. Prefer `guard_tool` when a step can hold several calls and you want the allowed ones to run.
+
+## Python (CrewAI)
+
+CrewAI tools return text to the model, so give the guard a text formatter. Put it under `@tool`:
 
 ```python
 from crewai.tools import tool
 
+from theauth.integrations import guard
+
 @tool("refund")
-def refund_tool(order_id: str, amount: float) -> str:
+@guard(gate, "refund", format_denial=lambda d: d.to_text())
+def refund_order(order_id: str, amount: float) -> str:
     """Refund an order."""
-    refusal = authorize("refund", {"order_id": order_id, "amount": amount})
-    if refusal:
-        return f"Refused ({refusal['code']}): {refusal['reason']}"
     return f"Refunded {amount} on {order_id}"
 ```
+
+A refusal reads `Refused (approval_required): <reason>. Ask the user to approve it.` For a tool class that subclasses `BaseTool`, or a tool you already built, call `guard_crewai_tool(tool, gate)`. It wraps `_run` or `func` in place.
+
+## Python (OpenAI Agents SDK)
+
+`guard_function_tool` takes the object `@function_tool` returns and gives back a copy whose `on_invoke_tool` checks the gate first. The input JSON is parsed for the argument check, and input that is not valid JSON is refused.
+
+```python
+from agents import function_tool
+
+from theauth.integrations import guard_function_tool
+
+@function_tool
+def lookup_invoice(invoice_id: str) -> str:
+    """Read an invoice."""
+    return f"{invoice_id}: paid"
+
+lookup_invoice = guard_function_tool(lookup_invoice, gate)
+```
+
+Pass the result in `Agent(tools=[...])` as usual. The denial is returned as JSON text. Use `guard_function_tools([...], gate)` for a list.
+
+## Python (any function)
+
+`@guard(gate, "name")` works on any sync or async function:
+
+```python
+from theauth.integrations import guard
+
+@guard(gate, "send_email")
+def send_email(to: str, body: str) -> str:
+    return f"sent to {to}"
+
+send_email("a@example.com", "hi")  # returns the denial dict when refused
+```
+
+Parameters named `self`, `cls`, `ctx`, `context`, `config` and `runtime` are treated as run context, not tool input, and are not sent as `arguments`. Other values are converted to JSON safe form first (Pydantic models and dataclasses become dicts, unknown objects become strings).
+
+## Python approvals
+
+When the decision is `approval_required`, the gate can open a request, wait for a human and retry once with the approved id. Pass `request_approval`. It receives an `ApprovalContext` (tool name, agent id, action, resource, arguments, audit id) and returns the approved request id, or `None` to refuse.
+
+`wait_for_approval` polls `client.approvals.get(id)` until the request is `approved`. It returns `None` when the request is denied, expired or missing, or when `timeout_s` passes, and the gate then refuses the call. The read route needs an admin user token. The request itself is opened by your backend with `theauth.approval.request(...)`, because `POST /approvals` on the admin API only opens `admin:` actions. `/api/open-approval` below is your own route:
+
+```python
+import httpx
+
+from theauth.integrations import wait_for_approval
+
+admin = TheAuthSyncClient(base_url=os.environ["THEAUTH_URL"], token=os.environ["THEAUTH_ADMIN_TOKEN"], timeout=5)
+
+def ask_human(request):
+    opened = httpx.post(
+        os.environ["APPROVAL_OPENER_URL"],  # your route, e.g. https://YOUR_APP/api/open-approval
+        json={
+            "agentId": request.agent_id,
+            "action": request.action,
+            "resource": request.resource,
+            "arguments": request.arguments,
+        },
+        timeout=5,
+    )
+    return wait_for_approval(admin.approvals, opened.json()["id"], timeout_s=120, poll_interval_s=2)
+
+gate = Gate.from_token(client, os.environ["THEAUTH_AGENT_TOKEN"], request_approval=ask_human)
+```
+
+In an async app use `await await_approval(admin_client.approvals, id, timeout_s=120)`. A sync gate cannot await, so give it a sync `request_approval` and a sync client. The approved id is spent on the single retry, and the approval is bound to the same action, resource and arguments. See [Approval](/approval).
 
 ## TypeScript guard for Node orchestrators
 
@@ -23280,7 +23375,7 @@ The action `*` means every verb of that kind. Names must be absolute (`/scan`, n
 With the default matching, a `*` works only as a whole colon segment. `ros2:/fleet/*` is not a pattern: theAuth's policy engine would never match it at runtime, so the exporter lists it as skipped instead of writing a DDS rule the runtime check disagrees with. List exact names, or turn on [path matching](/permissions#path-matching-opt-in) (`resourceMatching: "path"` on the server, `--resource-matching path` on the export):
 
 - `ros2:/fleet/**` exports as the DDS glob `rt/fleet/*`.
-- `ros2:/fleet/*` (exactly one level) is skipped. A DDS permissions topic is an fnmatch pattern whose `*` also crosses `/`, so the grant would reach `/fleet/a/b` while theAuth denies it. Use `**`, list exact names, or pass `--single-level widen` to export the wider DDS grant on purpose. The runtime gate still enforces one level.
+- `ros2:/fleet/*` (exactly one level) is skipped. A DDS permissions topic is an fnmatch pattern whose `*` also crosses `/`, so the grant would reach `/fleet/a/b` while theAuth denies it. This was checked against Fast DDS, see [the glob result](#verified-on-ros-2-humble). Use `**`, list exact names, or pass `--single-level widen` to export the wider DDS grant on purpose. The runtime gate still enforces one level.
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
@@ -23336,6 +23431,12 @@ The output is deterministic: sorted, no timestamps except the validity window yo
 The mapping is the one SROS2 uses in its `permissions.xsl`. A topic `/cmd_vel` becomes the DDS topic `rt/cmd_vel`. A service client publishes `rq/<name>Request` and subscribes to `rr/<name>Reply`, and the server does the reverse. An action client publishes the three `_action` request topics and subscribes to the three replies plus `feedback` and `status`. The grant ends in `<default>DENY</default>`, so anything not listed is refused.
 
 DDS Security evaluates rules in document order and the first match wins. The exporter writes allow rules only, so order never changes the outcome.
+
+### The node baseline
+
+A ROS 2 node opens a few endpoints of its own before your code runs: it publishes `/rosout`, publishes and subscribes `/parameter_events`, and answers six parameter services under its own name (`describe_parameters`, `get_parameter_types`, `get_parameters`, `list_parameters`, `set_parameters`, `set_parameters_atomically`). SROS2's `create_permission` does not add these, and under `Enforce` a node missing any of them fails at startup (see [what was verified](#verified-on-ros-2-humble)). So the exporter adds them by default, for the node named by `--node` (default: the last token of the enclave path) in the namespace given by `--namespace` (default `/`).
+
+The name must be the real ROS node name, because the parameter services are named after it. If the last enclave token is not a valid node name (for example `robot-1`, since node names cannot contain a hyphen) and you did not pass `--node`, the baseline is skipped and `theauth-export.json` says so. Pass `--no-node-baseline` to leave it out. Whether a node started with rosout logging and parameter services turned off still needs them was not tried.
 
 ### Gated permissions
 
@@ -23567,6 +23668,84 @@ theauth ros2 diff before.json after.json
 ```
 
 Prints the DDS topics that would be added or removed and the permissions that became or stopped being gated. Exit code 0 means no change, 2 means the exported policy differs, 1 is an error. Use it in review before rolling a policy change to a fleet.
+
+## Verified on ROS 2 Humble
+
+Everything in this section was run, in Docker, on 2026-10-18. The setup: image `ros:humble` (digest `sha256:566b87e6dfc4...`, aarch64), `ros-humble-sros2` 0.10.9, `ros-humble-rmw-fastrtps-cpp` 6.2.10, Fast DDS 2.6.12, `rclpy` publisher and subscriber scripts on `std_msgs/String`, one enclave per process, `ROS_SECURITY_ENABLE=true ROS_SECURITY_STRATEGY=Enforce`. The exporter ran on the host and the XML was mounted into the container.
+
+What this does not cover: only Humble and only `rmw_fastrtps_cpp` (no Jazzy, no Cyclone DDS, no Connext, no Zenoh). Only `rclpy` nodes, no `rclcpp`. Only topics. Services and actions were not exercised end to end, apart from the parameter services every node serves. Certificate expiry and key revocation were not tried. The gate node of this page was not run: the "gate" below is just an enclave exported with `--gated include`.
+
+### Export, then build the keystore
+
+```bash
+# Host. perms: /chatter publish plus a gated /cmd_vel (requireApproval) for the talker.
+theauth ros2 export --permissions talker.json --enclave /w11/talker --out out-talker
+#   9 rules exported, 1 gated, 0 skipped.
+#     gated  ros2:/cmd_vel [publish] left out: requireApproval
+theauth ros2 export --permissions listener.json --enclave /w11/listener --out out-listener
+theauth ros2 export --permissions driver.json   --enclave /w11/driver   --out out-driver   # subscribes /cmd_vel
+theauth ros2 export --permissions gate.json     --enclave /w11/gate     --out out-gate --gated include
+
+# Container.
+ros2 security create_keystore "$ROS_SECURITY_KEYSTORE"
+for e in talker listener gate driver; do
+  ros2 security create_enclave   "$ROS_SECURITY_KEYSTORE" /w11/$e
+  ros2 security create_permission "$ROS_SECURITY_KEYSTORE" /w11/$e /work/out-$e/policy.xml
+done
+export ROS_SECURITY_ENABLE=true ROS_SECURITY_STRATEGY=Enforce
+```
+
+`create_permission` accepted every exported `policy.xml`.
+
+### What flowed and what was refused
+
+Each row starts the subscriber, waits three seconds, then runs the publisher for twelve seconds at 2 Hz.
+
+| Publisher enclave and topic | Subscriber enclave and topic | Result |
+| --- | --- | --- |
+| talker, `/chatter` | listener, `/chatter` | Both created. The listener received 13 messages. |
+| talker, `/secret` (not in any policy) | listener, `/secret` | Publisher refused: `create_publisher() could not create data writer`. Subscriber refused with `rt/secret topic not found in allow rule`, and the `rclpy` process then crashed with a segmentation fault instead of raising. |
+| talker, `/cmd_vel` (gated, left out) | driver, `/cmd_vel` | Publisher refused. The driver subscribed and received 0 messages. |
+| gate (exported with `--gated include`), `/cmd_vel` | driver, `/cmd_vel` | Both created. The driver received 13 messages. |
+| listener, `/chatter` (only has subscribe) | listener, `/chatter` | Publisher refused. |
+
+The refusal text from Fast DDS, as printed:
+
+```text
+[SECURITY Error] rt/secret topic not found in allow rule. (./src/cpp/security/accesscontrol/Permissions.cpp:1245) -> Function check_create_datareader
+```
+
+Two more checks. With security switched off (`ROS_SECURITY_ENABLE=false`) the same `/secret` publisher and subscriber exchanged messages (14 and 15 received in two runs), so the refusals above come from the permissions and not from the test scripts. And a publisher with security off talking to an `Enforce` subscriber on `/chatter` delivered 0 messages: the governance's refusal of unauthenticated participants held.
+
+### Signing your own XML
+
+The exported `permissions.xml` and `governance.xml` were also signed with the OpenSSL commands from [Sign and install](#sign-and-install) (using `public/permissions_ca.cert.pem` and `private/permissions_ca.key.pem` from the keystore), copied over the enclave's `permissions.*` and `governance.*`, and `openssl smime -verify` printed `Verification successful` for all four. The talker and listener then behaved as in the first two table rows. `openssl x509 -subject` printed `subject=CN = /w11/talker`, and DDS accepted the exporter's `CN=/w11/talker` as equal.
+
+### The node baseline is needed
+
+With only the application topics in `policy.xml`, a node under `Enforce` does not start. Observed in order, each one fixed by adding that item:
+
+```text
+rt/rosout topic not found in allow rule ... check_create_datawriter
+rq/talker/describe_parametersRequest topic not found in allow rule ... check_create_datareader
+rt/parameter_events topic not found in allow rule ... check_create_datawriter
+```
+
+That is why [the node baseline](#the-node-baseline) exists. Exporting `/rosout`, six parameter services and `/parameter_events` made the first table row work.
+
+### Globs
+
+Enclave `globss` was exported from `ros2:/fleet/**` with `--resource-matching path` (DDS topic `rt/fleet/*`). Enclave `glob1` was exported from `ros2:/fleet/*` with `--resource-matching path --single-level widen`, which writes the same `rt/fleet/*`. Both enclaves, creating publishers:
+
+```text
+/fleet        refused
+/fleet/a      allowed
+/fleet/a/b    allowed
+/fleet/a/b/c  allowed
+/other        refused
+```
+
+So in Fast DDS the `*` of a permissions topic does cross `/`, as this page says: the one level `/fleet/*` cannot be written as a DDS glob, and `--single-level widen` really does grant the deeper names. A glob does not match its own prefix (`/fleet`).
 
 ## What is not covered
 
@@ -28239,6 +28418,8 @@ The dashboard has nine pages accessible from the sidebar.
 
 **Delegations**: View all active delegation chains. Shows the from/to agents, delegated permissions, depth, and expiry countdown.
 
+**Devices**: Fleet counters, the device list with suspend, resume and revoke, and the enrollment token list with usage (`uses / maxUses`) and state. The secret of a token is shown once when you create it and is never listed again. Open a device to edit its groups, add a pre shared key, public JWK or certificate thumbprint, revoke a credential, or issue a signed policy bundle. A generated key is shown once. See [IoT devices](/iot-devices).
+
 **MCP Servers**: Register MCP servers with their endpoints, tools, and auth requirements. Monitor status and token validation activity.
 
 **Audit Log**: Full queryable log of every authorization decision. Filter by agent, action, result, decision code, and date range. Each row shows its decision code, and the Why button opens a drawer that explains the decision through `POST /explain`. Export as JSON or CSV for compliance. See [Observability](/observability).
@@ -28269,7 +28450,7 @@ The dashboard calls these REST endpoints on `${apiUrl}`, each under an `/api` pr
 | GET | `/audit` | Query audit logs (supports filters) |
 | GET | `/audit/export` | Export logs as JSON or CSV |
 | GET | `/delegations` | List delegation chains |
-| DELETE | `/delegations/:id` | Revoke a delegation |
+| DELETE | `/delegations/:id` | Revoke a delegation chain, answers 204 with no body |
 | GET | `/permissions/templates` | List permission templates |
 | POST | `/permissions/templates` | Create a template |
 | PATCH | `/permissions/templates/:id` | Update a template |
@@ -30180,6 +30361,38 @@ The linter reads the real `createTheAuth` config (`TheAuthConfig`). Settings tha
 <a id="sec-api-keys-no-auth"></a>
 ### sec.api_keys.no_auth (high)
 `apiKeys.trustedServerUse` is `true`. Same risk and fix as the org handler.
+
+<a id="sec-api-keys-no-scope-resolver"></a>
+### sec.api_keys.no_scope_resolver (low)
+`apiKeys` is set without `grantablePermissions` and there is no `org` module. Self service creation then fails closed and can only mint keys with an empty permission list. With the org module present, core defaults the cap to the creator's org roles (see below), so the linter stays quiet. A resolver is a function, so a JSON config can never carry one: lint the `.mjs` config for this rule.
+
+<a id="sec-device-path-matching-off"></a>
+### sec.device.path_matching_off (medium)
+`devices` is set, `resourceMatching` is not `path`, and a key of `permissions` contains `/` plus a `*`, `**`, `+` or `#` segment. In the default mode `*` counts only as a whole `:` segment, so `mqtt:fleet/*/temp` is plain text and never matches a real topic. Set `resourceMatching: "path"`.
+
+<a id="sec-device-mid-wildcard"></a>
+### sec.device.mid_wildcard (medium)
+`devices` is set and a `permissions` resource has a wildcard before its last segment. In the default mode a mid `*` or `**` grants more than it reads. In every mode `#` must be the last level of a topic filter (MQTT 5, section 4.7.1.2).
+
+<a id="sec-device-bundle-ttl-long"></a>
+### sec.device.bundle_ttl_long (medium)
+`devices.bundleTtlSeconds` is above 3600. An offline policy bundle cannot be revoked once issued, so a revoked device keeps its permissions until the bundle expires.
+
+<a id="sec-device-no-attestation"></a>
+### sec.device.no_attestation (medium)
+`devices` is set without `attestation.verify`. Enrollment tokens can then be issued, and whoever holds one can register any hardware. The verifier is a function, so a JSON config always fires this rule.
+
+<a id="sec-approval-no-step-up"></a>
+### sec.approval.no_step_up (medium)
+`approval` is set with no `requireAcr`, `maxAuthAge` or `stepUp`. A `requireApproval` permission can then be approved from any signed in session, with no proof of a strong or recent login. A rule passed per request to `approval.request()` is not visible to the linter.
+
+<a id="sec-agent-dpop-not-required"></a>
+### sec.agent.dpop_not_required (medium)
+`agents.enabled` with `agents.confirmation.required` off, while a `permissions` catalog action or an `agents.defaultPermissions` entry is a write action (`write`, `create`, `update`, `delete`, `admin`, `manage`, `publish`, `execute`, `send` or `*`). A leaked token then works as a bearer token. Require a bound token (RFC 9449 DPoP or RFC 8705 mutual TLS).
+
+## API key scope default
+
+When `apiKeys` has no `grantablePermissions` and the `org` module is on, a self service key can carry a permission only if `org.hasPermission` allows it for the creator in at least one org they belong to. Owners pass for everything, a user with no org membership holds nothing, and a failing lookup denies. The match is exact: a role entry such as `agents:*` does not cover `agents:read`, so use an explicit `grantablePermissions` when your roles use patterns. An explicit `grantablePermissions` still wins, and trusted server code calling `create()` is not capped.
 
 ## Dropped checks
 
@@ -33807,9 +34020,13 @@ const theauth = await createTheAuth({
 });
 ```
 
-`*` covers everything, `agents:*` covers `agents:read` and `agents:read:own`. Without `grantablePermissions`, a self service request can only ask for an empty permission list, so keys with permissions stop working until you configure it. `theauth.apiKeys.create()` in your own server code and modules built with `trustedServerUse` are not capped. Rotating a key keeps the permissions it already has.
+`*` covers everything, `agents:*` covers `agents:read` and `agents:read:own`. Without `grantablePermissions`, the `org` module (when configured) caps the key at what the creator's org roles allow through `org.hasPermission`. That check is an exact match on the role's permission strings, so a role entry such as `agents:*` does not cover a key asking for `agents:read` (owners pass for everything). If your roles use patterns, pass `grantablePermissions`. With neither, a self service request can only ask for an empty permission list, so keys with permissions stop working until you configure one. `theauth.apiKeys.create()` in your own server code and modules built with `trustedServerUse` are not capped. Rotating a key keeps the permissions it already has.
 
 OIDC provider refresh tokens now belong to a family (RFC 9700 section 4.14.2). Presenting a refresh token that was already rotated, or losing a rotation race with it, revokes every token in the family. Access tokens already issued stay valid until they expire. Migration `0012-oidc-refresh-family` adds a nullable `family_id` column to `theauth_oidc_refresh_tokens`. With `database.skipMigrations`, apply it with `theauth db sql --dialect <sqlite|postgres|mysql> --from 0012`. Refresh tokens issued before the migration have no family, so reuse of one revokes all refresh tokens of that user and client.
+
+## `DELETE /delegations/:id` answers 204 on every mount
+
+The core route table answered 204 with no body, while the admin API plugin answered 200 with `{ "revoked": [...] }` for the same path. Both now use one handler and answer 204. A missing chain is a 404 on both. The admin plugin still writes its `admin_api.delegation.revoke` audit row, and the ids of the revoked links (the chain and its descendants) are in that row's `parameters.revoked`. If you read `revoked` from the admin response, read it from the audit log or call `GET /revocations/delegations` before revoking to see the cascade.
 
 ---
 

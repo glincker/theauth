@@ -15,6 +15,9 @@ const CLEAN: SecurityConfig = {
 	auth: { session: { secret: STRONG, cookieName: "__Host-theauth" } },
 };
 
+const ATTEST = async () => ({ ok: true });
+const FLEET_CATALOG = { "mqtt:fleet/*/temp": ["read"], "mqtt:fleet/**": ["subscribe"] };
+
 const ids = (c: SecurityConfig, env = {}) => lintSecurity(c, env).map((f) => f.id);
 
 /** The same shapes typed as the real config. Assigning a TheAuthConfig to SecurityConfig proves the field names exist. */
@@ -100,6 +103,42 @@ describe("lintSecurity", () => {
 		],
 		["sec.org.no_auth", { ...CLEAN, org: { trustedServerUse: true } }],
 		["sec.api_keys.no_auth", { ...CLEAN, apiKeys: { trustedServerUse: true } }],
+		["sec.api_keys.no_scope_resolver", { ...CLEAN, apiKeys: {} }],
+		[
+			"sec.device.path_matching_off",
+			{ ...CLEAN, devices: { attestation: { verify: ATTEST } }, permissions: FLEET_CATALOG },
+		],
+		[
+			"sec.device.mid_wildcard",
+			{
+				...CLEAN,
+				devices: { attestation: { verify: ATTEST } },
+				permissions: { "mqtt:fleet:*:temp": ["read"] },
+			},
+		],
+		[
+			"sec.device.mid_wildcard",
+			{
+				...CLEAN,
+				resourceMatching: "path",
+				devices: { attestation: { verify: ATTEST } },
+				permissions: { "mqtt:fleet/#/temp": ["read"] },
+			},
+		],
+		[
+			"sec.device.bundle_ttl_long",
+			{ ...CLEAN, devices: { bundleTtlSeconds: 7200, attestation: { verify: ATTEST } } },
+		],
+		["sec.device.no_attestation", { ...CLEAN, devices: {} }],
+		["sec.approval.no_step_up", { ...CLEAN, approval: { ttl: 300 } as SecurityConfig["approval"] }],
+		[
+			"sec.agent.dpop_not_required",
+			{ ...CLEAN, agents: { enabled: true }, permissions: { "docs:*": ["read", "write"] } },
+		],
+		[
+			"sec.agent.dpop_not_required",
+			{ ...CLEAN, agents: { enabled: true, defaultPermissions: ["docs:write"] } },
+		],
 	];
 
 	it.each(cases)("fires %s", (id, config, env) => {
@@ -128,6 +167,59 @@ describe("lintSecurity", () => {
 				apiKeys: {},
 			}),
 		).toEqual([]);
+	});
+
+	it("stays quiet on a hardened device, approval and agent setup", () => {
+		expect(
+			lintSecurity({
+				...CLEAN,
+				resourceMatching: "path",
+				org: {},
+				apiKeys: {},
+				devices: { bundleTtlSeconds: 3600, attestation: { required: true, verify: ATTEST } },
+				permissions: { "mqtt:fleet/*/temp": ["read"], "mqtt:fleet/**": ["subscribe"] },
+				approval: { requireAcr: "phr", maxAuthAge: 300 },
+				agents: {
+					enabled: true,
+					confirmation: { required: true },
+					defaultPermissions: ["docs:write"],
+				},
+			}),
+		).toEqual([]);
+	});
+
+	it("keeps read only agents and an apiKeys grantablePermissions resolver quiet", () => {
+		expect(
+			ids({ ...CLEAN, agents: { enabled: true }, permissions: { "docs:*": ["read"] } }),
+		).toEqual([]);
+		expect(ids({ ...CLEAN, apiKeys: { grantablePermissions: () => [] } })).toEqual([]);
+		expect(ids({ ...CLEAN, apiKeys: { trustedServerUse: true } })).not.toContain(
+			"sec.api_keys.no_scope_resolver",
+		);
+	});
+
+	it("reads the fleet fields of a real TheAuthConfig", () => {
+		const real = {
+			database: { provider: "sqlite", url: ":memory:" },
+			agents: { enabled: true, defaultPermissions: ["docs:write"], confirmation: {} },
+			devices: { bundleTtlSeconds: 86_400 },
+			resourceMatching: "colon",
+			permissions: { "mqtt:fleet/*/temp": ["read"] },
+			approval: { ttl: 300 },
+			apiKeys: {},
+		} satisfies TheAuthConfig;
+		const config: SecurityConfig = real;
+		expect(ids(config).sort()).toEqual(
+			[
+				"sec.agent.dpop_not_required",
+				"sec.api_keys.no_scope_resolver",
+				"sec.approval.no_step_up",
+				"sec.device.bundle_ttl_long",
+				"sec.device.mid_wildcard",
+				"sec.device.no_attestation",
+				"sec.device.path_matching_off",
+			].sort(),
+		);
 	});
 
 	it("does not flag cookie, lockout or rate limit rules for fields it does not own", () => {

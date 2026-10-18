@@ -128,6 +128,20 @@ export const EnrollmentTokenSchema = z.object({
 	expiresAt: z.string(),
 });
 
+export const EnrollmentTokenSummarySchema = z.object({
+	id: z.string(),
+	kind: z.enum(["claim", "bulk"]),
+	ownerId: z.string(),
+	maxUses: z.number().int(),
+	uses: z.number().int(),
+	groups: z.array(z.string()),
+	deviceKind: z.string().optional(),
+	status: z.enum(["active", "expired", "revoked", "used_up"]),
+	expiresAt: z.string(),
+	createdAt: z.string(),
+	revokedAt: z.string().optional(),
+});
+
 export const AttestationNonceSchema = z.object({
 	nonce: z.string().describe("Single use nonce to bind into the attestation evidence"),
 	expiresAt: z.string().describe("ISO 8601 time after which the nonce is refused"),

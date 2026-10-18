@@ -1,5 +1,6 @@
 import type {
 	CreateEnrollmentTokenInput,
+	DeviceCredentialInput,
 	DeviceCredentialRow,
 	DeviceStatus,
 } from "../api/device-types.js";
@@ -75,4 +76,42 @@ export function buildEnrollmentInput(form: EnrollFormValues): CreateEnrollmentTo
 		...(groups.length > 0 && { groups }),
 		...(deviceKind && { deviceKind }),
 	};
+}
+
+/** "a, b,, a" becomes ["a", "b"]: trimmed, no blanks, no repeats. */
+export function parseGroups(raw: string): string[] {
+	return [
+		...new Set(
+			raw
+				.split(",")
+				.map((g) => g.trim())
+				.filter(Boolean),
+		),
+	];
+}
+
+/** Body for POST /devices/:id/credentials from the form, or the message to show. */
+export function buildCredentialInput(
+	kind: DeviceCredentialInput["kind"],
+	text: string,
+): DeviceCredentialInput | string {
+	if (kind === "psk") return { kind };
+	const value = text.trim();
+	if (kind === "x509") {
+		return value ? { kind, thumbprint: value } : "A certificate thumbprint (x5t#S256) is required";
+	}
+	if (!value) return "A public JWK is required";
+	try {
+		const jwk: unknown = JSON.parse(value);
+		if (typeof jwk !== "object" || jwk === null || Array.isArray(jwk))
+			return "The JWK must be a JSON object";
+		return { kind, jwk: jwk as Record<string, unknown> };
+	} catch {
+		return "The JWK is not valid JSON";
+	}
+}
+
+/** Optional bundle lifetime in seconds: undefined for blank, a message for anything else invalid. */
+export function parseBundleTtl(raw: string): number | undefined | string {
+	return positiveInt(raw, "Lifetime");
 }

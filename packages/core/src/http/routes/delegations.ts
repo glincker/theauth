@@ -1,10 +1,10 @@
 import type { DelegateInput, Permission } from "../../types.js";
+import { revokeDelegationResponse } from "../delegation-revoke.js";
 import {
 	created,
 	delegationErrorCode,
 	errorResponse,
 	failure,
-	noContent,
 	ok,
 	readJsonBody,
 	scopeDenied,
@@ -46,12 +46,7 @@ async function revokeDelegation(ctx: RouteContext): Promise<Response> {
 	if (!ctx.scope) return scopeUnavailable();
 	const denial = await ctx.scope.checkChain(ctx.params.id ?? "");
 	if (denial) return scopeDenied(denial);
-	try {
-		await ctx.auth.delegation.revoke(ctx.params.id ?? "");
-		return noContent();
-	} catch (err) {
-		return failure(err, "Failed to revoke delegation");
-	}
+	return revokeDelegationResponse(() => ctx.auth.delegation.revoke(ctx.params.id ?? ""));
 }
 
 /** The `:id` here is an agent id, the chains it takes part in are returned. */

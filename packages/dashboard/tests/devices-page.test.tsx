@@ -3,11 +3,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DeviceDetail, DeviceFleetStats, DeviceRow } from "../src/api/device-types.js";
 import { createDeviceApi, deviceQuery } from "../src/api/devices.js";
 import { DeviceDetailPanel, DeviceTable, FleetStats } from "../src/components/device-tables.js";
+import { EnrollmentTokenTable } from "../src/components/enrollment-token-table.js";
 import { devicesUnavailable } from "../src/pages/devices.js";
 import {
 	activeCredentialKinds,
+	buildCredentialInput,
 	buildEnrollmentInput,
 	formatLastSeen,
+	parseBundleTtl,
+	parseGroups,
 	statusTone,
 } from "../src/pages/devices-format.js";
 
@@ -213,5 +217,86 @@ describe("device components", () => {
 		expect(html).toContain("jwk");
 		expect(html).toContain("thumb123");
 		expect(html).toContain("hw-9");
+	});
+});
+
+describe("device action helpers", () => {
+	it("cleans a groups list", () => {
+		expect(parseGroups(" a, b,, a ")).toEqual(["a", "b"]);
+		expect(parseGroups("")).toEqual([]);
+	});
+
+	it("builds credential bodies and explains bad input", () => {
+		expect(buildCredentialInput("psk", "ignored")).toEqual({ kind: "psk" });
+		expect(buildCredentialInput("x509", " abc ")).toEqual({ kind: "x509", thumbprint: "abc" });
+		expect(buildCredentialInput("x509", " ")).toMatch(/thumbprint/);
+		expect(buildCredentialInput("jwk", '{"kty":"OKP"}')).toEqual({
+			kind: "jwk",
+			jwk: { kty: "OKP" },
+		});
+		expect(buildCredentialInput("jwk", "nope")).toMatch(/not valid JSON/);
+		expect(buildCredentialInput("jwk", "[]")).toMatch(/object/);
+		expect(buildCredentialInput("jwk", "")).toMatch(/required/);
+	});
+
+	it("parses the bundle lifetime", () => {
+		expect(parseBundleTtl("")).toBeUndefined();
+		expect(parseBundleTtl("600")).toBe(600);
+		expect(parseBundleTtl("-1")).toMatch(/whole number/);
+	});
+
+	it("calls the new routes with the right methods", async () => {
+		const seen: Array<{ path: string; method: string; body?: string }> = [];
+		const api = createDeviceApi(async <T,>(path: string, options?: RequestInit) => {
+			seen.push({
+				path,
+				method: options?.method ?? "GET",
+				...(typeof options?.body === "string" && { body: options.body }),
+			});
+			return { success: true, data: {} as T };
+		});
+		await api.listEnrollmentTokens();
+		await api.revokeEnrollmentToken("t/1");
+		await api.updateDeviceGroups("d1", ["a"]);
+		await api.addDeviceCredential("d1", { kind: "psk" });
+		await api.revokeDeviceCredential("d1", "c1");
+		await api.issueDeviceBundle("d1", 60);
+		await api.issueDeviceBundle("d1");
+		expect(seen).toEqual([
+			{ path: "/api/devices/enrollment-tokens", method: "GET" },
+			{ path: "/api/devices/enrollment-tokens/t%2F1", method: "DELETE" },
+			{ path: "/api/devices/d1", method: "PATCH", body: '{"groups":["a"]}' },
+			{ path: "/api/devices/d1/credentials", method: "POST", body: '{"kind":"psk"}' },
+			{ path: "/api/devices/d1/credentials/c1", method: "DELETE" },
+			{ path: "/api/devices/d1/bundle", method: "POST", body: '{"ttlSeconds":60}' },
+			{ path: "/api/devices/d1/bundle", method: "POST", body: "{}" },
+		]);
+	});
+
+	it("lists tokens with usage, revoke only for active ones, and no secret", () => {
+		const base = {
+			kind: "bulk" as const,
+			ownerId: "u1",
+			maxUses: 5,
+			groups: [],
+			expiresAt: "2026-10-19T00:00:00.000Z",
+			createdAt: "2026-10-18T00:00:00.000Z",
+		};
+		const html = renderToStaticMarkup(
+			<EnrollmentTokenTable
+				onRevoke={() => {}}
+				tokens={[
+					{ ...base, id: "t_live", uses: 2, status: "active" },
+					{ ...base, id: "t_dead", uses: 5, status: "used_up" },
+				]}
+			/>,
+		);
+		expect(html).toContain("2 / 5");
+		expect(html).toContain("used up");
+		expect(html).toContain("Revoke token t_live");
+		expect(html).not.toContain("Revoke token t_dead");
+		expect(
+			renderToStaticMarkup(<EnrollmentTokenTable tokens={[]} onRevoke={() => {}} />),
+		).toContain("No enrollment tokens");
 	});
 });
