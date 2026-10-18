@@ -185,7 +185,10 @@ export function defineAuditCoreTests(booter: CoreBooter): void {
 			const tombstone = await auth.agent.get(parent.id);
 			expect(tombstone?.status).toBe("revoked");
 			expect(tombstone?.ownerId.startsWith("[deleted-")).toBe(true);
-			expect(await auth.db.select().from(delegationChains)).toHaveLength(0);
+			// Links are revoked, never deleted: the row stays as a record and no link can authorize again.
+			const links = await auth.db.select().from(delegationChains);
+			expect(links).toHaveLength(1);
+			expect(links.every((l) => l.status === "revoked")).toBe(true);
 			const kept = await auth.db.select().from(auditLogs);
 			expect(kept.length).toBeGreaterThanOrEqual(3);
 			expect(kept.some((r) => r.userId === user.id || r.agentId === parent.id)).toBe(false);

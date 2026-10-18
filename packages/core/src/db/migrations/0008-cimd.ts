@@ -12,9 +12,10 @@ function statements(dialect: Dialect): string[] {
 	const ine = dialect === "postgres" ? "IF NOT EXISTS " : "";
 	const key = t.vc;
 	const value = dialect === "mysql" ? "VARCHAR(512)" : "TEXT";
+	// The unique index covers the whole value (VARCHAR(512) plus the 191 char kind is 2812 bytes, under the 3072 limit): a prefix on a UNIQUE index would treat two long URLs with the same first 191 characters as duplicates.
 	const blockIdx =
 		dialect === "mysql"
-			? "CREATE UNIQUE INDEX theauth_mcp_client_blocks_rule ON theauth_mcp_client_blocks (kind, value(191))"
+			? "CREATE UNIQUE INDEX theauth_mcp_client_blocks_rule ON theauth_mcp_client_blocks (kind, value)"
 			: "CREATE UNIQUE INDEX IF NOT EXISTS theauth_mcp_client_blocks_rule ON theauth_mcp_client_blocks (kind, value)";
 	return [
 		`ALTER TABLE theauth_oauth_clients ADD COLUMN ${ine}cimd_document ${t.json}`,

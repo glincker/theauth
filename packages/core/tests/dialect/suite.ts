@@ -19,6 +19,8 @@ import { defineSchemaParityTests } from "./schema-parity.js";
 
 type Provider = "postgres" | "mysql";
 
+const SERVER_TIMEOUT_MS = 120_000;
+
 const ALL_IDS = MIGRATIONS.map((m) => m.id);
 
 interface Handle {
@@ -92,9 +94,9 @@ function literals(provider: Provider) {
 	return {
 		// Timestamps are BIGINT epoch seconds on every dialect.
 		now: pg ? "floor(extract(epoch FROM now()))::bigint" : "UNIX_TIMESTAMP()",
-		// 2026-10-01 12:34:56 UTC. The legacy 1.2.0 tables take this as a TIMESTAMPTZ text literal.
+		// 2026-10-01 12:34:56 UTC. The legacy 1.2.0 tables take this as a TIMESTAMPTZ text literal on Postgres. MySQL never had a released 1.2.0 (its baseline was rejected by the server), so its legacy fixture already uses BIGINT epoch seconds.
 		at: "1790858096",
-		legacyAt: pg ? "'2026-10-01 12:34:56.789+00'" : "'2026-10-01 12:34:56.789'",
+		legacyAt: pg ? "'2026-10-01 12:34:56.789+00'" : "1790858096",
 		yes: pg ? "TRUE" : "1",
 		json: (value: unknown) => `'${JSON.stringify(value)}'`,
 	};
@@ -105,16 +107,17 @@ export function defineDialectSuite(
 	provider: Provider,
 	url: string | undefined,
 ): void {
-	describe.skipIf(!url)(`dialect suite: ${label}`, () => {
+	// A real server runs DDL with a disk flush per statement, so booting the whole schema takes seconds, not milliseconds.
+	describe.skipIf(!url)(`dialect suite: ${label}`, { timeout: SERVER_TIMEOUT_MS }, () => {
 		let h: Handle;
 
 		beforeEach(async () => {
 			h = await openHandle(provider, url as string);
 			await dropAll(h.exec);
-		});
+		}, SERVER_TIMEOUT_MS);
 		afterEach(async () => {
 			await h.close();
-		});
+		}, SERVER_TIMEOUT_MS);
 
 		describe("schema", () => {
 			it("creates every table on an empty database and records the ledger", async () => {

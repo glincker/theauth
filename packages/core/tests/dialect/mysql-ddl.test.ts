@@ -158,4 +158,57 @@ describe("MySQL baseline DDL (static, no server needed)", () => {
 			}
 		}
 	});
+
+	it("keeps every index, baseline and migrations, inside 3072 bytes at 4 bytes per char", () => {
+		const types = new Map<string, string>();
+		const statements = [...mysql.map((s) => s.sql), ...MIGRATIONS.flatMap((m) => m.up.mysql)];
+		for (const sql of statements) {
+			if (sql.startsWith("CREATE TABLE")) {
+				const p = columnsOf(sql);
+				for (const c of p.columns) types.set(`${p.table}.${c.name}`, c.type);
+			}
+			const add = /^ALTER TABLE (\w+) ADD COLUMN (\w+) ([A-Z]+(?:\(\d+\))?)/.exec(sql);
+			if (add) types.set(`${add[1]}.${add[2]}`, add[3] as string);
+		}
+		const bytes = (type: string, prefix: number | undefined): number => {
+			const n = /\((\d+)\)/.exec(type)?.[1];
+			if (prefix !== undefined) return prefix * 4;
+			if (type === "BIGINT") return 8;
+			if (type === "INTEGER" || type === "INT") return 4;
+			if (type === "TINYINT") return 1;
+			if (n) return Number(n) * 4;
+			throw new Error(`type ${type} cannot be indexed without a length`);
+		};
+		let checked = 0;
+		for (const sql of statements) {
+			const m = /^CREATE (UNIQUE )?INDEX (\w+)\s+ON (\w+)\s*\(((?:[^()]|\(\d+\))*)\)/.exec(
+				sql.replace(/\s+/g, " "),
+			);
+			if (!m) continue;
+			let total = 0;
+			for (const part of (m[4] as string).split(",")) {
+				const col = /^\s*(\w+)(?:\((\d+)\))?(?:\s+(?:ASC|DESC))?\s*$/.exec(part);
+				expect(col, `${m[2]}: ${part}`).not.toBeNull();
+				const prefix = col?.[2] === undefined ? undefined : Number(col[2]);
+				if (m[1])
+					expect(prefix, `${m[2]}: a prefix on a UNIQUE index changes uniqueness`).toBeUndefined();
+				const type = types.get(`${m[3]}.${col?.[1]}`);
+				expect(type, `${m[3]}.${col?.[1]}`).toBeDefined();
+				total += bytes(type as string, prefix);
+			}
+			expect(total, `index ${m[2]} on ${m[3]}`).toBeLessThanOrEqual(3072);
+			checked += 1;
+		}
+		expect(checked).toBeGreaterThan(50);
+	});
+
+	it("never gives a TEXT or JSON column a DEFAULT in a migration (MySQL rejects it)", () => {
+		for (const m of MIGRATIONS) {
+			for (const sql of m.up.mysql) {
+				for (const line of sql.split("\n")) {
+					expect(line, m.id).not.toMatch(/\s(TEXT|JSON)\s+(NOT NULL\s+)?DEFAULT\b/i);
+				}
+			}
+		}
+	});
 });
