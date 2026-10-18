@@ -1,5 +1,6 @@
 import type { SignInGate } from "../auth/sign-in-gate.js";
-import type { Database, DatabaseConfig } from "../db/database.js";
+import type { Database, DatabaseProvider } from "../db/database.js";
+import { databaseProvider } from "../db/database.js";
 import type { RevocationBus } from "../mcp/revocation-bus.js";
 import type { SessionManager } from "../session/session.js";
 import type { SecondaryStorageResolver } from "../storage/types.js";
@@ -24,7 +25,7 @@ export interface PluginRegistry {
  */
 async function runMigrations(
 	db: Database,
-	provider: DatabaseConfig["provider"],
+	provider: DatabaseProvider,
 	statements: string[],
 ): Promise<void> {
 	if (statements.length === 0) return;
@@ -147,7 +148,7 @@ export async function initializePlugins(
 		// Run this plugin's migrations before moving to the next plugin so
 		// later plugins can rely on tables created by earlier ones.
 		if (pluginMigrations.length > 0) {
-			await runMigrations(db, config.database.provider, pluginMigrations);
+			await runMigrations(db, databaseProvider(config.database), pluginMigrations);
 		}
 	}
 

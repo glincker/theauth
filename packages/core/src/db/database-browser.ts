@@ -1,6 +1,7 @@
 import { drizzle as drizzleSqlJs } from "drizzle-orm/sql-js";
 import type { SqlJsStatic } from "sql.js";
 import type { Database, DatabaseConfig } from "./database.js";
+import { isDrizzleConfig, openDrizzleInstance } from "./database.js";
 import * as schema from "./schema.js";
 
 /** A caller-supplied sql.js loader, e.g. `() => initSqlJs({ locateFile })`. */
@@ -14,6 +15,7 @@ export function createBrowserDatabaseOpener(
 	loadSqlJs?: SqlJsLoader,
 ): (config: DatabaseConfig) => Promise<Database> {
 	return async (config) => {
+		if (isDrizzleConfig(config)) return openDrizzleInstance(config);
 		if (config.provider === "sqlite") {
 			if (!loadSqlJs) {
 				throw new Error(

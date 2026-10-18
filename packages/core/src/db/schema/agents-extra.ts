@@ -1,5 +1,5 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { json, timestampSec } from "./columns.js";
+import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { bigintNumber, json, timestampSec } from "./columns.js";
 import { agents, tenants, users } from "./core.js";
 
 interface BudgetLimitsRow {
@@ -73,8 +73,25 @@ export const approvalRequests = sqliteTable("theauth_approval_requests", {
 	requiredAcr: text("required_acr"),
 	/** The approver's proving event must be at most this many seconds old. Null: no requirement. */
 	maxAuthAge: integer("max_auth_age"),
+	/** Distinct approvers needed before the request is approved (migration 0013). Null reads as 1. */
+	requiredApprovals: integer("required_approvals"),
 	createdAt: timestampSec("created_at").notNull(),
 });
+
+/**
+ * One row per approver who approved a quorum request (migration 0013). The primary key makes "each approver counts once" a database fact, so two concurrent decisions by the same approver cannot both be counted. Times are epoch ms in a plain integer column.
+ */
+export const approvalVotes = sqliteTable(
+	"theauth_approval_votes",
+	{
+		approvalId: text("approval_id").notNull(),
+		approverId: text("approver_id").notNull(),
+		decidedAt: bigintNumber("decided_at").notNull(),
+		/** The acr the approver proved, when the request had a step-up rule. */
+		approverAcr: text("approver_acr"),
+	},
+	(t) => [primaryKey({ columns: [t.approvalId, t.approverId] })],
+);
 
 export const trustScores = sqliteTable("theauth_trust_scores", {
 	agentId: text("agent_id")

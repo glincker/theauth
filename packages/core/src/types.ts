@@ -31,6 +31,7 @@ import type { WebhookConfig } from "./auth/webhooks.js";
 import type { DatabaseConfig } from "./db/database.js";
 import type { DeviceConfig } from "./device/types.js";
 import type { DidWebConfig } from "./did/types.js";
+import type { DatabaseHooks } from "./hooks/database-hooks.js";
 import type { TheAuthHooks } from "./hooks/lifecycle.js";
 import type { HookSafetyConfig } from "./hooks/safety.js";
 import type { McpConfig, Result } from "./mcp/types.js";
@@ -70,6 +71,10 @@ export interface TheAuthConfig {
 
 	/** Lifecycle hooks for agent sandboxing, logging, and custom validation */
 	hooks?: TheAuthHooks;
+	/**
+	 * Per-model database hooks: `before` and `after` for create and update on `user`, `session` and `account`. A `before` hook can return `false` to abort or `{ data }` to replace fields, and it fails closed on a throw or timeout. See `docs/database-hooks.mdx`.
+	 */
+	databaseHooks?: DatabaseHooks;
 	/**
 	 * Optional permission catalog (see `definePermissions`). Declaring it narrows `resource` and `action` on the returned instance at the type level. Not enforced at runtime.
 	 */

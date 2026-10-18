@@ -20,6 +20,8 @@ import { and, eq, gt } from "drizzle-orm";
 import { constantTimeEqual, fromHex, generateId, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { phoneVerifications, users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { SessionManager } from "../session/session.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
@@ -106,6 +108,7 @@ export function createPhoneAuthModule(
 	db: Database,
 	sessionManager: SessionManager,
 	signInGate?: SignInGate,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): PhoneAuthModule {
 	const gate = signInGate ?? createSignInGate({ db });
 	const codeLength = config.codeLength ?? DEFAULT_CODE_LENGTH;
@@ -125,12 +128,32 @@ export function createPhoneAuthModule(
 
 		const id = generateId();
 		const now = new Date();
+		const placeholderEmail = `${phone.replace(/\+/g, "")}@phone.local`;
+		let storedMetadata: Record<string, unknown> = { phone };
+		let storedEmail = placeholderEmail;
+		if (databaseHooks.has("user", "create")) {
+			const hooked = await databaseHooks.before("user", "create", {
+				id,
+				email: placeholderEmail,
+				name: null,
+				metadata: storedMetadata,
+			});
+			storedEmail = hooked.email;
+			// The phone number is the login key, a hook cannot drop or change it.
+			storedMetadata = { ...(hooked.metadata ?? {}), phone };
+		}
 		await db.insert(users).values({
 			id,
-			email: `${phone.replace(/\+/g, "")}@phone.local`,
-			metadata: { phone },
+			email: storedEmail,
+			metadata: storedMetadata,
 			createdAt: now,
 			updatedAt: now,
+		});
+		await databaseHooks.after("user", "create", {
+			id,
+			email: storedEmail,
+			name: null,
+			metadata: storedMetadata,
 		});
 
 		return { id, phone };

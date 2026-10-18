@@ -376,9 +376,9 @@ export const OPERATIONS: Record<string, OperationMeta> = {
 		response: ApprovalDecisionSchema,
 		errors: {
 			401: "Step-up authentication required (WWW-Authenticate: insufficient_user_authentication, RFC 9470)",
-			403: "Self approval is not allowed",
+			403: "Self approval is not allowed (never allowed for a quorum request)",
 			404: "Approval not found",
-			409: "No longer pending",
+			409: "No longer pending, or this approver already approved a quorum request",
 		},
 	},
 	"POST /approvals/:id/deny": {

@@ -1,4 +1,5 @@
 import type { Database } from "../db/database.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { RevocationBus } from "../mcp/revocation-bus.js";
 import { createObservability } from "../observability/index.js";
 import type { SessionManager } from "../session/session.js";
@@ -50,14 +51,18 @@ export function createHumanAuthModules(
 	signInGate: SignInGate,
 	revocations?: RevocationBus,
 ) {
+	const databaseHooks = createDatabaseHookRunner(config.databaseHooks, {
+		logger: config.logger,
+		hookSafety: config.hookSafety,
+	});
 	const magicLinkModule: MagicLinkModule | null =
 		config.magicLink && sessionManager
-			? createMagicLinkModule(config.magicLink, db, sessionManager, signInGate)
+			? createMagicLinkModule(config.magicLink, db, sessionManager, signInGate, databaseHooks)
 			: null;
 
 	const emailOtpModule: EmailOtpModule | null =
 		config.emailOtp && sessionManager
-			? createEmailOtpModule(config.emailOtp, db, sessionManager, signInGate)
+			? createEmailOtpModule(config.emailOtp, db, sessionManager, signInGate, databaseHooks)
 			: null;
 
 	// Module handlers act on the signed-in user from the auth adapter or session, never a body userId.
@@ -138,7 +143,7 @@ export function createHumanAuthModules(
 
 	const phoneModule: PhoneAuthModule | null =
 		config.phone && sessionManager
-			? createPhoneAuthModule(config.phone, db, sessionManager, signInGate)
+			? createPhoneAuthModule(config.phone, db, sessionManager, signInGate, databaseHooks)
 			: null;
 
 	const captchaModule: CaptchaModule | null = config.captcha

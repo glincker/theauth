@@ -3,7 +3,7 @@ import { recordAuditEvent } from "../audit/record.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { agents, users } from "../db/schema.js";
-import { isUniqueViolation } from "../db/unique-violation.js";
+import { toStoreConflict } from "../db/store-conflict.js";
 
 /** Thrown when a banned user tries to start a session. The message is the same for every ban, so it reveals nothing about the account. */
 export class UserBannedError extends Error {
@@ -40,7 +40,7 @@ async function ensureSignInAuditAgent(db: Database, userId: string): Promise<str
 			updatedAt: now,
 		});
 	} catch (error) {
-		if (!isUniqueViolation(error)) throw error;
+		if (!toStoreConflict(error, "agents")) throw error;
 	}
 	return id;
 }

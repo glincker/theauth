@@ -1,0 +1,81 @@
+---
+title: Migrate from WorkOS
+description: Export AuthKit users from the WorkOS List users API, import them into theAuth with the workos source, and what to expect for passwords.
+icon: arrow-right-arrow-left
+---
+
+WorkOS AuthKit is a hosted user management service. This page covers moving its users into theAuth. Sessions, SSO connections and organization memberships are WorkOS concepts and are not moved by the user importer.
+
+## Password hashes: what carries over
+
+Be realistic here. The WorkOS [User object](https://workos.com/docs/reference/authkit/user) and the List users response contain no password or hash fields. The WorkOS docs describe importing hashes into WorkOS (`password_hash` with `password_hash_type`), and we found no documented way to export them. Whether WorkOS support will produce a hash file for you is something to ask them. We have not confirmed it.
+
+So the default outcome is that imported users have no password hash and set a new password on first sign-in through your password reset flow. If WorkOS does give you a hash file, the importer takes it through `--hashes`, one JSON object per line. Checking those bcrypt hashes at sign-in needs a `verifiers.bcrypt` function, see [Lazy password migration](/migrate/lazy-passwords).
+
+```json
+{"email":"ada@example.com","passwordHash":"$2b$10$..."}
+```
+
+Only bcrypt and argon2 hashes are recognised. Any other algorithm in that file is ignored, and the user resets instead. The hash file is matched to users by email address.
+
+## Step 1: export users
+
+The List users endpoint returns up to 100 users per page and a cursor in `list_metadata.after` ([API reference](https://workos.com/docs/reference/authkit/user)).
+
+```ts
+import { WorkOS } from "@workos-inc/node";
+import { writeFileSync } from "node:fs";
+
+const workos = new WorkOS(process.env.WORKOS_API_KEY!);
+
+const users: unknown[] = [];
+let after: string | undefined;
+do {
+  const page = await workos.userManagement.listUsers({ limit: 100, after });
+  users.push(...page.data);
+  after = page.listMetadata.after ?? undefined;
+} while (after);
+
+writeFileSync("./workos-users.json", JSON.stringify(users, null, 2));
+```
+
+The importer accepts that array, a raw API page (`{"object": "list", "data": [...]}`), or several pages as newline delimited JSON. Note that the Node SDK returns camelCase property names for some fields. The importer reads the API's snake_case names (`first_name`, `email_verified`, `external_id`), so export the raw JSON from the REST API, or map the keys back before writing the file.
+
+## Step 2: dry run, then import
+
+```bash
+theauth migrate plan --from workos ./workos-users.json
+theauth migrate import --from workos ./workos-users.json --db ./theauth.db --apply
+
+# with a hash file from WorkOS support, if you got one
+theauth migrate plan --from workos ./workos-users.json --hashes ./workos-hashes.ndjson
+```
+
+## What maps
+
+| WorkOS | theAuth |
+|---|---|
+| `id` | external id, used to skip repeats on a re-run |
+| `email` (lowercased) | email |
+| `email_verified` | email verified |
+| `name`, or `first_name` and `last_name` | name |
+| `external_id`, `metadata`, `locale` | metadata |
+
+Not imported: profile pictures, organization memberships and roles, SSO and directory sync connections, MFA factors, sessions. Users who signed in through social providers or SSO have no linked account records in the export, so they reconnect the provider on first sign-in. Recreate SAML or OIDC connections with the [SSO guides](/auth/sso).
+
+## Cutover
+
+1. Import and check the counts with `theauth migrate verify`.
+2. Move sign-in to theAuth. WorkOS sealed sessions cannot be read without WorkOS, so everyone signs in once.
+3. Tell users without an imported hash to use password reset, or sign in with their social or SSO provider.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Import users" href="/migrate/import-users" icon="file-import">
+    The importer, dry runs, conflicts and the CLI.
+  </Card>
+  <Card title="Coexist with your IdP" href="/migrate/coexist-with-your-idp" icon="plug">
+    Keep WorkOS in front of enterprise customers while the rest move.
+  </Card>
+</CardGroup>

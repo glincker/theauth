@@ -1,0 +1,48 @@
+---
+title: Solid
+description: Session accessors for Solid from `@glinr/theauth-client`, built on a framework-neutral session store with no solid-js dependency.
+icon: code
+---
+
+`@glinr/theauth-client` ships `createSessionStore` (plain state, subscribe, sign in and out) and `createSolidAuth`, which turns the store into Solid accessors. Pass in the two Solid primitives you already import. The client takes no dependency on `solid-js`, so it works with any 1.x release.
+
+```bash
+pnpm add @glinr/theauth-client solid-js
+```
+
+```typescript
+// lib/auth.ts
+import { createSignal, onCleanup } from "solid-js";
+import { createSessionStore, createSolidAuth } from "@glinr/theauth-client";
+
+const store = createSessionStore({
+  basePath: "/api/theauth",
+  storage: typeof localStorage === "undefined" ? undefined : localStorage,
+});
+
+export const { useSession, useUser, useIsAuthenticated } = createSolidAuth(
+  { createSignal, onCleanup },
+  store,
+);
+export { store };
+```
+
+```tsx
+// components/Profile.tsx
+import { store, useUser } from "../lib/auth";
+
+export function Profile() {
+  const user = useUser();
+  return (
+    <button onClick={() => store.signOut()}>
+      {user()?.email ?? "Sign in"}
+    </button>
+  );
+}
+```
+
+Call `store.refresh()` once on the client. It reads `GET {basePath}/auth/session` (cookie or stored bearer token) and shows a saved session while it waits. `store.signIn(identifier, password)` and `store.signUp(identifier, password, name)` post to `/auth/username/sign-in` and `/auth/username/sign-up` by default and return `{ success: true }` or `{ success: false, error }`. `store.signOut()` clears local state, then revokes the session with `POST {basePath}/auth/sign-out`. To refetch on focus or an interval, pass `refetch` to `createSessionStore`, see [Session refetch and SSR](/client-sdk#session-refetch-and-ssr). `createSolidAuth` also returns `refresh` and `hydrateSession`. The store uses `fetch` only, so it runs in browsers, workers and edge runtimes. Without a `storage`, the session lives in memory only.
+
+## What was run
+
+The `lib/auth.ts` code type checks under `strict` against solid-js 1.x types and runs under `createRoot` in Node. Store behavior is covered by `packages/client/tests/session-store-solid.test.ts`. No browser run of the JSX.

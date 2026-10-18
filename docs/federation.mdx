@@ -60,7 +60,7 @@ const federation = createFederationModule({
 
 ### Expose the well-known endpoint
 
-Serve the instance identity at `/.well-known/theauth-federation.json` so other instances can discover your public key.
+Serve the instance identity at `/.well-known/theauth-federation.json` so other instances can discover your public key. theAuth fetches this URL from a peer (`discoverInstance`) but registers no route for it: the handler below is yours to add, and so is the `/agents/:id/federate` route in the examples, which is an example app route and not part of the handler.
 
 ```typescript
 // In your HTTP server

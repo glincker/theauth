@@ -278,6 +278,7 @@ export const ApprovalOpenedSchema = z.object({
 	action: z.string(),
 	resource: z.string(),
 	expiresAt: z.string(),
+	requiredApprovals: z.number().int().describe("Distinct approvers needed. 1 is a single approver"),
 });
 
 export const PendingApprovalSchema = z.object({
@@ -298,6 +299,12 @@ export const PendingApprovalSchema = z.object({
 		.int()
 		.describe("Approving needs a sign-in event at most this many seconds old")
 		.optional(),
+	requiredApprovals: z.number().int().describe("Distinct approvers needed. 1 is a single approver"),
+	approvalsReceived: z.number().int().describe("Approvers counted so far"),
+	approvers: z
+		.array(z.string())
+		.describe("Who approved so far. Only set for a quorum request")
+		.optional(),
 });
 
 export const ApprovalStatusSchema = z.object({
@@ -309,12 +316,19 @@ export const ApprovalStatusSchema = z.object({
 	respondedAt: z.string().optional(),
 	requiredAcr: z.string().optional(),
 	maxAuthAge: z.number().int().optional(),
+	requiredApprovals: z.number().int(),
+	approvalsReceived: z.number().int(),
+	approvers: z.array(z.string()).optional(),
 });
 
 export const ApprovalDecisionSchema = z.object({
 	id: z.string(),
-	status: z.enum(["approved", "denied"]),
+	status: z
+		.enum(["approved", "denied", "pending"])
+		.describe("pending: the vote counted and the quorum is not complete yet"),
 	respondedAt: z.string(),
+	requiredApprovals: z.number().int(),
+	approvalsReceived: z.number().int(),
 });
 
 export const ApprovalConsumedSchema = z.object({ consumed: z.boolean(), approvalId: z.string() });
@@ -323,6 +337,13 @@ export const ApprovalOpenInputSchema = z.object({
 	action: z.string().describe("Must look like admin:<name>"),
 	resource: z.string(),
 	arguments: z.record(z.unknown()).optional(),
+	requiredApprovals: z
+		.number()
+		.int()
+		.min(1)
+		.max(10)
+		.describe("Distinct approvers needed, none of them the requester (default 1)")
+		.optional(),
 });
 
 export const ApprovalConsumeInputSchema = z.object({

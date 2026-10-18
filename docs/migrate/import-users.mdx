@@ -1,6 +1,6 @@
 ---
 title: Import users
-description: Bring users and password hashes from Auth0, Keycloak, Clerk, Better Auth, Auth.js or any CSV into theAuth, with a dry run first.
+description: Bring users and password hashes from Auth0, Keycloak, Clerk, Supabase, WorkOS, Better Auth, Auth.js or any CSV into theAuth, with a dry run first.
 icon: file-import
 ---
 
@@ -52,6 +52,22 @@ You have the dashboard CSV export, or users fetched from the Backend API as JSON
 - Maps: id, names, username, primary email, and whether that email is in the verified list.
 - Hashes: `password_digest` when it is bcrypt or argon2.
 - Gaps: other hashers are reported as `UNSUPPORTED_HASHER`. Clerk's export does not carry social connections, so users reconnect on first social sign-in.
+
+### Supabase Auth
+
+You have rows from `auth.users` (JSON or CSV), optionally with `auth.identities` joined in. Full steps in [Migrate from Supabase](/migrate/from-supabase).
+
+- Maps: id, email, `email_confirmed_at`, name from `raw_user_meta_data`, identities other than `email` and `phone` as linked accounts.
+- Hashes: `encrypted_password` when it is bcrypt or argon2. Social only users have none.
+- Gaps: no sessions, MFA factors or phone only users.
+
+### WorkOS
+
+You have users from the List users API (an array, a raw page, or newline delimited pages). Full steps in [Migrate from WorkOS](/migrate/from-workos).
+
+- Maps: id, email, `email_verified`, names, `external_id` and `metadata`.
+- Hashes: the API returns none. If WorkOS support gives you a hash file, pass it with `--hashes` (bcrypt and argon2 only).
+- Gaps: no organizations, SSO connections or social links.
 
 ### Better Auth
 

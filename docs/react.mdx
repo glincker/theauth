@@ -56,14 +56,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 <ParamField path="basePath" type="string" default="&quot;/api/theauth&quot;">Path to your theAuth API handler. Must match the route you mounted in the adapter.</ParamField>
 <ParamField path="external" type="ExternalAuthConfig" default="undefined">Delegate authentication to an external API instead of the managed mode described below. See "External auth mode".</ParamField>
+<ParamField path="managed" type="ManagedAuthConfig" default="undefined">Options for managed mode: `refetch` (focus, reconnect, interval), `initialSession` (SSR seed), `signInPath`, `signUpPath` and `identifierField`. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
 <ParamField path="debug" type="boolean" default="false">Enable verbose auth state logging (also enabled when `localStorage.DEBUG === "theauth"`).</ParamField>
 
 <Info>
-In managed mode (no `external` prop) the session is stored in `localStorage` under the key `theauth_session`, and the provider restores it from there on page load. It does not re-verify the session with the server on load.
+In managed mode (no `external` prop) the session token is stored in `localStorage` under the key `theauth_session`. On load the provider shows that stored session at once, then confirms it with `GET {basePath}/auth/session`. A 401 or 403 clears it. A network error or a 5xx keeps it, so going offline never signs anyone out. Cookie-only sessions work too: with nothing stored, the same request picks up the session cookie.
 </Info>
 
 <Warning>
-The managed provider signs in and up by calling `POST {basePath}/auth/sign-in` and `POST {basePath}/auth/sign-up` with a JSON body of `{ email, password }` (plus `name` for sign-up). theAuth core does not ship email-and-password routes at those paths (its built-in password module is [username based](/auth/username)), so you need to serve them from your own handler, returning `{ user, session: { token, expiresAt } }` for sign-in and `{ user, token }` for sign-up, or use `external` mode instead.
+Managed mode signs in and up through the username module: `POST {basePath}/auth/username/sign-in` and `POST {basePath}/auth/username/sign-up` with `{ username, password }` (plus `name` for sign-up), answering `{ user, session: { token, expiresAt } }`. The first argument of `signIn` and `signUp` is sent as `username`. theAuth core has no email-and-password route, so for one of your own set `managed.signInPath`, `managed.signUpPath` and `managed.identifierField` (for example `"email"`), and return the same response shape.
 </Warning>
 
 ## useSession
@@ -89,7 +90,7 @@ function SessionDebug() {
 
 <ParamField path="session" type="TheAuthSession | null">The current session (`{ token, user, expiresAt? }`). Null when unauthenticated or still loading.</ParamField>
 <ParamField path="isLoading" type="boolean">True during the initial session restore.</ParamField>
-<ParamField path="refresh" type={`() => Promise<void>`}>Re-read the session. In managed mode this re-reads `localStorage`, in external mode it re-fetches the current user.</ParamField>
+<ParamField path="refresh" type={`() => Promise<void>`}>Re-read the session from the server. In managed mode this calls `GET {basePath}/auth/session`, in external mode it re-fetches the current user. Concurrent calls share one request.</ParamField>
 
 ## useUser
 
@@ -121,7 +122,7 @@ function ProfileCard() {
 
 Handles email and password sign-in. Returns `signIn(email, password)` plus `isLoading` and `error` (a string or `null`).
 
-The hook posts to `POST {basePath}/auth/sign-in` (see the warning above about the server route).
+The hook posts to `POST {basePath}/auth/username/sign-in` by default (see the warning above about the server route).
 
 ```tsx
 import { useSignIn } from '@glinr/theauth-react';
@@ -156,7 +157,7 @@ function SignInForm() {
 
 ## useSignUp
 
-Handles new account registration with `signUp(email, password, name?)`. Posts to `POST {basePath}/auth/sign-up`.
+Handles new account registration with `signUp(email, password, name?)`. Posts to `POST {basePath}/auth/username/sign-up` by default.
 
 ```tsx
 import { useSignUp } from '@glinr/theauth-react';
@@ -188,7 +189,7 @@ function SignUpForm() {
 
 ## useSignOut
 
-Signs the user out. `signOut()` takes no arguments. In managed mode it clears the stored session from React state and `localStorage` and does not call the server, so revoke the session server-side separately if you need to. In external mode it calls your logout path. It does not redirect, navigate yourself afterwards.
+Signs the user out. `signOut()` takes no arguments. In managed mode it clears React state and `localStorage` first, then calls `POST {basePath}/auth/sign-out` to revoke the session on the server (the stored token goes as a bearer header, the cookie is sent too). In external mode it calls your logout path. It does not redirect, navigate yourself afterwards.
 
 ```tsx
 import { useSignOut } from '@glinr/theauth-react';
@@ -259,7 +260,7 @@ The hook calls `GET {basePath}/agents?userId=<id>` (expecting `{ data: Agent[] }
 
 ## External auth mode
 
-Pass `external` to delegate authentication to an API you already run, for example one that manages httpOnly cookies. The provider then fetches the user from `apiUrl + mePath` (default `/api/auth/me`), sends login redirects to `loginPath` (default `/auth/github`), and calls `logoutPath` (default `/auth/logout`, method `POST`) on sign out. No session is stored in `localStorage`.
+Pass `external` to delegate authentication to an API you already run, for example one that manages httpOnly cookies. The provider then fetches the user from `apiUrl + mePath` (default `/api/auth/me`), sends login redirects to `loginPath` (default `/auth/github`), and calls `logoutPath` (default `/auth/logout`, method `POST`) on sign out. No session is stored in `localStorage`. `external.refetch` and `external.initialUser` work the same way as in managed mode, and a network error during a refetch keeps the current user.
 
 ```tsx
 <TheAuthProvider

@@ -1,0 +1,83 @@
+---
+title: Bring your own Drizzle instance
+description: Pass an existing Drizzle database to theAuth with database { drizzle, dialect } instead of a connection URL, and run the store contract suite against your own backend.
+icon: plug
+---
+
+Most apps that already use Drizzle have a connection pool, credentials and a driver choice that theAuth should not duplicate. Pass that instance in and theAuth queries it directly.
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+const auth = await createTheAuth({
+  database: { drizzle: drizzle(pool), dialect: "postgres" },
+});
+```
+
+`dialect` is `"sqlite"`, `"postgres"` or `"mysql"`. It picks the migration SQL, the same way `provider` does for the URL form. Everything else about the database section is unchanged: tables are created on boot, and `skipMigrations: true` makes boot fail with `SchemaOutdatedError` when the schema is behind (see [Database setup](/database#using-skipmigrations)).
+
+## What you own
+
+theAuth does not open this connection, so it never closes it. Shut the pool down yourself when the process exits.
+
+Connection settings that `provider` applies for you become your job:
+
+| Dialect | Set this on your own handle |
+|---|---|
+| `sqlite` | `PRAGMA foreign_keys = ON`. For a file, `PRAGMA journal_mode = WAL` is a good idea if more than one process opens it. |
+| `mysql` | Create the pool with `timezone: "Z"`. The migration ledger stores UTC. Use a `utf8mb4` database with a binary collation (`utf8mb4_bin`) so ids compare case sensitively. |
+| `postgres` | Nothing extra. Use a pooled connection string on serverless hosts. |
+
+## Requirements for the handle
+
+- It must expose the driver client at `db.$client`, because migrations and the schema check send raw SQL through it. The node-postgres, mysql2 and better-sqlite3 drivers do, and those are the ones this release tests. A driver that hides its client can still work if you run the migrations yourself (`theauth db sql`) and every query path goes through Drizzle, but boot calls the schema check even with `skipMigrations`, so that is untested territory.
+- Do not pass a `schema` that renames or replaces theAuth's tables. theAuth uses its own table objects and never reads `db.query`, so a plain `drizzle(pool)` is enough.
+- Reads must see your own writes. Single use tokens, refresh rotation and the audit chain read right after a write. If you route reads to a replica, pin auth traffic to the primary.
+
+`createTheAuth` returns your handle as `auth.db`, and plugins receive it as `ctx.db`, so it is the same object you passed in.
+
+## Typed unique conflicts
+
+Several flows use a unique index as the tiebreaker: creating a user, appending to the audit chain, a second vote from the same approver, banning twice, MCP client and revocation inserts, erasure tombstones. They now map a driver error through `toStoreConflict`, which returns a `StoreConflictError` (exported from `@glinr/theauth`, with `code: "STORE_CONFLICT"`, `model` and the driver error as `cause`).
+
+Detection reads structured codes first: Postgres `23505`, MySQL `ER_DUP_ENTRY` or errno `1062`, SQLite `SQLITE_CONSTRAINT_UNIQUE` and `SQLITE_CONSTRAINT_PRIMARYKEY`, SQL Server `2627` and `2601`, Prisma `P2002`, MongoDB `11000`. The old text match stays as a fallback for drivers that wrap the code away, so behavior on the existing providers is unchanged.
+
+## Run the contract suite against your backend
+
+`@glinr/theauth-test-utils/store-contract` holds the checks that make a backend safe for auth: 24 parallel callers fighting over one single use row with exactly one winner (magic link, email OTP, approval decision and consumption, refresh rotation), the attempt limit on OTP guesses, unique conflicts, and an audit chain that stays gapless and verifies when two processes append for one agent.
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+import { runStoreContract } from "@glinr/theauth-test-utils/store-contract";
+
+const url = process.env.TEST_DATABASE_URL;
+
+runStoreContract(
+  "my postgres",
+  async () => {
+    const mail = { magicTokens: [] as string[], otpCodes: [] as string[] };
+    const auth = await createTheAuth({
+      database: { drizzle: makeMyDrizzle(url), dialect: "postgres" },
+      agents: { enabled: true, maxPerUser: 500 },
+      audit: { tamperEvident: true, hmacKey: "test-key" },
+      magicLink: {
+        appUrl: "https://app.test",
+        sendMagicLink: async (_email, token) => void mail.magicTokens.push(token),
+      },
+      emailOtp: { sendOtp: async (_email, code) => void mail.otpCodes.push(code) },
+    });
+    return { auth, mail, close: async () => {} };
+  },
+  { skip: !url },
+);
+```
+
+Add `peer` (a second instance with its own handle on the same database) to include the two process audit check, `duplicateInsert` to check conflict typing with your driver, and `tokenFamilies` for the refresh rotation race. The repository runs this suite on sql.js, better-sqlite3 through both config forms, Postgres and MySQL; set `THEAUTH_TEST_PG_URL` and `THEAUTH_TEST_MYSQL_URL` to include the last two.
+
+<Note>
+  The suite needs `vitest` as a dev dependency. It runs against the instance's public surface, so it describes how today's Drizzle code behaves, not a future storage interface.
+</Note>

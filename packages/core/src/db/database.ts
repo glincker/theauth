@@ -47,7 +47,8 @@ type MySQLDatabase = any;
 // biome-ignore lint/suspicious/noExplicitAny: adapter boundary - D1 drizzle types differ from SQLite
 type D1DrizzleDatabase = any;
 
-export type DatabaseConfig =
+/** The built-in, URL or binding based database configurations. */
+export type ProviderDatabaseConfig =
 	| {
 			provider: "sqlite" | "sqlite-native" | "postgres" | "mysql";
 			/** Connection URL / file path. Required for sqlite-native, postgres, and mysql. `sqlite` (sql.js) accepts only `:memory:` and throws THEAUTH_SQLITE_NOT_PERSISTENT for a file path. */
@@ -65,12 +66,70 @@ export type DatabaseConfig =
 			skipMigrations?: boolean;
 	  };
 
+/** The SQL dialects a Drizzle instance supplied by the caller can speak. */
+export type DatabaseDialect = "sqlite" | "postgres" | "mysql";
+
+/** The `provider` values of the built-in configurations. */
+export type DatabaseProvider = ProviderDatabaseConfig["provider"];
+
+/**
+ * Bring your own Drizzle instance: `database: { drizzle, dialect }`. Works with any Drizzle driver for the dialect (Neon, Supabase, PlanetScale, Turso and libSQL, an app's existing pool). TheAuth runs its migrations against the handle unless `skipMigrations` is set. The handle is used as is, so TheAuth never closes it, and it must be created without a `schema` that conflicts with TheAuth's tables (queries use explicit table objects, so no schema is required).
+ */
+export interface DrizzleDatabaseConfig {
+	/** A Drizzle database instance, such as the return value of `drizzle(...)`. */
+	drizzle: object;
+	/** The SQL dialect the instance speaks. Picks the migration DDL. */
+	dialect: DatabaseDialect;
+	/** Skip automatic table creation on init (default: false). Boot then fails with SchemaOutdatedError if the schema is behind. */
+	skipMigrations?: boolean;
+}
+
+export type DatabaseConfig = ProviderDatabaseConfig | DrizzleDatabaseConfig;
+
+/** True for the `{ drizzle, dialect }` form. */
+export function isDrizzleConfig(config: DatabaseConfig): config is DrizzleDatabaseConfig {
+	return "drizzle" in config;
+}
+
+/** The provider name migrations key on. A Drizzle instance reports its dialect. */
+export function databaseProvider(config: DatabaseConfig): DatabaseProvider {
+	return isDrizzleConfig(config) ? config.dialect : config.provider;
+}
+
+const DIALECTS: readonly string[] = ["sqlite", "postgres", "mysql"];
+
+/** Validates a `{ drizzle, dialect }` config and returns the handle typed as `Database`. */
+export function openDrizzleInstance(config: DrizzleDatabaseConfig): Database {
+	if (!DIALECTS.includes(config.dialect)) {
+		throw new Error(
+			`THEAUTH_DRIZZLE_DIALECT: database.dialect must be "sqlite", "postgres" or "mysql", got "${String(config.dialect)}".`,
+		);
+	}
+	const handle = config.drizzle as Record<string, unknown> | null;
+	if (
+		typeof handle !== "object" ||
+		handle === null ||
+		typeof handle.select !== "function" ||
+		typeof handle.insert !== "function" ||
+		typeof handle.update !== "function" ||
+		typeof handle.delete !== "function"
+	) {
+		throw new Error(
+			"THEAUTH_DRIZZLE_HANDLE: database.drizzle must be a Drizzle database instance (the value returned by drizzle(...)).",
+		);
+	}
+	// biome-ignore lint/suspicious/noExplicitAny: adapter boundary - the caller's dialect-typed handle is queried through the sqlite-typed Database
+	return handle as any as Database;
+}
+
 /**
  * Create a database connection.
  * - **SQLite** (`sqlite`), fully typed Drizzle ORM via `sql.js` (WASM, in-memory only, `:memory:`).
  * - **SQLite** (`sqlite-native`), `better-sqlite3`, for a database file that persists.
  */
 export async function createDatabase(config: DatabaseConfig): Promise<Database> {
+	if (isDrizzleConfig(config)) return openDrizzleInstance(config);
+
 	// SQLite (WASM, in-memory only)
 	// Uses sql.js (SQLite compiled to WebAssembly). Zero native deps, never persists to disk.
 	if (config.provider === "sqlite") {
@@ -170,7 +229,7 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 	}
 
 	throw new Error(
-		`TheAuth: unsupported database provider "${(config as DatabaseConfig).provider}". ` +
+		`TheAuth: unsupported database provider "${(config as ProviderDatabaseConfig).provider}". ` +
 			'Valid values are "sqlite", "sqlite-native", "postgres", "mysql", "d1".',
 	);
 }
@@ -181,10 +240,10 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
  * @deprecated Prefer the async `createDatabase()` which supports all providers.
  */
 export function createDatabaseSync(config: DatabaseConfig): Database {
-	if (config.provider !== "sqlite") {
+	if (isDrizzleConfig(config) || config.provider !== "sqlite") {
 		throw new Error(
 			`createDatabaseSync() only supports SQLite. ` +
-				`Use the async createDatabase() for provider "${config.provider}".`,
+				`Use the async createDatabase() for provider "${isDrizzleConfig(config) ? "drizzle" : config.provider}".`,
 		);
 	}
 	// Sync path: use createRequire for Node.js-only sync loading.

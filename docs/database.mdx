@@ -216,6 +216,7 @@ The full set of tables theAuth can create is below. Which ones exist in your dat
 | `theauth_agent_registration_tokens` | One-time tokens for [agent registration](/agent-registration-tokens) |
 | `theauth_oauth_accounts`, `theauth_oauth_states` | Linked social accounts and in-flight OAuth state (`oauth()` plugin) |
 | `theauth_approval_requests` | CIBA async approval flow records |
+| `theauth_approval_votes` | One row per approver on a quorum approval request |
 | `theauth_trust_scores` | Graduated autonomy trust scores per agent |
 | `theauth_budget_policies` | Token and call budget caps per agent/user/tenant |
 | `theauth_magic_links`, `theauth_email_otps`, `theauth_phone_verifications`, `theauth_totp` | Magic link, email OTP, phone OTP, and TOTP records |

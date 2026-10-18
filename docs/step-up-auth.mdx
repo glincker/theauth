@@ -65,7 +65,7 @@ So a user who logged in with a password two hours ago and entered a TOTP code te
 
 ### Recording a step-up
 
-`POST /auth/2fa/verify` and `POST /auth/2fa/otp/verify` record the proof on the session that made the request, when the code is correct. The headless handlers (`theauth.totp.handleRequest` for `/auth/2fa/verify`, `theauth.passkey.handleRequest` for `/auth/passkey/login/verify`) do the same when the request carries a session of that user.
+`POST /auth/2fa/verify` and `POST /auth/2fa/otp/verify` record the proof on the session that made the request, when the code is correct. The headless handlers (`theauth.totp.handleRequest` for `/auth/2fa/verify`, `theauth.passkey.handleRequest` for `/auth/passkey/authenticate/verify`) do the same when the request carries a session of that user.
 
 A passkey sign-in at `/auth/passkey/authenticate/verify` creates a new session. To step up the session the user already has, call the step-up pair instead. Both need a signed-in user:
 

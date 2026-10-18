@@ -37,6 +37,15 @@ export function stepUpHint(
 	return `Needs ${what} within ${fresh}`;
 }
 
+/** "1 of 2 approvals" for a request that needs more than one approver, else null. */
+export function quorumHint(
+	approval: Pick<PendingApproval, "requiredApprovals" | "approvalsReceived">,
+): string | null {
+	const { requiredApprovals, approvalsReceived } = approval;
+	if (requiredApprovals === undefined || requiredApprovals <= 1) return null;
+	return `${approvalsReceived ?? 0} of ${requiredApprovals} approvals`;
+}
+
 export function formatExpiresIn(iso: string, now: number): string {
 	const secs = Math.floor((new Date(iso).getTime() - now) / 1000);
 	if (secs <= 0) return "expired";
@@ -88,6 +97,16 @@ function ApprovalRow({
 					{stepUpHint(approval) && (
 						<div className="mt-1">
 							<Badge variant="yellow">{stepUpHint(approval)}</Badge>
+						</div>
+					)}
+					{quorumHint(approval) && (
+						<div className="mt-1">
+							<Badge variant="yellow">{quorumHint(approval)}</Badge>
+							{approval.approvers && approval.approvers.length > 0 && (
+								<span className="ml-2 text-xs text-zinc-500">
+									Approved by {approval.approvers.join(", ")}
+								</span>
+							)}
 						</div>
 					)}
 				</Td>
@@ -198,7 +217,12 @@ export function ApprovalsPage({ client }: ApprovalsPageProps) {
 		mutationFn: (v: { id: string; decision: Decision }) => client.decideApproval(v.id, v.decision),
 		onSuccess: (result, v) => {
 			setConfirm(null);
-			if (result.success) {
+			if (result.success && result.data.status === "pending") {
+				toast(
+					"success",
+					`Your approval counted (${result.data.approvalsReceived ?? 1} of ${result.data.requiredApprovals ?? 2}). Another approver is needed.`,
+				);
+			} else if (result.success) {
 				toast("success", v.decision === "approve" ? "Request approved" : "Request denied");
 			} else if (result.error.code === "STEP_UP_REQUIRED") {
 				toast(

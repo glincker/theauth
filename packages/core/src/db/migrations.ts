@@ -1,5 +1,6 @@
 import type { TheAuthConfig } from "../types.js";
-import type { Database, DatabaseConfig } from "./database.js";
+import type { Database, DatabaseProvider } from "./database.js";
+import { databaseProvider } from "./database.js";
 import type { MigrationStatus } from "./migrate/index.js";
 import {
 	assertAuditSecretsLayout,
@@ -20,7 +21,7 @@ import {
  */
 export async function createTables(
 	db: Database,
-	provider: DatabaseConfig["provider"],
+	provider: DatabaseProvider,
 	config?: TheAuthConfig,
 ): Promise<void> {
 	await runMigrations(db, provider, { config });
@@ -30,7 +31,7 @@ export async function createTables(
  * Boot path used by `createTheAuth`: migrate, or with `database.skipMigrations` verify and fail loudly if the schema is behind.
  */
 export async function ensureSchema(db: Database, config: TheAuthConfig): Promise<void> {
-	const provider = config.database.provider;
+	const provider = databaseProvider(config.database);
 	if (!config.database.skipMigrations) {
 		await createTables(db, provider, config);
 		return;
@@ -49,5 +50,5 @@ export interface SchemaApi {
 }
 
 export function createSchemaApi(db: Database, config: TheAuthConfig): SchemaApi {
-	return { status: () => getSchemaStatus(db, config.database.provider, config) };
+	return { status: () => getSchemaStatus(db, databaseProvider(config.database), config) };
 }

@@ -3,12 +3,16 @@ import { auth0Parser } from "./auth0.js";
 import { clerkParser } from "./clerk.js";
 import { genericParser } from "./generic.js";
 import { keycloakParser } from "./keycloak.js";
+import { supabaseParser } from "./supabase.js";
 import { betterAuthParser, nextAuthParser } from "./tables.js";
+import { workosParser } from "./workos.js";
 
 const PARSERS: Record<ImportSource, SourceParser> = {
 	auth0: auth0Parser,
 	keycloak: keycloakParser,
 	clerk: clerkParser,
+	supabase: supabaseParser,
+	workos: workosParser,
 	"better-auth": betterAuthParser,
 	nextauth: nextAuthParser,
 	generic: genericParser,

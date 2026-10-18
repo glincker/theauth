@@ -56,7 +56,7 @@ found, err := client.MCP.Get(ctx, srv.ID) // nil, nil when missing
 
 ## Plugin endpoints
 
-Call routes declared with `defineEndpoint` on the server.
+Call routes declared with `defineEndpoint` on the Go server. The path below is an example of a route you define yourself, not one the library ships. This client talks to the Go server only: the TypeScript handler serves a different route set (see [REST API](/api)).
 
 ```go
 var out struct{ ID string `json:"id"` }

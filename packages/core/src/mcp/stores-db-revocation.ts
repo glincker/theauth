@@ -1,7 +1,7 @@
 import { and, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { mcpRevocations } from "../db/schema.js";
-import { isUniqueViolation } from "../db/unique-violation.js";
+import { toStoreConflict } from "../db/store-conflict.js";
 import { getEnvNumber } from "../runtime/env.js";
 import type {
 	McpRevocationEntry,
@@ -82,7 +82,7 @@ export function createDbRevocationStore(
 				sourceId,
 			});
 		} catch (error) {
-			if (!isUniqueViolation(error)) throw error;
+			if (!toStoreConflict(error, "mcp_revocations")) throw error;
 			await raise();
 		}
 	}

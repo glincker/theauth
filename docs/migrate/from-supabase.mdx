@@ -1,0 +1,101 @@
+---
+title: Migrate from Supabase Auth
+description: Export auth.users and auth.identities from Supabase, import them into theAuth with the supabase source, and keep bcrypt passwords working through lazy migration.
+icon: arrow-right-arrow-left
+---
+
+Supabase Auth (the GoTrue service) keeps users in the `auth` schema of your own Postgres database. That makes the export easy: you run SQL, not a support ticket. This page covers moving the users. For the code side, see the concept map in [Migrate from Clerk](/migrate/from-clerk), which applies here too, and [Run both and migrate](/migrate/run-both-and-migrate) for the rollout.
+
+## Password hashes: what carries over
+
+Supabase stores a bcrypt hash in `auth.users.encrypted_password`. Supabase's own users receive it as a modular crypt string starting with `$2a$10$`. WorkOS documents the same fact in [its Supabase migration guide](https://workos.com/docs/migrate/supabase), and notes you can read the hashes yourself because you have database access.
+
+The importer keeps the hash as it is. [Lazy migration](/migrate/lazy-passwords) checks it on the user's first sign-in and rehashes it with theAuth's own algorithm, so users keep their passwords. theAuth does not bundle a bcrypt implementation: pass a `verifiers.bcrypt` function (for example from `bcryptjs`) as shown on that page. Without it, those users are sent through a password reset.
+
+Limits, stated plainly:
+
+- Only rows whose `encrypted_password` is bcrypt or argon2 are imported with a hash. Anything else is imported without one and reported as `UNSUPPORTED_HASHER`.
+- Users who only ever signed in with OAuth or a magic link have an empty `encrypted_password`. They are imported without a hash and sign in the way they did before.
+- The Supabase Admin API (`auth.admin.listUsers`) does not return hashes. You need a direct database connection, or a dump of the `auth` schema.
+- We built the fixtures from the documented column names, not from a live Supabase project. Run `theauth migrate verify` with one real account before you trust a full batch.
+
+## Step 1: export
+
+Run this in the Supabase SQL editor or any Postgres client. It produces one JSON array.
+
+```sql
+select json_agg(row_to_json(u)) from (
+  select
+    id,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    phone,
+    raw_user_meta_data,
+    raw_app_meta_data,
+    (
+      select json_agg(json_build_object('provider', i.provider, 'provider_id', i.provider_id))
+      from auth.identities i
+      where i.user_id = users.id
+    ) as identities
+  from auth.users as users
+) u;
+```
+
+Save the single cell as `supabase-users.json`. A CSV export also works. The importer accepts either the one row per user shape above, or the join shape that Supabase and WorkOS show in their docs: `auth.users` left joined to `auth.identities`, which gives several rows per user with `provider` and `provider_id` columns. Rows are merged by user id.
+
+Treat the file like a credential store. It holds password hashes. Keep it off shared drives and delete it after the import.
+
+## Step 2: dry run, then import
+
+```bash
+theauth migrate plan --from supabase ./supabase-users.json
+theauth migrate import --from supabase ./supabase-users.json --db ./theauth.db
+theauth migrate import --from supabase ./supabase-users.json --db ./theauth.db --apply
+```
+
+From code:
+
+```ts
+import { createMemoryMigrationStore, importUsers } from "@glinr/theauth/migrate";
+import { readFileSync } from "node:fs";
+
+const result = await importUsers({
+  source: "supabase",
+  stream: readFileSync("./supabase-users.json", "utf8"),
+  store: createMemoryMigrationStore(), // use createDbMigrationStore(db) for a real database
+  dryRun: true,
+});
+```
+
+## What maps
+
+| Supabase | theAuth |
+|---|---|
+| `auth.users.id` | external id, used to skip repeats on a re-run |
+| `email` (lowercased) | email |
+| `email_confirmed_at` set | email verified |
+| `raw_user_meta_data.full_name` or `name` | name |
+| `auth.identities` rows other than `email` and `phone` | linked accounts (`provider`, `provider_id`) |
+| `raw_user_meta_data`, `raw_app_meta_data`, `phone` | metadata |
+| `encrypted_password` (bcrypt) | legacy password hash |
+
+Not imported: sessions and refresh tokens (users sign in once more), MFA factors, one time tokens, and users with no email (phone only accounts are reported as `MISSING_FIELD`). Row level security policies that reference `auth.uid()` are database code and stay yours to port.
+
+## Cutover
+
+1. Import, then run `theauth migrate verify --from supabase ./supabase-users.json --db ./theauth.db --sample-email you@yourcompany.com` with `THEAUTH_MIGRATE_PASSWORD` set.
+2. Point sign-in at theAuth. Supabase JWTs are signed with your project secret and cannot be accepted as theAuth sessions, so everyone signs in once.
+3. Update OAuth app redirect URIs from `https://<project>.supabase.co/auth/v1/callback` to theAuth's callback.
+4. Keep the Supabase project read only for a few weeks, then remove the `auth` schema copy of the hashes.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Import users" href="/migrate/import-users" icon="file-import">
+    The importer, dry runs, conflicts and the CLI.
+  </Card>
+  <Card title="Lazy password migration" href="/migrate/lazy-passwords" icon="key">
+    How bcrypt hashes become native hashes on first login.
+  </Card>
+</CardGroup>

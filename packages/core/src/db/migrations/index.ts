@@ -12,6 +12,7 @@ import { stepUpAndConfirmation } from "./0009-step-up-and-confirmation.js";
 import { devicesMigration } from "./0010-devices.js";
 import { oauthAuthEvidence } from "./0011-oauth-auth-evidence.js";
 import { oidcRefreshFamily } from "./0012-oidc-refresh-family.js";
+import { approvalQuorum } from "./0013-approval-quorum.js";
 
 /**
  * Every migration, in order. Ids are append only and never reused.
@@ -31,6 +32,7 @@ export const MIGRATIONS: readonly Migration[] = [
 	devicesMigration,
 	oauthAuthEvidence,
 	oidcRefreshFamily,
+	approvalQuorum,
 ];
 
 export const BASELINE_ID = baseline.id;

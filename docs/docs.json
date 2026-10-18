@@ -135,6 +135,7 @@
               "add-to-existing-app",
               "configuration",
               "database",
+              "bring-your-own-drizzle",
               "choose-storage",
               "benchmarks",
               "production-checklist",
@@ -353,6 +354,7 @@
               "audit-receipts",
               "audit-checkpoints",
               "observability",
+              "database-hooks",
               "policy-shrink",
               "analyzer",
               "trust",
@@ -431,6 +433,8 @@
                 "icon": "server",
                 "pages": [
                   "adapters/hono",
+                  "adapters/elysia",
+                  "adapters/react-router",
                   "adapters/express",
                   "adapters/fastify",
                   "adapters/nestjs"
@@ -458,6 +462,7 @@
               "react",
               "vue",
               "svelte",
+              "solid",
               "expo",
               "sdk-go",
               "sdk-python",
@@ -561,6 +566,8 @@
               "migrate/from-better-auth-agent-plugin",
               "migrate/from-next-auth",
               "migrate/from-clerk",
+              "migrate/from-supabase",
+              "migrate/from-workos",
               "migrate/from-auth0",
               "migrate/from-kavach"
             ]

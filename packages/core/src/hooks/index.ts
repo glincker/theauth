@@ -1,3 +1,19 @@
+export type {
+	AccountHookData,
+	DatabaseBeforeResult,
+	DatabaseHookContext,
+	DatabaseHookData,
+	DatabaseHookErrorCode,
+	DatabaseHookModel,
+	DatabaseHookOperation,
+	DatabaseHookPatch,
+	DatabaseHookRunner,
+	DatabaseHooks,
+	DatabaseModelHooks,
+	SessionHookData,
+	UserHookData,
+} from "./database-hooks.js";
+export { createDatabaseHookRunner, DatabaseHookError } from "./database-hooks.js";
 export type { ExternalGuard, GuardCheckInput } from "./guard.js";
 export { composeBeforeAuthorize, guardHook } from "./guard.js";
 export type {

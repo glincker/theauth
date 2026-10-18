@@ -399,3 +399,11 @@ OIDC provider refresh tokens now belong to a family (RFC 9700 section 4.14.2). P
 ## `DELETE /delegations/:id` answers 204 on every mount
 
 The core route table answered 204 with no body, while the admin API plugin answered 200 with `{ "revoked": [...] }` for the same path. Both now use one handler and answer 204. A missing chain is a 404 on both. The admin plugin still writes its `admin_api.delegation.revoke` audit row, and the ids of the revoked links (the chain and its descendants) are in that row's `parameters.revoked`. If you read `revoked` from the admin response, read it from the audit log or call `GET /revocations/delegations` before revoking to see the cascade.
+
+## Quorum approvals and migration 0013
+
+An approval can require more than one approver with `requiredApprovals` (default 1, so existing flows do not change). It adds migration `0013`: a nullable `required_approvals` column on `theauth_approval_requests` and a new `theauth_approval_votes` table. Run `theauth migrate` (or let `createTheAuth` migrate) before you use it. `ApprovalRequest` gains `requiredApprovals` and, for a quorum request, `approvers`. The admin API approve and deny responses and the pending list now carry `requiredApprovals` and `approvalsReceived`, and the approve response can have `status: "pending"` while a quorum is incomplete. A client that treats any 200 from approve as "approved" must check `status`. New webhook event: `approval.vote`. See [Approval flows](/approval).
+
+## Device attestation evidence needs a nonce
+
+`devices.attestation.verify` is now only called for evidence that comes with a nonce from `device.attestationNonce()` (`POST /device/attestation-nonce`). Evidence without one is refused with `nonce_invalid`, because it cannot be shown to be fresh (RFC 9334 section 10). Before, a missing nonce skipped the check and left replay protection to your verifier. If your verifier proves freshness another way, for example a signed timestamp, set `attestation.requireNonce: false`. The hook input also gains `credentialKind` and `credentialKeyThumbprint`. See [IoT devices](/iot-devices).

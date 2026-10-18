@@ -5334,6 +5334,23 @@
                         "claims": {
                           "type": "object",
                           "additionalProperties": {}
+                        },
+                        "revocations": {
+                          "type": "object",
+                          "properties": {
+                            "token": {
+                              "type": "string",
+                              "description": "Compact JWS, typ device-revocations+jwt"
+                            },
+                            "claims": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "token",
+                            "claims"
+                          ]
                         }
                       },
                       "required": [
@@ -6037,6 +6054,23 @@
                         "claims": {
                           "type": "object",
                           "additionalProperties": {}
+                        },
+                        "revocations": {
+                          "type": "object",
+                          "properties": {
+                            "token": {
+                              "type": "string",
+                              "description": "Compact JWS, typ device-revocations+jwt"
+                            },
+                            "claims": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "token",
+                            "claims"
+                          ]
                         }
                       },
                       "required": [
@@ -6187,6 +6221,11 @@
                   "arguments": {
                     "type": "object",
                     "additionalProperties": {}
+                  },
+                  "requiredApprovals": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Distinct approvers needed, none of them the requester (default 1)"
                   }
                 },
                 "required": [
@@ -6369,7 +6408,7 @@
             }
           },
           "403": {
-            "description": "Self approval is not allowed",
+            "description": "Self approval is not allowed (never allowed for a quorum request)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6389,7 +6428,7 @@
             }
           },
           "409": {
-            "description": "No longer pending",
+            "description": "No longer pending, or this approver already approved a quorum request",
             "content": {
               "application/json": {
                 "schema": {
@@ -7973,6 +8012,10 @@
           },
           "expiresAt": {
             "type": "string"
+          },
+          "requiredApprovals": {
+            "type": "integer",
+            "description": "Distinct approvers needed. 1 is a single approver"
           }
         },
         "required": [
@@ -7980,7 +8023,8 @@
           "status",
           "action",
           "resource",
-          "expiresAt"
+          "expiresAt",
+          "requiredApprovals"
         ]
       },
       "PendingApproval": {
@@ -8018,6 +8062,21 @@
           "maxAuthAge": {
             "type": "integer",
             "description": "Approving needs a sign-in event at most this many seconds old"
+          },
+          "requiredApprovals": {
+            "type": "integer",
+            "description": "Distinct approvers needed. 1 is a single approver"
+          },
+          "approvalsReceived": {
+            "type": "integer",
+            "description": "Approvers counted so far"
+          },
+          "approvers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Who approved so far. Only set for a quorum request"
           }
         },
         "required": [
@@ -8028,7 +8087,9 @@
           "createdAt",
           "expiresAt",
           "arguments",
-          "argumentsTruncated"
+          "argumentsTruncated",
+          "requiredApprovals",
+          "approvalsReceived"
         ]
       },
       "ApprovalStatus": {
@@ -8063,6 +8124,18 @@
           },
           "maxAuthAge": {
             "type": "integer"
+          },
+          "requiredApprovals": {
+            "type": "integer"
+          },
+          "approvalsReceived": {
+            "type": "integer"
+          },
+          "approvers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -8070,7 +8143,9 @@
           "status",
           "action",
           "resource",
-          "expiresAt"
+          "expiresAt",
+          "requiredApprovals",
+          "approvalsReceived"
         ]
       },
       "ApprovalDecision": {
@@ -8083,17 +8158,27 @@
             "type": "string",
             "enum": [
               "approved",
-              "denied"
-            ]
+              "denied",
+              "pending"
+            ],
+            "description": "pending: the vote counted and the quorum is not complete yet"
           },
           "respondedAt": {
             "type": "string"
+          },
+          "requiredApprovals": {
+            "type": "integer"
+          },
+          "approvalsReceived": {
+            "type": "integer"
           }
         },
         "required": [
           "id",
           "status",
-          "respondedAt"
+          "respondedAt",
+          "requiredApprovals",
+          "approvalsReceived"
         ]
       },
       "ApprovalConsumed": {

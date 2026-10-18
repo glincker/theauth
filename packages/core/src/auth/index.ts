@@ -371,6 +371,8 @@ export { signInGatePlugin } from "./sign-in-gate-plugin.js";
 // Sign In With Ethereum (EIP-4361)
 export type { SiweConfig, SiweModule, SiweVerifyResult } from "./siwe.js";
 export { createSiweModule, siwe } from "./siwe.js";
+export type { PlivoSenderConfig, VonageSenderConfig } from "./sms-senders.js";
+export { plivoOtpSender, vonageOtpSender } from "./sms-senders.js";
 // SSO (SAML 2.0 + OIDC)
 export type {
 	OidcProvider,

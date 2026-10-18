@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApiClient } from "../src/api/client.js";
-import { stepUpHint } from "../src/pages/approvals.js";
+import { quorumHint, stepUpHint } from "../src/pages/approvals.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -46,5 +46,17 @@ describe("api client step-up errors", () => {
 		);
 		const res = await createApiClient("http://x").getPendingApprovals();
 		expect(res).toEqual({ success: false, error: { code: "HTTP_404", message: "Not Found" } });
+	});
+});
+
+describe("quorumHint", () => {
+	it("is null for a single approver", () => {
+		expect(quorumHint({})).toBeNull();
+		expect(quorumHint({ requiredApprovals: 1, approvalsReceived: 0 })).toBeNull();
+	});
+
+	it("shows progress toward the quorum", () => {
+		expect(quorumHint({ requiredApprovals: 2, approvalsReceived: 1 })).toBe("1 of 2 approvals");
+		expect(quorumHint({ requiredApprovals: 3 })).toBe("0 of 3 approvals");
 	});
 });

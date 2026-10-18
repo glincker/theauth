@@ -16,6 +16,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./store-contract": {
+      "types": "./dist/store-contract/index.d.ts",
+      "import": "./dist/store-contract/index.js"
     }
   },
   "files": [
@@ -28,13 +32,17 @@
   },
   "peerDependencies": {
     "@glinr/theauth-react": ">=0.0.1",
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "vitest": ">=3.0.0"
   },
   "peerDependenciesMeta": {
     "@glinr/theauth-react": {
       "optional": true
     },
     "react": {
+      "optional": true
+    },
+    "vitest": {
       "optional": true
     }
   },

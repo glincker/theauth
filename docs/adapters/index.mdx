@@ -100,6 +100,8 @@ Earlier versions mounted these routes with no authentication. After upgrading, p
 | Package | Framework | Mount pattern |
 |---|---|---|
 | [`@glinr/theauth-hono`](/adapters/hono) | Hono | `app.route('/api/theauth', theAuthHono(theauth))` |
+| [`@glinr/theauth`](/adapters/elysia) | Elysia | `new Elysia().mount('/api/theauth', createTheAuthHandler(theauth, { basePath: '' }))` |
+| [`@glinr/theauth`](/adapters/react-router) | React Router v7 | resource route `app/routes/api.theauth.$.ts` |
 | [`@glinr/theauth-express`](/adapters/express) | Express | `app.use('/api/theauth', theAuthExpress(theauth))` |
 | [`@glinr/theauth-nextjs`](/adapters/nextjs) | Next.js App Router | catch-all route `app/api/theauth/[...theauth]/route.ts` |
 | [`@glinr/theauth-fastify`](/adapters/fastify) | Fastify | `app.register(theAuthFastify(theauth), { prefix: '/api/theauth' })` |

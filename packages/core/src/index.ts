@@ -24,7 +24,12 @@ export * from "./crypto/web-crypto.js";
 // conflict with the `apiKeys` plugin factory exported from auth/index. Resolve
 // by exporting db exports explicitly, letting the auth plugin name win.
 // (DatabaseConfig is already exported below from types.ts, skip it here.)
-export type { D1DatabaseBinding, Database } from "./db/database.js";
+export type {
+	D1DatabaseBinding,
+	Database,
+	DatabaseDialect,
+	DrizzleDatabaseConfig,
+} from "./db/database.js";
 export { createDatabase, createDatabaseSync } from "./db/database.js";
 export type {
 	Dialect as SchemaDialect,
@@ -72,6 +77,7 @@ export {
 	trustScores,
 	users,
 } from "./db/schema.js";
+export { StoreConflictError } from "./db/store-conflict.js";
 export * from "./delegation/index.js";
 export * from "./device/index.js";
 export * from "./did/index.js";

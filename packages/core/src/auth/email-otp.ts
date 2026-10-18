@@ -21,6 +21,8 @@ import { constantTimeEqual, fromHex, generateId, sha256 } from "../crypto/web-cr
 import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { emailOtps, users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { SessionManager } from "../session/session.js";
 import { normalizeEmail } from "./normalize-email.js";
 import type { SignInGate } from "./sign-in-gate.js";
@@ -91,6 +93,7 @@ export function createEmailOtpModule(
 	db: Database,
 	sessionManager: SessionManager,
 	signInGate?: SignInGate,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): EmailOtpModule {
 	const gate = signInGate ?? createSignInGate({ db });
 	const codeLength = config.codeLength ?? DEFAULT_CODE_LENGTH;
@@ -108,14 +111,30 @@ export function createEmailOtpModule(
 
 		const id = generateId();
 		const now = new Date();
+		let storedEmail = email;
+		if (databaseHooks.has("user", "create")) {
+			const hooked = await databaseHooks.before("user", "create", {
+				id,
+				email,
+				name: null,
+				metadata: null,
+			});
+			storedEmail = hooked.email;
+		}
 		await db.insert(users).values({
 			id,
-			email,
+			email: storedEmail,
 			createdAt: now,
 			updatedAt: now,
 		});
+		await databaseHooks.after("user", "create", {
+			id,
+			email: storedEmail,
+			name: null,
+			metadata: null,
+		});
 
-		return { id, email };
+		return { id, email: storedEmail };
 	}
 
 	async function sendCode(rawEmail: string): Promise<{ sent: boolean; retryAfter?: number }> {

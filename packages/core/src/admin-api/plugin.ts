@@ -2,6 +2,7 @@ import { desc, eq, or } from "drizzle-orm";
 import type { ApprovalConfig } from "../approval/approval.js";
 import { createApprovalModule } from "../approval/approval.js";
 import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
+import { MAX_REQUIRED_APPROVALS } from "../approval/quorum.js";
 import { captureInputProvenance } from "../audit/provenance.js";
 import { parseInputSources } from "../audit/provenance-wire.js";
 import { recordAuditEvent } from "../audit/record.js";
@@ -174,6 +175,23 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 					args = asParams(body.arguments);
 					if (!args) return fail(400, "INVALID_ARGUMENTS", "arguments too large");
 				}
+				let requiredApprovals: number | undefined;
+				if (body.requiredApprovals !== undefined) {
+					const n = body.requiredApprovals;
+					if (
+						typeof n !== "number" ||
+						!Number.isInteger(n) ||
+						n < 1 ||
+						n > MAX_REQUIRED_APPROVALS
+					) {
+						return fail(
+							400,
+							"INVALID_QUORUM",
+							`requiredApprovals must be an integer from 1 to ${MAX_REQUIRED_APPROVALS}`,
+						);
+					}
+					requiredApprovals = n;
+				}
 				// agentId and userId in the body are labels from the caller and are ignored:
 				// the owner is the authenticated admin and the agent is the configured system agent.
 				const created = await approvals.request({
@@ -182,6 +200,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 					action,
 					resource,
 					arguments: args,
+					requiredApprovals,
 				});
 				return json(
 					{
@@ -190,6 +209,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						action: created.action,
 						resource: created.resource,
 						expiresAt: created.expiresAt.toISOString(),
+						requiredApprovals: created.requiredApprovals,
 					},
 					201,
 				);
@@ -219,7 +239,13 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						authContext: await approverAssertion(req, endpointCtx, config.resolveApproverAuth),
 					});
 					if (!result.ok) return decisionFailure(result);
-					return json({ id: result.id, status: result.status, respondedAt: result.respondedAt });
+					return json({
+						id: result.id,
+						status: result.status,
+						respondedAt: result.respondedAt,
+						requiredApprovals: result.requiredApprovals,
+						approvalsReceived: result.approvalsReceived,
+					});
 				};
 			}
 
@@ -252,6 +278,9 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						respondedAt: found.respondedAt?.toISOString(),
 						requiredAcr: found.requiredAcr,
 						maxAuthAge: found.maxAuthAge,
+						requiredApprovals: found.requiredApprovals,
+						approvalsReceived: found.approvers?.length ?? (found.respondedAt ? 1 : 0),
+						approvers: found.approvers,
 					});
 				},
 			);

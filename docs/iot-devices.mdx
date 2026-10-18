@@ -10,7 +10,7 @@ What a device gets that an agent does not:
 
 - Credentials made for hardware: a pre shared key, a public key that signs short assertions, or a TLS client certificate thumbprint.
 - Enrollment by claim code (one device, typed by a person) or bulk token (a factory line, with a use limit).
-- An attestation hook for evidence such as an EAT (RFC 9711) at enrollment.
+- An attestation hook for evidence at enrollment, with a built in Android Key Attestation verifier.
 - A signed offline policy bundle for devices that cannot call home on every decision.
 - Suspend and resume, separate from permanent revoke.
 
@@ -42,7 +42,8 @@ Migration `0010-devices` adds three tables (`theauth_devices`, `theauth_device_c
 | `issuer` | `"theauth"` | `iss` of offline bundles. |
 | `bundleSigning` | none | `{ alg, kid, privateKey, previous? }`. Without it bundles are refused. |
 | `bundleTtlSeconds` | 3600 | Bundle lifetime. Capped at 86400. |
-| `attestation` | none | `{ required?, verify? }`. Evidence without a `verify` function is refused. |
+| `attestation` | none | `{ required?, requireNonce?, verify? }`. Evidence without a `verify` function is refused, and so is evidence without a nonce. |
+| `revocations` | off | `{ ttlSeconds?, maxEntries? }`. Signs a revocation snapshot next to every bundle. |
 | `clientCertThumbprint` | none | `(request) => x5t#S256 or null`, for mTLS terminated at your proxy. |
 
 ## A runnable example
@@ -166,7 +167,7 @@ Codes and tokens are stored as hashes. A use is claimed with one conditional UPD
 
 ### Attestation
 
-Set `attestation.verify` to check evidence (for example an EAT from a secure element) before the device is created. The device first asks for a nonce and binds it into its evidence, so old evidence cannot be replayed:
+Set `attestation.verify` to check evidence before the device is created. The device first asks for a nonce (`POST /device/attestation-nonce`) and binds it into its evidence, so old evidence cannot be replayed. Evidence that arrives without a nonce is refused unless you set `attestation.requireNonce: false`. The hook receives `{ evidence, nonce, hardwareId, enrollmentId, credentialKind, credentialKeyThumbprint }`, where the last two describe the credential the device is enrolling (`credentialKeyThumbprint` is the RFC 7638 thumbprint of a `jwk` credential).
 
 ```ts
 devices: {
@@ -182,6 +183,39 @@ devices: {
 ```
 
 A verifier that throws counts as a refusal. The claims you return are stored on the device as `attestation`.
+
+#### Android Key Attestation (built in)
+
+`createAndroidKeyAttestationVerifier` checks the certificate chain that `KeyStore.getCertificateChain` returns for a hardware backed key. It implements Google's published steps: the chain must end at a Google Hardware Attestation root, no certificate may be on Google's revocation list, the key attestation extension must appear once and in the leaf (a later copy could have been added by an attacker), the key and the attestation must meet a minimum security level (TEE or StrongBox), the TEE enforced root of trust must show a locked bootloader and verified boot, the key must have been generated in hardware, and the attestation challenge must equal the enrollment nonce.
+
+```ts
+import { createAndroidKeyAttestationVerifier, googleRevocationList } from "@glinr/theauth";
+
+devices: {
+  attestation: {
+    required: true,
+    verify: createAndroidKeyAttestationVerifier({
+      revocation: googleRevocationList(), // required choice: a lookup, or "disabled" on purpose
+      minSecurityLevel: "trusted_environment", // or "strongbox"
+      bootPolicy: "verified", // "verified_or_self_signed" or "any" for development devices
+      allowedPackages: ["com.example.robot"], // optional, software enforced
+    }),
+  },
+}
+```
+
+On the device, generate an EC P-256 key with `setAttestationChallenge(nonce.getBytes(UTF_8))`, enroll that same public key as a `jwk` credential, and send the chain as evidence: a JSON array of base64 DER certificates, leaf first. By default the verifier requires that the attested key is the enrolled key (`bindKey`), so a genuine device cannot vouch for a key that lives somewhere else. A `psk` or `x509` credential fails that check; set `bindKey: false` if you only want proof that the device is genuine.
+
+Things to know:
+
+- The bundled roots are the two Google roots published at `android.googleapis.com/attestation/root`, copied on 2026-10-18. Pass `roots` to pin a newer list. Anchors are not time checked. Factory chains of the old root (subject serial `f92009e853b6b045`) are accepted after their `notAfter` date, as Google instructs, unless the chain carries the provisioning information extension (Remote Key Provisioning), where validity is enforced.
+- `googleRevocationList()` caches the list by its `Cache-Control` header and throws when it cannot fetch it, which refuses the enrollment. Set `staleIfErrorSeconds` to tolerate an outage for a bounded time.
+- Not supported: chains that use an attest key to certify another key (the verifier wants the extension in the leaf), the CBOR provisioning information content (only its position is checked), and `attestationIdSerial` or IMEI matching against `hardwareId`.
+- `theauth device attest android --evidence chain.json --nonce <n> --revocation google` runs the same verifier from the command line.
+
+**How this verifier was tested.** The test suite uses real attestation chains from Google's own repository, [google/android-key-attestation](https://github.com/google/android-key-attestation/tree/master/src/test/resources) (Apache License 2.0, copied unmodified into `packages/core/tests/fixtures/android-key-attestation.json`): EC and RSA keys, TEE and StrongBox, produced by TestDPC on devices. Three of the four chains verify, and `openssl verify` agrees with us on all four, including that the fourth (EC StrongBox) is not a valid chain: its leaf signature matches neither of the certificates above it. The parsed key description is compared with what `openssl asn1parse` prints for the same bytes. Those devices were unlocked, so the strict boot policy refuses them, which the tests also check. What is not covered: we have no chain from a locked, verified device with a known private key, so key binding is tested with the public key of a fixture leaf, and no chain with the provisioning information extension, so that branch is tested only by reading the specification. Treat the verifier as reviewed against Google's documentation and tested against real fixtures, not as certified by Google.
+
+TPM 2.0 quotes and Apple App Attest are not built in yet. Write them behind the same hook, or see the backlog.
 
 ## Authorization, delegation and revocation
 
@@ -212,6 +246,36 @@ Rules on the device, as implemented by `verifyDeviceBundle` and `evaluateDeviceB
 4. `requireApproval` always denies offline. `maxCallsPerHour` denies unless you pass the local call count. Time windows use the device clock.
 
 `perms` is the device's own permissions plus active delegations at issue time. A revocation reaches online checks at once but reaches an offline device only when its bundle expires, so pick the TTL as the longest stale window you accept. One hour is the default.
+
+### Signed revocation snapshots
+
+A revoked device keeps working offline until its bundle expires. If a robot talks to other devices while disconnected, or you want a device to notice its own revocation without a round trip, turn on snapshots:
+
+```ts
+devices: {
+  bundleSigning: { alg: "ES256", kid: "bundle-2026-10", privateKey },
+  revocations: { ttlSeconds: 3600 }, // opt in; needs bundleSigning
+}
+```
+
+`issueBundle` then returns `revocations: { token, claims }` next to the bundle (and `GET /device/bundle` includes it). The token is a compact JWS (`typ: device-revocations+jwt`, same key and JWKS as bundles) that lists the revoked and suspended devices of the bundle's owner: claims `iss`, `sub` (the owner), `iat`, `nbf`, `exp`, `jti`, `seq` (issue time in ms), `n` (entry count), `h` (`sha256-64`) and `ids`. Each entry is the first 8 bytes of the SHA-256 of the device id, sorted, concatenated and base64url encoded, so a device costs 11 characters and the list is exact for practical purposes (a false match needs a 64 bit collision). A Bloom filter would be smaller, but its false positives would lock healthy devices out, so we did not use one. `maxEntries` (default 50000) caps the list, and the server refuses to sign a truncated one.
+
+The device opts in to checking it when it verifies the bundle:
+
+```ts
+const res = await verifyDeviceBundle(bundle.token, {
+  keys: jwks,
+  deviceId,
+  revocations: { token: bundle.revocations?.token, maxAgeSeconds: 900, lastSeq: savedSnapshotSeq },
+});
+if (!res.ok) {
+  // "revoked": this device is on the list
+  // "stale_revocations": snapshot missing, expired or older than maxAgeSeconds (fail closed)
+  // "rollback": an older snapshot than one already accepted
+}
+```
+
+`maxAgeSeconds` is measured from the snapshot's `iat`, so a device can demand fresher data than the snapshot's own `exp`. Without the `revocations` option nothing changes. To ask whether a peer is revoked, call `verifyRevocationSnapshot(token, { keys, maxAgeSeconds, owner })` and then `result.has(peerId)`. The Go package `iot/device` has the same checks (`VerifyBundle` with `Revocations`, `VerifyRevocations`, `RevocationSnapshot.Contains`) and runs against shared vectors generated from the TypeScript code. One note on timing: suspension is reversible, and a resumed device stays on a snapshot until that snapshot expires, so pick a short `ttlSeconds` if you suspend often.
 
 ## HTTP routes
 
@@ -267,8 +331,9 @@ theauth device list --config ./theauth.config.mjs --status active
 theauth device enroll-token --config ./theauth.config.mjs --owner owner-1 --kind bulk --max-uses 200
 theauth device suspend <deviceId> --config ./theauth.config.mjs --reason "battery swap"
 theauth device revoke <deviceId> --config ./theauth.config.mjs
+theauth device attest android --evidence chain.json --nonce <nonce> --revocation google
 ```
 
 ## What is not here yet
 
-CWT and COSE encoding of bundles for very small devices, a built in EAT verifier, uploading decisions a device made offline into the audit chain, and a dashboard page.
+CWT and COSE encoding of bundles for very small devices, built in verifiers for TPM 2.0 quotes, Apple App Attest and EAT, uploading decisions a device made offline into the audit chain, and a dashboard page.

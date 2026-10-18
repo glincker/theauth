@@ -5,7 +5,9 @@ import { normalizeEmail } from "../auth/normalize-email.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
-import { isUniqueViolation } from "../db/unique-violation.js";
+import { toStoreConflict } from "../db/store-conflict.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 
 /** A row of `theauth_users`. */
 export type UserRow = typeof users.$inferSelect;
@@ -52,8 +54,12 @@ const createUserSchema = z.object({
 });
 
 /** Create the user module: idempotent create and lookup by id or email. */
-export function createUserModule(config: { db: Database }): UserModule {
+export function createUserModule(config: {
+	db: Database;
+	databaseHooks?: DatabaseHookRunner;
+}): UserModule {
 	const { db } = config;
+	const databaseHooks = config.databaseHooks ?? createDatabaseHookRunner(undefined);
 
 	async function findById(id: string): Promise<UserRow | null> {
 		const rows = await db.select().from(users).where(eq(users.id, id));
@@ -106,23 +112,45 @@ export function createUserModule(config: { db: Database }): UserModule {
 				.join("; ");
 			throw new UserError("USER_INVALID_INPUT", `Invalid user input: ${detail}`);
 		}
-		const { email, name, id, metadata } = parsed.data;
+		const { id, metadata } = parsed.data;
+		let { email, name } = parsed.data;
 
 		const existing = await matchExisting(email, id);
 		if (existing) return existing;
 
+		const newId = id ?? generateId();
+		let storedMetadata: Record<string, unknown> | null = metadata ?? null;
+		let storedName: string | null = name ? name : null;
+		if (databaseHooks.has("user", "create")) {
+			const hooked = await databaseHooks.before("user", "create", {
+				id: newId,
+				email,
+				name: storedName,
+				metadata: storedMetadata,
+			});
+			storedName = hooked.name ? hooked.name : null;
+			storedMetadata = hooked.metadata;
+			if (hooked.email !== email) {
+				email = hooked.email;
+				// A replaced email follows the same idempotency rules as a requested one.
+				const again = await matchExisting(email, id);
+				if (again) return again;
+			}
+		}
+		name = storedName ?? undefined;
+
 		const now = new Date();
 		try {
 			await db.insert(users).values({
-				id: id ?? generateId(),
+				id: newId,
 				email,
-				name: name ? name : null,
-				metadata: metadata ?? null,
+				name: storedName,
+				metadata: storedMetadata,
 				createdAt: now,
 				updatedAt: now,
 			});
 		} catch (err) {
-			if (!isUniqueViolation(err)) throw err;
+			if (!toStoreConflict(err, "users")) throw err;
 			// A concurrent create won the race. Re-read and apply the same rules.
 			const raced = await matchExisting(email, id);
 			if (raced) return raced;
@@ -131,6 +159,12 @@ export function createUserModule(config: { db: Database }): UserModule {
 
 		const created = await findByEmail(email);
 		if (!created) throw new Error(`User row for ${email} was not readable after insert.`);
+		await databaseHooks.after("user", "create", {
+			id: created.id,
+			email: created.email,
+			name: created.name ?? null,
+			metadata: created.metadata ?? null,
+		});
 		return created;
 	}
 

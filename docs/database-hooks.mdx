@@ -1,0 +1,104 @@
+---
+title: Database hooks
+description: Run code before and after a user, session or account is created or updated. Abort the write or replace fields.
+icon: webhook
+---
+
+`databaseHooks` lets you run your own code around the rows theAuth writes for `user`, `session` and `account`. The shape follows Better Auth's `databaseHooks`, so a hook you wrote there moves over with small changes.
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  databaseHooks: {
+    user: {
+      create: {
+        // Runs before the row is written.
+        before: async (user) => {
+          if (!user.email.endsWith("@example.com")) return false; // abort
+          return { data: { name: user.name ?? "New user" } }; // replace fields
+        },
+        // Runs after the row is committed.
+        after: async (user) => {
+          await sendWelcomeEmail(user.email);
+        },
+      },
+    },
+    session: {
+      create: {
+        before: async (session) => ({
+          data: { expiresAt: new Date(session.expiresAt.getTime() - 60_000) },
+        }),
+      },
+    },
+  },
+});
+```
+
+## What a hook can return
+
+A `before` hook returns one of three things.
+
+| Return | Effect |
+| --- | --- |
+| `undefined` | The write goes ahead unchanged. |
+| `false` | The write is stopped. The caller gets a `DatabaseHookError` with code `DATABASE_HOOK_ABORTED`. |
+| `{ data }` | The listed fields replace the ones about to be written. |
+
+Only some fields can be replaced. Anything else in `data` (including `id`) stops the write with `DATABASE_HOOK_INVALID_PAYLOAD`.
+
+| Model | Fields you can replace |
+| --- | --- |
+| `user` | `email` (lowercased and checked again), `name`, `metadata` |
+| `session` | `expiresAt`, `metadata` |
+| `account` | `expiresAt` |
+
+Hooks never see OAuth access or refresh tokens. Session metadata keys that theAuth owns (the auth event history, the idle activity stamp and the remember me flag) are kept as computed, so a hook cannot forge a stronger login.
+
+## Where hooks fire
+
+| Model | Create | Update |
+| --- | --- | --- |
+| `user` | `theauth.user.create`, magic link, email OTP, phone and OAuth sign-up | Not wired yet |
+| `session` | `sessions.create`, including the new session of a refresh | `recordAuth` (step-up) |
+| `account` | `linkAccount` when a provider account is linked | Token refresh on a repeat sign-in, and a repeat `linkAccount` |
+
+Writes that are internal bookkeeping do not fire hooks: the idle activity stamp on a session, a pending OAuth row that has no user yet, and revocation deletes. Other user creation paths (anonymous, username, one tap, SCIM, importers) do not fire user hooks yet.
+
+## Failure behavior
+
+`before` hooks fail closed. A throw, a timeout or a malformed return value stops the write with a `DatabaseHookError` (`DATABASE_HOOK_FAILED`, `DATABASE_HOOK_TIMEOUT` or `DATABASE_HOOK_INVALID_PAYLOAD`), whatever `hookSafety.onError` is set to. The error message is generic, so it does not leak what your hook checked.
+
+`after` hooks run once the row exists, so they cannot undo it. A throw or timeout is logged through `logger.warn` and swallowed.
+
+The timeout comes from `hookSafety.timeoutMs` or `THEAUTH_HOOK_TIMEOUT_MS` (default 2000 ms). Each hook gets an `AbortSignal` in `ctx.signal` that fires when it runs out of time.
+
+Hooks receive a copy of the data. Changing the argument does not change what is stored, return `{ data }` instead.
+
+## Single-use claims stay atomic
+
+Magic link tokens, OTP codes, OAuth state and refresh rotation all consume something with one conditional statement so that only one concurrent caller wins. Hooks never run inside that statement.
+
+- A `before` hook runs ahead of the write it guards. If it aborts, nothing else was changed: a session `before` abort does not evict another session when `maxConcurrent` is set, and a refresh that is aborted leaves the old session usable.
+- An `after` hook fires only for the caller that won. A refresh fires `session.create.after` once the old session has been claimed, so a refresh that loses the race fires nothing.
+- A `before` hook that aborts a sign-up that already consumed a code (for example an OTP verify that creates the user) leaves that code consumed. The user retries with a new code.
+
+Run slow work (email, webhooks, analytics) in `after`, and keep `before` to quick checks.
+
+## Handling an abort
+
+```ts
+import { DatabaseHookError } from "@glinr/theauth";
+
+try {
+  await theauth.user.create({ email: "someone@other.test" });
+} catch (err) {
+  if (err instanceof DatabaseHookError && err.code === "DATABASE_HOOK_ABORTED") {
+    // err.model is "user", err.operation is "create"
+  }
+}
+```
+
+The OAuth callback turns a `DatabaseHookError` into a 403 response.

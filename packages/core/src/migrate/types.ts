@@ -2,12 +2,22 @@ import type { Result } from "../mcp/types.js";
 
 export type { Result };
 
-export type ImportSource = "auth0" | "keycloak" | "clerk" | "better-auth" | "nextauth" | "generic";
+export type ImportSource =
+	| "auth0"
+	| "keycloak"
+	| "clerk"
+	| "supabase"
+	| "workos"
+	| "better-auth"
+	| "nextauth"
+	| "generic";
 
 export const IMPORT_SOURCES: readonly ImportSource[] = [
 	"auth0",
 	"keycloak",
 	"clerk",
+	"supabase",
+	"workos",
 	"better-auth",
 	"nextauth",
 	"generic",
@@ -68,7 +78,7 @@ export interface SourceParser {
 
 export interface ParseOptions {
 	mapping?: GenericMapping;
-	/** Auth0 only: the separate password hash export (newline-delimited JSON). */
+	/** Auth0 and WorkOS: a separate password hash file from the vendor (newline-delimited JSON). */
 	passwordHashes?: string;
 }
 

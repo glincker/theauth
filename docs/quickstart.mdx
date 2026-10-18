@@ -211,7 +211,7 @@ pnpm add @glinr/theauth @glinr/theauth-email better-sqlite3
 
 ### Add the plugin
 
-`emailPassword()` registers `POST /auth/sign-up`, `/auth/sign-in`, `/auth/verify-email`, `/auth/request-reset`, `/auth/reset-password` and `/auth/change-password`. You supply the email transport; the callbacks below just log. Passwords are hashed before storage.
+`emailPassword()` registers `POST /auth/sign-up`, `/auth/sign-in`, `/auth/verify-email`, `/auth/request-reset`, `/auth/reset-password` and `/auth/change-password`. You supply the email transport; the callbacks below just log. Passwords are hashed before storage. These routes exist only while `@glinr/theauth-email` is installed: the core on its own serves `/auth/username/sign-up` and `/auth/username/sign-in` instead.
 
 ```ts title="human.ts"
 import { createTheAuth } from '@glinr/theauth';

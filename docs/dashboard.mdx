@@ -197,22 +197,24 @@ The dashboard calls these REST endpoints on `${apiUrl}`, each under an `/api` pr
 | GET | `/dashboard/stats` | Agent counts, audit stats, delegation counts |
 | GET | `/agents` | List all agents |
 | POST | `/agents` | Create an agent |
-| POST | `/agents/:id/revoke` | Revoke an agent |
+| DELETE | `/agents/:id` | Revoke an agent |
 | POST | `/agents/:id/rotate` | Rotate an agent's token |
-| GET | `/agents/:id/permissions` | Get an agent's permissions |
+| GET | `/agents/:id` | Get an agent. The permissions page reads the `permissions` field from it |
 | GET | `/audit` | Query audit logs (supports filters) |
 | GET | `/audit/export` | Export logs as JSON or CSV |
 | GET | `/delegations` | List delegation chains |
 | DELETE | `/delegations/:id` | Revoke a delegation chain, answers 204 with no body |
-| GET | `/permissions/templates` | List permission templates |
-| POST | `/permissions/templates` | Create a template |
-| PATCH | `/permissions/templates/:id` | Update a template |
-| DELETE | `/permissions/templates/:id` | Delete a template |
-| GET | `/settings` | Get system settings |
-| PATCH | `/settings` | Update settings |
-| GET | `/users` | List users |
-| GET | `/mcp/servers` | List MCP servers |
-| POST | `/mcp/servers` | Register an MCP server |
+| GET | `/permissions/templates` | List permission templates (demo server only) |
+| POST | `/permissions/templates` | Create a template (demo server only) |
+| PATCH | `/permissions/templates/:id` | Update a template (demo server only) |
+| DELETE | `/permissions/templates/:id` | Delete a template (demo server only) |
+| GET | `/settings` | Get system settings (demo server only) |
+| PATCH | `/settings` | Update settings (demo server only) |
+| GET | `/users` | List users (demo server only) |
+| GET | `/mcp/servers` | List MCP servers (demo server only) |
+| POST | `/mcp/servers` | Register an MCP server (demo server only) |
+
+The core handler serves the agents, audit, delegations, approvals, revocations, devices, explain and `/dashboard/stats` routes. It does not serve `/users`, `/permissions/templates`, `/settings` or `/mcp/servers`, and `/dashboard/auth` is yours to add (see the login gate above). Only the CLI demo server (`theauth dev`) answers the four routes marked above. Against a server without them, the Users, Permissions, Settings and MCP Servers pages show a "does not serve" message instead of data.
 
 ## Related
 

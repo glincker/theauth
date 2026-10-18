@@ -2,7 +2,7 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { mcpClientBlocks } from "../db/schema.js";
-import { isUniqueViolation } from "../db/unique-violation.js";
+import { toStoreConflict } from "../db/store-conflict.js";
 import type { McpClientBlock, McpClientBlockStore } from "./types-cimd.js";
 
 type BlockRow = typeof mcpClientBlocks.$inferSelect;
@@ -74,7 +74,7 @@ export function createDbBlockStore(db: Database): McpClientBlockStore {
 				await db.insert(mcpClientBlocks).values(row);
 				return blockFromRow(row);
 			} catch (error) {
-				if (!isUniqueViolation(error)) throw error;
+				if (!toStoreConflict(error, "mcp_client_blocks")) throw error;
 				const winner = await findRule(block.kind, value);
 				if (!winner) throw error;
 				return blockFromRow(winner);

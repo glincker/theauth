@@ -8,6 +8,10 @@ icon: layer-group
 
 The package wraps the query hooks from `@glinr/theauth-react/query`, so it must render inside `TheAuthQueryProvider`.
 
+<Warning>
+  These components talk to the Go server, through `createTheAuthGoClient`. Its routes (`/auth/sessions`, `/auth/tokens`, `/auth/account/agents`, `/auth/step-up`, `/auth/device/approve`) are served by the Go server. The TypeScript handler does not serve them: it has `/auth/session`, `/agents`, `/auth/2fa/verify` and `/auth/passkey/step-up/*` instead. Point `baseUrl` at a Go server.
+</Warning>
+
 ## What it includes
 
 | Component | What it does |

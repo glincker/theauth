@@ -34,6 +34,8 @@ import { and, eq } from "drizzle-orm";
 import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { sessions as sessionsTable } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { CookieOptions } from "./cookie.js";
 import { getCookie, serializeCookieDeletion } from "./cookie.js";
 import type { SessionCookieCacheConfig } from "./cookie-cache.js";
@@ -121,12 +123,13 @@ const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 export function createCookieSessionManager(
 	config: CookieSessionConfig,
 	db: Database,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): CookieSessionManager {
 	const sessionName = config.sessionName ?? DEFAULT_SESSION_NAME;
 	const maxAgeSecs = config.maxAge ?? DEFAULT_MAX_AGE_SECONDS;
 	const autoRefresh = config.autoRefresh ?? true;
 
-	const raw = createSessionManager(config, db);
+	const raw = createSessionManager(config, db, databaseHooks);
 	const cache = config.cookieCache
 		? createSessionCookieCache({ ...config.cookieCache, secret: config.secret })
 		: null;
@@ -263,6 +266,14 @@ export function createCookieSessionManager(
 			await db.delete(sessionsTable).where(eq(sessionsTable.id, newSession.id));
 			return null;
 		}
+
+		// Fired only now: the new session lost no race and the old one is gone.
+		await databaseHooks.after("session", "create", {
+			id: newSession.id,
+			userId: newSession.userId,
+			expiresAt: newSession.expiresAt,
+			metadata: row.metadata ? { ...row.metadata } : null,
+		});
 
 		return {
 			session: newSession,

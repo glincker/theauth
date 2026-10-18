@@ -175,6 +175,34 @@ It fails closed. A timeout, a refused connection, a 500, a body that is not JSON
 
 When the answer is `approval_required`, create the approval as described in [Approvals](/approval), and pass the granted id as `approvalId` on the retry.
 
+### Two person rule for dangerous commands
+
+Some commands should need two people, for example releasing a brake, moving an arm near a person or driving above a speed limit. Open the approval with a quorum, and the gate keeps answering `approval_pending` until two different operators have approved.
+
+```typescript
+const req = await theauth.approval.request({
+  agentId: robot.id,
+  userId: fleetOwnerId,
+  action: "publish",
+  resource: "ros2:/arm/cmd_vel",
+  arguments: { linear: 0.4 },
+  requiredApprovals: 2,
+});
+
+await theauth.approval.approve(req.id, "operator-a"); // still pending
+await theauth.approval.approve(req.id, "operator-b"); // approved
+
+// The gate passes the id on the retry. It works once, for these arguments only.
+const result = await theauth.authorize(robot.id, {
+  action: "publish",
+  resource: "ros2:/arm/cmd_vel",
+  arguments: { linear: 0.4 },
+  approvalId: req.id,
+});
+```
+
+The person who opened the request cannot be one of the two, and the same operator cannot approve twice. A single denial cancels it, and if the second operator does not act before `ttl` runs out, the request expires and the first approval is discarded. Keep `ttl` short for robot commands so an old approval cannot be reused later. See [Approvals](/approval) for the full rules.
+
 ### rclpy: a gate node
 
 This node listens on `/cmd_vel_request`, asks theAuth, and republishes to `/cmd_vel`. Give the planner an enclave that may publish `/cmd_vel_request` only, and give this node the only grant for `/cmd_vel`. It uses only the Python standard library for HTTP.

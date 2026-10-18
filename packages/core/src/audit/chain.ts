@@ -8,7 +8,7 @@ import { compareCodeUnits } from "../compare.js";
 import { hmacSha256, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
-import { errorText, isUniqueViolation } from "../db/unique-violation.js";
+import { errorText, toStoreConflict } from "../db/store-conflict.js";
 import { eventForAction } from "./events.js";
 import { computePseudonyms, resolvePseudonymKey } from "./pseudonym.js";
 import type { PseudonymRotation } from "./pseudonym-rotation.js";
@@ -225,8 +225,9 @@ async function appendChained(
 			});
 			return;
 		} catch (err) {
-			if (!isUniqueViolation(err)) throw err;
-			lastError = err;
+			const conflict = toStoreConflict(err, "audit_logs");
+			if (!conflict) throw err;
+			lastError = conflict.cause;
 			// Another process took this seq. Back off a little so racing writers spread out.
 			await new Promise((resolve) => setTimeout(resolve, Math.random() * 4 * (attempt + 1)));
 		}

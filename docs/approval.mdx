@@ -124,6 +124,8 @@ Spending the approval in `authorize()` emits the usual event with code `approval
 <ParamField path="expiresAt" type="Date">When the request expires if no response is received. Default TTL is 5 minutes (`ttl` is in seconds).</ParamField>
 <ParamField path="respondedAt" type="Date | undefined">When the human responded.</ParamField>
 <ParamField path="respondedBy" type="string | undefined">Identifier of the person who approved or denied.</ParamField>
+<ParamField path="requiredApprovals" type="number">How many distinct approvers the request needs. 1 unless you asked for a quorum.</ParamField>
+<ParamField path="approvers" type="string[] | undefined">Approvers counted so far, oldest first. Only set when `requiredApprovals` is above 1.</ParamField>
 <ParamField path="createdAt" type="Date">When the request was created.</ParamField>
 
 ## Configuration
@@ -162,7 +164,9 @@ Both `webhookUrl` and `onApprovalNeeded` fire asynchronously (not awaited) so th
 
 ## The approval.pending webhook
 
-When `webhooks` is configured, a new pending request also sends `approval.pending` to endpoints that subscribe to it. The payload carries `approvalId`, `agentId`, `userId`, `action`, `resource`, `argumentsHash`, `expiresAt` and `createdAt`. It never carries the raw arguments, so fetch them with `approval.get(approvalId)` when your approver needs to see them.
+When `webhooks` is configured, a new pending request also sends `approval.pending` to endpoints that subscribe to it. The payload carries `approvalId`, `agentId`, `userId`, `action`, `resource`, `argumentsHash`, `requiredApprovals`, `approvalsReceived` (0 for a new request), `expiresAt` and `createdAt`. It never carries the raw arguments, so fetch them with `approval.get(approvalId)` when your approver needs to see them.
+
+A request that needs a quorum also sends `approval.vote` after each approval that does not complete it. The payload carries `approvalId`, `approverId`, `approvalsReceived` and `approvalsRequired`. Use it to nudge the next approver.
 
 ## How webhooks work
 
@@ -283,6 +287,41 @@ if (request?.status === 'approved') {
   console.log('Request expired without a response.');
 }
 ```
+
+## Quorum approvals (two person rule)
+
+Some actions should never rest on one person's click. A request can require several distinct approvers before it becomes `approved`. The default is 1, so nothing changes until you ask for more.
+
+```typescript
+const req = await theauth.approval.request({
+  agentId,
+  userId: ownerId,
+  action: "execute",
+  resource: "mcp:payments:wire",
+  arguments: { amount: 90000 },
+  requiredApprovals: 2,
+});
+
+await theauth.approval.approve(req.id, "alice"); // status "pending", approvers ["alice"]
+await theauth.approval.approve(req.id, "bob"); //   status "approved", approvers ["alice", "bob"]
+```
+
+To set it for many requests at once, use `approval.requiredApprovals` for a default, or `approval.quorum(request)` to choose per action. An explicit `requiredApprovals` on `request()` wins. The value must be a whole number from 1 to 10.
+
+The rules for a request that needs more than one approver:
+
+- The requester (`userId`) and the agent cannot approve it, whatever `allowSelfApproval` says. `approve()` throws `ApprovalQuorumError` with code `SELF_APPROVAL`.
+- Each approver counts once. A second approval from the same person throws `DUPLICATE_APPROVER`. This is enforced by a primary key on `theauth_approval_votes`, so two parallel calls from one approver cannot both count.
+- A named approver is required (`APPROVER_REQUIRED` otherwise).
+- One denial ends the request. Any approver can veto.
+- Expiry covers the whole quorum. If the request expires before the last approver acts, it is `expired` and the earlier approvals are worth nothing.
+- Every approval writes its own `approval.approve` audit row with `approvalsReceived`, `approvalsRequired` and `quorumComplete`, so the trail shows who approved and in what order.
+- A step-up rule applies to each approver separately.
+- Until the quorum is complete the status is `pending`, so `authorize()` answers `approval_pending`. Once approved, the usual rules hold: one spend, bound to the exact arguments, same expiry.
+
+Over the admin API, `POST /approvals` takes `requiredApprovals`. `POST /approvals/:id/approve` answers `{ status: "pending", approvalsReceived: 1, requiredApprovals: 2 }` until the last approver, then `status: "approved"`. A repeat approver gets 409 `DUPLICATE_APPROVER` and the requester gets 403 `SELF_APPROVAL`. The dashboard inbox shows "1 of 2 approvals" and who has approved. See [Robotics and ROS 2](/robotics-ros2) for a dangerous robot command example.
+
+This feature adds migration `0013` (a nullable `required_approvals` column and the `theauth_approval_votes` table). Run `theauth migrate` before you use it.
 
 ## Requiring a fresh passkey or TOTP code
 

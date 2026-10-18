@@ -106,6 +106,13 @@ The store also exposes `rotate(agentId)`.
 ## Client configuration reference
 
 <ParamField path="basePath" type="string" default="'/api/theauth'">Base path where your theAuth handler is mounted.</ParamField>
+<ParamField path="refetch" type="RefetchOptions">Refetch the session on window focus, reconnect or an interval. Runs while any of the client's stores has a subscriber. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
+<ParamField path="initialSession" type="HydrateInput | null">Session the server already resolved. Skips the first request. Also available later as `client.hydrateSession(initial)`.</ParamField>
+<ParamField path="signInPath" type="string" default="'/auth/username/sign-in'">Route for `signIn`. Core has no email and password route, so point this at your own if you need one.</ParamField>
+<ParamField path="signUpPath" type="string" default="'/auth/username/sign-up'">Route for `signUp`.</ParamField>
+<ParamField path="identifierField" type="string" default="'username'">Body field that carries the first argument of `signIn` and `signUp`.</ParamField>
+
+On creation the client shows a stored session at once, then confirms it with `GET {basePath}/auth/session`. `signOut` clears local state first, then calls `POST {basePath}/auth/sign-out`. `client.destroy()` stops the refetch triggers and aborts an in-flight refresh.
 
 ## Related
 

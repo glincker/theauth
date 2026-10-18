@@ -1,151 +1,44 @@
 import { and, eq, gt, lt } from "drizzle-orm";
 import { recordAuditEvent } from "../audit/record.js";
-import type { WebhookModule } from "../auth/webhooks.js";
 import { generateId } from "../crypto/web-crypto.js";
 import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { approvalRequests } from "../db/schema.js";
-import type { Observability } from "../observability/index.js";
 import type { AuthAssertion, AuthRequirement } from "../session/auth-context.js";
-import {
-	ACR_ORDER,
-	acrList,
-	evaluateAuthRequirement,
-	StepUpRequiredError,
-} from "../session/auth-context.js";
+import { acrList, evaluateAuthRequirement, StepUpRequiredError } from "../session/auth-context.js";
 import { hashApprovalAction } from "./consume.js";
 import { emitApprovalEvent } from "./events.js";
+import {
+	ApprovalQuorumError,
+	assertValidQuorum,
+	castApproval,
+	listApprovers,
+	requiredApprovalsOf,
+} from "./quorum.js";
+import type {
+	ApprovalConfig,
+	ApprovalDeps,
+	ApprovalRequest,
+	ApprovalStepUp,
+	DecideInput,
+} from "./shared.js";
+import {
+	approverEvidence,
+	assertValidStepUp,
+	notifyWebhook,
+	requirementOf,
+	rowToApproval,
+} from "./shared.js";
 
-export interface ApprovalRequest {
-	id: string;
-	agentId: string;
-	userId: string;
-	action: string;
-	resource: string;
-	arguments?: Record<string, unknown>;
-	status: "pending" | "approved" | "denied" | "expired";
-	expiresAt: Date;
-	respondedAt?: Date;
-	respondedBy?: string;
-	/** The approver must have reached this `acr` before approving (RFC 9470). Unset: no requirement. */
-	requiredAcr?: string;
-	/** The approver's proving event must be at most this many seconds old. Unset: no requirement. */
-	maxAuthAge?: number;
-	createdAt: Date;
-}
-
-/** What an approver must prove to approve a request. Same shape as `AuthRequirement`. */
-export type ApprovalStepUp = AuthRequirement;
-
-/** What the policy knows about a request when it asks for a step-up rule. */
-export interface ApprovalStepUpInput {
-	agentId: string;
-	userId: string;
-	action: string;
-	resource: string;
-	arguments?: Record<string, unknown>;
-}
-
-export interface ApprovalConfig {
-	/** How long approval requests stay valid (seconds, default: 300 = 5 min) */
-	ttl?: number;
-	/** Webhook URL to notify when approval is needed */
-	webhookUrl?: string;
-	/** Custom notification handler */
-	onApprovalNeeded?: (request: ApprovalRequest) => Promise<void>;
-	/** Step-up rule for every request: the approver must reach this class (for example `ACR.phishingResistant`) and, with `maxAuthAge`, have proven it recently. Overridden by `stepUp` and by the `stepUp` input of `request()`. */
-	requireAcr?: string;
-	/** Maximum age in seconds of the approver's proving event. */
-	maxAuthAge?: number;
-	/** Choose the step-up rule per request, for example only for high risk actions. Return null or undefined to fall back to `requireAcr` and `maxAuthAge`. */
-	stepUp?: (request: ApprovalStepUpInput) => ApprovalStepUp | null | undefined;
-}
-
-export interface ApprovalDeps {
-	/** Receives one decision event per lifecycle step (request, approve, deny, expire). */
-	observability?: Observability;
-	/** Resolved at call time. A new pending request is sent to it as `approval.pending`. */
-	webhooks?: () => Pick<WebhookModule, "emit"> | null;
-}
-
-export interface DecideInput {
-	decision: "approve" | "deny";
-	/** Who decided. Written to the request and to the audit row. */
-	decidedBy: string;
-	/** The approver's session assertion (`session.auth`). Required to approve a request that has a step-up rule. Denying never needs it. */
-	authContext?: AuthAssertion;
-}
-
-function rowToApproval(row: typeof approvalRequests.$inferSelect): ApprovalRequest {
-	return {
-		id: row.id,
-		agentId: row.agentId,
-		userId: row.userId,
-		action: row.action,
-		resource: row.resource,
-		arguments: row.arguments ?? undefined,
-		status: row.status,
-		expiresAt: row.expiresAt,
-		respondedAt: row.respondedAt ?? undefined,
-		respondedBy: row.respondedBy ?? undefined,
-		requiredAcr: row.requiredAcr ?? undefined,
-		maxAuthAge: row.maxAuthAge ?? undefined,
-		createdAt: row.createdAt,
-	};
-}
-
-/** Check a rule at request time. A typo in an acr would otherwise make the request impossible to approve. */
-function assertValidStepUp(rule: ApprovalStepUp): void {
-	const list = acrList(rule.acr);
-	for (const value of list) {
-		if (!(ACR_ORDER as readonly string[]).includes(value)) {
-			throw new Error(`Unknown acr "${value}" in approval step-up rule`);
-		}
-	}
-	if (rule.maxAge !== undefined && (!Number.isInteger(rule.maxAge) || rule.maxAge < 0)) {
-		throw new Error("Approval step-up maxAge must be a non-negative integer");
-	}
-}
-
-/** What the audit row records about how the approver proved themselves. */
-export function approverEvidence(auth: AuthAssertion): Record<string, unknown> {
-	return {
-		...(auth.acr !== undefined && { approverAcr: auth.acr }),
-		...(auth.amr !== undefined && { approverAmr: [...auth.amr] }),
-		...(auth.authTime !== undefined && { approverAuthTime: auth.authTime }),
-	};
-}
-
-/** The rule stored on a row, as an `AuthRequirement`. Null when the row has none. */
-function requirementOf(row: {
-	requiredAcr: string | null;
-	maxAuthAge: number | null;
-}): AuthRequirement | null {
-	if (row.requiredAcr === null && row.maxAuthAge === null) return null;
-	return {
-		...(row.requiredAcr !== null && { acr: row.requiredAcr }),
-		...(row.maxAuthAge !== null && { maxAge: row.maxAuthAge }),
-	};
-}
-
-async function notifyWebhook(url: string, approvalRequest: ApprovalRequest): Promise<void> {
-	try {
-		await fetch(url, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				event: "approval_needed",
-				request: {
-					...approvalRequest,
-					expiresAt: approvalRequest.expiresAt.toISOString(),
-					createdAt: approvalRequest.createdAt.toISOString(),
-				},
-			}),
-		});
-	} catch {
-		// Webhook delivery failures are non-fatal, the request is already persisted.
-	}
-}
+export type {
+	ApprovalConfig,
+	ApprovalDeps,
+	ApprovalRequest,
+	ApprovalStepUp,
+	ApprovalStepUpInput,
+	DecideInput,
+} from "./shared.js";
+export { approverEvidence };
 
 /**
  * Create the CIBA-style async approval module.
@@ -178,6 +71,8 @@ export function createApprovalModule(
 				action: req.action,
 				resource: req.resource,
 				argumentsHash: await hashApprovalAction(req.action, req.resource, req.arguments),
+				requiredApprovals: req.requiredApprovals,
+				approvalsReceived: 0,
 				expiresAt: req.expiresAt.toISOString(),
 				createdAt: req.createdAt.toISOString(),
 			});
@@ -194,6 +89,8 @@ export function createApprovalModule(
 		arguments?: Record<string, unknown>;
 		/** Step-up rule for this request. Wins over `config.stepUp`, `requireAcr` and `maxAuthAge`. */
 		stepUp?: ApprovalStepUp;
+		/** Distinct approvers needed (1 to 10). Wins over `config.quorum` and `config.requiredApprovals`. */
+		requiredApprovals?: number;
 	}): Promise<ApprovalRequest> {
 		const now = new Date();
 		const id = `apr_${generateId()}`;
@@ -211,6 +108,18 @@ export function createApprovalModule(
 				? { acr: config.requireAcr, maxAge: config.maxAuthAge }
 				: undefined);
 		if (rule) assertValidStepUp(rule);
+		const requiredApprovals =
+			input.requiredApprovals ??
+			config.quorum?.({
+				agentId: input.agentId,
+				userId: input.userId,
+				action: input.action,
+				resource: input.resource,
+				arguments: input.arguments,
+			}) ??
+			config.requiredApprovals ??
+			1;
+		assertValidQuorum(requiredApprovals);
 		const requiredAcr = rule ? acrList(rule.acr).join(" ") || null : null;
 		const maxAuthAge = rule?.maxAge ?? null;
 
@@ -227,6 +136,7 @@ export function createApprovalModule(
 			respondedBy: null,
 			requiredAcr,
 			maxAuthAge,
+			requiredApprovals: requiredApprovals > 1 ? requiredApprovals : null,
 			createdAt: now,
 		});
 
@@ -236,7 +146,12 @@ export function createApprovalModule(
 			action: "approval.request",
 			resource: `approval:${id}`,
 			result: "allowed",
-			parameters: { approvalId: id, action: input.action, resource: input.resource },
+			parameters: {
+				approvalId: id,
+				action: input.action,
+				resource: input.resource,
+				...(requiredApprovals > 1 && { requiredApprovals }),
+			},
 		});
 
 		const approvalRequest: ApprovalRequest = {
@@ -250,6 +165,8 @@ export function createApprovalModule(
 			expiresAt,
 			...(requiredAcr !== null && { requiredAcr }),
 			...(maxAuthAge !== null && { maxAuthAge }),
+			requiredApprovals,
+			...(requiredApprovals > 1 && { approvers: [] }),
 			createdAt: now,
 		};
 
@@ -307,6 +224,11 @@ export function createApprovalModule(
 			if (!verdict.ok) throw new StepUpRequiredError(verdict);
 		}
 
+		const required = requiredApprovalsOf(row);
+		if (newStatus === "approved" && required > 1) {
+			return castQuorumApproval(row, required, respondedBy, authContext, requirement);
+		}
+
 		// One conditional UPDATE decides the race: only a row still pending and unexpired changes.
 		const changed = await claimCount(
 			db
@@ -340,14 +262,74 @@ export function createApprovalModule(
 			},
 		});
 
-		const resolved = rowToApproval({
-			...row,
-			status: newStatus,
-			respondedAt: now,
-			respondedBy: respondedBy ?? null,
-		});
+		const resolved = rowToApproval(
+			{ ...row, status: newStatus, respondedAt: now, respondedBy: respondedBy ?? null },
+			required > 1 ? await listApprovers(db, row.id) : undefined,
+		);
 		emitApprovalEvent(deps.observability, resolved, newStatus);
 		return resolved;
+	}
+
+	/** One approver's approval on a request that needs a quorum. Each vote is audited, and the request is approved when the last one lands. */
+	async function castQuorumApproval(
+		row: typeof approvalRequests.$inferSelect,
+		required: number,
+		respondedBy: string | undefined,
+		authContext: AuthAssertion | undefined,
+		requirement: AuthRequirement | null,
+	): Promise<ApprovalRequest> {
+		if (!respondedBy) {
+			throw new ApprovalQuorumError(
+				"APPROVER_REQUIRED",
+				"A request that needs a quorum must be approved by a named approver",
+			);
+		}
+		const now = new Date();
+		const cast = await castApproval(db, row, {
+			approverId: respondedBy,
+			now,
+			approverAcr: requirement && authContext?.acr !== undefined ? authContext.acr : undefined,
+		});
+		if (cast.kind === "lost") {
+			throw new Error(`Approval request "${row.id}" is no longer pending and cannot be updated`);
+		}
+		const done = cast.kind === "approved";
+		await recordAuditEvent(db, {
+			agentId: row.agentId,
+			userId: row.userId,
+			action: "approval.approve",
+			resource: `approval:${row.id}`,
+			result: "allowed",
+			approverId: respondedBy,
+			parameters: {
+				approvalId: row.id,
+				action: row.action,
+				resource: row.resource,
+				approvalsReceived: cast.approvers.length,
+				approvalsRequired: required,
+				quorumComplete: done,
+				...(requirement && authContext && approverEvidence(authContext)),
+			},
+		});
+		const result = rowToApproval(
+			done ? { ...row, status: "approved", respondedAt: now, respondedBy } : row,
+			cast.approvers,
+		);
+		const webhooks = deps.webhooks?.();
+		if (webhooks && !done) {
+			try {
+				webhooks.emit("approval.vote", {
+					approvalId: row.id,
+					approverId: respondedBy,
+					approvalsReceived: cast.approvers.length,
+					approvalsRequired: required,
+				});
+			} catch {
+				// A webhook failure never fails the decision, which is already persisted.
+			}
+		}
+		if (done) emitApprovalEvent(deps.observability, result, "approved");
+		return result;
 	}
 
 	/** Mark overdue pending rows expired, with one audit row and one event each. Only rows still pending flip. */
@@ -412,7 +394,10 @@ export function createApprovalModule(
 
 		const row = rows[0];
 		if (!row) return null;
-		return rowToApproval(row);
+		return rowToApproval(
+			row,
+			requiredApprovalsOf(row) > 1 ? await listApprovers(db, row.id) : undefined,
+		);
 	}
 
 	async function listPending(userId?: string): Promise<ApprovalRequest[]> {
@@ -427,7 +412,14 @@ export function createApprovalModule(
 			.from(approvalRequests)
 			.where(and(...conditions));
 
-		return rows.map(rowToApproval);
+		return Promise.all(
+			rows.map(async (row) =>
+				rowToApproval(
+					row,
+					requiredApprovalsOf(row) > 1 ? await listApprovers(db, row.id) : undefined,
+				),
+			),
+		);
 	}
 
 	async function cleanup(): Promise<{ expired: number }> {

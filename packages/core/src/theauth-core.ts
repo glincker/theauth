@@ -16,6 +16,7 @@ import { createDelegationModule } from "./delegation/delegation.js";
 import { createConfiguredDeviceModule } from "./device/wiring.js";
 import { createDidModule } from "./did/module.js";
 import { createExplainer } from "./explain/explain.js";
+import { createDatabaseHookRunner } from "./hooks/database-hooks.js";
 import { createHookRuntime } from "./hooks/runtime.js";
 import { createCoreRevocationBus, withMcpSignOutRevocation } from "./mcp/revocation-wiring.js";
 import { createMcpServerRegistry } from "./mcp/server-registry.js";
@@ -86,7 +87,11 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		resourceMatching: config.resourceMatching,
 		tokenExpiry: config.agents?.tokenExpiry ?? "24h",
 	});
-	const userModule = createUserModule({ db });
+	const databaseHooks = createDatabaseHookRunner(config.databaseHooks, {
+		logger: observability.logger,
+		hookSafety: config.hookSafety,
+	});
+	const userModule = createUserModule({ db, databaseHooks });
 	const permissionEngine = createPermissionEngine({
 		db,
 		auditAll: config.agents?.auditAll ?? true,
@@ -101,7 +106,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		resourceMatching: config.resourceMatching,
 	});
 	const sessionManager: SessionManager | null = withMcpSignOutRevocation(
-		config.auth?.session ? createSessionManager(config.auth.session, db) : null,
+		config.auth?.session ? createSessionManager(config.auth.session, db, databaseHooks) : null,
 		revocations,
 		config,
 	);

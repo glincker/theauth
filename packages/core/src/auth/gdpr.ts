@@ -28,6 +28,7 @@ import {
 	agents,
 	apiKeys,
 	approvalRequests,
+	approvalVotes,
 	auditLogs,
 	budgetPolicies,
 	delegationChains,
@@ -348,6 +349,18 @@ export function createGdprModule(
 		}
 
 		// The user row still exists here, so the FK to users.id is satisfied.
+		const ownApprovals = await db
+			.select({ id: approvalRequests.id })
+			.from(approvalRequests)
+			.where(eq(approvalRequests.userId, userId));
+		if (ownApprovals.length > 0) {
+			await db.delete(approvalVotes).where(
+				inArray(
+					approvalVotes.approvalId,
+					ownApprovals.map((r) => r.id),
+				),
+			);
+		}
 		await db.delete(approvalRequests).where(eq(approvalRequests.userId, userId));
 
 		await db.delete(budgetPolicies).where(eq(budgetPolicies.userId, userId));

@@ -121,7 +121,23 @@ await createAgent({ name: 'My AI assistant', permissions: ['read:data'] });
 ## Plugin configuration reference
 
 <ParamField path="basePath" type="string" default="'/api/theauth'">Base path where your theAuth handler is mounted.</ParamField>
-<ParamField path="fetchOptions" type="RequestInit">Options passed to every internal fetch call (e.g. custom headers).</ParamField>
+<ParamField path="refetch" type="RefetchOptions">Refetch the session on window focus, reconnect or an interval. Off unless set. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
+<ParamField path="initialSession" type="HydrateInput | null">Session the server already resolved. Skips the first request.</ParamField>
+<ParamField path="signInPath" type="string" default="'/auth/username/sign-in'">Route for `signIn`. Core has no email and password route, so point this at your own if you need one.</ParamField>
+<ParamField path="signUpPath" type="string" default="'/auth/username/sign-up'">Route for `signUp`.</ParamField>
+<ParamField path="identifierField" type="string" default="'username'">Body field that carries the first argument of `signIn` and `signUp`.</ParamField>
+<ParamField path="storage" type="SessionStorageLike">Defaults to `window.localStorage` when the browser allows it.</ParamField>
+
+On install the plugin shows a stored session at once, then confirms it with `GET {basePath}/auth/session`. `signOut` clears local state first, then calls `POST {basePath}/auth/sign-out` to revoke the session on the server.
+
+```typescript
+app.use(
+  createTheAuthPlugin({
+    basePath: "/api/theauth",
+    refetch: { intervalMs: 5 * 60_000 },
+  }),
+);
+```
 
 ## Related
 

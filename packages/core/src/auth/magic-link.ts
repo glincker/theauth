@@ -26,6 +26,8 @@ import { generateId, randomBytesHex } from "../crypto/web-crypto.js";
 import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { magicLinks, users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import { parseRememberMe } from "../plugin/helpers.js";
 import type { SessionManager } from "../session/session.js";
 import { normalizeEmail } from "./normalize-email.js";
@@ -74,6 +76,7 @@ export function createMagicLinkModule(
 	db: Database,
 	sessionManager: SessionManager,
 	signInGate?: SignInGate,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): MagicLinkModule {
 	const gate = signInGate ?? createSignInGate({ db });
 	const tokenExpiry = config.tokenExpiry ?? DEFAULT_EXPIRY_SECONDS;
@@ -90,14 +93,30 @@ export function createMagicLinkModule(
 
 		const id = generateId();
 		const now = new Date();
+		let storedEmail = email;
+		if (databaseHooks.has("user", "create")) {
+			const hooked = await databaseHooks.before("user", "create", {
+				id,
+				email,
+				name: null,
+				metadata: null,
+			});
+			storedEmail = hooked.email;
+		}
 		await db.insert(users).values({
 			id,
-			email,
+			email: storedEmail,
 			createdAt: now,
 			updatedAt: now,
 		});
+		await databaseHooks.after("user", "create", {
+			id,
+			email: storedEmail,
+			name: null,
+			metadata: null,
+		});
 
-		return { id, email };
+		return { id, email: storedEmail };
 	}
 
 	async function sendLink(rawEmail: string): Promise<{ sent: boolean }> {

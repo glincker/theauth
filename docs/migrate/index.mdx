@@ -1,6 +1,6 @@
 ---
 title: Migration guides
-description: Pick a migration guide for your current auth setup. Covers moving from better-auth, Clerk, the better-auth agent plugin, and Auth0 to theAuth.
+description: Pick a migration guide for your current auth setup. Covers moving from better-auth, Clerk, Supabase Auth, WorkOS, the better-auth agent plugin, and Auth0 to theAuth.
 icon: arrow-right-arrow-left
 ---
 
@@ -30,6 +30,12 @@ Start with how you want to move, then pick the guide for your current setup.
   </Card>
   <Card title="From Clerk" icon="arrow-right" href="/migrate/from-clerk">
     Concepts map, hooks and middleware diff, Clerk data export SQL, rollout plan.
+  </Card>
+  <Card title="From Supabase Auth" icon="arrow-right" href="/migrate/from-supabase">
+    SQL export of auth.users, importer, and what happens to bcrypt passwords.
+  </Card>
+  <Card title="From WorkOS" icon="arrow-right" href="/migrate/from-workos">
+    List users export, importer, and an honest note on password hashes.
   </Card>
   <Card title="From the better-auth agent plugin" icon="arrow-right" href="/migrate/from-better-auth-agent-plugin">
     Concepts map, delegation chain shape, cascading revocation, authorizeByToken migration.

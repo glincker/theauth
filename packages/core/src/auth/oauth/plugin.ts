@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { users } from "../../db/schema.js";
+import { createDatabaseHookRunner, DatabaseHookError } from "../../hooks/database-hooks.js";
 import {
 	buildClearCookie,
 	buildSessionSetCookie,
@@ -68,7 +69,11 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 		id: "theauth-oauth",
 
 		async init(ctx): Promise<PluginInitResult> {
-			const module = createOAuthModule(ctx.db, config);
+			const databaseHooks = createDatabaseHookRunner(ctx.config.databaseHooks, {
+				logger: ctx.config.logger,
+				hookSafety: ctx.config.hookSafety,
+			});
+			const module = createOAuthModule(ctx.db, { ...config, databaseHooks });
 
 			const baseUrl = ctx.config.baseUrl ?? "";
 			const baseUrls = ctx.config.allowedHosts?.length
@@ -224,16 +229,24 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 								userId = existing[0].id;
 							} else {
 								const newId = crypto.randomUUID();
-								await ctx.db.insert(users).values({
+								const hookedUser = await databaseHooks.before("user", "create", {
 									id: newId,
 									email: normalized,
 									name: result.userInfo.name ?? null,
+									metadata: null,
+								});
+								await ctx.db.insert(users).values({
+									id: newId,
+									email: hookedUser.email,
+									name: hookedUser.name,
+									...(hookedUser.metadata !== null && { metadata: hookedUser.metadata }),
 									externalProvider: `oauth:${provider}`,
 									externalId: result.userInfo.id,
 									emailVerified: result.userInfo.emailVerified === true ? 1 : 0,
 									createdAt: new Date(),
 									updatedAt: new Date(),
 								});
+								await databaseHooks.after("user", "create", hookedUser);
 								userId = newId;
 							}
 
@@ -304,6 +317,7 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 							userInfo: result.userInfo,
 						});
 					} catch (err) {
+						if (err instanceof DatabaseHookError) return fail(err.message, 403);
 						return fail(err instanceof Error ? err.message : "OAuth callback failed", 400);
 					}
 				},

@@ -266,16 +266,30 @@ export function createScimGroupHandlers(ctx: ScimHandlerContext) {
 			.where(eq(organizations.id, groupId));
 
 		if (membersRaw !== undefined) {
-			await db.delete(orgMembers).where(eq(orgMembers.orgId, groupId));
-			if (membersRaw.length > 0) {
-				const memberInserts = membersRaw.map((m) => ({
-					id: `om_scim_${generateId()}`,
-					orgId: groupId,
-					userId: m.value,
-					role: "member",
-					joinedAt: now,
-				}));
-				await db.insert(orgMembers).values(memberInserts);
+			// Diff against the current members instead of deleting all and re-inserting. A member who stays is
+			// never absent from the group, keeps the row id and the role it already had, and a concurrent
+			// PUT cannot interleave into the union of two lists.
+			const wanted = new Set(membersRaw.map((m) => m.value));
+			const current = await db
+				.select({ id: orgMembers.id, userId: orgMembers.userId })
+				.from(orgMembers)
+				.where(eq(orgMembers.orgId, groupId));
+			const present = new Set(current.map((r) => r.userId));
+			const staleIds = current.filter((r) => !wanted.has(r.userId)).map((r) => r.id);
+			if (staleIds.length > 0) {
+				await db.delete(orgMembers).where(inArray(orgMembers.id, staleIds));
+			}
+			const added = [...wanted].filter((userId) => !present.has(userId));
+			if (added.length > 0) {
+				await db.insert(orgMembers).values(
+					added.map((userId) => ({
+						id: `om_scim_${generateId()}`,
+						orgId: groupId,
+						userId,
+						role: "member",
+						joinedAt: now,
+					})),
+				);
 			}
 		}
 

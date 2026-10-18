@@ -7,7 +7,7 @@ import { eq, inArray, or } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { agents, auditLogs, users } from "../db/schema.js";
-import { isUniqueViolation } from "../db/unique-violation.js";
+import { toStoreConflict } from "../db/store-conflict.js";
 import type { AuditRow } from "./chain.js";
 import { computeRowHash, ERASURE_ACTION, getAuditChainConfig, insertAuditRow } from "./chain.js";
 import type { UnsignedErasureEntry } from "./integrity.js";
@@ -45,7 +45,7 @@ export async function ensureTombstoneUser(db: Database, anonUserId: string): Pro
 		});
 	} catch (error) {
 		// A concurrent erasure of the same user inserted it first. Anything else is real.
-		if (!isUniqueViolation(error) || !(await rowExists(db, users, users.id, anonUserId)))
+		if (!toStoreConflict(error, "users") || !(await rowExists(db, users, users.id, anonUserId)))
 			throw error;
 	}
 }
@@ -73,7 +73,10 @@ export async function ensureTombstoneAgent(
 			updatedAt: now,
 		});
 	} catch (error) {
-		if (!isUniqueViolation(error) || !(await rowExists(db, agents, agents.id, anonAgentId))) {
+		if (
+			!toStoreConflict(error, "agents") ||
+			!(await rowExists(db, agents, agents.id, anonAgentId))
+		) {
 			throw error;
 		}
 	}
