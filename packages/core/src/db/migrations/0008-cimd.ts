@@ -1,3 +1,4 @@
+import { MYSQL_TABLE_OPTIONS } from "../ddl/mysql.js";
 import { ddlTypes } from "../ddl/types.js";
 import type { Dialect, Migration } from "../migrate/types.js";
 
@@ -28,7 +29,7 @@ function statements(dialect: Dialect): string[] {
   reason      TEXT,
   created_by  TEXT,
   created_at  ${t.ts} NOT NULL
-)`,
+)${dialect === "mysql" ? ` ${MYSQL_TABLE_OPTIONS}` : ""}`,
 		blockIdx,
 	];
 }

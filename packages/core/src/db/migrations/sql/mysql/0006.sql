@@ -30,4 +30,4 @@ CREATE INDEX theauth_oauth_access_tokens_client ON theauth_oauth_access_tokens (
 
 CREATE INDEX theauth_oauth_access_tokens_family ON theauth_oauth_access_tokens (family_id(191));
 
-INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0006', 'mcp-stores', '77c8d23596086dffc77fa0b789dce3e5be886664baaa6aef5a4782878754f5bd', NOW(3));
+INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0006', 'mcp-stores', '77c8d23596086dffc77fa0b789dce3e5be886664baaa6aef5a4782878754f5bd', UTC_TIMESTAMP(3));

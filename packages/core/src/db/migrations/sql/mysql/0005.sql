@@ -10,4 +10,4 @@ UPDATE theauth_audit_logs SET event = 'authorize' WHERE event IS NULL AND decisi
 
 CREATE INDEX theauth_audit_logs_event ON theauth_audit_logs (agent_id(191), event(64), recorded_at_ms);
 
-INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0005', 'audit-event', '874694066ebfc5b503b578866fd278036e674c8b434d7a1557683eac5137f2b9', NOW(3));
+INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0005', 'audit-event', '874694066ebfc5b503b578866fd278036e674c8b434d7a1557683eac5137f2b9', UTC_TIMESTAMP(3));

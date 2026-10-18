@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS theauth_mcp_client_blocks (
   reason      TEXT,
   created_by  TEXT,
   created_at  BIGINT NOT NULL
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 CREATE UNIQUE INDEX theauth_mcp_client_blocks_rule ON theauth_mcp_client_blocks (kind, value(191));
 
-INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0008', 'cimd', '2fbfb61d63b23b96b719005e9170c7bf32ff2a5a5d276b9153555b8612dab312', NOW(3));
+INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0008', 'cimd', '08ea9f3a82cc7f44454fb7acef17e6601232d477f775aecdb1aeea0981688284', UTC_TIMESTAMP(3));

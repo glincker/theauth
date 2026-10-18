@@ -20,7 +20,7 @@ function ledgerDdl(dialect: Dialect): string {
 	cohort ${textType},
 	error_code ${textType},
 	at ${atType} NOT NULL
-)`;
+)${dialect === "mysql" ? " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin" : ""}`;
 }
 
 const ledger = sqliteTable("theauth_migration_ledger", {

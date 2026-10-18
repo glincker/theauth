@@ -23,6 +23,7 @@
 
 import { and, eq, gt } from "drizzle-orm";
 import { generateId, randomBytesHex } from "../crypto/web-crypto.js";
+import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { magicLinks, users } from "../db/schema.js";
 import { parseRememberMe } from "../plugin/helpers.js";
@@ -134,16 +135,26 @@ export function createMagicLinkModule(
 
 		// Claim the link with one conditional UPDATE so two concurrent requests
 		// cannot both redeem it: only the caller whose UPDATE flips used=false wins.
-		const claimed = await db
-			.update(magicLinks)
-			.set({ used: true })
-			.where(
-				and(eq(magicLinks.token, token), eq(magicLinks.used, false), gt(magicLinks.expiresAt, now)),
-			)
-			.returning({ email: magicLinks.email });
-
-		const link = claimed[0];
+		// The email is read first because MySQL has no RETURNING to hand it back.
+		const [link] = await db
+			.select({ email: magicLinks.email })
+			.from(magicLinks)
+			.where(eq(magicLinks.token, token));
 		if (!link) return null;
+		const claimed = await claimCount(
+			db
+				.update(magicLinks)
+				.set({ used: true })
+				.where(
+					and(
+						eq(magicLinks.token, token),
+						eq(magicLinks.used, false),
+						gt(magicLinks.expiresAt, now),
+					),
+				),
+			{ email: magicLinks.email },
+		);
+		if (claimed === 0) return null;
 
 		const user = await findOrCreateUser(link.email);
 		const decision = await gate.evaluate({

@@ -19,6 +19,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { generateId, randomBytesHex, sha256 } from "../crypto/web-crypto.js";
+import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { refreshTokenFamilies, refreshTokens } from "../db/schema.js";
 
@@ -204,13 +205,15 @@ export function createTokenFamilyStore(
 		// of several concurrent callers sees an affected row. The losers
 		// presented a token that was consumed a moment earlier, which is
 		// indistinguishable from replay, so they trigger reuse handling.
-		const claimed = await db
-			.update(refreshTokens)
-			.set({ used: Math.max(1, Math.floor(now.getTime() / 1000)) })
-			.where(and(eq(refreshTokens.tokenHash, tokenHash), eq(refreshTokens.used, 0)))
-			.returning({ id: refreshTokens.id });
+		const claimed = await claimCount(
+			db
+				.update(refreshTokens)
+				.set({ used: Math.max(1, Math.floor(now.getTime() / 1000)) })
+				.where(and(eq(refreshTokens.tokenHash, tokenHash), eq(refreshTokens.used, 0))),
+			{ id: refreshTokens.id },
+		);
 
-		if (claimed.length === 0) {
+		if (claimed === 0) {
 			// Lost a race with a concurrent caller. Inside the grace window that is
 			// an overlapping refresh, not replay.
 			if (graceMs > 0) {

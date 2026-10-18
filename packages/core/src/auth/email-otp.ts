@@ -18,6 +18,7 @@
 
 import { and, eq, gt, lt, sql } from "drizzle-orm";
 import { constantTimeEqual, fromHex, generateId, sha256 } from "../crypto/web-crypto.js";
+import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { emailOtps, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
@@ -172,23 +173,24 @@ export function createEmailOtpModule(
 
 		// Reserve an attempt with one conditional UPDATE. A read-then-write counter
 		// lets N parallel guesses all observe the same count and skip the lockout.
-		const reserved = await db
-			.update(emailOtps)
-			.set({ attempts: sql`${emailOtps.attempts} + 1` })
-			.where(and(eq(emailOtps.id, record.id), lt(emailOtps.attempts, maxAttempts)))
-			.returning({ id: emailOtps.id });
-		if (!reserved[0]) return null;
+		const reserved = await claimCount(
+			db
+				.update(emailOtps)
+				.set({ attempts: sql`${emailOtps.attempts} + 1` })
+				.where(and(eq(emailOtps.id, record.id), lt(emailOtps.attempts, maxAttempts))),
+			{ id: emailOtps.id },
+		);
+		if (reserved === 0) return null;
 
 		const given = fromHex(await hashCode(code));
 		const stored = fromHex(record.codeHash);
 		if (!constantTimeEqual(given, stored)) return null;
 
 		// Correct code: delete returns the row only to the one caller that removed it.
-		const consumed = await db
-			.delete(emailOtps)
-			.where(eq(emailOtps.id, record.id))
-			.returning({ id: emailOtps.id });
-		if (!consumed[0]) return null;
+		const consumed = await claimCount(db.delete(emailOtps).where(eq(emailOtps.id, record.id)), {
+			id: emailOtps.id,
+		});
+		if (consumed === 0) return null;
 
 		const user = await findOrCreateUser(email);
 		const decision = await gate.evaluate({

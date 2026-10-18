@@ -1,19 +1,9 @@
 import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
+import { affectedRows } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { oauthAccessTokens, oauthAuthorizationCodes } from "../db/schema.js";
 import type { McpAccessToken, McpAuthorizationCode, McpFamilyAccessTokenRef } from "./types.js";
-
-/** Rows deleted by a statement, across drivers (better-sqlite3, sql.js, node-postgres, mysql2). */
-function affectedRows(result: unknown): number {
-	const first = Array.isArray(result) ? result[0] : result;
-	if (typeof first !== "object" || first === null) return 0;
-	const r = first as Record<string, unknown>;
-	for (const key of ["changes", "rowsAffected", "rowCount", "affectedRows"]) {
-		if (typeof r[key] === "number") return r[key] as number;
-	}
-	return 0;
-}
 
 export interface McpTokenStore {
 	storeAuthorizationCode: (code: McpAuthorizationCode) => Promise<void>;

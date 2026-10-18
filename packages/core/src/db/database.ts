@@ -156,7 +156,8 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 		});
 		const { drizzle } = await import("drizzle-orm/mysql2");
 
-		const pool = mysql2.createPool(config.url);
+		// UTC on the wire: the ledger's DATETIME(3) column holds UTC_TIMESTAMP(3), and every other timestamp is an integer epoch.
+		const pool = mysql2.createPool({ uri: config.url, timezone: "Z" });
 		// Cast to Database for API compatibility (see the Database type).
 		// biome-ignore lint/suspicious/noExplicitAny: adapter boundary - cast mysql drizzle to sqlite-typed Database
 		return drizzle(pool) as any as Database;

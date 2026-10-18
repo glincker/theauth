@@ -4,11 +4,13 @@ import { auditDdl } from "./audit.js";
 import { coreDdl } from "./core.js";
 import { enterpriseDdl } from "./enterprise.js";
 import { humanDdl } from "./human.js";
+import { toMysqlBaseline } from "./mysql.js";
 import { oauthDdl } from "./oauth.js";
 import { orgDdl } from "./org.js";
 import type { TaggedStatement } from "./types.js";
 import { ddlTypes } from "./types.js";
 
+export { MYSQL_TABLE_OPTIONS } from "./mysql.js";
 export type { TimestampColumn, TimestampUnit } from "./timestamp-columns.js";
 export { TIMESTAMP_COLUMNS } from "./timestamp-columns.js";
 export type { DdlTypes, TaggedStatement } from "./types.js";
@@ -19,7 +21,7 @@ export { ddlTypes } from "./types.js";
  */
 export function baselineStatements(dialect: Dialect): TaggedStatement[] {
 	const t = ddlTypes(dialect);
-	return [
+	const all = [
 		...coreDdl(t),
 		...auditDdl(t),
 		...agentsExtraDdl(t),
@@ -28,4 +30,5 @@ export function baselineStatements(dialect: Dialect): TaggedStatement[] {
 		...orgDdl(t),
 		...enterpriseDdl(t),
 	];
+	return dialect === "mysql" ? toMysqlBaseline(all) : all;
 }
