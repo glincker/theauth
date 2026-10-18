@@ -85,8 +85,8 @@
   },
   "tests": {
     "label": "approximate",
-    "testCases": 4276,
-    "testFiles": 306,
+    "testCases": 5277,
+    "testFiles": 410,
     "method": "textual count of it(...) and test(...) call sites in packages/**/*.test.ts, excluding node_modules"
   }
 }
