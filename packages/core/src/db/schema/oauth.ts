@@ -1,6 +1,6 @@
 import { sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { bool, json, timestampSec } from "./columns.js";
-import { users } from "./core.js";
+import { agents, users } from "./core.js";
 
 export const oauthClients = sqliteTable("theauth_oauth_clients", {
 	id: text("id").primaryKey(),
@@ -19,6 +19,14 @@ export const oauthClients = sqliteTable("theauth_oauth_clients", {
 		.default("confidential"),
 	disabled: bool("disabled").notNull().default(false),
 	metadata: json<Record<string, unknown>>("metadata"),
+	/** The agent this client acts as (migration 0006). Cleared when the agent row is deleted. */
+	agentId: text("agent_id").references(() => agents.id, { onDelete: "set null" }),
+	scope: text("scope"),
+	logoUri: text("logo_uri"),
+	jwks: json<{ keys: Record<string, unknown>[] }>("jwks"),
+	jwksUri: text("jwks_uri"),
+	userId: text("user_id"),
+	source: text("source"),
 	createdAt: timestampSec("created_at").notNull(),
 	updatedAt: timestampSec("updated_at").notNull(),
 });
@@ -37,6 +45,11 @@ export const oauthAccessTokens = sqliteTable("theauth_oauth_access_tokens", {
 	resource: text("resource"), // RFC 8707 - audience binding
 	accessTokenExpiresAt: timestampSec("access_token_expires_at").notNull(),
 	refreshTokenExpiresAt: timestampSec("refresh_token_expires_at"),
+	/** Added by migration 0006. */
+	jti: text("jti"),
+	familyId: text("family_id"),
+	tokenType: text("token_type").notNull().default("Bearer"),
+	dpopJkt: text("dpop_jkt"),
 	createdAt: timestampSec("created_at").notNull(),
 });
 

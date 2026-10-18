@@ -85,7 +85,8 @@ export function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures 
 		session: hasSession,
 		agent: hasAgents,
 		audit: hasAgents,
-		oauth: hasOAuth,
+		// MCP stores keep clients, codes and tokens in the oauth tables.
+		oauth: hasOAuth || !!config.mcp,
 		tenant: hasAgents,
 		mcp: !!config.mcp,
 		org: !!config.org || hasPlugin("theauth-organization"),
@@ -104,7 +105,8 @@ export function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures 
 		oneTimeToken: hasMagicLink || hasEmailOtp || !!config.passwordReset || hasOAuth,
 		loginHistory: hasSession,
 		oidcProvider: hasOidc,
-		jwt: hasSession,
+		// MCP refresh token families live in the jwt family tables.
+		jwt: hasSession || !!config.mcp,
 		rebac: hasAgents,
 		federation: false, // only when explicitly configured (no config key yet)
 		// Tiny table, created always so `secondaryStorage: "database"` just works.

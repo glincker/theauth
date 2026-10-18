@@ -4,6 +4,8 @@ import { relationAndCacheHit } from "./0001-relation-and-cache-hit.js";
 import { auditDecisionCode } from "./0002-audit-decision-code.js";
 import { epochTimestamps } from "./0003-epoch-timestamps.js";
 import { auditRecordedAtMs } from "./0004-audit-recorded-at-ms.js";
+import { auditEvent } from "./0005-audit-event.js";
+import { mcpStores } from "./0006-mcp-stores.js";
 
 /**
  * Every migration, in order. Ids are append only and never reused.
@@ -15,6 +17,8 @@ export const MIGRATIONS: readonly Migration[] = [
 	auditDecisionCode,
 	epochTimestamps,
 	auditRecordedAtMs,
+	auditEvent,
+	mcpStores,
 ];
 
 export const BASELINE_ID = baseline.id;

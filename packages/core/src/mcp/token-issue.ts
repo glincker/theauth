@@ -69,6 +69,12 @@ export async function issueAccessTokenJwt(
 	) {
 		Object.assign(agentic, await ctx.config.getAgenticContext(userId));
 	}
+	// A client bound to an agent carries that agent without any integrator code. Explicit claims and
+	// `getAgenticContext` win; the binding fills the gap.
+	if (agentic.agentId === undefined) {
+		const bound = (await ctx.findClient(clientId))?.agentId;
+		if (bound) agentic.agentId = bound;
+	}
 	const agenticClaims: Record<string, unknown> = {};
 	if (agentic.agentId !== undefined) agenticClaims[AGENTIC_JWT_CLAIMS.AGENT_ID] = agentic.agentId;
 	if (agentic.agentType !== undefined) {

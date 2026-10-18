@@ -19,6 +19,8 @@ export function buildStepUpResponse(
 		currentScopes: string[];
 		requiredScopes: string[];
 		resource?: string;
+		/** RFC 9728 metadata URL for the challenge. Default: `<baseUrl>/.well-known/oauth-protected-resource`. */
+		resourceMetadataUrl?: string;
 	},
 ): Response {
 	const { currentScopes, requiredScopes, resource } = options;
@@ -33,10 +35,13 @@ export function buildStepUpResponse(
 
 	// WWW-Authenticate per RFC 6750 §3 + insufficient_scope challenge
 	const scopeList = requiredScopes.join(" ");
-	const wwwAuthenticate = `Bearer error="insufficient_scope", scope="${scopeList}"`;
+	const metadataUrl =
+		options.resourceMetadataUrl ?? `${ctx.config.baseUrl}/.well-known/oauth-protected-resource`;
+	const wwwAuthenticate = `Bearer error="insufficient_scope", scope="${scopeList}", resource_metadata="${metadataUrl}"`;
 
 	const body = {
 		error: "insufficient_scope",
+		code: "INSUFFICIENT_SCOPE",
 		error_description: "Token lacks required scopes",
 		required_scopes: requiredScopes,
 		current_scopes: currentScopes,

@@ -266,11 +266,63 @@ export function generateOpenAPISpec(options?: { baseUrl?: string; version?: stri
 							schema: { type: "string", enum: ["allowed", "denied", "rate_limited", "escalated"] },
 						},
 						{ name: "limit", in: "query", required: false, schema: { type: "integer" } },
-						{ name: "offset", in: "query", required: false, schema: { type: "integer" } },
+						{
+							name: "offset",
+							in: "query",
+							required: false,
+							schema: {
+								type: "integer",
+								description: "Deprecated, use cursor. Ignored when cursor is set.",
+							},
+						},
+						{
+							name: "order",
+							in: "query",
+							required: false,
+							schema: {
+								type: "string",
+								enum: ["asc", "desc"],
+								description: "desc (default) is newest first.",
+							},
+						},
+						{
+							name: "cursor",
+							in: "query",
+							required: false,
+							schema: {
+								type: "string",
+								description: "nextCursor from the previous page. Implies paged=true.",
+							},
+						},
+						{
+							name: "events",
+							in: "query",
+							required: false,
+							schema: { type: "string", description: "Comma separated audit events." },
+						},
+						{
+							name: "resource",
+							in: "query",
+							required: false,
+							schema: {
+								type: "string",
+								description: "Exact resource, or a prefix when it ends with *.",
+							},
+						},
+						{
+							name: "paged",
+							in: "query",
+							required: false,
+							schema: {
+								type: "boolean",
+								description: "true returns { entries, nextCursor } instead of a bare array.",
+							},
+						},
 					],
 					responses: {
 						"200": {
-							description: "Audit log entries",
+							description:
+								"Audit log entries. A bare array, or { entries, nextCursor } when paged=true or cursor is set",
 							content: {
 								"application/json": {
 									schema: { type: "array", items: { $ref: "#/components/schemas/AuditEntry" } },
@@ -413,6 +465,7 @@ export function generateOpenAPISpec(options?: { baseUrl?: string; version?: stri
 						agentId: { type: "string" },
 						userId: { type: "string" },
 						action: { type: "string" },
+						event: { type: "string", nullable: true },
 						resource: { type: "string" },
 						parameters: { type: "object" },
 						result: { type: "string", enum: ["allowed", "denied", "rate_limited", "escalated"] },

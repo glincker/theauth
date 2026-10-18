@@ -156,7 +156,8 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		const lineage = await resolveLineage(db, input.toAgent);
 		await recordAuditEvent(db, {
 			agentId: input.toAgent,
-			action: "delegation.create",
+			action: "delegate",
+			event: "delegation.create",
 			resource: `delegation:${id}`,
 			result: "allowed",
 			actorId: input.fromAgent,
@@ -220,7 +221,8 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		if (wasActive) {
 			await recordAuditEvent(db, {
 				agentId: chain[0].toAgentId,
-				action: "delegation.revoke",
+				action: "delegate",
+				event: "delegation.revoke",
 				resource: `delegation:${chainId}`,
 				result: "allowed",
 				...(revokedBy ? { actorId: revokedBy } : {}),

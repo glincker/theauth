@@ -29,77 +29,83 @@ theAuth implements the full MCP auth stack:
 
 ## Setup
 
-The OAuth server is a separate module from the `theauth` instance. You create it with `createMcpModule` from `@glinr/theauth/mcp` and pass it to a framework adapter. The module has no built-in database: you supply the storage callbacks.
+The OAuth server is a separate module from the `theauth` instance. You create it with `createMcpModule` from `@glinr/theauth/mcp` and pass it to a framework adapter. Pass `auth` and the module stores clients, authorization codes, tokens and refresh token families in your TheAuth database, so several instances share state and a restart loses nothing.
 
 ### Setting up
 
 ```typescript
 import { createTheAuth } from '@glinr/theauth';
 import { createMcpModule } from '@glinr/theauth/mcp';
-import type { McpAccessToken, McpAuthorizationCode, McpClient } from '@glinr/theauth/mcp';
+import type { McpConfig } from '@glinr/theauth/mcp';
 
-// In-memory stores for illustration. Back these with your database in production.
-const clients = new Map<string, McpClient>();
-const codes = new Map<string, McpAuthorizationCode>();
-const tokens = new Map<string, McpAccessToken>();
-const byRefreshToken = new Map<string, string>();
-
-export const mcpStore = {
-  storeClient: async (client: McpClient) => {
-    clients.set(client.clientId, client);
-  },
-  findClient: async (clientId: string) => clients.get(clientId) ?? null,
-  storeAuthorizationCode: async (code: McpAuthorizationCode) => {
-    codes.set(code.code, code);
-  },
-  consumeAuthorizationCode: async (code: string) => {
-    const found = codes.get(code) ?? null;
-    if (found) codes.delete(code); // a code must be single use
-    return found;
-  },
-  storeToken: async (token: McpAccessToken) => {
-    tokens.set(token.accessToken, token);
-    if (token.refreshToken) byRefreshToken.set(token.refreshToken, token.accessToken);
-  },
-  findTokenByRefreshToken: async (refreshToken: string) => {
-    const accessToken = byRefreshToken.get(refreshToken);
-    return accessToken ? (tokens.get(accessToken) ?? null) : null;
-  },
-  revokeToken: async (accessToken: string) => {
-    tokens.delete(accessToken);
-  },
-  // Return the signed-in user's ID from your session, or null to send them to loginPage
-  resolveUserId: async (request: Request) => {
-    void request;
-    return null as string | null;
-  },
+const mcpConfig: McpConfig = {
+  enabled: true,
+  issuer: 'https://auth.yourapp.com',
+  // Public origin plus the path where you mount the adapter
+  baseUrl: 'https://auth.yourapp.com/api/theauth',
+  resource: 'https://auth.yourapp.com', // the audience this server accepts (RFC 8707)
+  signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
+  scopes: ['mcp:read', 'mcp:execute'],
+  loginPage: 'https://auth.yourapp.com/login',
 };
 
 export const theauth = await createTheAuth({
   database: { provider: 'sqlite-native', url: 'theauth.db' },
   baseUrl: 'https://auth.yourapp.com',
-  mcp: { enabled: true }, // creates the MCP server registry table
+  agents: { enabled: true }, // needed to bind OAuth clients to agents
+  mcp: mcpConfig, // creates the MCP tables: registry, clients, codes, tokens, refresh families
 });
 
 export const mcp = createMcpModule({
-  config: {
-    enabled: true,
-    issuer: 'https://auth.yourapp.com',
-    // Public origin plus the path where you mount the adapter
-    baseUrl: 'https://auth.yourapp.com/api/theauth',
-    signingSecret: process.env.MCP_SIGNING_SECRET!, // at least 32 characters
-    scopes: ['mcp:read', 'mcp:execute'],
-    loginPage: 'https://auth.yourapp.com/login',
-  },
-  ...mcpStore,
+  auth: theauth,
+  config: mcpConfig,
+  // Return the signed-in user's ID from your session, or null to send them to loginPage
+  resolveUserId: async (request) => null as string | null,
 });
 ```
 
 Then mount the module via a framework adapter by passing it as the `mcp` option, for example `theAuthHono(theauth, { mcp, authenticate })`. See [Framework adapters](/adapters).
 
+The database stores need the `theauth_oauth_clients`, `theauth_oauth_access_tokens`, `theauth_oauth_authorization_codes` and refresh token family tables. `createTheAuth` creates them when you pass the `mcp` key, and migration `0006` adds the columns for client binding and token metadata to databases created earlier (`theauth db up`, or automatically on boot). Authorization codes are single use: consuming one is a single `DELETE ... RETURNING`, so of two concurrent redemptions exactly one wins. Stored token values are SHA-256 digests.
+
 <Warning>
-  `createTheAuth` accepts an `mcp` config key, but it only makes the instance create the MCP tables (including the registry behind `theauth.mcp.register`). It does not build the OAuth server, and `audience` is not an option. The OAuth server comes only from `createMcpModule`.
+  `createTheAuth` accepts an `mcp` config key, but it only makes the instance create the MCP tables (including the registry behind `theauth.mcp.register`). The OAuth server comes only from `createMcpModule`.
 </Warning>
+
+<Accordion title="Bring your own storage, or use in-memory stores in tests">
+  Without `auth`, pass the seven store functions yourself. Any store function you also pass alongside `auth` replaces the database one.
+
+  ```typescript
+  const clients = new Map<string, McpClient>();
+  const codes = new Map<string, McpAuthorizationCode>();
+  const tokens = new Map<string, McpAccessToken>();
+  const byRefreshToken = new Map<string, string>();
+
+  const mcp = createMcpModule({
+    config: mcpConfig,
+    storeClient: async (client) => void clients.set(client.clientId, client),
+    findClient: async (clientId) => clients.get(clientId) ?? null,
+    storeAuthorizationCode: async (code) => void codes.set(code.code, code),
+    consumeAuthorizationCode: async (code) => {
+      const found = codes.get(code) ?? null;
+      if (found) codes.delete(code); // a code must be single use
+      return found;
+    },
+    storeToken: async (token) => {
+      tokens.set(token.accessToken, token);
+      if (token.refreshToken) byRefreshToken.set(token.refreshToken, token.accessToken);
+    },
+    findTokenByRefreshToken: async (refreshToken) => {
+      const accessToken = byRefreshToken.get(refreshToken);
+      return accessToken ? (tokens.get(accessToken) ?? null) : null;
+    },
+    revokeToken: async (accessToken) => void tokens.delete(accessToken),
+    resolveUserId: async () => null,
+  });
+  ```
+
+  `createMcpStores(db)` returns the database implementation as an object, so you can spread it and override one function. Maps are fine for tests; they lose everything on restart and are not shared between instances.
+</Accordion>
 
 ### MCP config options
 
@@ -116,11 +122,12 @@ These go in the `config` object passed to `createMcpModule`.
 <ParamField path="allowedResources" type="string[]">Resource URIs (RFC 8707) that a client may request. A `resource` outside this list is rejected when the list is set.</ParamField>
 <ParamField path="loginPage" type="string">Where users are sent when `resolveUserId` returns `null`.</ParamField>
 <ParamField path="consentPage" type="string">When set, the authorize endpoint redirects here instead of issuing a code, and your page calls `mcp.approveConsent(...)` after the user allows.</ParamField>
-<ParamField path="preRegisteredClients" type="Array">Clients stored at startup through `storeClient`. Each entry can set `grantTypes` to allow the non-interactive grants.</ParamField>
+<ParamField path="preRegisteredClients" type="Array">Clients stored at startup through `storeClient` (storing an existing client updates it, so this is safe on every boot). Each entry can set `grantTypes` to allow the non-interactive grants and `agentId` to bind the client to an agent.</ParamField>
+<ParamField path="registration.agentForClient" type="(client: McpClient, request: Request) => Promise<string | undefined>">Bind each dynamically registered client to an agent at registration time. Runs on the server after the request validated; the registration body cannot choose its own agent. See [Bind OAuth clients to agents](#bind-oauth-clients-to-agents).</ParamField>
 <ParamField path="clientCredentials" type="object">Opt in to the `client_credentials` grant. See [MCP server grants](/mcp-grants).</ParamField>
 <ParamField path="tokenExchange" type="object">Opt in to RFC 8693 token exchange. Requires `jtiDenylist`. See [MCP server grants](/mcp-grants).</ParamField>
 <ParamField path="delegationStore" type="McpDelegationStore">Opt in to a live check of the token `act` chain. See [Live delegation check](#security-hardening).</ParamField>
-<ParamField path="resolveActorAgentId" type="(actor: { sub: string; clientId?: string }) => string | undefined | Promise<string | undefined>">Map each actor in the `act` chain (and the token `sub`) to an agent id before the live delegation lookup. Unmapped actors reject the token unless `allowUnmappedActors` is true. See [Live delegation check](#security-hardening).</ParamField>
+<ParamField path="resolveActorAgentId" type="(actor: { sub: string; clientId?: string }) => string | undefined | Promise<string | undefined>">Map each actor in the `act` chain (and the token `sub`) to an agent id before the live delegation lookup. With `auth`, return `undefined` to fall through to the built-in mapping (the actor's bound agent, then its own id). Without `auth`, unmapped actors reject the token unless `allowUnmappedActors` is true. See [Live delegation check](#security-hardening).</ParamField>
 <ParamField path="jwtBearer" type="object">Opt in to RFC 7523 redemption of ID-JAG assertions from trusted issuers. See [MCP server grants](/mcp-grants).</ParamField>
 <ParamField path="assertionStorage" type="SecondaryStorage">Replay cache for `private_key_jwt` and jwt-bearer assertions. In-process by default. Use a shared store with more than one instance.</ParamField>
 <ParamField path="lenientClients" type="object">Per-option compatibility relaxations for real-world MCP clients, all off by default. See [MCP client compatibility](/mcp-client-compat).</ParamField>
@@ -216,7 +223,7 @@ Access tokens are JWTs signed with HS256 (`typ: at+jwt`). They carry:
 - `jti`: unique token ID
 - `exp` and `iat`: expiry and issued-at timestamps
 
-A refresh token is issued only when the granted scope includes `offline_access`. Each refresh call revokes the old access token and issues a new access and refresh token pair. The module does not detect refresh token reuse: that depends on what your `findTokenByRefreshToken` and `revokeToken` callbacks do.
+A refresh token is issued only when the granted scope includes `offline_access`. Each refresh call rotates the refresh token inside its family, and replaying a rotated token revokes the whole family (see Security hardening). Tokens issued to a client that is [bound to an agent](#bind-oauth-clients-to-agents) also carry `agent_id`.
 
 ## Token validation
 
@@ -248,7 +255,7 @@ Validation checks the JWT signature (HS256), issuer, expiry, that an audience cl
 
 ### Protecting a route
 
-`mcp.requireScopes(request, scopes)` extracts the bearer token, validates it, and either returns the session or a ready-made `Response`: 401 with a `WWW-Authenticate` header when the token is missing or invalid, and 403 with a step-up challenge when it lacks a required scope.
+`mcp.requireScopes(request, scopes)` extracts the bearer token, validates it, and returns either the session or a typed denial that includes a ready-made `Response`.
 
 ```typescript
 // Hono example. See the adapters doc for other frameworks.
@@ -269,11 +276,78 @@ app.use('/mcp/*', async (c, next) => {
 });
 ```
 
+A denial says why, in a form code can branch on and an audit log can record:
+
+```typescript
+const check = await mcp.requireScopes(request, ['mcp:write']);
+if (!check.authorized) {
+  check.status;          // 401, 403 or 500 (server misconfiguration)
+  check.error.code;      // UNAUTHORIZED, INVALID_TOKEN, TOKEN_EXPIRED, INVALID_AUDIENCE,
+                         // INVALID_ISSUER, DELEGATION_REVOKED, INSUFFICIENT_SCOPE, DPOP_REQUIRED
+  check.error.message;   // the human readable reason
+  check.rejected;        // { clientId, subject, agentId?, tokenId } or undefined
+  return check.response; // 401/403 with the WWW-Authenticate challenge
+}
+```
+
+`rejected` is set only for a token whose signature verified (expired, revoked, wrong audience, missing scope, dead delegation chain), so it is safe to attribute a denial to that client and agent in an audit log. A token that cannot be verified (forged, malformed, wrong key) has no `rejected`, because nothing in it can be trusted.
+
+The challenges follow RFC 6750, RFC 9728 and the MCP authorization spec:
+
+| Case | Status | `WWW-Authenticate` |
+|---|---|---|
+| No token | 401 | `Bearer resource_metadata="...", scope="..."` (no `error`, per RFC 6750 section 3.1) |
+| Bad, expired, revoked or wrong audience token | 401 | `Bearer error="invalid_token", error_description="...", resource_metadata="...", scope="..."` |
+| Missing scope | 403 | `Bearer error="insufficient_scope", scope="...", resource_metadata="..."` |
+
+The 401 body is a JSON-RPC error with code `-32001` and the reason in `error.data.code`. `mcp.requireMcpAuth` returns the same challenges (with `scope` on its 401s when you pass `requiredScopes`) and adds DPoP.
+
 `mcp.middleware(request)` is the lighter variant: it returns the same `Result` as `validateToken` after reading the `Authorization` header. The adapters do not add a `withMcpAuth` helper to the app.
 
 ### Unauthorized responses
 
 `buildUnauthorizedResponse` and `createMcpResponseHelpers` are exported from `@glinr/theauth/mcp`, but they take an internal context object that the module does not expose. For ordinary handlers, use `mcp.requireScopes` (which builds the 401 and 403 responses for you) or `mcp.buildStepUpResponse({ currentScopes, requiredScopes })`.
+
+## Bind OAuth clients to agents
+
+An OAuth client and an agent are separate identities: the client is the app that holds the token, the agent is the actor whose permissions, delegations and audit trail apply. Binding them makes the link a first class fact in the database (`theauth_oauth_clients.agent_id`, cleared automatically when the agent row is deleted) instead of a mapper you write.
+
+```typescript
+await mcp.clients.bindAgent(clientId, agent.id); // replaces an earlier binding
+await mcp.clients.agentFor(clientId);            // agent id, or null
+await mcp.clients.unbindAgent(clientId);
+```
+
+What a binding does:
+
+- Tokens issued to the client carry `agent_id` (and `session.agent.id` on validation) without you setting `agentClaims`. An explicit agent claim or `getAgenticContext` result still wins; the binding fills the gap.
+- The live delegation check resolves the client to the agent in `act` chains (see [Live delegation check](#security-hardening)).
+- `bindAgent` rejects an unknown agent or client, and needs the agent tables (`agents: { enabled: true }`).
+
+Bind at registration time with the server side `registration.agentForClient` option, or per pre-registered client with `agentId`:
+
+```typescript
+const mcp = createMcpModule({
+  auth: theauth,
+  config: {
+    ...mcpConfig,
+    registration: {
+      // Runs after the registration body validated. The body cannot name an agent.
+      agentForClient: async (client, request) =>
+        (await lookupAgentFor(request.headers.get('authorization'))) ?? undefined,
+    },
+    preRegisteredClients: [
+      { clientId: 'report-bot-app', redirectUris: [REDIRECT], agentId: reportBot.id },
+    ],
+  },
+  resolveUserId,
+});
+// pass the request so the callback can read it: mcp.registerClient(body, request)
+```
+
+<Warning>
+  A binding gives the client the agent's authority. Only bind clients you trust to the agents they act as, and never derive the agent from the registration request body. Open dynamic registration plus an `agentForClient` that always returns an agent would hand that agent to every client.
+</Warning>
 
 ## Registering MCP servers
 
@@ -349,7 +423,7 @@ const result = await withMcpAuth(ctx, request, {
 
 **Hashed storage.** Client secrets are stored as `sha256:<hex>`, and `McpAccessToken.accessToken` and `refreshToken` hold SHA-256 digests, not raw values. Secrets are compared in constant time. Rows written by older versions still work: a legacy plaintext secret is accepted once and upgraded when you implement the optional `updateClientSecret(clientId, hash)` callback, and a raw refresh token is found by a second `findTokenByRefreshToken` call.
 
-**Refresh rotation with reuse detection (RFC 9700).** Each refresh token belongs to a family. Replaying a rotated token revokes the whole family. By default families live in process memory; for more than one instance pass the database-backed store:
+**Refresh rotation with reuse detection (RFC 9700).** Each refresh token belongs to a family. Replaying a rotated token revokes the whole family. With `auth`, families live in the database and are shared by every instance. Without it they live in process memory by default; for more than one instance pass the database-backed store:
 
 ```ts
 import { createMcpModule } from '@glinr/theauth/mcp';
@@ -366,7 +440,7 @@ On refresh, a `scope` that was not part of the original grant returns `invalid_s
 
 **Revocation and the jti denylist.** `mcp.revoke(request)` implements RFC 7009 (`POST /mcp/revoke`, client authenticated, own tokens only). Access tokens are JWTs, so revoking one only takes effect immediately if you set `config.jtiDenylist` (`createInMemoryJtiDenylist()` for a single process, or your own shared store). Without it a revoked access token stays valid until `exp`.
 
-**Live delegation check (opt in).** A token minted by token exchange carries its delegation chain in the `act` claim, and by default `validateAccessToken` trusts that claim until `exp`. Set `config.delegationStore` to re-check the chain against live records on every validation. The path is the token `sub`, then each actor from the innermost `act` out to the current actor, and every consecutive pair must have an active, unexpired link. A missing, revoked or expired link rejects the token with `INVALID_TOKEN`. Tokens without an `act` claim skip the check, and without a store nothing changes. `createDbDelegationStore` matches ids to the agent ids used in `theauth.delegate()`. Token exchange sets `act.sub` to the actor's user id or client id, which usually is not an agent id, so map them with `resolveActorAgentId` (below).
+**Live delegation check (opt in).** A token minted by token exchange carries its delegation chain in the `act` claim, and by default `validateAccessToken` trusts that claim until `exp`. Set `config.delegationStore` to re-check the chain against live records on every validation. The path is the token `sub`, then each actor from the innermost `act` out to the current actor, and every consecutive pair must have an active, unexpired link. A missing, revoked or expired link rejects the token (`INVALID_TOKEN` from `validateToken`, `DELEGATION_REVOKED` from `requireScopes`). Tokens without an `act` claim skip the check, and without a store nothing changes. `createDbDelegationStore` matches ids to the agent ids used in `theauth.delegate()`. Token exchange sets `act.sub` to the actor's user id or client id, which usually is not an agent id, so they are mapped to agent ids first (below).
 
 ```typescript
 import { createDbDelegationStore } from "@glinr/theauth/mcp";
@@ -379,26 +453,33 @@ const mcpConfig = {
 
 `createDbDelegationStore` reads the delegation chain table, so the ids it looks up must be the agent ids used in `theauth.delegate()`. See [Delegation](/delegation) for revoking a chain.
 
-**Mapping actors to agents.** Set `resolveActorAgentId` to translate each actor before the lookup. It receives `{ sub, clientId? }` for the token subject and for every hop, and returns the agent id (or a promise of one). It works with any `delegationStore`, built in or your own.
+**Mapping actors to agents.** With `auth`, the module maps each actor itself: an actor with a `clientId` resolves to the agent that client is [bound to](#bind-oauth-clients-to-agents), and anything else resolves to its own `sub` as an agent id. So a chain made of bound clients needs no mapper at all.
+
+```typescript
+const mcp = createMcpModule({
+  auth: theauth,
+  config: { ...mcpConfig, delegationStore: createDbDelegationStore(theauth.db) },
+  resolveUserId,
+});
+await mcp.clients.bindAgent(clientId, reportBot.id); // the client in the act chain now resolves to reportBot
+```
+
+The token `sub` is usually a user id, and `theauth.delegate()` links are agent to agent, so the user at the root of a chain has to be mapped to an agent too. Set `resolveActorAgentId` for that. It receives `{ sub, clientId? }` for the token subject and every hop. With `auth`, your resolver runs first and returns `undefined` for what it does not handle, which falls through to the built-in mapping:
 
 ```typescript
 const mcpConfig = {
   // ...
   delegationStore: createDbDelegationStore(db),
-  resolveActorAgentId: async ({ sub, clientId }) => {
-    // Your own mapping: client id or user id to agent id
-    return clientId ? agentIdByClient.get(clientId) : agentIdByUser.get(sub);
-  },
+  // Alice's token subject maps to her root agent. Bound OAuth clients resolve on their own.
+  resolveActorAgentId: ({ sub }) => (sub === 'user-alice' ? assistant.id : undefined),
 };
 ```
 
-The check fails closed. If the mapper returns `undefined` (or an empty string) for any actor, the token is rejected with `INVALID_TOKEN` and the message `Delegation chain is no longer valid (unmapped actor)`. If the mapper throws or rejects, the token is rejected the same way with `(mapper failed)`, and `allowUnmappedActors` does not change that. Set `allowUnmappedActors: true` only if you want unmapped actors to keep their raw id and be looked up as they are. Without `resolveActorAgentId` nothing changes.
+Without `auth` there is no built-in mapping, and `resolveActorAgentId` works as before, with any `delegationStore`, built in or your own.
 
-The mapper also runs on the token `sub` (usually a user id), so it must return an agent id for it too, because `theauth.delegate()` links are agent to agent. Token exchange validates the subject token with the same check, so a mapper failure also blocks an exchange.
+The check fails closed. If no mapping produces an agent id for an actor (without `auth`: the resolver returned `undefined` or an empty string), the token is rejected with the message `Delegation chain is no longer valid (unmapped actor)`. A client with no binding falls back to its own id, finds no link and is rejected as `missing`. If the resolver throws or rejects, the token is rejected the same way with `(mapper failed)`, and `allowUnmappedActors` does not change that. Set `allowUnmappedActors: true` only if you want unmapped actors to keep their raw id and be looked up as they are.
 
-<Note>
-  TheAuth has no built-in link from an OAuth client or a user to an agent. The agents table has no `client_id` column and `theauth_oauth_clients` has no agent reference, and a user can own many agents, so there is no safe default mapper. Keep that mapping in your own data (for example agent `metadata` or a table of your own) and supply it through `resolveActorAgentId`.
-</Note>
+The mapping also runs on the token `sub`, so it must return an agent id for it too. Token exchange validates the subject token with the same check, so a mapping failure also blocks an exchange.
 
 **Asymmetric signing (opt in).** HS256 with `signingSecret` stays the default. To publish keys and sign with ES256 or EdDSA:
 

@@ -9,6 +9,19 @@ import type {
 } from "./grant-types.js";
 import type { McpProtectedHandler, RequireMcpAuthOptions } from "./require-mcp-auth.js";
 import type { DnsResolver } from "./safe-fetch.js";
+import type {
+	McpClientBindings,
+	McpRegistrationConfig,
+	RequireScopesResult,
+} from "./types-auth.js";
+
+export type {
+	McpAuthErrorCode,
+	McpClientBindings,
+	McpRegistrationConfig,
+	McpRejectedToken,
+	RequireScopesResult,
+} from "./types-auth.js";
 
 export interface TheAuthError {
 	code: string;
@@ -89,7 +102,11 @@ export interface McpConfig {
 		scope?: string;
 		/** Grant types this client may use. Default: authorization_code and refresh_token. */
 		grantTypes?: string[];
+		/** Agent this client acts as. Tokens issued to the client carry it as `agent_id`. */
+		agentId?: string;
 	}>;
+	/** Dynamic client registration options. */
+	registration?: McpRegistrationConfig;
 	getAdditionalClaims?: (userId: string, scopes: string[]) => Promise<Record<string, unknown>>;
 	/** Emit IETF agentic JWT claims on issued access tokens. */
 	emitAgenticJwtClaims?: boolean;
@@ -211,6 +228,8 @@ export interface McpClient {
 	clientType: "public" | "confidential";
 	disabled: boolean;
 	userId: string | null;
+	/** The agent this client acts as, or null/absent when unbound. Tokens issued to the client carry it as `agent_id` and the built-in delegation mapping resolves the client to it. */
+	agentId?: string | null;
 	/** Set to "cimd" for clients resolved from a Client ID Metadata Document. */
 	source?: "cimd";
 	jwks?: { keys: JWK[] };
@@ -397,6 +416,8 @@ export interface McpAuthContext {
 	/** Optional: persist a hashed client secret in place of a legacy plaintext one after a successful check. Without it, legacy rows keep working but are not upgraded. */
 	updateClientSecret?: (clientId: string, hashedSecret: string) => Promise<void>;
 	revokeTokenFamily?: (familyId: string) => Promise<void>;
+	/** Optional: bind a client to an agent (or clear the binding with `null`). Required for `clients.bindAgent` and `clients.unbindAgent`; the database stores provide it. */
+	setClientAgent?: (clientId: string, agentId: string | null) => Promise<void>;
 	tokenFamilies?: McpTokenFamilyStore;
 	resolveUserId: (request: Request) => Promise<string | null>;
 }
@@ -417,7 +438,10 @@ export interface McpAuthModule {
 	getProtectedResourceMetadata: () => McpProtectedResourceMetadata;
 	registerClient: (
 		body: McpClientRegistrationRequest,
+		request?: Request,
 	) => Promise<Result<McpClientRegistrationResponse>>;
+	/** Bind OAuth clients to agents. A bound client's tokens carry `agent_id` and the delegation check resolves the client to that agent. */
+	clients: McpClientBindings;
 	authorize: (request: Request) => Promise<Result<McpAuthorizeResult>>;
 	/** Issues an authorization code after the user approves consent. */
 	approveConsent: (params: ApproveConsentParams) => Promise<Result<{ redirectUri: string }>>;
@@ -436,12 +460,7 @@ export interface McpAuthModule {
 		handler: McpProtectedHandler,
 		options?: RequireMcpAuthOptions,
 	) => (request: Request) => Promise<Response>;
-	requireScopes: (
-		request: Request,
-		requiredScopes: string[],
-	) => Promise<
-		{ authorized: true; session: McpSession } | { authorized: false; response: Response }
-	>;
+	requireScopes: (request: Request, requiredScopes: string[]) => Promise<RequireScopesResult>;
 }
 
 // Zod Schemas

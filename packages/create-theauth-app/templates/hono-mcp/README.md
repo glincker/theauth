@@ -7,7 +7,7 @@ A Hono server scaffolded with [theAuth](https://theauth.dev). Runs as an MCP OAu
 - **Hono 4** on Node.js
 - **theAuth** for agent identity, session management, and the MCP OAuth 2.1 stack
 - **__DB_DRIVER__** storing the auth schema (users, agents, audit) in a database file or server, so data survives restarts
-- `GET /tools/list` and `POST /tools/call/:name` protected with `withMcpAuth`
+- `GET /tools/list` and `POST /tools/call/:name` protected with `mcp.requireScopes` (401 and 403 carry the `WWW-Authenticate` challenge MCP clients expect)
 - `.well-known` discovery documents for MCP clients, served under `/api` (check with `pnpm run doctor:live`)
 
 ## Getting started
@@ -24,7 +24,17 @@ theAuth creates the auth tables on first boot. `pnpm run doctor` checks the setu
 
 On boot the server creates the owner user with `theauth.user.create` and prints its id. Agents reference their owner by foreign key, so use that id as `ownerId` below.
 
-**MCP stores are in memory.** Registered clients, authorization codes and tokens are held in maps in `src/server.ts` and reset on restart. Database backed MCP stores are not available yet, so this template does not use them.
+**MCP stores are in the database.** `createMcpModule({ auth, ... })` keeps registered clients, authorization codes, tokens and refresh token families in the same database as the auth data, so they survive restarts and are shared by every instance.
+
+**Bind an OAuth client to an agent.** After an MCP client registers, bind it to one of your agents and every token issued to it carries that agent's id (`agent_id`):
+
+```bash
+curl -X PUT http://localhost:3001/admin/mcp-clients/CLIENT_ID/agent \
+  -H "Authorization: Bearer $ADMIN_API_KEY" -H "Content-Type: application/json" \
+  -d '{ "agentId": "AGENT_ID" }'
+```
+
+Deleting the agent clears the binding. `DELETE` on the same path unbinds it.
 
 The server listens on `http://localhost:3001`. Visit the root URL to see the MCP discovery links and the list of tools.
 

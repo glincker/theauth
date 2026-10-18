@@ -1,10 +1,10 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, lte } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lt, lte } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
-import { isDecisionCode } from "../permission/codes.js";
-import type { AuditEntry, AuditExportOptions, AuditFilter } from "../types.js";
+import type { AuditEntry, AuditExportOptions, AuditFilter, AuditPage } from "../types.js";
 import { CHECKPOINT_ACTION, getAuditChainConfig, insertAuditRow } from "./chain.js";
+import { pageAuditEntries, queryAuditEntries } from "./query.js";
 import type { AuditChainExportOptions, ReplayOptions } from "./replay.js";
 import { exportAudit, replayAgent } from "./replay.js";
 import type { VerifyAuditChainOptions } from "./verify.js";
@@ -20,53 +20,14 @@ interface AuditModuleConfig {
 export function createAuditModule(config: AuditModuleConfig) {
 	const { db, hmacKey } = config;
 
+	/** Entries matching the filter. Newest first unless `order: "asc"`. For paging use `page`. */
 	async function query(filter: AuditFilter): Promise<AuditEntry[]> {
-		const conditions = [];
+		return queryAuditEntries(db, filter);
+	}
 
-		if (filter.agentId) conditions.push(eq(auditLogs.agentId, filter.agentId));
-		if (filter.userId) conditions.push(eq(auditLogs.userId, filter.userId));
-		if (filter.since) conditions.push(gte(auditLogs.timestamp, filter.since));
-		if (filter.until) conditions.push(lte(auditLogs.timestamp, filter.until));
-		if (filter.result) conditions.push(eq(auditLogs.result, filter.result));
-		if (filter.codes && filter.codes.length > 0) {
-			conditions.push(inArray(auditLogs.decisionCode, filter.codes));
-		}
-
-		// Newest first. recorded_at_ms is the write order (timestamp has 1 second resolution);
-		// chain_seq and id make ties fully deterministic.
-		let q = db
-			.select()
-			.from(auditLogs)
-			.orderBy(
-				desc(auditLogs.recordedAtMs),
-				desc(auditLogs.timestamp),
-				desc(auditLogs.chainSeq),
-				desc(auditLogs.id),
-			)
-			.$dynamic();
-
-		if (conditions.length > 0) {
-			q = q.where(and(...conditions));
-		}
-
-		if (filter.limit) {
-			q = q.limit(filter.limit);
-		}
-		if (filter.offset) {
-			q = q.offset(filter.offset);
-		}
-
-		const rows = await q;
-
-		return rows
-			.filter((row) => {
-				// Filter by actions if specified
-				if (filter.actions && filter.actions.length > 0) {
-					return filter.actions.includes(row.action);
-				}
-				return true;
-			})
-			.map(toAuditEntry);
+	/** One page of entries plus `nextCursor` (null on the last page). Pass it back as `cursor` with the same filter and order. */
+	async function page(filter: AuditFilter): Promise<AuditPage> {
+		return pageAuditEntries(db, filter);
 	}
 
 	async function exportLogs(options: AuditExportOptions): Promise<string> {
@@ -167,6 +128,7 @@ export function createAuditModule(config: AuditModuleConfig) {
 					reason: "retention",
 					durationMs: 0,
 					timestamp: new Date(),
+					event: CHECKPOINT_ACTION,
 				});
 				await db
 					.delete(auditLogs)
@@ -201,28 +163,12 @@ export function createAuditModule(config: AuditModuleConfig) {
 
 	return {
 		query,
+		page,
 		export: exportLogs,
 		cleanup,
 		verifyAuditChain: (opts: VerifyAuditChainOptions) => verifyAuditChain(db, opts, hmacKey),
 		replayAgent: (agentId: string, opts: ReplayOptions = {}) =>
 			replayAgent(db, agentId, opts, hmacKey),
 		exportAudit: (opts: AuditChainExportOptions = {}) => exportAudit(db, opts, hmacKey),
-	};
-}
-
-function toAuditEntry(row: typeof auditLogs.$inferSelect): AuditEntry {
-	return {
-		id: row.id,
-		agentId: row.agentId,
-		userId: row.userId,
-		action: row.action,
-		resource: row.resource,
-		parameters: (row.parameters as Record<string, unknown>) ?? {},
-		result: row.result as AuditEntry["result"],
-		reason: row.reason ?? undefined,
-		code: isDecisionCode(row.decisionCode) ? row.decisionCode : undefined,
-		durationMs: row.durationMs,
-		tokensCost: row.tokensCost ?? undefined,
-		timestamp: row.timestamp,
 	};
 }

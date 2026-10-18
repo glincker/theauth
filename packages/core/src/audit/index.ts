@@ -1,4 +1,10 @@
-export type { AuditEntry, AuditExportOptions, AuditFilter } from "../types.js";
+export type {
+	AuditEntry,
+	AuditEvent,
+	AuditExportOptions,
+	AuditFilter,
+	AuditPage,
+} from "../types.js";
 export { createAuditModule } from "./audit.js";
 export type { AuditChainConfig } from "./chain.js";
 export {
@@ -33,6 +39,7 @@ export type {
 	VerifyFailureReason,
 	VerifyOutcome,
 } from "./checkpoint-types.js";
+export { decodeAuditCursor, encodeAuditCursor, isInvalidAuditCursor } from "./query.js";
 export type { AuditWriteError, AuditWriteErrorHandler, RecordedEvent } from "./record.js";
 export {
 	getAuditWriteFailures,

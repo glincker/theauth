@@ -115,10 +115,17 @@ export function requireMcpAuth(
 		options.resourceMetadataUrl ?? `${ctx.config.baseUrl}/.well-known/oauth-protected-resource`;
 	const algs = dpopConfig ? getDpopAlgs(ctx).join(" ") : undefined;
 
+	// MCP authorization spec: tell the client which scopes this endpoint needs (optional `scope` on a 401).
+	const needed = options.requiredScopes?.length ? options.requiredScopes.join(" ") : undefined;
 	const bearer = (extra: Record<string, string | undefined> = {}) =>
-		challenge("Bearer", { ...extra, resource_metadata: metadataUrl });
+		challenge("Bearer", { ...extra, resource_metadata: metadataUrl, scope: extra.scope ?? needed });
 	const dpop = (extra: Record<string, string | undefined> = {}) =>
-		challenge("DPoP", { ...extra, algs, resource_metadata: metadataUrl });
+		challenge("DPoP", {
+			...extra,
+			algs,
+			resource_metadata: metadataUrl,
+			scope: extra.scope ?? needed,
+		});
 	/** Every scheme this resource accepts, so the client can pick one. */
 	const offered = (extra: Record<string, string | undefined> = {}) =>
 		dpopConfig && requireDpop

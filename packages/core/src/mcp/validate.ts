@@ -4,6 +4,7 @@ import type {
 	McpActorClaim,
 	McpAuthContext,
 	McpDelegationHop,
+	McpRejectedToken,
 	McpSession,
 	McpTokenPayload,
 	Result,
@@ -11,6 +12,28 @@ import type {
 import { extractBearerToken, timingSafeEqual } from "./utils.js";
 
 const MAX_DELEGATION_DEPTH = 10;
+
+/** Identify a token whose signature verified, for attributing a refusal. Returns undefined when the claims do not name a subject, client and token id. */
+function rejectedFrom(claims: unknown): McpRejectedToken | undefined {
+	if (typeof claims !== "object" || claims === null) return undefined;
+	const c = claims as Record<string, unknown>;
+	if (
+		typeof c.sub !== "string" ||
+		typeof c.client_id !== "string" ||
+		typeof c.jti !== "string" ||
+		!c.sub ||
+		!c.client_id ||
+		!c.jti
+	) {
+		return undefined;
+	}
+	return {
+		clientId: c.client_id,
+		subject: c.sub,
+		tokenId: c.jti,
+		...(typeof c.agent_id === "string" && c.agent_id ? { agentId: c.agent_id } : {}),
+	};
+}
 
 /** Flatten nested RFC 8693 `act` claims into a list, current actor first. */
 function readDelegationChain(act: McpActorClaim | undefined): McpDelegationHop[] {
@@ -72,17 +95,22 @@ export async function validateAccessToken(
 
 		// Map jose errors to meaningful error codes
 		let code = "INVALID_TOKEN";
-		if (message.includes("expired")) {
+		const joseCode = (err as { code?: unknown }).code;
+		const claim = (err as { claim?: unknown }).claim;
+		if (joseCode === "ERR_JWT_EXPIRED" || message.includes("expired")) {
 			code = "TOKEN_EXPIRED";
-		} else if (message.includes("audience") || message.includes('"aud"')) {
+		} else if (claim === "aud" || message.includes("audience") || message.includes('"aud"')) {
 			code = "INVALID_AUDIENCE";
-		} else if (message.includes("issuer") || message.includes('"iss"')) {
+		} else if (claim === "iss" || message.includes("issuer") || message.includes('"iss"')) {
 			code = "INVALID_ISSUER";
 		}
 
+		// jose attaches the claims to claim validation errors (expired, audience, issuer), and only
+		// after the signature verified, so they are safe to attribute. Other failures carry none.
+		const rejected = rejectedFrom((err as { payload?: unknown }).payload);
 		return {
 			success: false,
-			error: { code, message },
+			error: { code, message, ...(rejected ? { details: { rejected } } : {}) },
 		};
 	}
 
@@ -96,11 +124,17 @@ export async function validateAccessToken(
 		};
 	}
 
+	const rejected = rejectedFrom(payload);
+
 	// Revocation (opt-in jti denylist)
 	if (ctx.config.jtiDenylist && (await ctx.config.jtiDenylist.isRevoked(payload.jti))) {
 		return {
 			success: false,
-			error: { code: "INVALID_TOKEN", message: "Token has been revoked" },
+			error: {
+				code: "INVALID_TOKEN",
+				message: "Token has been revoked",
+				details: { revoked: true, ...(rejected ? { rejected } : {}) },
+			},
 		};
 	}
 
@@ -126,6 +160,10 @@ export async function validateAccessToken(
 				error: {
 					code: "INVALID_TOKEN",
 					message: `Delegation chain is no longer valid (${detail})`,
+					details: {
+						delegation: { from: failure.from, to: failure.to, reason: failure.reason },
+						...(rejected ? { rejected } : {}),
+					},
 				},
 			};
 		}
@@ -139,6 +177,7 @@ export async function validateAccessToken(
 			error: {
 				code: "INVALID_AUDIENCE",
 				message: "Token has no audience claim. Tokens must be bound to a resource.",
+				...(rejected ? { details: { rejected } } : {}),
 			},
 		};
 	}
@@ -153,7 +192,7 @@ export async function validateAccessToken(
 				error: {
 					code: "INVALID_TOKEN",
 					message: "Token is bound to a DPoP key and must be presented with a DPoP proof",
-					details: { dpopBound: true },
+					details: { dpopBound: true, dpopMissing: true, ...(rejected ? { rejected } : {}) },
 				},
 			};
 		}
@@ -163,7 +202,7 @@ export async function validateAccessToken(
 				error: {
 					code: "INVALID_TOKEN",
 					message: "DPoP proof key does not match the key the token is bound to",
-					details: { dpopBound: true },
+					details: { dpopBound: true, ...(rejected ? { rejected } : {}) },
 				},
 			};
 		}
@@ -173,6 +212,7 @@ export async function validateAccessToken(
 			error: {
 				code: "INVALID_TOKEN",
 				message: "Token is not DPoP-bound, so it cannot be used with the DPoP scheme",
+				...(rejected ? { details: { rejected } } : {}),
 			},
 		};
 	}
@@ -190,6 +230,7 @@ export async function validateAccessToken(
 					details: {
 						required: requiredScopes,
 						present: tokenScopes,
+						...(rejected ? { rejected } : {}),
 					},
 				},
 			};
@@ -271,25 +312,54 @@ export async function withMcpAuth(
 	return validateAccessToken(ctx, token, options);
 }
 
+/** Quote an RFC 7235 auth-param value. */
+function quoteParam(value: string): string {
+	return `"${value
+		.replace(/\\/g, "\\\\")
+		.replace(/"/g, '\\"')
+		.replace(/[\r\n]+/g, " ")}"`;
+}
+
+/** RFC 6750 `error` value for each failure code that concerns a presented token. */
+const OAUTH_ERROR_BY_CODE: Partial<Record<string, string>> = {
+	INVALID_TOKEN: "invalid_token",
+	TOKEN_EXPIRED: "invalid_token",
+	INVALID_AUDIENCE: "invalid_token",
+	INVALID_ISSUER: "invalid_token",
+	DELEGATION_REVOKED: "invalid_token",
+	DPOP_REQUIRED: "invalid_token",
+};
+
 /**
- * Build a 401 Unauthorized response in the JSON-RPC format expected by MCP clients.
- * Includes the WWW-Authenticate header pointing to the protected resource metadata document, as required by the MCP spec.
+ * Build a 401 Unauthorized response for MCP clients.
+ * `WWW-Authenticate` follows RFC 6750 and the MCP authorization spec: `Bearer [error="invalid_token", error_description="..."], resource_metadata="<RFC 9728 URL>"[, scope="..."]`. A request with no credentials carries no `error` (RFC 6750 section 3.1). The body is a JSON-RPC error (code -32001) whose `data.code` is the machine readable reason.
  */
 export function buildUnauthorizedResponse(
 	ctx: McpAuthContext,
 	error: { code: string; message: string },
+	options: { scope?: string[]; resourceMetadataUrl?: string } = {},
 ): Response {
-	const resourceMetadataUrl = `${ctx.config.baseUrl}/.well-known/oauth-protected-resource`;
+	const resourceMetadataUrl =
+		options.resourceMetadataUrl ?? `${ctx.config.baseUrl}/.well-known/oauth-protected-resource`;
+	const oauthError = OAUTH_ERROR_BY_CODE[error.code];
 
-	const wwwAuthenticate = `Bearer resource_metadata="${resourceMetadataUrl}"`;
+	const params: string[] = [];
+	if (oauthError) {
+		params.push(`error="${oauthError}"`, `error_description=${quoteParam(error.message)}`);
+	}
+	params.push(`resource_metadata=${quoteParam(resourceMetadataUrl)}`);
+	if (options.scope && options.scope.length > 0) {
+		params.push(`scope=${quoteParam(options.scope.join(" "))}`);
+	}
+	const wwwAuthenticate = `Bearer ${params.join(", ")}`;
 
 	return new Response(
 		JSON.stringify({
 			jsonrpc: "2.0",
 			error: {
-				code: -32000,
+				code: -32001,
 				message: error.message,
-				"www-authenticate": wwwAuthenticate,
+				data: { code: error.code },
 			},
 			id: null,
 		}),
@@ -297,6 +367,7 @@ export function buildUnauthorizedResponse(
 			status: 401,
 			headers: {
 				"Content-Type": "application/json",
+				"Cache-Control": "no-store",
 				"WWW-Authenticate": wwwAuthenticate,
 				"Access-Control-Expose-Headers": "WWW-Authenticate",
 			},

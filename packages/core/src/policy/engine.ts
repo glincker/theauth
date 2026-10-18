@@ -426,6 +426,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			agentId: input.subject.agentId,
 			userId: input.subject.userId,
 			action: input.action,
+			event: "policy.evaluate",
 			resource: input.resource,
 			parameters: withHookDetail(
 				consumed

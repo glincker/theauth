@@ -13,6 +13,8 @@ export interface DecisionRow {
 	timestamp: Date;
 	/** Delegation chain ids recorded on the row, when the writer set them. */
 	delegationChain?: string[] | null;
+	/** Audit event of the row (`delegation.create` rows carry the action `delegate`). */
+	event?: string | null;
 }
 
 /** Why a row was classified the way it was. */

@@ -1,3 +1,4 @@
+import { isInvalidAuditCursor } from "../../audit/query.js";
 import type { AuditExportOptions, AuditFilter } from "../../types.js";
 import { badRequest, failure, ok, scopeDenied, scopeUnavailable } from "../respond.js";
 import type { HttpRoute, RouteContext } from "../types.js";
@@ -18,6 +19,10 @@ function buildAuditFilter(url: URL): AuditFilter {
 	const result = q.get("result");
 	const limit = q.get("limit");
 	const offset = q.get("offset");
+	const order = q.get("order");
+	const cursor = q.get("cursor");
+	const events = q.get("events");
+	const resource = q.get("resource");
 	const since = parseDate(q.get("since"));
 	const until = parseDate(q.get("until"));
 
@@ -34,6 +39,10 @@ function buildAuditFilter(url: URL): AuditFilter {
 	) {
 		filter.result = result;
 	}
+	if (order === "asc" || order === "desc") filter.order = order;
+	if (cursor) filter.cursor = cursor;
+	if (events) filter.events = events.split(",").map((e) => e.trim());
+	if (resource) filter.resource = resource;
 	if (limit) {
 		const n = Number.parseInt(limit, 10);
 		if (!Number.isNaN(n) && n > 0) filter.limit = n;
@@ -49,9 +58,14 @@ async function queryAudit(ctx: RouteContext): Promise<Response> {
 	if (!ctx.scope) return scopeUnavailable();
 	const scoped = ctx.scope.scopeAuditFilter(buildAuditFilter(ctx.url));
 	if (!scoped.ok) return scopeDenied(scoped.denial);
+	// Without `paged` or `cursor` the body stays a bare array (newest first). With either, it is
+	// `{ entries, nextCursor }` and `nextCursor` is passed back as `cursor` for the next page.
+	const paged = ctx.url.searchParams.get("paged") === "true" || Boolean(scoped.value.cursor);
 	try {
+		if (paged) return ok(await ctx.auth.audit.page(scoped.value));
 		return ok(await ctx.auth.audit.query(scoped.value));
 	} catch (err) {
+		if (isInvalidAuditCursor(err)) return badRequest("cursor is not a valid audit cursor");
 		return failure(err, "Failed to query audit logs");
 	}
 }

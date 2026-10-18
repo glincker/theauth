@@ -1,3 +1,4 @@
+import type { Database } from "../db/database.js";
 import { handleAuthorize } from "./authorize.js";
 import { approveConsent } from "./consent.js";
 import { getJwks } from "./keys.js";
@@ -8,12 +9,16 @@ import { requireMcpAuth } from "./require-mcp-auth.js";
 import { requireScopes } from "./require-scopes.js";
 import { handleRevocation } from "./revocation.js";
 import { buildStepUpResponse } from "./step-up.js";
+import type { McpStores } from "./stores-db.js";
+import { createMcpStores } from "./stores-db.js";
 import { handleTokenExchange } from "./token.js";
 import type {
 	ApproveConsentParams,
+	McpActorAgentResolver,
 	McpAuthContext,
 	McpAuthModule,
 	McpClient,
+	McpClientBindings,
 	McpClientRegistrationRequest,
 	McpConfig,
 	Result,
@@ -21,7 +26,33 @@ import type {
 import { hashClientSecret } from "./utils.js";
 import { buildUnauthorizedResponse, validateAccessToken, withMcpAuth } from "./validate.js";
 
-// Default Configuration
+/** The store functions the authorization server cannot run without. */
+type McpRequiredStores = Pick<
+	McpStores,
+	| "storeClient"
+	| "findClient"
+	| "storeAuthorizationCode"
+	| "consumeAuthorizationCode"
+	| "storeToken"
+	| "findTokenByRefreshToken"
+	| "revokeToken"
+>;
+
+/** Anything with the TheAuth database, which is what `createTheAuth` returns. */
+export interface McpModuleAuth {
+	db: Database;
+}
+
+/**
+ * Parameters for {@link createMcpModule}. Pass `auth` and the stores default to the database backed ones ({@link createMcpStores}); any store you also pass wins. Without `auth` you supply the seven required store functions yourself (in memory maps in tests, or your own storage).
+ */
+export type McpModuleParams = {
+	config: McpConfig;
+	resolveUserId: McpAuthContext["resolveUserId"];
+} & (
+	| ({ auth: McpModuleAuth } & Partial<McpStores>)
+	| (McpRequiredStores & Partial<McpStores> & { auth?: McpModuleAuth })
+);
 
 const DEFAULT_ACCESS_TOKEN_TTL = 3600; // 1 hour
 const DEFAULT_REFRESH_TOKEN_TTL = 604800; // 7 days
@@ -31,53 +62,33 @@ const DEFAULT_CODE_TTL = 600; // 10 minutes
 /**
  * Create the MCP authorization server module.
  *
+ * With `auth`, clients, codes, tokens and refresh families live in the TheAuth database (shared by every instance, kept across restarts), and OAuth clients can be bound to agents (`mcp.clients.bindAgent`).
+ *
  * @example
  * ```typescript
  * const mcp = createMcpModule({
+ *   auth,
  *   config: {
  *     enabled: true,
  *     issuer: 'https://auth.example.com',
  *     baseUrl: 'https://auth.example.com/api/auth',
  *     signingSecret: process.env.MCP_SIGNING_SECRET,
  *   },
- *   storeClient: async (client) => { await db.insert(mcpClients).values(client); },
- *   findClient: async (id) => { return db.query.mcpClients.findFirst({ where: eq(mcpClients.clientId, id) }); },
- *   storeAuthorizationCode: async (code) => { await db.insert(mcpCodes).values(code); },
- *   consumeAuthorizationCode: async (code) => {
- *     const found = await db.query.mcpCodes.findFirst({ where: eq(mcpCodes.code, code) });
- *     if (found) await db.delete(mcpCodes).where(eq(mcpCodes.code, code));
- *     return found ?? null;
- *   },
- *   storeToken: async (token) => { await db.insert(mcpTokens).values(token); },
- *   findTokenByRefreshToken: async (rt) => { ... },
- *   revokeToken: async (at) => { ... },
- *   resolveUserId: async (request) => {
- *     const session = await getSession(request);
- *     return session?.userId ?? null;
- *   },
+ *   resolveUserId: async (request) => (await getSession(request))?.userId ?? null,
  * });
  *
- * // Use in a framework adapter:
+ * await mcp.clients.bindAgent(clientId, agent.id); // tokens for this client carry agent_id
+ *
  * app.get('/.well-known/oauth-authorization-server', () => mcp.getMetadata());
  * app.get('/.well-known/oauth-protected-resource', () => mcp.getProtectedResourceMetadata());
- * app.post('/mcp/register', (req) => mcp.registerClient(req.body));
+ * app.post('/mcp/register', (req) => mcp.registerClient(req.body, req));
  * app.get('/mcp/authorize', (req) => mcp.authorize(req));
  * app.post('/mcp/token', (req) => mcp.token(req));
  * ```
+ *
+ * Without `auth`, pass your own store functions (`storeClient`, `findClient`, `storeAuthorizationCode`, `consumeAuthorizationCode`, `storeToken`, `findTokenByRefreshToken`, `revokeToken`).
  */
-export function createMcpModule(params: {
-	config: McpConfig;
-	storeClient: McpAuthContext["storeClient"];
-	findClient: McpAuthContext["findClient"];
-	storeAuthorizationCode: McpAuthContext["storeAuthorizationCode"];
-	consumeAuthorizationCode: McpAuthContext["consumeAuthorizationCode"];
-	storeToken: McpAuthContext["storeToken"];
-	findTokenByRefreshToken: McpAuthContext["findTokenByRefreshToken"];
-	revokeToken: McpAuthContext["revokeToken"];
-	updateClientSecret?: McpAuthContext["updateClientSecret"];
-	revokeTokenFamily?: McpAuthContext["revokeTokenFamily"];
-	resolveUserId: McpAuthContext["resolveUserId"];
-}): McpAuthModule {
+export function createMcpModule(params: McpModuleParams): McpAuthModule {
 	const config = params.config;
 	if (!config.issuer) {
 		throw new Error("McpConfig.issuer is required");
@@ -123,21 +134,55 @@ export function createMcpModule(params: {
 		codeTtl: config.codeTtl ?? DEFAULT_CODE_TTL,
 	};
 
+	// Database backed stores when `auth` is given; anything passed explicitly wins.
+	const dbStores: McpStores | undefined = params.auth
+		? createMcpStores(params.auth.db, { refreshTokenTtl: resolvedConfig.refreshTokenTtl })
+		: undefined;
+	const pick = <K extends keyof McpStores>(key: K): McpStores[K] | undefined =>
+		(params[key] as McpStores[K] | undefined) ?? dbStores?.[key];
+	const required = <K extends keyof McpRequiredStores>(key: K): McpStores[K] => {
+		const fn = pick(key);
+		if (!fn) throw new Error(`createMcpModule needs \`auth\` or a \`${key}\` function`);
+		return fn;
+	};
+	const updateClientSecret = pick("updateClientSecret");
+	const revokeTokenFamily = pick("revokeTokenFamily");
+	const setClientAgent = pick("setClientAgent");
+
+	// Live delegation and family stores can also come from the config, which wins.
+	if (!resolvedConfig.delegationStore && params.delegationStore) {
+		resolvedConfig.delegationStore = params.delegationStore;
+	}
+	// With `auth`, actors resolve to agents through the client binding (then their own id), after
+	// the integrator's resolver gets a first look.
+	const ctxRef: { current?: McpAuthContext } = {};
+	if (params.auth) {
+		const custom = resolvedConfig.resolveActorAgentId;
+		resolvedConfig.resolveActorAgentId = async (actor) => {
+			const mapped = custom ? await custom(actor) : undefined;
+			if (mapped) return mapped;
+			return builtInActorAgent(ctxRef.current, actor);
+		};
+	}
+
 	// Build the context shared by all handlers
 	const ctx: McpAuthContext = {
 		config: resolvedConfig,
-		storeClient: params.storeClient,
-		findClient: params.findClient,
-		storeAuthorizationCode: params.storeAuthorizationCode,
-		consumeAuthorizationCode: params.consumeAuthorizationCode,
-		storeToken: params.storeToken,
-		findTokenByRefreshToken: params.findTokenByRefreshToken,
-		revokeToken: params.revokeToken,
-		...(params.updateClientSecret ? { updateClientSecret: params.updateClientSecret } : {}),
-		...(params.revokeTokenFamily ? { revokeTokenFamily: params.revokeTokenFamily } : {}),
-		tokenFamilies: config.tokenFamilies ?? createInMemoryTokenFamilyStore(),
+		storeClient: required("storeClient"),
+		findClient: required("findClient"),
+		storeAuthorizationCode: required("storeAuthorizationCode"),
+		consumeAuthorizationCode: required("consumeAuthorizationCode"),
+		storeToken: required("storeToken"),
+		findTokenByRefreshToken: required("findTokenByRefreshToken"),
+		revokeToken: required("revokeToken"),
+		...(updateClientSecret ? { updateClientSecret } : {}),
+		...(revokeTokenFamily ? { revokeTokenFamily } : {}),
+		...(setClientAgent ? { setClientAgent } : {}),
+		tokenFamilies:
+			config.tokenFamilies ?? pick("tokenFamilies") ?? createInMemoryTokenFamilyStore(),
 		resolveUserId: params.resolveUserId,
 	};
+	ctxRef.current = ctx;
 
 	// Pre-register static clients
 	// Store each pre-registered client via storeClient during module
@@ -166,10 +211,11 @@ export function createMcpModule(params: {
 				clientType: isPublic ? "public" : "confidential",
 				disabled: false,
 				userId: null,
+				...(preClient.agentId ? { agentId: preClient.agentId } : {}),
 				createdAt: now,
 				updatedAt: now,
 			};
-			await params.storeClient(client);
+			await ctx.storeClient(client);
 		}
 	})();
 
@@ -185,7 +231,10 @@ export function createMcpModule(params: {
 		getMetadata: () => getAuthorizationServerMetadata(ctx),
 		getProtectedResourceMetadata: () => getProtectedResourceMetadata(ctx),
 
-		registerClient: (body: McpClientRegistrationRequest) => registerClient(ctx, body),
+		registerClient: (body: McpClientRegistrationRequest, request?: Request) =>
+			registerClient(ctx, body, request),
+
+		clients: createClientBindings(ctx),
 
 		authorize: (request: Request) => handleAuthorize(ctx, request),
 
@@ -208,6 +257,34 @@ export function createMcpModule(params: {
 		requireScopes: (request: Request, scopes: string[]) => requireScopes(ctx, request, scopes),
 
 		requireMcpAuth: (handler, options) => requireMcpAuth(ctx, handler, options),
+	};
+}
+
+/** Built-in `resolveActorAgentId`: the agent the actor's client is bound to, else the actor's own id. */
+async function builtInActorAgent(
+	ctx: McpAuthContext | undefined,
+	actor: Parameters<McpActorAgentResolver>[0],
+): Promise<string> {
+	if (ctx && actor.clientId) {
+		const client = await ctx.findClient(actor.clientId);
+		if (client?.agentId) return client.agentId;
+	}
+	return actor.sub;
+}
+
+function createClientBindings(ctx: McpAuthContext): McpClientBindings {
+	const bind = async (clientId: string, agentId: string | null): Promise<void> => {
+		if (!ctx.setClientAgent) {
+			throw new Error(
+				"This MCP store cannot bind clients to agents. Pass `auth` to createMcpModule (database stores) or provide `setClientAgent`.",
+			);
+		}
+		await ctx.setClientAgent(clientId, agentId);
+	};
+	return {
+		bindAgent: (clientId, agentId) => bind(clientId, agentId),
+		unbindAgent: (clientId) => bind(clientId, null),
+		agentFor: async (clientId) => (await ctx.findClient(clientId))?.agentId ?? null,
 	};
 }
 

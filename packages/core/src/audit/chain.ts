@@ -9,6 +9,7 @@ import { hmacSha256, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
 import { errorText, isUniqueViolation } from "../db/unique-violation.js";
+import { eventForAction } from "./events.js";
 import { computePseudonyms, resolvePseudonymKey } from "./pseudonym.js";
 
 export type AuditInsert = typeof auditLogs.$inferInsert;
@@ -150,7 +151,9 @@ async function readHead(
 }
 
 /** Insert an audit row. Plain insert unless the chain is enabled for this database, in which case the row is linked to its agent's chain. */
-export async function insertAuditRow(db: Database, values: AuditInsert): Promise<void> {
+export async function insertAuditRow(db: Database, input: AuditInsert): Promise<void> {
+	// `event` is stored beside the row and is not hashed.
+	const values: AuditInsert = { ...input, event: input.event ?? eventForAction(input.action) };
 	const config = registry.get(db);
 	if (!config) {
 		await db

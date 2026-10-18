@@ -108,7 +108,7 @@ REST errors from the adapters and the gateway use `{ "error": { "code", "message
 
 ### Token errors
 
-Returned by the MCP token validator as `Result` errors. Over HTTP they are a 401 with a `WWW-Authenticate: Bearer resource_metadata="..."` challenge.
+Returned by the MCP token validator as `Result` errors, and by `mcp.requireScopes` as a typed denial (`status`, `error.code`, `error.message`, and `rejected` for a token whose signature verified). Over HTTP they are a 401 with a `WWW-Authenticate: Bearer error="invalid_token", error_description="...", resource_metadata="..."` challenge (a request with no token gets the same header without `error`). The 401 body is a JSON-RPC error with code `-32001` and the reason in `error.data.code`.
 
 | Code | HTTP status | Description |
 |------|-------------|-------------|
@@ -116,6 +116,8 @@ Returned by the MCP token validator as `Result` errors. Over HTTP they are a 401
 | `TOKEN_EXPIRED` | 401 | The token's `exp` claim is in the past. |
 | `INVALID_AUDIENCE` | 401 | The token's `aud` does not match this resource. |
 | `INVALID_ISSUER` | 401 | The token's `iss` does not match this server. |
+| `DELEGATION_REVOKED` | 401 | A link in the token's `act` chain is revoked, expired or missing (needs `delegationStore`). Reported by `requireScopes`; `validateToken` reports `INVALID_TOKEN` with the reason in the message. |
+| `DPOP_REQUIRED` | 401 | The token is bound to a DPoP key but was presented without a DPoP proof. Reported by `requireScopes`. |
 
 ### MCP and OAuth errors
 
@@ -139,7 +141,7 @@ The MCP module returns `Result` errors with these codes. The token, registration
 | `UNAUTHORIZED` | 401 | No Bearer token was presented. |
 | `SERVER_ERROR` | 500 | The server could not complete validation. |
 
-`requireMcpAuth` and gateway policies with `requiredScopes` answer a scope shortfall with 403 and a `WWW-Authenticate` challenge carrying `error="insufficient_scope"` and the missing `scope`. The body lists `required_scopes` and `current_scopes`. The step-up helper adds an `upgrade_url` so the client can re-authorize with the extra scopes.
+`requireMcpAuth`, `requireScopes` and gateway policies with `requiredScopes` answer a scope shortfall with 403 and a `WWW-Authenticate` challenge carrying `error="insufficient_scope"`, the missing `scope` and `resource_metadata`. The body lists `required_scopes` and `current_scopes`. The step-up helper adds an `upgrade_url` so the client can re-authorize with the extra scopes.
 
 ### General errors
 

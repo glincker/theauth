@@ -84,8 +84,14 @@ export {
 	type SafeFetchResult,
 	safeFetchJson,
 } from "./safe-fetch.js";
-export { createMcpModule, createMcpResponseHelpers } from "./server.js";
+export {
+	createMcpModule,
+	createMcpResponseHelpers,
+	type McpModuleAuth,
+	type McpModuleParams,
+} from "./server.js";
 export { buildStepUpResponse } from "./step-up.js";
+export { createMcpStores, type McpStores, type McpStoresOptions } from "./stores-db.js";
 export { handleTokenExchange } from "./token.js";
 export type {
 	ApproveConsentParams,
@@ -96,11 +102,13 @@ export type {
 	McpActorRef,
 	McpAsymmetricAlg,
 	McpAuthContext,
+	McpAuthErrorCode,
 	McpAuthModule,
 	McpAuthorizationCode,
 	McpAuthorizeRequest,
 	McpAuthorizeResult,
 	McpClient,
+	McpClientBindings,
 	McpClientRegistrationRequest,
 	McpClientRegistrationResponse,
 	McpConfig,
@@ -109,6 +117,8 @@ export type {
 	McpDelegationStore,
 	McpJtiDenylist,
 	McpProtectedResourceMetadata,
+	McpRegistrationConfig,
+	McpRejectedToken,
 	McpServerMetadata,
 	McpSession,
 	McpSigningConfig,
@@ -117,6 +127,7 @@ export type {
 	McpTokenRequest,
 	McpTokenRequestParsed,
 	McpTokenResponse,
+	RequireScopesResult,
 	Result,
 	TheAuthError,
 } from "./types.js";

@@ -17,6 +17,8 @@ export const auditLogs = sqliteTable("theauth_audit_logs", {
 	reason: text("reason"), // why denied/rate_limited/escalated
 	// Machine-readable outcome (DecisionCode). Index convenience, NOT part of the audit hash. NULL on rows written before it existed.
 	decisionCode: text("decision_code"),
+	// What happened (AuditEvent vocabulary: authorize, policy.evaluate, delegation.create, ...). `action` stays the domain verb. NOT part of the audit hash. NULL on rows from writers that do not set it.
+	event: text("event"),
 	durationMs: integer("duration_ms").notNull(),
 	tokensCost: integer("tokens_cost"),
 	ip: text("ip"),

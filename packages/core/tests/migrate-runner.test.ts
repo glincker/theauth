@@ -15,7 +15,9 @@ import { createTables, ensureSchema } from "../src/db/migrations.js";
 import { createTheAuthWith } from "../src/theauth-core.js";
 import { columnsOf, indexNames, ledgerIds, memoryDb, memoryDbV120 } from "./helpers-schema-db.js";
 
-const ALL_IDS = ["0000", "0001", "0002", "0003", "0004"];
+const ALL_IDS = MIGRATIONS.map((m) => m.id);
+/** Migrations a config without the oauth feature applies (0006 needs oauth). */
+const CORE_IDS = ALL_IDS.filter((id) => id !== "0006");
 
 describe("migration ledger: fresh SQLite database", () => {
 	it("creates every table, records every migration and reports nothing pending", async () => {
@@ -87,11 +89,9 @@ describe("migration ledger: fresh SQLite database", () => {
 		const result = await runMigrations(db, "sqlite", { to: "0001" });
 		expect(result.applied).toEqual(["0000", "0001"]);
 		expect(await ledgerIds(exec)).toEqual(["0000", "0001"]);
-		expect((await getSchemaStatus(db, "sqlite")).pending.map((p) => p.id)).toEqual([
-			"0002",
-			"0003",
-			"0004",
-		]);
+		expect((await getSchemaStatus(db, "sqlite")).pending.map((p) => p.id)).toEqual(
+			ALL_IDS.slice(2),
+		);
 		await expect(runMigrations(db, "sqlite", { to: "9999" })).rejects.toThrow(
 			/unknown migration id/,
 		);
@@ -99,7 +99,7 @@ describe("migration ledger: fresh SQLite database", () => {
 });
 
 describe("migration ledger: upgrade from a 1.2.0 database", () => {
-	it("stamps the baseline, runs 0001 to 0004 and keeps the data", async () => {
+	it("stamps the baseline, runs 0001 to the latest and keeps the data", async () => {
 		const { db, exec } = await memoryDbV120({ withData: true });
 		expect(await columnsOf(exec, "theauth_audit_logs")).not.toContain("decision_code");
 		expect(await columnsOf(exec, "theauth_audit_logs")).not.toContain("recorded_at_ms");
@@ -107,7 +107,7 @@ describe("migration ledger: upgrade from a 1.2.0 database", () => {
 		const before = await getSchemaStatus(db, "sqlite");
 		expect(before.baselineStamped).toBe(true);
 		expect(before.applied).toEqual([]);
-		expect(before.pending.map((p) => p.id)).toEqual(["0002", "0003", "0004"]);
+		expect(before.pending.map((p) => p.id)).toEqual(ALL_IDS.slice(2));
 
 		const result = await runMigrations(db, "sqlite");
 		expect(result.applied).toEqual(ALL_IDS);
@@ -244,15 +244,15 @@ describe("skipMigrations", () => {
 		const { db } = await memoryDb();
 		const error = await ensureSchema(db, config).catch((e: unknown) => e);
 		expect(error).toBeInstanceOf(SchemaOutdatedError);
-		expect((error as SchemaOutdatedError).pending).toEqual(ALL_IDS);
+		expect((error as SchemaOutdatedError).pending).toEqual(CORE_IDS);
 		expect((error as SchemaOutdatedError).message).toContain("theauth db sql");
 	});
 
-	it("throws on a 1.2.0 database and lists only 0002, 0003 and 0004", async () => {
+	it("throws on a 1.2.0 database and lists every migration after the baseline and 0001", async () => {
 		const { db } = await memoryDbV120();
 		const error = await createTheAuthWith(config, async () => db).catch((e: unknown) => e);
 		expect(error).toBeInstanceOf(SchemaOutdatedError);
-		expect((error as SchemaOutdatedError).pending).toEqual(["0002", "0003", "0004"]);
+		expect((error as SchemaOutdatedError).pending).toEqual(CORE_IDS.slice(2));
 	});
 
 	it("boots once the generated SQL has been applied by hand", async () => {
@@ -293,9 +293,10 @@ describe("feature scoped migrations", () => {
 			"0001",
 			"0002",
 			"0004",
+			"0005",
 		]);
 		await createTables(db, "sqlite", withAgents);
-		expect(await ledgerIds(exec)).toEqual(ALL_IDS);
+		expect(await ledgerIds(exec)).toEqual(CORE_IDS);
 		expect(await columnsOf(exec, "theauth_audit_logs")).toContain("recorded_at_ms");
 		expect(await indexNames(exec, "theauth_audit_logs")).toContain("theauth_audit_logs_order");
 	});

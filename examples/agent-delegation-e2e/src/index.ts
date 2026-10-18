@@ -20,13 +20,9 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import type { TheAuth } from "@glinr/theauth";
 import { createTheAuth, recordAuditEvent } from "@glinr/theauth";
-import type {
-	McpAccessToken,
-	McpAuthorizationCode,
-	McpClient,
-	McpSession,
-} from "@glinr/theauth/mcp";
+import type { McpConfig, McpSession } from "@glinr/theauth/mcp";
 import {
 	createDbDelegationStore,
 	createInMemoryJtiDenylist,
@@ -63,20 +59,90 @@ function b64url(input: Buffer): string {
 	return input.toString("base64url");
 }
 
-/** Read the `act.client_id` claim without verifying the signature. Used only to attribute a rejected call in the audit log, never to grant access. */
-function unverifiedActorClient(token: string): string | undefined {
-	try {
-		const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString()) as {
-			act?: { client_id?: string };
-		};
-		return payload.act?.client_id;
-	} catch {
-		return undefined;
-	}
-}
-
 async function main(): Promise<void> {
+	// The auth instance and the MCP module are created after the HTTP server is listening, so the
+	// OAuth issuer and resource URL can use its real port. The handler reads them lazily.
+	let authRef: TheAuth | undefined;
+	let mcp: ReturnType<typeof createMcpModule> | undefined;
+	let assistantId = "";
+
+	async function audit(
+		agentId: string,
+		tool: string,
+		result: "allowed" | "denied",
+		reason: string,
+		session?: McpSession,
+	): Promise<void> {
+		if (!authRef) return;
+		await recordAuditEvent(authRef.db, {
+			agentId,
+			action: "mcp.tools.call",
+			resource: `mcp:reports:${tool}`,
+			result,
+			reason,
+			...(session ? { subjectId: session.userId, actorId: session.clientId } : {}),
+			delegationChain: [assistantId, agentId],
+		});
+	}
+
+	const server = createServer((req, res) => {
+		void (async () => {
+			const send = (status: number, body: unknown): void => {
+				res.writeHead(status, { "Content-Type": "application/json" });
+				res.end(JSON.stringify(body));
+			};
+			const chunks: Buffer[] = [];
+			for await (const chunk of req) chunks.push(chunk as Buffer);
+			const body = JSON.parse(Buffer.concat(chunks).toString() || "{}") as { tool?: string };
+			const tool = body.tool ?? "";
+			const scope = TOOL_SCOPES[tool];
+			if (!mcp || !scope) return send(404, { error: `unknown tool ${tool}` });
+
+			const bearer = (req.headers.authorization ?? "").replace(/^Bearer /, "");
+			const request = new Request("http://mcp.local/tools/call", {
+				method: "POST",
+				headers: { authorization: `Bearer ${bearer}` },
+			});
+			// The result says why a call was refused and, for a token whose signature verified,
+			// which agent it belonged to, so the denial lands in the audit log under that agent.
+			const check = await mcp.requireScopes(request, [scope]);
+			if (!check.authorized) {
+				const agentId = check.rejected?.agentId;
+				if (agentId) {
+					await audit(agentId, tool, "denied", `${check.error.code}: ${check.error.message}`);
+				}
+				return send(check.status, {
+					error: check.error.message,
+					code: check.error.code,
+					status: check.status,
+					challenge: check.response.headers.get("www-authenticate"),
+				});
+			}
+			const agentId = check.session.agent?.id;
+			if (agentId) await audit(agentId, tool, "allowed", `scope ${scope} granted`, check.session);
+			return send(200, { content: `[simulated] ${tool} ok` });
+		})().catch((error: unknown) => {
+			res.writeHead(500);
+			res.end(String(error));
+		});
+	});
+	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+	const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+	const mcpConfig: McpConfig = {
+		enabled: true,
+		issuer: origin,
+		baseUrl: `${origin}/api/auth`,
+		resource: origin,
+		signingSecret: SIGNING_SECRET,
+		scopes: ["mcp:read", "mcp:write"],
+		accessTokenTtl: 3600,
+		jtiDenylist: createInMemoryJtiDenylist(),
+		tokenExchange: { enabled: true },
+	};
+
 	const auth = await createTheAuth({
+		mcp: mcpConfig,
 		database: { provider: "sqlite", url: ":memory:" },
 		agents: {
 			enabled: true,
@@ -103,6 +169,7 @@ async function main(): Promise<void> {
 			},
 		},
 	});
+	authRef = auth;
 
 	const owner = await auth.user.create({
 		id: OWNER_ID,
@@ -136,110 +203,21 @@ async function main(): Promise<void> {
 	line("child agent", `${reportBot.name} (${short(reportBot.id)})`);
 	line("delegation", `${short(chain.id)} read on mcp:reports:*`);
 
-	// ---- OAuth 2.1 server + MCP resource server (in-memory stores) ----
-	const clients = new Map<string, McpClient>();
-	const codes = new Map<string, McpAuthorizationCode>();
-	const tokens = new Map<string, McpAccessToken>();
-	const refresh = new Map<string, McpAccessToken>();
-	/** OAuth client id of the agent app -> agent id. theAuth has no built-in link, so the host supplies it. */
-	const agentByClient = new Map<string, string>();
+	assistantId = assistant.id;
 
-	// The MCP server listens first so the OAuth resource URL can use its real port.
-	// biome-ignore lint/style/useConst: assigned after the server is listening
-	let mcp: ReturnType<typeof createMcpModule> | undefined;
-
-	async function audit(
-		agentId: string,
-		tool: string,
-		result: "allowed" | "denied",
-		reason: string,
-		session?: McpSession,
-	): Promise<void> {
-		await recordAuditEvent(auth.db, {
-			agentId,
-			action: "mcp.tools.call",
-			resource: `mcp:reports:${tool}`,
-			result,
-			reason,
-			...(session ? { subjectId: session.userId, actorId: session.clientId } : {}),
-			delegationChain: [assistant.id, agentId],
-		});
-	}
-
-	const server = createServer((req, res) => {
-		void (async () => {
-			const send = (status: number, body: unknown): void => {
-				res.writeHead(status, { "Content-Type": "application/json" });
-				res.end(JSON.stringify(body));
-			};
-			const chunks: Buffer[] = [];
-			for await (const chunk of req) chunks.push(chunk as Buffer);
-			const body = JSON.parse(Buffer.concat(chunks).toString() || "{}") as { tool?: string };
-			const tool = body.tool ?? "";
-			const scope = TOOL_SCOPES[tool];
-			if (!mcp || !scope) return send(404, { error: `unknown tool ${tool}` });
-
-			const bearer = (req.headers.authorization ?? "").replace(/^Bearer /, "");
-			const request = new Request("http://mcp.local/tools/call", {
-				method: "POST",
-				headers: { authorization: `Bearer ${bearer}` },
-			});
-			const check = await mcp.requireScopes(request, [scope]);
-			if (!check.authorized) {
-				const text = await check.response.text();
-				const message =
-					(JSON.parse(text) as { error?: { message?: string } }).error?.message ??
-					"insufficient scope";
-				const clientId = unverifiedActorClient(bearer);
-				const agentId = clientId ? agentByClient.get(clientId) : undefined;
-				if (agentId) {
-					const reason =
-						check.response.status === 401 ? `token rejected: ${message}` : `missing scope ${scope}`;
-					await audit(agentId, tool, "denied", reason);
-				}
-				return send(check.response.status, { error: message, status: check.response.status });
-			}
-			const agentId = agentByClient.get(check.session.clientId);
-			if (agentId) await audit(agentId, tool, "allowed", `scope ${scope} granted`, check.session);
-			return send(200, { content: `[simulated] ${tool} ok` });
-		})().catch((error: unknown) => {
-			res.writeHead(500);
-			res.end(String(error));
-		});
-	});
-	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-	const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-
+	// ---- OAuth 2.1 server + MCP resource server (database stores) ----
+	// Passing `auth` keeps clients, codes, tokens and refresh families in the TheAuth database, and
+	// resolves each OAuth client in a delegation chain to the agent it is bound to.
 	mcp = createMcpModule({
+		auth,
 		config: {
-			enabled: true,
-			issuer: origin,
-			baseUrl: `${origin}/api/auth`,
-			resource: origin,
-			signingSecret: SIGNING_SECRET,
-			scopes: ["mcp:read", "mcp:write"],
-			accessTokenTtl: 3600,
-			jtiDenylist: createInMemoryJtiDenylist(),
-			tokenExchange: { enabled: true },
+			...mcpConfig,
 			// Re-check the delegation chain against live records on every call.
 			delegationStore: createDbDelegationStore(auth.db),
-			resolveActorAgentId: ({ sub, clientId }) =>
-				clientId ? agentByClient.get(clientId) : sub === OWNER_ID ? assistant.id : undefined,
+			// Token subjects are users, not agents, so the owner maps to their root agent here. OAuth
+			// clients need no mapping: the built-in one follows `mcp.clients.bindAgent`.
+			resolveActorAgentId: ({ sub }) => (sub === OWNER_ID ? assistant.id : undefined),
 		},
-		storeClient: async (c) => void clients.set(c.clientId, c),
-		findClient: async (id) => clients.get(id) ?? null,
-		storeAuthorizationCode: async (c) => void codes.set(c.code, c),
-		consumeAuthorizationCode: async (code) => {
-			const found = codes.get(code) ?? null;
-			codes.delete(code);
-			return found;
-		},
-		storeToken: async (t) => {
-			tokens.set(t.accessToken, t);
-			if (t.refreshToken) refresh.set(t.refreshToken, t);
-		},
-		findTokenByRefreshToken: async (rt) => refresh.get(rt) ?? null,
-		revokeToken: async () => {},
 		// Real apps read the signed-in user from the session cookie here.
 		resolveUserId: async () => OWNER_ID,
 	});
@@ -257,7 +235,10 @@ async function main(): Promise<void> {
 		if (!registered.success) throw new Error(registered.error.message);
 		const { client_id: clientId, client_secret: clientSecret } = registered.data;
 		if (!clientSecret) throw new Error("expected a client secret");
-		agentByClient.set(clientId, reportBot.id);
+		// First class binding: tokens for this client carry agent_id, and the delegation check resolves
+		// the client to this agent.
+		await mcp.clients.bindAgent(clientId, reportBot.id);
+		line("client bound to", `${reportBot.name} (${short(reportBot.id)})`);
 		const basic = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`;
 
 		const verifier = b64url(randomBytes(32));
@@ -360,18 +341,21 @@ async function main(): Promise<void> {
 
 		// ---- Audit trail ----
 		header("Audit log (write order)");
+		/** Delegation rows are named by their audit event, everything else by its action. */
+		const label = (e: { action: string; event?: string | null }): string =>
+			e.event?.startsWith("delegation.") ? e.event : e.action;
 		const printAudit = async (): Promise<void> => {
 			// audit.query returns newest first and orders same-second rows by write order, so reversing gives write order.
 			const rows = (await auth.audit.query({ agentId: reportBot.id })).reverse();
 			for (const e of rows) {
 				const code = e.code ? ` [${e.code}]` : "";
 				const by =
-					e.action === "delegation.revoke" ? ` revokedBy=${String(e.parameters?.revokedBy)}` : "";
+					label(e) === "delegation.revoke" ? ` revokedBy=${String(e.parameters?.revokedBy)}` : "";
 				console.log(
-					`   ${e.timestamp.toISOString()} ${e.result.padEnd(8)} ${e.action} ${e.resource}${code}${by} (${e.reason ?? ""})`,
+					`   ${e.timestamp.toISOString()} ${e.result.padEnd(8)} ${label(e)} ${e.resource}${code}${by} (${e.reason ?? ""})`,
 				);
 			}
-			return void verifyOrder(rows.map((e) => e.action));
+			return void verifyOrder(rows.map(label));
 		};
 		/** The rows were written in this order, so the query must return them in it. */
 		const expected = [

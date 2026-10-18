@@ -167,6 +167,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 				agentId: target.agentId,
 				userId: target.ownerId,
 				action: request.action,
+				event: "authorize",
 				resource: request.resource,
 				parameters: extra?.parameters ?? request.arguments ?? {},
 				result: extra?.result ?? "denied",
@@ -252,6 +253,7 @@ async function writeAuditLog(
 			agentId: agent.id,
 			userId: agent.ownerId,
 			action: request.action,
+			event: "authorize",
 			resource: request.resource,
 			parameters: {
 				...(request.arguments ?? {}),

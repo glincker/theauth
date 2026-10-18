@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createAuditModule } from "../../src/audit/audit.js";
 import type { Database } from "../../src/db/database.js";
 import { createDatabase } from "../../src/db/database.js";
 import { createExecutor } from "../../src/db/migrate/executor.js";
 import {
 	getSchemaStatus,
+	MIGRATIONS,
 	migrationSql,
 	runMigrations,
 	SchemaChecksumError,
@@ -16,7 +18,7 @@ import { defineSchemaParityTests } from "./schema-parity.js";
 
 type Provider = "postgres" | "mysql";
 
-const ALL_IDS = ["0000", "0001", "0002", "0003", "0004"];
+const ALL_IDS = MIGRATIONS.map((m) => m.id);
 
 interface Handle {
 	db: Database;
@@ -123,7 +125,7 @@ export function defineDialectSuite(
 				expect(status.mismatched).toEqual([]);
 				const audit = await columnNames(h.exec, "theauth_audit_logs");
 				expect(audit).toEqual(
-					expect.arrayContaining(["decision_code", "recorded_at_ms", "cache_hit"]),
+					expect.arrayContaining(["decision_code", "recorded_at_ms", "event", "cache_hit"]),
 				);
 				expect(await columnNames(h.exec, "theauth_permissions")).toContain("relation");
 			});
@@ -146,7 +148,7 @@ export function defineDialectSuite(
 				);
 			});
 
-			it("upgrades a 1.2.0 database: stamps the baseline, runs 0002 to 0004, keeps rows", async () => {
+			it("upgrades a 1.2.0 database: stamps the baseline, runs every later migration, keeps rows", async () => {
 				const l = literals(provider);
 				for (const sql of schemaV120(provider)) await h.exec.run(sql);
 				await h.exec.run(
@@ -161,7 +163,7 @@ export function defineDialectSuite(
 
 				const before = await getSchemaStatus(h.db, provider);
 				expect(before.baselineStamped).toBe(true);
-				expect(before.pending.map((p) => p.id)).toEqual(["0002", "0003", "0004"]);
+				expect(before.pending.map((p) => p.id)).toEqual(ALL_IDS.slice(2));
 
 				const result = await runMigrations(h.db, provider);
 				expect(result.applied).toEqual(ALL_IDS);
@@ -325,6 +327,45 @@ export function defineDialectSuite(
 					"SELECT id AS id FROM theauth_audit_logs ORDER BY recorded_at_ms ASC",
 				);
 				expect(rows.map((r) => r.id)).toEqual(["z", "y", "x", "w"]);
+			});
+
+			it("pages audit rows with a cursor and filters by event and resource prefix", async () => {
+				const l = literals(provider);
+				await runMigrations(h.db, provider);
+				await h.exec.run(
+					`INSERT INTO theauth_users (id, email, created_at, updated_at) VALUES ('u1', 'u1@example.com', ${l.now}, ${l.now})`,
+				);
+				await h.exec.run(
+					`INSERT INTO theauth_agents (id, owner_id, name, type, token_hash, token_prefix, created_at, updated_at) VALUES ('a1', 'u1', 'a1', 'autonomous', 'h', 'p', ${l.now}, ${l.now})`,
+				);
+				// Three rows share one millisecond, so the id has to break the tie.
+				for (const [id, ms, event, resource] of [
+					["a", 1, "authorize", "mcp:github:x"],
+					["b", 2, "policy.evaluate", "mcp:github:y"],
+					["c", 2, "authorize", "mcp:slack:z"],
+					["d", 2, "authorize", "mcp:git_hub:w"],
+					["e", 3, "authorize", "mcp:github:v"],
+				] as const) {
+					await h.exec.run(
+						`INSERT INTO theauth_audit_logs (id, agent_id, user_id, action, event, resource, result, duration_ms, timestamp, recorded_at_ms) VALUES ('${id}', 'a1', 'u1', 'read', '${event}', '${resource}', 'allowed', 1, ${l.at}, ${1790858096000 + ms})`,
+					);
+				}
+				const audit = createAuditModule({ db: h.db });
+				const seen: string[] = [];
+				let cursor: string | undefined;
+				for (;;) {
+					const page = await audit.page({ order: "asc", limit: 2, ...(cursor ? { cursor } : {}) });
+					seen.push(...page.entries.map((e) => e.id));
+					if (!page.nextCursor) break;
+					cursor = page.nextCursor;
+				}
+				expect(seen).toEqual(["a", "b", "c", "d", "e"]);
+				const desc = await audit.query({ events: ["authorize"] });
+				expect(desc.map((e) => e.id)).toEqual(["e", "d", "c", "a"]);
+				const prefixed = await audit.query({ resource: "mcp:github:*", order: "asc" });
+				expect(prefixed.map((e) => e.id)).toEqual(["a", "b", "e"]);
+				const literal = await audit.query({ resource: "mcp:git_*", order: "asc" });
+				expect(literal.map((e) => e.id)).toEqual(["d"]);
 			});
 		});
 

@@ -37,7 +37,7 @@ describe("delegation.revoke audit", () => {
 
 	async function revokeRows(agentId: string) {
 		const rows = await theauth.db.select().from(auditLogs).where(eq(auditLogs.agentId, agentId));
-		return rows.filter((r) => r.action === "delegation.revoke");
+		return rows.filter((r) => r.event === "delegation.revoke");
 	}
 
 	it("writes one chained row for a revoked link", async () => {

@@ -322,9 +322,40 @@ export interface AuditEntry {
 	reason?: string;
 	/** Machine-readable outcome. Undefined on rows written before `decision_code` existed. An index convenience, not part of the audit hash. */
 	code?: DecisionCode;
+	/** What happened (see AuditEvent). `action` is the domain verb. Null on rows from writers that do not set it. Not part of the audit hash. */
+	event: AuditEvent | null;
 	durationMs: number;
 	tokensCost?: number;
 	timestamp: Date;
+}
+
+/**
+ * The audit event vocabulary. `event` says what happened, `action` keeps the domain verb
+ * (`read`, `write`, or the tool name). The list is open: unknown writers may add their own.
+ */
+export type AuditEvent =
+	| "authorize"
+	| "authorize.token"
+	| "policy.evaluate"
+	| "mcp.tool.call"
+	| "delegation.create"
+	| "delegation.revoke"
+	| "agent.create"
+	| "agent.revoke"
+	| "agent.cascade.revoked"
+	| "approval.request"
+	| "approval.approve"
+	| "approval.deny"
+	| "vault.read"
+	| "audit.checkpoint"
+	| "audit.write_failed"
+	| "audit.erasure"
+	| (string & {});
+
+/** One page of audit entries. `nextCursor` is null on the last page. */
+export interface AuditPage {
+	entries: AuditEntry[];
+	nextCursor: string | null;
 }
 
 export interface AuditFilter {
@@ -336,7 +367,16 @@ export interface AuditFilter {
 	result?: "allowed" | "denied" | "rate_limited" | "escalated";
 	/** Only rows whose `decision_code` is one of these. */
 	codes?: DecisionCode[];
+	/** Only rows with one of these events. */
+	events?: AuditEvent[];
+	/** Exact resource, or a prefix when it ends with `*` (for example `mcp:github:*`). */
+	resource?: string;
+	/** Write order. Default "desc" (newest first), unchanged from earlier versions. */
+	order?: "asc" | "desc";
+	/** Opaque cursor from `AuditPage.nextCursor`. Continue the same filter and order from where the last page ended. */
+	cursor?: string;
 	limit?: number;
+	/** Deprecated: use `cursor`. Skips rows and drifts when rows are written between pages. */
 	offset?: number;
 }
 

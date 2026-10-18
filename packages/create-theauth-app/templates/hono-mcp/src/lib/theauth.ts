@@ -1,4 +1,5 @@
 import { createTheAuth } from "@glinr/theauth";
+import type { McpConfig } from "@glinr/theauth/mcp";
 
 const DRIVER = "__DB_DRIVER__" as string;
 // SQLite uses a file on disk (better-sqlite3), so data survives restarts.
@@ -17,7 +18,8 @@ function requireEnv(name: string): string {
 // `npx @glinr/theauth-cli db status`.
 let instance: ReturnType<typeof createTheAuth> | null = null;
 
-export function getTheAuth() {
+// The mcp config makes theAuth create the MCP tables (clients, codes, tokens).
+export function getTheAuth(mcp: McpConfig) {
 	instance ??= createTheAuth({
 		database: {
 			provider: PROVIDER,
@@ -31,6 +33,7 @@ export function getTheAuth() {
 			auditAll: true,
 			tokenExpiry: "24h",
 		},
+		mcp,
 	});
 	return instance;
 }

@@ -7,7 +7,7 @@
 import { serve } from "@hono/node-server";
 import { theAuthHono } from "@glinr/theauth-hono";
 import { Hono } from "hono";
-import type { McpAccessToken, McpAuthModule, McpAuthorizationCode, McpClient } from "@glinr/theauth/mcp";
+import type { McpAuthModule, McpConfig } from "@glinr/theauth/mcp";
 import { createMcpModule } from "@glinr/theauth/mcp";
 
 import { authenticateAdmin } from "./lib/admin-auth.js";
@@ -19,63 +19,35 @@ const BASE_URL = process.env["BASE_URL"] ?? `http://localhost:${PORT}`;
 const OWNER_EMAIL = process.env["OWNER_EMAIL"] ?? "owner@example.com";
 const SIGNING_SECRET = process.env["MCP_SIGNING_SECRET"] ?? "";
 
-// In-memory MCP stores: registered clients, codes and tokens vanish on restart.
-// The auth data itself (users, agents, audit) is stored in the database file.
-// Database backed MCP stores are not available yet, so this part of the template
-// keeps the in-memory maps. Back them with your own database before production.
-const clients = new Map<string, McpClient>();
-const authCodes = new Map<string, McpAuthorizationCode>();
-const tokens = new Map<string, McpAccessToken>();
-const refreshTokenIndex = new Map<string, string>();
+// The MCP stores (registered clients, authorization codes, tokens, refresh token
+// families) live in the same database as the auth data, so they survive restarts
+// and are shared by every instance of this server.
 
 async function main(): Promise<void> {
 	if (SIGNING_SECRET.length < 32) {
 		throw new Error("MCP_SIGNING_SECRET must be at least 32 characters. Set it in .env.");
 	}
-	const theauth = await getTheAuth();
+	const mcpConfig: McpConfig = {
+		enabled: true,
+		issuer: BASE_URL,
+		baseUrl: `${BASE_URL}/api`,
+		resource: BASE_URL,
+		signingSecret: SIGNING_SECRET,
+		scopes: ["mcp:read", "mcp:execute", "mcp:write"],
+		accessTokenTtl: 3600,
+		refreshTokenTtl: 86400,
+	};
+	const theauth = await getTheAuth(mcpConfig);
 
 	// Agents reference their owner by foreign key, so create the user first.
 	// user.create returns the existing user when the email is already there.
 	const owner = await theauth.user.create({ email: OWNER_EMAIL, name: "Owner" });
 
+	// Passing `auth` selects the database backed MCP stores. Replace resolveUserId
+	// with a real session lookup in production.
 	const mcp: McpAuthModule = createMcpModule({
-		config: {
-			enabled: true,
-			issuer: BASE_URL,
-			baseUrl: `${BASE_URL}/api`,
-			signingSecret: SIGNING_SECRET,
-			scopes: ["mcp:read", "mcp:execute", "mcp:write"],
-			accessTokenTtl: 3600,
-			refreshTokenTtl: 86400,
-		},
-		storeClient: async (client) => {
-			clients.set(client.clientId, client);
-		},
-		findClient: async (clientId) => clients.get(clientId) ?? null,
-		storeAuthorizationCode: async (code) => {
-			authCodes.set(code.code, code);
-		},
-		consumeAuthorizationCode: async (code) => {
-			const found = authCodes.get(code) ?? null;
-			if (found) authCodes.delete(code);
-			return found;
-		},
-		storeToken: async (token) => {
-			tokens.set(token.accessToken, token);
-			if (token.refreshToken) {
-				refreshTokenIndex.set(token.refreshToken, token.accessToken);
-			}
-		},
-		findTokenByRefreshToken: async (refreshToken) => {
-			const at = refreshTokenIndex.get(refreshToken);
-			return at ? (tokens.get(at) ?? null) : null;
-		},
-		revokeToken: async (accessToken) => {
-			const token = tokens.get(accessToken);
-			if (token?.refreshToken) refreshTokenIndex.delete(token.refreshToken);
-			tokens.delete(accessToken);
-		},
-		// Replace this with a real session lookup in production.
+		auth: theauth,
+		config: mcpConfig,
 		resolveUserId: async () => owner.id,
 	});
 
@@ -85,6 +57,26 @@ async function main(): Promise<void> {
 	// OAuth endpoints (.well-known, /mcp/register, /mcp/authorize, /mcp/token).
 	// The management routes require the admin key (see lib/admin-auth.ts).
 	app.route("/api", theAuthHono(theauth, { mcp, authenticate: authenticateAdmin }));
+
+	// Bind an OAuth client to an agent: tokens issued to the client then carry
+	// that agent's id (agent_id) and the delegation check resolves the client to it.
+	app.put("/admin/mcp-clients/:clientId/agent", async (c) => {
+		if (!(await authenticateAdmin(c.req.raw))) return c.json({ error: "Unauthorized" }, 401);
+		const body = (await c.req.json().catch(() => ({}))) as { agentId?: string };
+		if (!body.agentId) return c.json({ error: "agentId is required" }, 400);
+		try {
+			await mcp.clients.bindAgent(c.req.param("clientId"), body.agentId);
+		} catch (error) {
+			return c.json({ error: error instanceof Error ? error.message : "Could not bind" }, 400);
+		}
+		return c.json({ clientId: c.req.param("clientId"), agentId: body.agentId });
+	});
+
+	app.delete("/admin/mcp-clients/:clientId/agent", async (c) => {
+		if (!(await authenticateAdmin(c.req.raw))) return c.json({ error: "Unauthorized" }, 401);
+		await mcp.clients.unbindAgent(c.req.param("clientId"));
+		return c.body(null, 204);
+	});
 
 	// Protected tool list. Accepts either a ta_ agent token (or a legacy kv_ one) or an MCP JWT.
 	app.get("/tools/list", async (c) => {
@@ -100,8 +92,9 @@ async function main(): Promise<void> {
 				return c.json({ error: "Forbidden", reason: result.reason }, 403);
 			}
 		} else {
-			const result = await mcp.validateToken(token, ["mcp:read"]);
-			if (!result.success) return c.json({ error: result.error.message }, 401);
+			// 401 and 403 come back with the WWW-Authenticate challenge MCP clients expect.
+			const check = await mcp.requireScopes(c.req.raw, ["mcp:read"]);
+			if (!check.authorized) return check.response;
 		}
 
 		return c.json({ tools: MCP_TOOLS });
@@ -133,8 +126,8 @@ async function main(): Promise<void> {
 				return c.json({ error: "Forbidden", reason: result.reason }, 403);
 			}
 		} else {
-			const result = await mcp.validateToken(token, ["mcp:execute"]);
-			if (!result.success) return c.json({ error: result.error.message }, 401);
+			const check = await mcp.requireScopes(c.req.raw, ["mcp:execute"]);
+			if (!check.authorized) return check.response;
 		}
 
 		// Plug the real tool implementation in here.

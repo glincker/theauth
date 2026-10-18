@@ -114,8 +114,19 @@ export const queryAudit = defineTool({
 		until: z.string().datetime().optional().describe("ISO timestamp, upper bound"),
 		result: z.enum(["allowed", "denied", "rate_limited"]).optional(),
 		actions: z.array(z.string().min(1)).max(20).optional().describe("Only these actions"),
+		events: z
+			.array(z.string().min(1))
+			.max(20)
+			.optional()
+			.describe("Only these events, for example authorize, policy.evaluate, delegation.create"),
+		resource: z
+			.string()
+			.min(1)
+			.optional()
+			.describe("Exact resource, or a prefix when it ends with *"),
+		order: z.enum(["asc", "desc"]).default("desc").describe("desc is newest first"),
+		cursor: z.string().min(1).optional().describe("nextCursor from the previous page"),
 		limit: z.number().int().min(1).max(500).default(50),
-		offset: z.number().int().min(0).default(0),
 	},
 	async run(args, { client }) {
 		const r = await client.request<unknown>("GET", "/audit", {
@@ -126,13 +137,28 @@ export const queryAudit = defineTool({
 				until: args.until,
 				result: args.result,
 				actions: args.actions?.join(","),
+				events: args.events?.join(","),
+				resource: args.resource,
+				order: args.order,
+				cursor: args.cursor,
 				limit: args.limit,
-				offset: args.offset,
+				paged: "true",
 			},
 		});
 		if (!r.ok) return fromError(r);
-		if (!Array.isArray(r.data))
-			return failure("BAD_RESPONSE", "Expected an array of audit entries");
-		return success({ returned: r.data.length, offset: args.offset, entries: redact(r.data) });
+		const page = r.data;
+		if (
+			typeof page !== "object" ||
+			page === null ||
+			!Array.isArray((page as { entries?: unknown }).entries)
+		) {
+			return failure("BAD_RESPONSE", "Expected an audit page with entries");
+		}
+		const { entries, nextCursor } = page as { entries: unknown[]; nextCursor?: string | null };
+		return success({
+			returned: entries.length,
+			nextCursor: nextCursor ?? null,
+			entries: redact(entries),
+		});
 	},
 });
