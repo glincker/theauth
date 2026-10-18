@@ -45,6 +45,19 @@ export interface ExplainAttempt {
 	code: DecisionCode;
 }
 
+export interface NearMiss {
+	source: "own" | "delegation";
+	/** Set when source is "delegation". */
+	delegationId?: string;
+	grant: { resource: string; actions: string[] };
+	/** Which dimension failed. A grant that matched both is the matchedGrant, never a near miss. */
+	mismatch: Array<"resource" | "action">;
+	/** Plain hint, e.g. 'resource "mcp:github:issues" does not cover "mcp:github:create_issue"; "mcp:github:*" would'. */
+	hint: string;
+	/** 0..1: 0.6 times the ":" segment overlap of the resource, plus 0.4 when the action matched. */
+	score: number;
+}
+
 export interface ExplainResult {
 	decision: "allow" | "deny" | "escalate";
 	allowed: boolean;
@@ -66,6 +79,8 @@ export interface ExplainResult {
 	/** Which permission sets were tried, in order, and how each ended. */
 	attempts: ExplainAttempt[];
 	hook: ExplainHook;
+	/** Closest grants that failed on resource or action, best first, at most 3. Empty when `matchedGrant` is set. */
+	nearMisses: NearMiss[];
 	/** Full step list, same TraceStep type as the simulator, with the "hook" stage. */
 	trace: TraceStep[];
 	evaluatedAt: Date;

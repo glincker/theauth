@@ -1,0 +1,90 @@
+---
+title: Policy testing
+description: Test who may do what with an in-memory TheAuth, a table of cases and vitest matchers, or run the same table in CI with theauth policy test.
+icon: flask
+---
+
+## Why
+
+Permission changes should fail CI when they open or close access by accident. The testing kit builds an in-memory instance from a small fixture, asks `explain()` about every case, and reports failures with the reason and the [near misses](/explain). Nothing is written to the audit log.
+
+```ts
+import { createTestAuth, definePolicySuite, runPolicySuite } from "@glinr/theauth/testing";
+```
+
+The kit imports neither vitest nor jest.
+
+## A policy suite
+
+```ts
+const suite = definePolicySuite({
+  agents: {
+    root: { permissions: [{ resource: "mcp:github:*", actions: ["read", "write"] }] },
+    reader: {
+      permissions: [],
+      delegatedFrom: {
+        agent: "root",
+        permissions: [{ resource: "mcp:github:*", actions: ["read"] }],
+      },
+    },
+  },
+  cases: [
+    { name: "reader can read", agent: "reader", action: "read", resource: "mcp:github:repos", expect: "allow" },
+    {
+      name: "reader cannot write",
+      agent: "reader",
+      action: "write",
+      resource: "mcp:github:repos",
+      expect: "deny",
+      code: "no_permission",
+    },
+  ],
+});
+
+const auth = await createTestAuth();
+const report = await runPolicySuite(auth, suite);
+expect(report.failed).toEqual([]);
+```
+
+Each case has `expect` of `allow`, `deny` or `escalate`, and an optional `code` (a [decision code](/errors)). `arguments` are checked against `allowedArgPatterns`. `report.failed` holds `{ name, expected, got }`, where `got` is the full explain result. `formatPolicyReport(report)` turns it into text.
+
+A delegating agent must hold what it delegates. Agents are created under a seeded owner, so the suite needs no users.
+
+## Test instance
+
+`createTestAuth(config?)` returns a normal `TheAuth` on sqlite `:memory:`, plus:
+
+| Method | Does |
+| --- | --- |
+| `seedUser(email?)` | Create a user, returns `{ id, email }` |
+| `seedAgent({ owner?, name?, permissions, type? })` | Create an agent (owner defaults to a shared seeded user) |
+
+Any config you pass (hooks, policy, audit) is applied. Pass `runHooks` in the `explain` option of `runPolicySuite` to include `beforeAuthorize` dry runs.
+
+## Assertions and matchers
+
+```ts
+import { expectAllowed, expectDenied, theauthMatchers } from "@glinr/theauth/testing";
+
+await expectAllowed(auth, { agentId: agent.id, action: "run", resource: "tool:x" });
+await expectDenied(auth, { agentId: agent.id, action: "run", resource: "tool:y" }, "no_permission");
+
+// vitest
+expect.extend(theauthMatchers);
+expect(explainResult).toBeAllowed();
+expect(result).toBeDeniedWith("rate_limited");
+```
+
+Both helpers run `explain()` and throw with the reason and near misses when the expectation fails. The matchers accept an `AuthorizeResult` or an `ExplainResult`.
+
+## CLI
+
+```bash
+theauth policy test suite.json
+theauth policy test suite.mjs --json
+theauth policy test suite.json --config ./theauth.config.mjs
+```
+
+The file is JSON or an ES module whose default export is the suite (same shape as above). Output is one `PASS` or `FAIL` line per case, with the explain reason and near miss hints for failures. The exit code is 1 when any case fails or the file is invalid, otherwise 0. `--json` prints `{ total, passed, failed }`.
+
+Without `--config` the suite runs on a fresh in-memory instance. With `--config` (an ES module whose default export is a `TheAuth` instance or a config object) it runs on that. When the suite declares no `agents`, each `case.agent` is treated as an existing agent id on that instance. YAML is not supported.

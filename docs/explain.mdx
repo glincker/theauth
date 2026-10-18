@@ -38,8 +38,37 @@ The call returns a `Result`. A denial is a successful explanation (`decision: "d
 | `matchedGrant` | The rule that decided, or that came closest. Includes `source` (`own` or `delegation`), `index`, `resourceMatch`, `actionMatch` and, for delegated rules, the `link` that carried it |
 | `constraints` | Checks on the matched rule, in order: rate limit, argument patterns, approval, time window, IP allowlist |
 | `attempts` | Which permission sets were tried (own, then delegated) and how each ended |
+| `nearMisses` | When no grant matched, the closest grants that failed on resource or action (see below). Empty when `matchedGrant` is set |
 | `hook` | Whether `beforeAuthorize` is configured, whether it ran, and what it said |
 | `trace` | The full step list, the same `TraceStep` type as the [simulator](/simulator), with a `hook` stage |
+
+## Near misses
+
+When no grant matches, `matchedGrant` is absent and `nearMisses` lists up to three grants that almost allowed the call, best first. Own grants and delegated grants are both considered. A grant that matched on resource and action but failed a constraint is reported as `matchedGrant` instead, so `nearMisses` stays empty then.
+
+```ts
+// agent holds { resource: "mcp:github:issues", actions: ["read"] }
+const e = (await theauth.explain(id, "read", "mcp:github:create_issue")).data!;
+e.nearMisses[0];
+// {
+//   source: "own",
+//   grant: { resource: "mcp:github:issues", actions: ["read"] },
+//   mismatch: ["resource"],
+//   hint: 'resource "mcp:github:issues" does not cover "mcp:github:create_issue"; "mcp:github:*" would',
+//   score: 0.8,
+// }
+```
+
+| Field | Meaning |
+| --- | --- |
+| `source` | `own` or `delegation` |
+| `delegationId` | The delegation that carried the grant. Only for `delegation` |
+| `grant` | The grant's `resource` and `actions` |
+| `mismatch` | `resource`, `action`, or both |
+| `hint` | A plain sentence saying what would have matched |
+| `score` | 0 to 1: 0.6 times the share of leading `:` segments the resource pattern has in common with the requested resource, plus 0.4 when the action matched |
+
+Near misses are computed from the same permission lists, with no extra queries and no side effects. To turn explain into CI checks, see [policy testing](/policy-testing).
 
 ## Semantics
 

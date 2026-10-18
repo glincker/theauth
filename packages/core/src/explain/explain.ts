@@ -10,6 +10,7 @@ import type { SetEvaluation } from "../simulator/evaluate-set.js";
 import { evaluateSet, matchKind } from "../simulator/evaluate-set.js";
 import type { TraceStep } from "../simulator/types.js";
 import type { AgentIdentity, Permission } from "../types.js";
+import { findNearMisses } from "./near-miss.js";
 import type {
 	ExplainAttempt,
 	ExplainHook,
@@ -119,7 +120,7 @@ export function createExplainer(deps: ExplainerDeps): Explainer {
 		const now = options.at ?? new Date();
 		const trace: TraceStep[] = [];
 		const hook: ExplainHook = { configured: hookConfigured, evaluated: false };
-		const base = { constraints: [], attempts: [], hook, trace, evaluatedAt: now };
+		const base = { constraints: [], attempts: [], nearMisses: [], hook, trace, evaluatedAt: now };
 
 		let agent: AgentIdentity | null;
 		let chain: HookDelegationChain | null = null;
@@ -178,6 +179,7 @@ export function createExplainer(deps: ExplainerDeps): Explainer {
 			});
 		}
 
+		let flatGrants: Array<{ permission: Permission; link: DelegationLink }> = [];
 		let hookBlock: Extract<HookOutcome, { kind: "deny" | "escalate" }> | undefined;
 		if (options.runHooks && hookConfigured) {
 			const { token: _token, ...publicAgent } = agent;
@@ -247,6 +249,7 @@ export function createExplainer(deps: ExplainerDeps): Explainer {
 			const flat: Array<{ permission: Permission; link: DelegationLink }> = chain.inbound.flatMap(
 				(link) => link.permissions.map((p) => ({ permission: { ...p }, link })),
 			);
+			flatGrants = flat;
 			if (flat.length > 0) {
 				const via = await evaluateSet(
 					db,
@@ -303,6 +306,16 @@ export function createExplainer(deps: ExplainerDeps): Explainer {
 			agent: summary,
 			delegation: chain,
 			...(grant ? { matchedGrant: grant } : {}),
+			nearMisses: grant
+				? []
+				: findNearMisses(
+						[
+							...agent.permissions.map((permission) => ({ source: "own" as const, permission })),
+							...flatGrants.map((f) => ({ source: "delegation" as const, ...f })),
+						],
+						action,
+						resource,
+					),
 			constraints,
 			attempts,
 			hook,
