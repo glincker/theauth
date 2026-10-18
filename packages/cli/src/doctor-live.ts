@@ -2,6 +2,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { TheAuthConfig } from "@glinr/theauth";
+import type { DoctorRule } from "./doctor-rules.js";
+import { configRules } from "./doctor-rules.js";
+import { satisfiesRange } from "./doctor-versions.js";
 import type { DoctorCheck, DoctorOptions } from "./tools-commands.js";
 import { formatDoctor, loadEnv, runDoctorChecks } from "./tools-commands.js";
 
@@ -14,63 +17,9 @@ export interface LiveDoctorInput {
 	fetch?: typeof fetch;
 }
 
+export { satisfiesRange };
+
 export const DEFAULT_LIVE_URL = "http://localhost:3000/api/theauth";
-
-// ---------------------------------------------------------------- versions
-
-type Triple = [number, number, number];
-
-function parseVersion(v: string): Triple | null {
-	const m = /^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?/.exec(v.trim());
-	if (!m) return null;
-	return [Number(m[1]), Number(m[2] ?? 0), Number(m[3] ?? 0)];
-}
-
-function compare(a: Triple, b: Triple): number {
-	for (let i = 0; i < 3; i++) {
-		const d = (a[i] as number) - (b[i] as number);
-		if (d !== 0) return d;
-	}
-	return 0;
-}
-
-function satisfiesComparator(version: Triple, comparator: string): boolean {
-	const m = /^(>=|<=|>|<|=|\^|~)?\s*(.+)$/.exec(comparator.trim());
-	if (!m) return true;
-	const target = parseVersion(m[2] as string);
-	if (!target) return true;
-	const op = m[1] ?? "=";
-	const c = compare(version, target);
-	if (op === ">=") return c >= 0;
-	if (op === ">") return c > 0;
-	if (op === "<=") return c <= 0;
-	if (op === "<") return c < 0;
-	if (op === "^") {
-		const upper: Triple =
-			target[0] > 0
-				? [target[0] + 1, 0, 0]
-				: target[1] > 0
-					? [0, target[1] + 1, 0]
-					: [0, 0, target[2] + 1];
-		return c >= 0 && compare(version, upper) < 0;
-	}
-	if (op === "~") return c >= 0 && compare(version, [target[0], target[1] + 1, 0]) < 0;
-	return c === 0;
-}
-
-/** Small semver range check: space separated comparators, `||` alternatives, `^`, `~`, `x`. Unknown syntax passes. */
-export function satisfiesRange(version: string, range: string): boolean {
-	const v = parseVersion(version);
-	if (!v) return true;
-	return range.split("||").some((alt) => {
-		const text = alt.trim();
-		if (text === "" || text === "*" || /^[xX*]$/.test(text)) return true;
-		return text
-			.split(/\s+/)
-			.filter((c) => c !== "")
-			.every((c) => satisfiesComparator(v, c.replace(/\.[xX*]/g, ".0")));
-	});
-}
 
 function readJson(path: string): Record<string, unknown> | null {
 	try {
@@ -290,6 +239,7 @@ export async function runProjectDoctorChecks(input: {
 	const schema = await schemaCheck(input.cwd, input.env, config);
 	if (schema) checks.push(schema);
 	checks.push(...misconfigChecks(input.cwd, input.env, config));
+	checks.push(...configRules(config, input.env));
 	return checks;
 }
 
@@ -318,6 +268,7 @@ export function configLoader(cwd: string): () => Promise<TheAuthConfig | null> {
 interface Probe {
 	status: number | null;
 	json: unknown;
+	headers?: Headers;
 	error?: string;
 }
 
@@ -332,7 +283,7 @@ async function probe(doFetch: typeof fetch, url: string, init: RequestInit = {})
 		const type = res.headers.get("content-type") ?? "";
 		if (type.includes("json")) json = await res.json().catch(() => null);
 		else await res.arrayBuffer().catch(() => null);
-		return { status: res.status, json };
+		return { status: res.status, json, headers: res.headers };
 	} catch (error) {
 		return {
 			status: null,
@@ -356,6 +307,41 @@ function advertised(doc: unknown): Array<{ key: string; url: string }> {
 	return ENDPOINT_KEYS.flatMap((key) =>
 		typeof record[key] === "string" ? [{ key, url: record[key] as string }] : [],
 	);
+}
+
+const CORS_PROBE_ORIGIN = "https://doctor-probe.invalid";
+
+/** Rules read from one live response: a wildcard CORS grant and a missing HSTS header on https. */
+async function responseRules(
+	doFetch: typeof fetch,
+	base: string,
+	protectedRoute: Probe,
+): Promise<DoctorRule[]> {
+	const out: DoctorRule[] = [];
+	const cors = await probe(doFetch, `${base}/agents`, { headers: { Origin: CORS_PROBE_ORIGIN } });
+	if (cors.headers?.get("access-control-allow-origin") === "*") {
+		out.push({
+			id: "cors.wildcard",
+			status: "fail",
+			severity: "fail",
+			message: "The server answers CORS with Access-Control-Allow-Origin: * to any origin",
+			fix: "Replace the wildcard with the origins your app runs on (trustedOrigins).",
+		});
+	}
+	if (
+		/^https:\/\//i.test(base) &&
+		protectedRoute.headers &&
+		!protectedRoute.headers.has("strict-transport-security")
+	) {
+		out.push({
+			id: "headers.security_off_https",
+			status: "warn",
+			severity: "info",
+			message: "No Strict-Transport-Security header on an https response",
+			fix: "Send security headers from the app or your reverse proxy, and ignore this if the proxy already does.",
+		});
+	}
+	return out;
 }
 
 /** Calls a running server: routes mounted, MCP metadata honest, protected routes closed. */
@@ -416,6 +402,10 @@ export async function runLiveDoctorChecks(input: LiveDoctorInput): Promise<Docto
 			probe(doFetch, `${base}/.well-known/${name}`),
 		),
 	);
+	if (protectedRoute.status !== null) {
+		checks.push(...(await responseRules(doFetch, base, protectedRoute)));
+	}
+
 	if (wellKnown.every((w) => w.status === 404 || w.status === null)) {
 		checks.push({
 			id: "live-mcp-metadata",

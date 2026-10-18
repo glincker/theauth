@@ -85,8 +85,35 @@ Reads the process environment plus `.env` and `.env.local` in the current direct
 | `live-reachable` | the server does not answer, or `GET <url>/agents` answers 404 (nothing mounted there) |
 | `live-protected-401` | `GET <url>/agents` without a token answers 2xx (the management routes are open); warns on other non-401 answers |
 | `live-mcp-metadata` | a well-known document advertises an endpoint (`authorization_endpoint`, `token_endpoint`, `registration_endpoint`, `revocation_endpoint`, `jwks_uri`) that answers 404 or does not answer |
+| `cors.wildcard` | `GET <url>/agents` with an `Origin` header answers `Access-Control-Allow-Origin: *` |
+| `headers.security_off_https` (info) | the url is https and the response has no `Strict-Transport-Security` header (a proxy may add it) |
 
 When MCP is not mounted both well-known documents answer 404 and `live-mcp-metadata` passes. Metadata that points at a different origin than the one you probe (a `BASE_URL` of `http://localhost:3001` while the server listens on 3000, for example) fails with the endpoints it could not reach.
+
+### Config rules
+
+When `theauth.config.mjs` or `theauth.config.js` is present, the doctor reads it and checks the settings below. A `.ts` config loads only when the command runs under a TypeScript loader. Each rule has a `severity`: `fail` (exit 1), `warn`, or `info`. A rule appears only when it fires. Messages name settings and counts, never secret values.
+
+| Id | Severity | Fires when |
+|----|----------|------------|
+| `secret.weak` | fail | `secret`, `auth.session.secret` or `mcp.signingSecret` is under 32 characters, or looks like a default or placeholder |
+| `cookie.insecure_http` | fail | `baseUrl` is plain http on a host that is not localhost |
+| `webauthn.rpid_mismatch` | fail | `passkey.rpId` is neither the `baseUrl` host nor a parent domain of it |
+| `session.ttl_long` | warn | `auth.session.maxAge` is over 30 days |
+| `network.trusted_proxies_empty` | warn | `trustForwardedHeaders` is on and `trustedProxy` names no proxy |
+| `mfa.none_enabled` | warn | username or session sign-in is configured with neither `totp` nor `passkey` |
+| `password.min_length_low` | warn | `username.password.minLength` is under 12 (default 8) |
+| `password.pbkdf2_iterations_low` | warn | an iteration override (`username`, `passwordReset`, or `THEAUTH_PBKDF2_ITERATIONS`) resolves below 600000 |
+| `saml.tracker_in_memory` | warn | SAML providers are set with neither `sso.storage` nor `secondaryStorage` |
+| `mcp.offline_no_jti_denylist` | warn | MCP revocation mode is `offline` (config or `THEAUTH_MCP_REVOCATION_MODE`) and no `mcp.jtiDenylist` is set |
+| `cimd.no_host_allowlist` | warn | `mcp.clientIdMetadataDocuments` is enabled with no `allowedHosts` and no `resolver` |
+| `mcp.consent_page_missing` | warn | MCP is enabled with no `mcp.consentPage`, so codes are issued without a consent screen |
+| `mcp.registration_open` | warn | dynamic client registration is on and `mcp.registration.agentForClient` is not set |
+| `hooks.timeout_disabled` | warn | a `beforeAuthorize` or `beforeAgentCreate` hook runs with `timeoutMs` 0 |
+| `audit.hmac_key_missing` | warn | `audit.tamperEvident` is on without `audit.hmacKey` |
+| `audit.tamper_evident_off` | info | `audit.tamperEvident` is not on, so audit rows are not hash-chained |
+
+Fixes for each id are in the `fix` field of the output.
 
 ### Exit code and JSON
 
@@ -102,7 +129,7 @@ Exit code is 1 when any check fails. Warnings do not fail the run. With `--json`
 }
 ```
 
-`status` is `pass`, `warn` or `fail`; `fix` appears on non-passing checks. The shape is stable: new checks only add entries, so key on `id` and ignore ids you do not know. A check is left out when it does not apply (no `DATABASE_URL`, no adapter in source, no `--live`).
+`status` is `pass`, `warn` or `fail`; `fix` appears on non-passing checks. Config rules and the live `cors.wildcard` and `headers.security_off_https` checks also carry `severity` (`info`, `warn` or `fail`). For those, `status` is `fail` when severity is `fail` and `warn` otherwise. The shape is stable: new checks and fields only add entries, so key on `id` and ignore ids and fields you do not know. A check is left out when it does not apply (no `DATABASE_URL`, no adapter in source, no `--live`, no config file, or a rule that did not fire).
 
 ## secret
 
