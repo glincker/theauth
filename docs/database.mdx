@@ -1,6 +1,6 @@
 ---
 title: Database setup
-description: Configure theAuth with SQLite, native SQLite, Postgres, MySQL, or Cloudflare D1. Covers connection setup, migration, WAL mode for native SQLite, and skipping auto-migrations.
+description: Configure theAuth with SQLite, native SQLite, Postgres, or Cloudflare D1. MySQL is not supported in this release. Covers connection setup, migration, WAL mode for native SQLite, and skipping auto-migrations.
 icon: database
 ---
 
@@ -14,25 +14,14 @@ theAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
 | `sqlite` | Local dev and small single-process deploys. Runs on `sql.js` (SQLite compiled to WebAssembly), no native build step |
 | `sqlite-native` | Node.js servers that want the fastest SQLite. Uses `better-sqlite3`, which needs a native build |
 | `postgres` | Production, high-concurrency, multi-tenant |
-| `mysql` | Existing MySQL infrastructure |
+| `mysql` | Not supported in this release. Throws unless `experimental: true` is set |
 | `d1` | Cloudflare Workers, using a D1 binding |
 
 ## Setup
 
 <Tabs>
   <Tab title="SQLite">
-    The `sqlite` provider uses `sql.js` (SQLite compiled to WebAssembly), which ships with `@glinr/theauth`. It needs no native build and runs on Node.js, Bun, Deno, and edge runtimes.
-
-    ```typescript
-    import { createTheAuth } from '@glinr/theauth';
-
-    const theauth = await createTheAuth({
-      database: {
-        provider: 'sqlite',
-        url: './theauth.db',
-      },
-    });
-    ```
+    The `sqlite` provider uses `sql.js` (SQLite compiled to WebAssembly), which ships with `@glinr/theauth`. It needs no native build and runs on Node.js, Bun, Deno, and edge runtimes. It is in-memory only: it never writes a database file, so use it for tests, CI and throwaway demos. For a database file that survives a restart, use the **SQLite (native)** tab (`sqlite-native`) or Postgres.
 
     For in-memory SQLite (tests and CI), use `:memory:` as the URL:
 
@@ -45,7 +34,7 @@ theAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     });
     ```
 
-    `sql.js` keeps the database in memory. For a file path, theAuth loads the file at startup if it exists and rewrites the whole file after each write statement. That is fine for development and small apps, but it is a single-process setup: do not point several processes at the same file. theAuth turns on foreign keys (`PRAGMA foreign_keys = ON`). It does not enable WAL mode for this provider.
+    `sql.js` keeps the database in memory and nothing is saved when the process exits. Passing a file path (for example `url: './theauth.db'`) throws `THEAUTH_SQLITE_NOT_PERSISTENT` at startup, because the file would never be written and your data would disappear on restart. theAuth turns on foreign keys (`PRAGMA foreign_keys = ON`).
   </Tab>
   <Tab title="SQLite (native)">
     The `sqlite-native` provider uses `better-sqlite3`. Install it yourself, it is an optional peer dependency and needs C++ build tools:
@@ -92,27 +81,11 @@ theAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
     ```
 
     theAuth uses `drizzle-orm/node-postgres` with a connection pool via `pg.Pool`. The `pg` package is loaded with a dynamic import, so it stays an optional peer dep.
+
+    Timestamps are stored as integer epoch seconds, the same as SQLite. When you query the tables yourself, wrap timestamp columns in `to_timestamp(...)`, for example `SELECT id, to_timestamp(created_at) AS created FROM theauth_users;`. Other Postgres drivers (postgres.js, Neon serverless, PGlite) are not supported yet.
   </Tab>
   <Tab title="MySQL">
-    Install the `mysql2` peer dependency:
-
-    ```bash
-    npm install mysql2
-    ```
-
-    ```typescript
-    import { createTheAuth } from '@glinr/theauth';
-
-    const theauth = await createTheAuth({
-      database: {
-        provider: 'mysql',
-        url: process.env.DATABASE_URL!,
-        // mysql://user:password@host:3306/dbname
-      },
-    });
-    ```
-
-    theAuth uses `drizzle-orm/mysql2` with a connection pool. `mysql2` is loaded via dynamic import and stays an optional peer dep.
+    MySQL is not supported in this release. `provider: 'mysql'` throws `THEAUTH_MYSQL_UNSUPPORTED` unless you pass `experimental: true`, and even then the baseline schema does not apply on a real server. Do not use it in production.
   </Tab>
   <Tab title="Cloudflare D1">
     Pass the D1 binding from your Worker environment. The `drizzle-orm/d1` driver is loaded with a dynamic import.
@@ -202,7 +175,7 @@ theauth db status                      # applied and pending, exit 1 when behind
 theauth db up                          # apply pending migrations
 theauth db up --dry-run                # print the statements, change nothing
 theauth db sql --dialect postgres      # print the SQL for a dialect
-theauth db sql --dialect mysql --from 0002
+theauth db sql --dialect postgres --from 0002
 ```
 
 `--db <url>` (or `DATABASE_URL`) picks the database; `--config <file>` loads your config module so only the tables your features need are considered. Add `--json` for machine readable output.
@@ -255,9 +228,9 @@ The full set of tables theAuth can create is below. Which ones exist in your dat
 
 ### Upgrading the audit table
 
-Migrations `0002` and `0003` add `decision_code TEXT` (with the index `theauth_audit_logs_code`) and `recorded_at_ms` (`INTEGER` on SQLite, `BIGINT` on Postgres and MySQL, with the index `theauth_audit_logs_order`). Old rows keep a NULL code, and `recorded_at_ms` is backfilled from the second-resolution `timestamp`. Audit reads order by `recorded_at_ms`, so rows written in the same second keep their write order. Neither column is covered by the audit hash, so existing hash chains and the Go verifier keep verifying. If you use `skipMigrations`, see [Using skipMigrations](#using-skipmigrations).
+Migrations `0002` and `0003` add `decision_code TEXT` (with the index `theauth_audit_logs_code`) and `recorded_at_ms` (`INTEGER` on SQLite, `BIGINT` on Postgres, with the index `theauth_audit_logs_order`). Old rows keep a NULL code, and `recorded_at_ms` is backfilled from the second-resolution `timestamp`. Audit reads order by `recorded_at_ms`, so rows written in the same second keep their write order. Neither column is covered by the audit hash, so existing hash chains and the Go verifier keep verifying. If you use `skipMigrations`, see [Using skipMigrations](#using-skipmigrations).
 
-All table and column names use `snake_case`. IDs are `text`. In the SQLite schema, timestamps are stored as integers.
+All table and column names use `snake_case`. IDs are `text`. Timestamps are integer epoch seconds on both SQLite and Postgres.
 
 ## Peer dependencies
 
@@ -266,10 +239,10 @@ All table and column names use `snake_case`. IDs are `text`. In the SQLite schem
 | `sqlite` | `sql.js` (installed with core) |
 | `sqlite-native` | `better-sqlite3` |
 | `postgres` | `pg` |
-| `mysql` | `mysql2` |
+| `mysql` (not supported in this release) | `mysql2` |
 | `d1` | `drizzle-orm/d1` (a Cloudflare Workers binding, no extra install) |
 
-theAuth uses dynamic imports for the SQLite, Postgres, and MySQL drivers so they remain optional. You will get a clear error message at startup if the required package is missing, for example:
+theAuth uses dynamic imports for the SQLite and Postgres drivers so they remain optional. You will get a clear error message at startup if the required package is missing, for example:
 
 ```
 TheAuth: provider "postgres" requires the "pg" package.

@@ -1,4 +1,5 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { json, timestampSec } from "./columns.js";
 import { users } from "./core.js";
 
 export const organizations = sqliteTable("theauth_organizations", {
@@ -8,9 +9,9 @@ export const organizations = sqliteTable("theauth_organizations", {
 	ownerId: text("owner_id")
 		.notNull()
 		.references(() => users.id),
-	metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+	metadata: json<Record<string, unknown>>("metadata"),
+	createdAt: timestampSec("created_at").notNull(),
+	updatedAt: timestampSec("updated_at").notNull(),
 });
 
 export const orgMembers = sqliteTable("theauth_org_members", {
@@ -22,7 +23,7 @@ export const orgMembers = sqliteTable("theauth_org_members", {
 		.notNull()
 		.references(() => users.id),
 	role: text("role").notNull().default("member"),
-	joinedAt: integer("joined_at", { mode: "timestamp" }).notNull(),
+	joinedAt: timestampSec("joined_at").notNull(),
 });
 
 export const orgInvitations = sqliteTable("theauth_org_invitations", {
@@ -38,8 +39,8 @@ export const orgInvitations = sqliteTable("theauth_org_invitations", {
 	status: text("status", { enum: ["pending", "accepted", "expired"] })
 		.notNull()
 		.default("pending"),
-	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	expiresAt: timestampSec("expires_at").notNull(),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const orgRoles = sqliteTable("theauth_org_roles", {
@@ -48,5 +49,5 @@ export const orgRoles = sqliteTable("theauth_org_roles", {
 		.notNull()
 		.references(() => organizations.id, { onDelete: "cascade" }),
 	name: text("name").notNull(),
-	permissions: text("permissions", { mode: "json" }).notNull().$type<string[]>(),
+	permissions: json<string[]>("permissions").notNull(),
 });

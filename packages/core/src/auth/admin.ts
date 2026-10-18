@@ -13,10 +13,11 @@
  * ```
  */
 
-import { eq, like, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { agents, sessions, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
+import { escapeLike } from "./scim-helpers.js";
 
 export interface AdminConfig {
 	/** User IDs that are global admins */
@@ -112,7 +113,7 @@ export function createAdminModule(
 
 	async function getAgentCountForUser(userId: string): Promise<number> {
 		const rows = await db
-			.select({ count: sql<number>`count(*)` })
+			.select({ count: sql<number>`count(*)`.mapWith(Number) })
 			.from(agents)
 			.where(eq(agents.ownerId, userId));
 		return Number(rows[0]?.count ?? 0);
@@ -145,20 +146,16 @@ export function createAdminModule(
 		let countRows: { count: number }[];
 
 		if (search) {
-			const pattern = `%${search}%`;
-			rows = await db
-				.select()
-				.from(users)
-				.where(like(users.email, pattern))
-				.limit(limit)
-				.offset(offset);
+			const pattern = `%${escapeLike(search.toLowerCase())}%`;
+			const emailMatches = (p: string) => sql`lower(${users.email}) LIKE ${p} ESCAPE '!'`;
+			rows = await db.select().from(users).where(emailMatches(pattern)).limit(limit).offset(offset);
 			countRows = await db
-				.select({ count: sql<number>`count(*)` })
+				.select({ count: sql<number>`count(*)`.mapWith(Number) })
 				.from(users)
-				.where(like(users.email, pattern));
+				.where(emailMatches(pattern));
 		} else {
 			rows = await db.select().from(users).limit(limit).offset(offset);
-			countRows = await db.select({ count: sql<number>`count(*)` }).from(users);
+			countRows = await db.select({ count: sql<number>`count(*)`.mapWith(Number) }).from(users);
 		}
 
 		const total = Number(countRows[0]?.count ?? 0);

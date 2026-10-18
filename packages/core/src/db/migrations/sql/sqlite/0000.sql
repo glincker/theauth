@@ -555,7 +555,7 @@ CREATE TABLE IF NOT EXISTS theauth_vault_connections (
   refresh_token_enc   TEXT,
   key_id              TEXT NOT NULL,
   scopes              TEXT NOT NULL,
-  status              VARCHAR(16) NOT NULL DEFAULT 'active',
+  status              TEXT NOT NULL DEFAULT 'active',
   expires_at          INTEGER,
   created_at          INTEGER NOT NULL,
   updated_at          INTEGER NOT NULL,
@@ -608,7 +608,7 @@ CREATE TABLE IF NOT EXISTS theauth_ssf_outbox (
   jti             TEXT NOT NULL PRIMARY KEY,
   stream_id       TEXT NOT NULL,
   jwt             TEXT NOT NULL,
-  status          VARCHAR(16) NOT NULL DEFAULT 'pending',
+  status          TEXT NOT NULL DEFAULT 'pending',
   attempts        INTEGER NOT NULL DEFAULT 0,
   next_attempt_at INTEGER NOT NULL,
   last_error      TEXT,
@@ -738,4 +738,4 @@ CREATE INDEX IF NOT EXISTS theauth_federation_tokens_agent
 CREATE INDEX IF NOT EXISTS theauth_federation_tokens_source
   ON theauth_federation_tokens (source_instance_id);
 
-INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0000', 'baseline', 'cbaa56f7beec0656e897fe34ed0ff9697baf717ca74a27700faf3ab866c4f252', CAST(strftime('%s', 'now') AS INTEGER));
+INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0000', 'baseline', '44495d9b1f5a80eafea9c38b4cc1a6275f821a9df07930fef928827d8f18a8fe', CAST(strftime('%s', 'now') AS INTEGER));

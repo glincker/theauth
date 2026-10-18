@@ -1,4 +1,5 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { bool, json, timestampSec } from "./columns.js";
 import { users } from "./core.js";
 
 export const oauthClients = sqliteTable("theauth_oauth_clients", {
@@ -7,25 +8,19 @@ export const oauthClients = sqliteTable("theauth_oauth_clients", {
 	clientSecret: text("client_secret"), // null for public clients
 	clientName: text("client_name"),
 	clientUri: text("client_uri"),
-	redirectUris: text("redirect_uris", { mode: "json" }).notNull().$type<string[]>(),
-	grantTypes: text("grant_types", { mode: "json" })
-		.notNull()
-		.$type<string[]>()
-		.default(["authorization_code"]),
-	responseTypes: text("response_types", { mode: "json" })
-		.notNull()
-		.$type<string[]>()
-		.default(["code"]),
+	redirectUris: json<string[]>("redirect_uris").notNull(),
+	grantTypes: json<string[]>("grant_types").notNull().default(["authorization_code"]),
+	responseTypes: json<string[]>("response_types").notNull().default(["code"]),
 	tokenEndpointAuthMethod: text("token_endpoint_auth_method")
 		.notNull()
 		.default("client_secret_basic"),
 	type: text("type", { enum: ["public", "confidential"] })
 		.notNull()
 		.default("confidential"),
-	disabled: integer("disabled", { mode: "boolean" }).notNull().default(false),
-	metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+	disabled: bool("disabled").notNull().default(false),
+	metadata: json<Record<string, unknown>>("metadata"),
+	createdAt: timestampSec("created_at").notNull(),
+	updatedAt: timestampSec("updated_at").notNull(),
 });
 
 export const oauthAccessTokens = sqliteTable("theauth_oauth_access_tokens", {
@@ -40,9 +35,9 @@ export const oauthAccessTokens = sqliteTable("theauth_oauth_access_tokens", {
 		.references(() => users.id),
 	scopes: text("scopes").notNull(), // space-separated
 	resource: text("resource"), // RFC 8707 - audience binding
-	accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp" }).notNull(),
-	refreshTokenExpiresAt: integer("refresh_token_expires_at", { mode: "timestamp" }),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	accessTokenExpiresAt: timestampSec("access_token_expires_at").notNull(),
+	refreshTokenExpiresAt: timestampSec("refresh_token_expires_at"),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const oauthAuthorizationCodes = sqliteTable("theauth_oauth_authorization_codes", {
@@ -59,6 +54,6 @@ export const oauthAuthorizationCodes = sqliteTable("theauth_oauth_authorization_
 	codeChallenge: text("code_challenge"), // PKCE
 	codeChallengeMethod: text("code_challenge_method"), // "S256"
 	resource: text("resource"), // RFC 8707
-	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	expiresAt: timestampSec("expires_at").notNull(),
+	createdAt: timestampSec("created_at").notNull(),
 });

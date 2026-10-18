@@ -16,11 +16,13 @@
  * ```
  */
 
-import { eq, inArray, or, sql } from "drizzle-orm";
-import { eraseAuditIdentity } from "../audit/erasure.js";
+import { eq, inArray, or } from "drizzle-orm";
+import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
+import { ensureTombstoneUser, eraseAuditIdentity } from "../audit/erasure.js";
 import { sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import {
+	agentRegistrationTokens,
 	agents,
 	apiKeys,
 	approvalRequests,
@@ -28,10 +30,12 @@ import {
 	budgetPolicies,
 	delegationChains,
 	emailOtps,
+	ephemeralSessions,
 	magicLinks,
 	oauthAccessTokens,
 	oauthAuthorizationCodes,
 	organizations,
+	orgInvitations,
 	orgMembers,
 	passkeyCredentials,
 	sessions,
@@ -215,6 +219,20 @@ export function createGdprModule(db: Database): GdprModule {
 		};
 	}
 
+	/** Runs `move` (repoint to the tombstone user) only when a row in `table` is owned by `userId`, creating the tombstone on demand. */
+	async function moveToTombstone(
+		table: SQLiteTable,
+		column: SQLiteColumn,
+		userId: string,
+		anonUserId: string,
+		move: () => Promise<unknown>,
+	): Promise<void> {
+		const found = await db.select({ v: column }).from(table).where(eq(column, userId)).limit(1);
+		if (found.length === 0) return;
+		await ensureTombstoneUser(db, anonUserId);
+		await move();
+	}
+
 	async function deleteUser(userId: string, options?: DeleteOptions): Promise<DeleteResult> {
 		const keepAuditLogs = options?.keepAuditLogs ?? true;
 		const deleteOrgs = options?.deleteOrganizations ?? false;
@@ -273,16 +291,15 @@ export function createGdprModule(db: Database): GdprModule {
 		const anonymizedIds = new Map<string, string>();
 		for (const agentId of agentIds) anonymizedIds.set(agentId, await anonymizedUserId(agentId));
 
-		if (agentIds.length > 0) {
-			// Keeping logs: userId and agentId become stable anonymous tokens.
-			anonymizedAuditLogs = await eraseAuditIdentity(db, {
-				userId,
-				agentIds,
-				anonUserId: await anonymizedUserId(userId),
-				anonAgentId: (agentId) => anonymizedIds.get(agentId) ?? agentId,
-				keepRows: keepAuditLogs,
-			});
-		}
+		const anonUserId = await anonymizedUserId(userId);
+		// Keeping logs: userId and agentId become stable anonymous tokens that point at tombstone rows.
+		anonymizedAuditLogs = await eraseAuditIdentity(db, {
+			userId,
+			agentIds,
+			anonUserId,
+			anonAgentId: (agentId) => anonymizedIds.get(agentId) ?? agentId,
+			keepRows: keepAuditLogs,
+		});
 
 		// The user row still exists here, so the FK to users.id is satisfied.
 		await db.delete(approvalRequests).where(eq(approvalRequests.userId, userId));
@@ -319,16 +336,44 @@ export function createGdprModule(db: Database): GdprModule {
 		// keepAuditLogs=true keeps revoked agent rows so audit log references stay valid.
 		if (!keepAuditLogs && agentIds.length > 0) {
 			await db.delete(agents).where(eq(agents.ownerId, userId));
-			await db.delete(users).where(eq(users.id, userId));
-		} else {
-			// Agents remain, so FK enforcement is suspended while the parent user row is deleted.
-			await db.run(sql`PRAGMA foreign_keys = OFF`);
-			try {
-				await db.delete(users).where(eq(users.id, userId));
-			} finally {
-				await db.run(sql`PRAGMA foreign_keys = ON`);
-			}
+		} else if (agentIds.length > 0) {
+			await moveToTombstone(agents, agents.ownerId, userId, anonUserId, () =>
+				db.update(agents).set({ ownerId: anonUserId }).where(eq(agents.ownerId, userId)),
+			);
 		}
+		// Rows that legitimately outlive the user (orgs kept by default, invitations, agent
+		// registration tokens and ephemeral sessions) move to the tombstone user, so the FK to
+		// users.id holds on every dialect once the real row is gone.
+		await moveToTombstone(organizations, organizations.ownerId, userId, anonUserId, () =>
+			db
+				.update(organizations)
+				.set({ ownerId: anonUserId })
+				.where(eq(organizations.ownerId, userId)),
+		);
+		await moveToTombstone(orgInvitations, orgInvitations.invitedBy, userId, anonUserId, () =>
+			db
+				.update(orgInvitations)
+				.set({ invitedBy: anonUserId })
+				.where(eq(orgInvitations.invitedBy, userId)),
+		);
+		await moveToTombstone(
+			agentRegistrationTokens,
+			agentRegistrationTokens.ownerId,
+			userId,
+			anonUserId,
+			() =>
+				db
+					.update(agentRegistrationTokens)
+					.set({ ownerId: anonUserId })
+					.where(eq(agentRegistrationTokens.ownerId, userId)),
+		);
+		await moveToTombstone(ephemeralSessions, ephemeralSessions.ownerId, userId, anonUserId, () =>
+			db
+				.update(ephemeralSessions)
+				.set({ ownerId: anonUserId })
+				.where(eq(ephemeralSessions.ownerId, userId)),
+		);
+		await db.delete(users).where(eq(users.id, userId));
 
 		return {
 			deletedAgents: agentIds.length,

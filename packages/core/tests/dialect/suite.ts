@@ -9,12 +9,14 @@ import {
 	SchemaChecksumError,
 } from "../../src/db/migrate/index.js";
 import type { SqlExecutor } from "../../src/db/migrate/types.js";
-import { createTheAuth } from "../../src/theauth.js";
 import { schemaV120 } from "../helpers-schema-db.js";
+import { closeDatabase, createCoreBooter } from "./core-boot.js";
+import { defineCoreInstanceTests } from "./core-instance.js";
+import { defineSchemaParityTests } from "./schema-parity.js";
 
 type Provider = "postgres" | "mysql";
 
-const ALL_IDS = ["0000", "0001", "0002", "0003"];
+const ALL_IDS = ["0000", "0001", "0002", "0003", "0004"];
 
 interface Handle {
 	db: Database;
@@ -23,11 +25,13 @@ interface Handle {
 }
 
 async function openHandle(provider: Provider, url: string): Promise<Handle> {
-	const db = await createDatabase({ provider, url });
+	const db = await createDatabase({
+		provider,
+		url,
+		...(provider === "mysql" ? { experimental: true } : {}),
+	});
 	const exec = createExecutor(db, provider);
-	// biome-ignore lint/suspicious/noExplicitAny: reaching the driver pool to close it
-	const client = (db as any).$client as { end?: () => Promise<void> } | undefined;
-	return { db, exec, close: async () => void (await client?.end?.()) };
+	return { db, exec, close: () => closeDatabase(db) };
 }
 
 /** Drops every theauth_ table. Foreign keys make order matter, so retry in passes. */
@@ -83,19 +87,14 @@ const truthy = (v: unknown): boolean => v === true || v === 1 || v === "1" || v 
 function literals(provider: Provider) {
 	const pg = provider === "postgres";
 	return {
-		now: pg ? "NOW()" : "NOW(3)",
-		// 2026-10-01 12:34:56.789 UTC on Postgres; the same wall clock text on MySQL (DATETIME has no zone).
-		at: pg ? "'2026-10-01 12:34:56.789+00'" : "'2026-10-01 12:34:56.789'",
+		// Timestamps are BIGINT epoch seconds on every dialect.
+		now: pg ? "floor(extract(epoch FROM now()))::bigint" : "UNIX_TIMESTAMP()",
+		// 2026-10-01 12:34:56 UTC. The legacy 1.2.0 tables take this as a TIMESTAMPTZ text literal.
+		at: "1790858096",
+		legacyAt: pg ? "'2026-10-01 12:34:56.789+00'" : "'2026-10-01 12:34:56.789'",
 		yes: pg ? "TRUE" : "1",
 		json: (value: unknown) => `'${JSON.stringify(value)}'`,
 	};
-}
-
-/** Wall clock parts of a Date as the driver reports them (UTC on Postgres, local on MySQL). */
-function parts(provider: Provider, d: Date): number[] {
-	return provider === "postgres"
-		? [d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMilliseconds()]
-		: [d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMilliseconds()];
 }
 
 export function defineDialectSuite(
@@ -147,34 +146,39 @@ export function defineDialectSuite(
 				);
 			});
 
-			it("upgrades a 1.2.0 database: stamps the baseline, runs 0002 and 0003, keeps rows", async () => {
+			it("upgrades a 1.2.0 database: stamps the baseline, runs 0002 to 0004, keeps rows", async () => {
 				const l = literals(provider);
 				for (const sql of schemaV120(provider)) await h.exec.run(sql);
 				await h.exec.run(
-					`INSERT INTO theauth_users (id, email, name, created_at, updated_at) VALUES ('u1', 'u1@example.com', 'U1', ${l.at}, ${l.at})`,
+					`INSERT INTO theauth_users (id, email, name, created_at, updated_at) VALUES ('u1', 'u1@example.com', 'U1', ${l.legacyAt}, ${l.legacyAt})`,
 				);
 				await h.exec.run(
-					`INSERT INTO theauth_agents (id, owner_id, name, type, status, token_hash, token_prefix, created_at, updated_at) VALUES ('a1', 'u1', 'a1', 'autonomous', 'active', 'h', 'p', ${l.at}, ${l.at})`,
+					`INSERT INTO theauth_agents (id, owner_id, name, type, status, token_hash, token_prefix, created_at, updated_at) VALUES ('a1', 'u1', 'a1', 'autonomous', 'active', 'h', 'p', ${l.legacyAt}, ${l.legacyAt})`,
 				);
 				await h.exec.run(
-					`INSERT INTO theauth_audit_logs (id, agent_id, user_id, action, resource, result, duration_ms, timestamp, chain_seq, hash_version) VALUES ('r1', 'a1', 'u1', 'execute', 'mcp:x:y', 'allowed', 1, ${l.at}, 1, 2)`,
+					`INSERT INTO theauth_audit_logs (id, agent_id, user_id, action, resource, result, duration_ms, timestamp, chain_seq, hash_version) VALUES ('r1', 'a1', 'u1', 'execute', 'mcp:x:y', 'allowed', 1, ${l.legacyAt}, 1, 2)`,
 				);
 
 				const before = await getSchemaStatus(h.db, provider);
 				expect(before.baselineStamped).toBe(true);
-				expect(before.pending.map((p) => p.id)).toEqual(["0002", "0003"]);
+				expect(before.pending.map((p) => p.id)).toEqual(["0002", "0003", "0004"]);
 
 				const result = await runMigrations(h.db, provider);
 				expect(result.applied).toEqual(ALL_IDS);
 				expect(await ledgerIds(h.exec)).toEqual(ALL_IDS);
 
 				const [row] = await h.exec.all(
-					"SELECT decision_code AS code, recorded_at_ms AS ms FROM theauth_audit_logs WHERE id = 'r1'",
+					"SELECT decision_code AS code, recorded_at_ms AS ms, timestamp AS ts FROM theauth_audit_logs WHERE id = 'r1'",
 				);
 				expect(row?.code).toBeNull();
-				// The backfill keeps the millisecond part. Postgres is UTC, MySQL reads the text in the server zone.
-				expect(Number(row?.ms)).toBeGreaterThan(1.7e12);
-				if (provider === "postgres") expect(Number(row?.ms)).toBe(1790858096789);
+				// 0003 converts timestamps to epoch seconds, 0004 backfills recorded_at_ms from them.
+				expect(Number(row?.ts)).toBe(1790858096);
+				expect(Number(row?.ms)).toBe(1790858096000);
+				const [user] = await h.exec.all(
+					"SELECT created_at AS created, updated_at AS updated FROM theauth_users WHERE id = 'u1'",
+				);
+				expect(Number(user?.created)).toBe(1790858096);
+				expect(Number(user?.updated)).toBe(1790858096);
 				expect(await indexNames(h.exec, "theauth_audit_logs")).toEqual(
 					expect.arrayContaining(["theauth_audit_logs_code", "theauth_audit_logs_order"]),
 				);
@@ -249,13 +253,13 @@ export function defineDialectSuite(
 				);
 				expect(asJson(user?.m)).toEqual({ plan: "pro", n: [1, 2] });
 				expect(truthy(user?.b)).toBe(true);
-				expect(parts(provider, user?.e as Date)).toEqual([2026, 9, 1, 12, 789]);
+				expect(Number(user?.e)).toBe(1790858096);
 
 				const [agent] = await h.exec.all(
 					"SELECT metadata AS m, expires_at AS e FROM theauth_agents WHERE id = 'a1'",
 				);
 				expect(asJson(agent?.m)).toEqual({ k: "v" });
-				expect(parts(provider, agent?.e as Date)).toEqual([2026, 9, 1, 12, 789]);
+				expect(Number(agent?.e)).toBe(1790858096);
 
 				const [perm] = await h.exec.all(
 					"SELECT actions AS a, constraints AS c, relation AS r FROM theauth_permissions",
@@ -268,7 +272,7 @@ export function defineDialectSuite(
 					"SELECT permissions AS p, expires_at AS e FROM theauth_delegation_chains",
 				);
 				expect(asJson(chain?.p)).toEqual([{ resource: "mcp:x", actions: ["read"] }]);
-				expect(parts(provider, chain?.e as Date)).toEqual([2026, 9, 1, 12, 789]);
+				expect(Number(chain?.e)).toBe(1790858096);
 
 				const [log] = await h.exec.all(
 					"SELECT parameters AS p, cache_hit AS c, decision_code AS code, recorded_at_ms AS ms, delegation_chain AS d, timestamp AS t FROM theauth_audit_logs",
@@ -278,7 +282,7 @@ export function defineDialectSuite(
 				expect(log?.code).toBe("allowed");
 				expect(Number(log?.ms)).toBe(1790858096789);
 				expect(asJson(log?.d)).toEqual(["a1", "a2"]);
-				expect(parts(provider, log?.t as Date)).toEqual([2026, 9, 1, 12, 789]);
+				expect(Number(log?.t)).toBe(1790858096);
 
 				const [client] = await h.exec.all(
 					"SELECT redirect_uris AS r, disabled AS d, metadata AS m FROM theauth_oauth_clients",
@@ -290,12 +294,12 @@ export function defineDialectSuite(
 				const [token] = await h.exec.all(
 					"SELECT access_token_expires_at AS a, refresh_token_expires_at AS r FROM theauth_oauth_access_tokens",
 				);
-				expect(parts(provider, token?.a as Date)).toEqual([2026, 9, 1, 12, 789]);
-				expect(parts(provider, token?.r as Date)).toEqual([2026, 9, 1, 12, 789]);
+				expect(Number(token?.a)).toBe(1790858096);
+				expect(Number(token?.r)).toBe(1790858096);
 				const [code] = await h.exec.all(
 					"SELECT expires_at AS e FROM theauth_oauth_authorization_codes",
 				);
-				expect(parts(provider, code?.e as Date)).toEqual([2026, 9, 1, 12, 789]);
+				expect(Number(code?.e)).toBe(1790858096);
 			});
 
 			it("orders audit rows by recorded_at_ms, not by id or timestamp", async () => {
@@ -324,48 +328,19 @@ export function defineDialectSuite(
 			});
 		});
 
-		// The core modules query through Drizzle tables declared for SQLite (timestamps as epoch
-		// seconds, integer booleans). Postgres and MySQL reject those parameters, so these
-		// tests fail today. They stay behind THEAUTH_TEST_DIALECT_CORE=1 until the per dialect
-		// Drizzle schema work lands; run them to see the current gap.
-		describe.skipIf(process.env.THEAUTH_TEST_DIALECT_CORE !== "1")("core instance", () => {
-			async function boot() {
-				return createTheAuth({
-					database: { provider, url: url as string },
-					agents: { enabled: true },
-				});
-			}
-
-			it("user.create is idempotent, also under concurrency", async () => {
-				const auth = await boot();
-				const first = await auth.user.create({ email: "Dup@Example.com", name: "Dup" });
-				const again = await auth.user.create({ email: "dup@example.com" });
-				expect(again.id).toBe(first.id);
-				const burst = await Promise.all(
-					Array.from({ length: 5 }, () => auth.user.create({ email: "burst@example.com" })),
-				);
-				expect(new Set(burst.map((u) => u.id)).size).toBe(1);
+		describe("core instance", () => {
+			const booter = createCoreBooter(provider, url as string);
+			afterEach(async () => {
+				await booter.closeAll();
 			});
+			defineCoreInstanceTests(booter);
+		});
 
-			it("writes audit rows that read back in write order", async () => {
-				const auth = await boot();
-				const user = await auth.user.create({ email: "o@example.com" });
-				const agent = await auth.agent.create({
-					ownerId: user.id,
-					name: "w",
-					type: "autonomous",
-					permissions: [{ resource: "mcp:*", actions: ["execute"] }],
-					expiresAt: new Date(Date.now() + 60_000),
-				});
-				for (let i = 0; i < 8; i++) {
-					await auth.authorize(agent.id, { action: "execute", resource: `mcp:x:t${i}` });
-				}
-				const rows = await auth.audit.query({ agentId: agent.id });
-				expect(rows.map((r) => r.resource)).toEqual(
-					Array.from({ length: 8 }, (_, i) => `mcp:x:t${i}`),
-				);
-				expect((await auth.schema.status()).pending).toEqual([]);
+		describe("schema parity (migrated database)", () => {
+			beforeEach(async () => {
+				await runMigrations(h.db, provider);
 			});
+			defineSchemaParityTests(provider, () => h.exec);
 		});
 	});
 }

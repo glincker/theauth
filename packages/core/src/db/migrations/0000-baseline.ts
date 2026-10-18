@@ -7,7 +7,7 @@ function allStatements(dialect: Dialect): string[] {
 }
 
 /**
- * Every table TheAuth had when the ledger was introduced (the 1.x schema, plus the columns 0001 to 0003 add on top, which fresh databases get from the CREATE statements).
+ * Every table TheAuth had when the ledger was introduced (the 1.x schema, plus the columns 0001, 0002 and 0004 add on top, which fresh databases get from the CREATE statements).
  * At runtime only tables for enabled features are created; the generated SQL carries all of them.
  */
 export const baseline: Migration = {

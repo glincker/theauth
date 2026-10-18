@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { organizations, orgMembers, users } from "../db/schema.js";
 import type { FilterAst } from "./scim-filter.js";
 import { evaluateFilter, ScimFilterError } from "./scim-filter.js";
@@ -34,7 +34,7 @@ export function createScimGroupHandlers(ctx: ScimHandlerContext) {
 		const emailRows = (await db
 			.select({ id: users.id, email: users.email })
 			.from(users)
-			.where(sql`${users.id} IN ${ids}`)) as { id: string; email: string }[];
+			.where(inArray(users.id, ids))) as { id: string; email: string }[];
 		return new Map(emailRows.map((r) => [r.id, r.email]));
 	}
 
@@ -66,7 +66,7 @@ export function createScimGroupHandlers(ctx: ScimHandlerContext) {
 
 		if (conditions !== null && !sortSpec) {
 			const countRows = await db
-				.select({ count: sql<number>`count(*)` })
+				.select({ count: sql<number>`count(*)`.mapWith(Number) })
 				.from(organizations)
 				.where(whereClause);
 			const totalResults = Number(countRows[0]?.count ?? 0);

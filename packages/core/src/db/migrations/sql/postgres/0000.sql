@@ -17,23 +17,23 @@ CREATE TABLE IF NOT EXISTS theauth_users (
   metadata             JSONB,
   banned               BOOLEAN     NOT NULL DEFAULT FALSE,
   ban_reason           TEXT,
-  ban_expires_at       TIMESTAMPTZ,
+  ban_expires_at       BIGINT,
   force_password_reset         BOOLEAN     NOT NULL DEFAULT FALSE,
   email_verified               BOOLEAN     NOT NULL DEFAULT FALSE,
   stripe_customer_id           TEXT        UNIQUE,
   stripe_subscription_id       TEXT,
   stripe_subscription_status   TEXT,
   stripe_price_id              TEXT,
-  stripe_current_period_end    TIMESTAMPTZ,
+  stripe_current_period_end    BIGINT,
   stripe_cancel_at_period_end  BOOLEAN     NOT NULL DEFAULT FALSE,
   polar_customer_id            TEXT        UNIQUE,
   polar_subscription_id        TEXT,
   polar_subscription_status    TEXT,
   polar_product_id             TEXT,
-  polar_current_period_end     TIMESTAMPTZ,
+  polar_current_period_end     BIGINT,
   polar_cancel_at_period_end   BOOLEAN     NOT NULL DEFAULT FALSE,
-  created_at                   TIMESTAMPTZ       NOT NULL,
-  updated_at                   TIMESTAMPTZ       NOT NULL
+  created_at                   BIGINT       NOT NULL,
+  updated_at                   BIGINT       NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_tenants (
@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS theauth_tenants (
   slug       TEXT NOT NULL UNIQUE,
   settings   JSONB,
   status     TEXT NOT NULL DEFAULT 'active',
-  created_at TIMESTAMPTZ NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_agents (
@@ -55,11 +55,11 @@ CREATE TABLE IF NOT EXISTS theauth_agents (
   status          TEXT  NOT NULL DEFAULT 'active',
   token_hash      TEXT  NOT NULL,
   token_prefix    TEXT  NOT NULL,
-  expires_at      TIMESTAMPTZ,
-  last_active_at  TIMESTAMPTZ,
+  expires_at      BIGINT,
+  last_active_at  BIGINT,
   metadata        JSONB,
-  created_at      TIMESTAMPTZ NOT NULL,
-  updated_at      TIMESTAMPTZ NOT NULL
+  created_at      BIGINT NOT NULL,
+  updated_at      BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_permissions (
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS theauth_permissions (
   resource    TEXT  NOT NULL,
   actions     JSONB NOT NULL,
   constraints JSONB,
-  created_at  TIMESTAMPTZ NOT NULL
+  created_at  BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_delegation_chains (
@@ -79,15 +79,15 @@ CREATE TABLE IF NOT EXISTS theauth_delegation_chains (
   depth         INTEGER NOT NULL DEFAULT 1,
   max_depth     INTEGER NOT NULL DEFAULT 3,
   status        TEXT    NOT NULL DEFAULT 'active',
-  expires_at    TIMESTAMPTZ   NOT NULL,
-  created_at    TIMESTAMPTZ   NOT NULL
+  expires_at    BIGINT   NOT NULL,
+  created_at    BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_rate_limits (
   id           TEXT    NOT NULL PRIMARY KEY,
   agent_id     TEXT    NOT NULL REFERENCES theauth_agents(id) ON DELETE CASCADE,
   resource     TEXT    NOT NULL,
-  window_start TIMESTAMPTZ   NOT NULL,
+  window_start BIGINT   NOT NULL,
   count        INTEGER NOT NULL DEFAULT 0
 );
 
@@ -99,16 +99,16 @@ CREATE TABLE IF NOT EXISTS theauth_mcp_servers (
   auth_required    BOOLEAN NOT NULL DEFAULT TRUE,
   rate_limit_rpm   INTEGER,
   status           TEXT    NOT NULL DEFAULT 'active',
-  created_at       TIMESTAMPTZ   NOT NULL,
-  updated_at       TIMESTAMPTZ   NOT NULL
+  created_at       BIGINT   NOT NULL,
+  updated_at       BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_sessions (
   id         TEXT    NOT NULL PRIMARY KEY,
   user_id    TEXT    NOT NULL REFERENCES theauth_users(id),
-  expires_at TIMESTAMPTZ   NOT NULL,
+  expires_at BIGINT   NOT NULL,
   metadata   JSONB,
-  created_at TIMESTAMPTZ   NOT NULL
+  created_at BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_secondary_storage (
@@ -131,7 +131,7 @@ CREATE TABLE IF NOT EXISTS theauth_audit_logs (
   tokens_cost  INTEGER,
   ip           TEXT,
   user_agent   TEXT,
-  timestamp    TIMESTAMPTZ   NOT NULL,
+  timestamp    BIGINT   NOT NULL,
   chain_seq    INTEGER,
   prev_hash    TEXT,
   hash         TEXT,
@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS theauth_audit_logs (
 CREATE TABLE IF NOT EXISTS theauth_audit_secrets (
   id         TEXT  NOT NULL PRIMARY KEY,
   secret     TEXT  NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL
+  created_at BIGINT NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS theauth_audit_logs_chain
@@ -160,11 +160,11 @@ CREATE TABLE IF NOT EXISTS theauth_cost_events (
   tool                TEXT    NOT NULL,
   input_tokens        INTEGER,
   output_tokens       INTEGER,
-  cost_micros         INTEGER NOT NULL,
+  cost_micros         BIGINT NOT NULL,
   currency            TEXT    NOT NULL DEFAULT 'USD',
   metadata            JSONB,
   delegation_chain_id TEXT,
-  recorded_at         TIMESTAMPTZ   NOT NULL
+  recorded_at         BIGINT   NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS theauth_cost_events_agent_recorded
@@ -176,7 +176,7 @@ CREATE INDEX IF NOT EXISTS theauth_cost_events_chain_id
 CREATE TABLE IF NOT EXISTS theauth_stream_events (
   id        TEXT    NOT NULL PRIMARY KEY,
   type      TEXT    NOT NULL,
-  timestamp TIMESTAMPTZ   NOT NULL,
+  timestamp BIGINT   NOT NULL,
   data      JSONB NOT NULL,
   agent_id  TEXT,
   user_id   TEXT
@@ -197,7 +197,7 @@ CREATE TABLE IF NOT EXISTS theauth_budget_policies (
   current_usage JSONB NOT NULL,
   action        TEXT    NOT NULL DEFAULT 'warn',
   status        TEXT    NOT NULL DEFAULT 'active',
-  created_at    TIMESTAMPTZ   NOT NULL
+  created_at    BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_agent_cards (
@@ -211,8 +211,8 @@ CREATE TABLE IF NOT EXISTS theauth_agent_cards (
   auth_requirements JSONB NOT NULL,
   endpoint          TEXT,
   metadata          JSONB,
-  created_at        TIMESTAMPTZ   NOT NULL,
-  updated_at        TIMESTAMPTZ   NOT NULL
+  created_at        BIGINT   NOT NULL,
+  updated_at        BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_approval_requests (
@@ -223,11 +223,11 @@ CREATE TABLE IF NOT EXISTS theauth_approval_requests (
   resource      TEXT NOT NULL,
   arguments     JSONB,
   status        TEXT NOT NULL DEFAULT 'pending',
-  expires_at    TIMESTAMPTZ NOT NULL,
-  responded_at  TIMESTAMPTZ,
+  expires_at    BIGINT NOT NULL,
+  responded_at  BIGINT,
   responded_by  TEXT,
-  consumed_at   TIMESTAMPTZ,
-  created_at    TIMESTAMPTZ NOT NULL
+  consumed_at   BIGINT,
+  created_at    BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_trust_scores (
@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS theauth_trust_scores (
   score       INTEGER NOT NULL,
   level       TEXT    NOT NULL,
   factors     JSONB NOT NULL,
-  computed_at TIMESTAMPTZ   NOT NULL
+  computed_at BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_agent_registration_tokens (
@@ -250,12 +250,12 @@ CREATE TABLE IF NOT EXISTS theauth_agent_registration_tokens (
   name_prefix       TEXT,
   agent_ttl_seconds INTEGER,
   created_by        TEXT,
-  expires_at        TIMESTAMPTZ NOT NULL,
-  revoked_at        TIMESTAMPTZ,
-  used_at           TIMESTAMPTZ,
+  expires_at        BIGINT NOT NULL,
+  revoked_at        BIGINT,
+  used_at           BIGINT,
   claim_nonce       TEXT,
   agent_id          TEXT,
-  created_at        TIMESTAMPTZ NOT NULL
+  created_at        BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_agent_dids (
@@ -264,7 +264,7 @@ CREATE TABLE IF NOT EXISTS theauth_agent_dids (
   method         TEXT NOT NULL,
   public_key_jwk TEXT NOT NULL,
   did_document   TEXT NOT NULL,
-  created_at     TIMESTAMPTZ NOT NULL
+  created_at     BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_ephemeral_sessions (
@@ -272,13 +272,13 @@ CREATE TABLE IF NOT EXISTS theauth_ephemeral_sessions (
   agent_id       TEXT    NOT NULL REFERENCES theauth_agents(id) ON DELETE CASCADE,
   owner_id       TEXT    NOT NULL REFERENCES theauth_users(id),
   token_hash     TEXT    NOT NULL UNIQUE,
-  expires_at     TIMESTAMPTZ   NOT NULL,
+  expires_at     BIGINT   NOT NULL,
   max_actions    INTEGER,
   actions_used   INTEGER NOT NULL DEFAULT 0,
   status         TEXT    NOT NULL DEFAULT 'active',
   audit_group_id TEXT    NOT NULL,
-  created_at     TIMESTAMPTZ   NOT NULL,
-  updated_at     TIMESTAMPTZ   NOT NULL
+  created_at     BIGINT   NOT NULL,
+  updated_at     BIGINT   NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS theauth_ephemeral_sessions_owner_status
@@ -300,8 +300,8 @@ CREATE TABLE IF NOT EXISTS theauth_oauth_clients (
   type                        TEXT    NOT NULL DEFAULT 'confidential',
   disabled                    BOOLEAN NOT NULL DEFAULT FALSE,
   metadata                    JSONB,
-  created_at                  TIMESTAMPTZ   NOT NULL,
-  updated_at                  TIMESTAMPTZ   NOT NULL
+  created_at                  BIGINT   NOT NULL,
+  updated_at                  BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_oauth_access_tokens (
@@ -312,9 +312,9 @@ CREATE TABLE IF NOT EXISTS theauth_oauth_access_tokens (
   user_id                   TEXT NOT NULL REFERENCES theauth_users(id),
   scopes                    TEXT NOT NULL,
   resource                  TEXT,
-  access_token_expires_at   TIMESTAMPTZ NOT NULL,
-  refresh_token_expires_at  TIMESTAMPTZ,
-  created_at                TIMESTAMPTZ NOT NULL
+  access_token_expires_at   BIGINT NOT NULL,
+  refresh_token_expires_at  BIGINT,
+  created_at                BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_oauth_authorization_codes (
@@ -327,8 +327,8 @@ CREATE TABLE IF NOT EXISTS theauth_oauth_authorization_codes (
   code_challenge         TEXT,
   code_challenge_method  TEXT,
   resource               TEXT,
-  expires_at             TIMESTAMPTZ NOT NULL,
-  created_at             TIMESTAMPTZ NOT NULL
+  expires_at             BIGINT NOT NULL,
+  created_at             BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_oauth_accounts (
@@ -338,9 +338,9 @@ CREATE TABLE IF NOT EXISTS theauth_oauth_accounts (
   provider_account_id  TEXT NOT NULL,
   access_token         TEXT NOT NULL,
   refresh_token        TEXT,
-  expires_at           TIMESTAMPTZ,
-  created_at           TIMESTAMPTZ NOT NULL,
-  updated_at           TIMESTAMPTZ NOT NULL
+  expires_at           BIGINT,
+  created_at           BIGINT NOT NULL,
+  updated_at           BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_oauth_states (
@@ -348,8 +348,8 @@ CREATE TABLE IF NOT EXISTS theauth_oauth_states (
   code_verifier  TEXT NOT NULL,
   redirect_uri   TEXT NOT NULL,
   provider       TEXT NOT NULL,
-  expires_at     TIMESTAMPTZ NOT NULL,
-  created_at     TIMESTAMPTZ NOT NULL
+  expires_at     BIGINT NOT NULL,
+  created_at     BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_passkey_credentials (
@@ -360,8 +360,8 @@ CREATE TABLE IF NOT EXISTS theauth_passkey_credentials (
   counter       INTEGER NOT NULL DEFAULT 0,
   device_name   TEXT,
   transports    TEXT,
-  created_at    TIMESTAMPTZ   NOT NULL,
-  last_used_at  TIMESTAMPTZ   NOT NULL
+  created_at    BIGINT   NOT NULL,
+  last_used_at  BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_passkey_challenges (
@@ -369,8 +369,8 @@ CREATE TABLE IF NOT EXISTS theauth_passkey_challenges (
   challenge  TEXT NOT NULL UNIQUE,
   user_id    TEXT,
   type       TEXT NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL
+  expires_at BIGINT NOT NULL,
+  created_at BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_one_time_tokens (
@@ -380,26 +380,26 @@ CREATE TABLE IF NOT EXISTS theauth_one_time_tokens (
   identifier  TEXT    NOT NULL,
   metadata    JSONB,
   used        BOOLEAN NOT NULL DEFAULT FALSE,
-  expires_at  TIMESTAMPTZ   NOT NULL,
-  created_at  TIMESTAMPTZ   NOT NULL
+  expires_at  BIGINT   NOT NULL,
+  created_at  BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_magic_links (
   id         TEXT    NOT NULL PRIMARY KEY,
   email      TEXT    NOT NULL,
   token      TEXT    NOT NULL UNIQUE,
-  expires_at TIMESTAMPTZ   NOT NULL,
+  expires_at BIGINT   NOT NULL,
   used       BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ   NOT NULL
+  created_at BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_email_otps (
   id         TEXT    NOT NULL PRIMARY KEY,
   email      TEXT    NOT NULL,
   code_hash  TEXT    NOT NULL,
-  expires_at TIMESTAMPTZ   NOT NULL,
+  expires_at BIGINT   NOT NULL,
   attempts   INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ   NOT NULL
+  created_at BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_totp (
@@ -407,8 +407,8 @@ CREATE TABLE IF NOT EXISTS theauth_totp (
   secret       TEXT    NOT NULL,
   enabled      BOOLEAN NOT NULL DEFAULT FALSE,
   backup_codes JSONB NOT NULL,
-  created_at   TIMESTAMPTZ   NOT NULL,
-  updated_at   TIMESTAMPTZ   NOT NULL
+  created_at   BIGINT   NOT NULL,
+  updated_at   BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_sso_connections (
@@ -418,7 +418,7 @@ CREATE TABLE IF NOT EXISTS theauth_sso_connections (
   type        TEXT    NOT NULL,
   domain      TEXT    NOT NULL UNIQUE,
   enabled     INTEGER NOT NULL DEFAULT 1,
-  created_at  TIMESTAMPTZ   NOT NULL
+  created_at  BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_api_keys (
@@ -428,9 +428,9 @@ CREATE TABLE IF NOT EXISTS theauth_api_keys (
   key_hash     TEXT    NOT NULL,
   key_prefix   TEXT    NOT NULL,
   permissions  JSONB NOT NULL,
-  expires_at   TIMESTAMPTZ,
-  last_used_at TIMESTAMPTZ,
-  created_at   TIMESTAMPTZ   NOT NULL
+  expires_at   BIGINT,
+  last_used_at BIGINT,
+  created_at   BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_username_accounts (
@@ -438,8 +438,8 @@ CREATE TABLE IF NOT EXISTS theauth_username_accounts (
   user_id       TEXT NOT NULL REFERENCES theauth_users(id) ON DELETE CASCADE,
   username      TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  created_at    TIMESTAMPTZ NOT NULL,
-  updated_at    TIMESTAMPTZ NOT NULL
+  created_at    BIGINT NOT NULL,
+  updated_at    BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_phone_verifications (
@@ -447,8 +447,8 @@ CREATE TABLE IF NOT EXISTS theauth_phone_verifications (
   phone_number TEXT    NOT NULL,
   code_hash    TEXT    NOT NULL,
   attempts     INTEGER NOT NULL DEFAULT 0,
-  expires_at   TIMESTAMPTZ   NOT NULL,
-  created_at   TIMESTAMPTZ   NOT NULL
+  expires_at   BIGINT   NOT NULL,
+  created_at   BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_trusted_devices (
@@ -456,8 +456,8 @@ CREATE TABLE IF NOT EXISTS theauth_trusted_devices (
   user_id     TEXT NOT NULL REFERENCES theauth_users(id) ON DELETE CASCADE,
   fingerprint TEXT NOT NULL,
   label       TEXT NOT NULL,
-  trusted_at  TIMESTAMPTZ NOT NULL,
-  expires_at  TIMESTAMPTZ NOT NULL
+  trusted_at  BIGINT NOT NULL,
+  expires_at  BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_login_history (
@@ -466,7 +466,7 @@ CREATE TABLE IF NOT EXISTS theauth_login_history (
   method     TEXT NOT NULL,
   ip         TEXT,
   user_agent TEXT,
-  timestamp  TIMESTAMPTZ NOT NULL
+  timestamp  BIGINT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS theauth_login_history_user_ts
@@ -477,8 +477,8 @@ CREATE TABLE IF NOT EXISTS theauth_jwt_refresh_tokens (
   token_hash  TEXT    NOT NULL UNIQUE,
   user_id     TEXT    NOT NULL REFERENCES theauth_users(id) ON DELETE CASCADE,
   used        BOOLEAN NOT NULL DEFAULT FALSE,
-  expires_at  TIMESTAMPTZ   NOT NULL,
-  created_at  TIMESTAMPTZ   NOT NULL
+  expires_at  BIGINT   NOT NULL,
+  created_at  BIGINT   NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS theauth_jwt_refresh_tokens_user_id
@@ -487,9 +487,9 @@ CREATE INDEX IF NOT EXISTS theauth_jwt_refresh_tokens_user_id
 CREATE TABLE IF NOT EXISTS theauth_refresh_token_families (
   id                   TEXT    NOT NULL PRIMARY KEY,
   user_id              TEXT    NOT NULL REFERENCES theauth_users(id) ON DELETE CASCADE,
-  absolute_expires_at  TIMESTAMPTZ   NOT NULL,
+  absolute_expires_at  BIGINT   NOT NULL,
   revoked              BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at           TIMESTAMPTZ   NOT NULL
+  created_at           BIGINT   NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS theauth_refresh_token_families_user_id
@@ -500,8 +500,8 @@ CREATE TABLE IF NOT EXISTS theauth_refresh_tokens (
   family_id   TEXT    NOT NULL REFERENCES theauth_refresh_token_families(id) ON DELETE CASCADE,
   token_hash  TEXT    NOT NULL UNIQUE,
   used        BOOLEAN NOT NULL DEFAULT FALSE,
-  expires_at  TIMESTAMPTZ   NOT NULL,
-  created_at  TIMESTAMPTZ   NOT NULL
+  expires_at  BIGINT   NOT NULL,
+  created_at  BIGINT   NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS theauth_refresh_tokens_family_id
@@ -513,8 +513,8 @@ CREATE TABLE IF NOT EXISTS theauth_organizations (
   slug       TEXT    NOT NULL UNIQUE,
   owner_id   TEXT    NOT NULL REFERENCES theauth_users(id),
   metadata   JSONB,
-  created_at TIMESTAMPTZ   NOT NULL,
-  updated_at TIMESTAMPTZ   NOT NULL
+  created_at BIGINT   NOT NULL,
+  updated_at BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_org_members (
@@ -522,7 +522,7 @@ CREATE TABLE IF NOT EXISTS theauth_org_members (
   org_id    TEXT    NOT NULL REFERENCES theauth_organizations(id) ON DELETE CASCADE,
   user_id   TEXT    NOT NULL REFERENCES theauth_users(id),
   role      TEXT    NOT NULL DEFAULT 'member',
-  joined_at TIMESTAMPTZ   NOT NULL,
+  joined_at BIGINT   NOT NULL,
   UNIQUE(org_id, user_id)
 );
 
@@ -533,8 +533,8 @@ CREATE TABLE IF NOT EXISTS theauth_org_invitations (
   role       TEXT    NOT NULL DEFAULT 'member',
   invited_by TEXT    NOT NULL REFERENCES theauth_users(id),
   status     TEXT    NOT NULL DEFAULT 'pending',
-  expires_at TIMESTAMPTZ   NOT NULL,
-  created_at TIMESTAMPTZ   NOT NULL
+  expires_at BIGINT   NOT NULL,
+  created_at BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_org_roles (
@@ -555,10 +555,10 @@ CREATE TABLE IF NOT EXISTS theauth_vault_connections (
   refresh_token_enc   TEXT,
   key_id              TEXT NOT NULL,
   scopes              JSONB NOT NULL,
-  status              VARCHAR(16) NOT NULL DEFAULT 'active',
-  expires_at          TIMESTAMPTZ,
-  created_at          TIMESTAMPTZ NOT NULL,
-  updated_at          TIMESTAMPTZ NOT NULL,
+  status              TEXT NOT NULL DEFAULT 'active',
+  expires_at          BIGINT,
+  created_at          BIGINT NOT NULL,
+  updated_at          BIGINT NOT NULL,
   UNIQUE (user_id, tenant_id, provider)
 );
 
@@ -570,9 +570,9 @@ CREATE TABLE IF NOT EXISTS theauth_vault_consents (
   provider            TEXT NOT NULL,
   scopes              JSONB NOT NULL,
   delegation_chain_id TEXT,
-  expires_at          TIMESTAMPTZ,
-  revoked_at          TIMESTAMPTZ,
-  created_at          TIMESTAMPTZ NOT NULL
+  expires_at          BIGINT,
+  revoked_at          BIGINT,
+  created_at          BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_ssf_streams (
@@ -589,9 +589,9 @@ CREATE TABLE IF NOT EXISTS theauth_ssf_streams (
   subject_mode              TEXT NOT NULL DEFAULT 'all',
   description               TEXT,
   min_verification_interval INTEGER,
-  last_verified_at          TIMESTAMPTZ,
-  created_at                TIMESTAMPTZ NOT NULL,
-  updated_at                TIMESTAMPTZ NOT NULL
+  last_verified_at          BIGINT,
+  created_at                BIGINT NOT NULL,
+  updated_at                BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_ssf_subjects (
@@ -600,7 +600,7 @@ CREATE TABLE IF NOT EXISTS theauth_ssf_subjects (
   subject_key_hash TEXT NOT NULL,
   subject          JSONB NOT NULL,
   verified         INTEGER NOT NULL DEFAULT 1,
-  created_at       TIMESTAMPTZ NOT NULL,
+  created_at       BIGINT NOT NULL,
   UNIQUE (stream_id, subject_key_hash)
 );
 
@@ -608,11 +608,11 @@ CREATE TABLE IF NOT EXISTS theauth_ssf_outbox (
   jti             TEXT NOT NULL PRIMARY KEY,
   stream_id       TEXT NOT NULL,
   jwt             TEXT NOT NULL,
-  status          VARCHAR(16) NOT NULL DEFAULT 'pending',
+  status          TEXT NOT NULL DEFAULT 'pending',
   attempts        INTEGER NOT NULL DEFAULT 0,
-  next_attempt_at TIMESTAMPTZ NOT NULL,
+  next_attempt_at BIGINT NOT NULL,
   last_error      TEXT,
-  created_at      TIMESTAMPTZ NOT NULL
+  created_at      BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_oidc_clients (
@@ -625,8 +625,8 @@ CREATE TABLE IF NOT EXISTS theauth_oidc_clients (
   response_types              JSONB NOT NULL,
   scopes                      JSONB NOT NULL,
   token_endpoint_auth_method  TEXT    NOT NULL DEFAULT 'client_secret_post',
-  created_at                  TIMESTAMPTZ   NOT NULL,
-  updated_at                  TIMESTAMPTZ   NOT NULL
+  created_at                  BIGINT   NOT NULL,
+  updated_at                  BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_oidc_auth_codes (
@@ -640,8 +640,8 @@ CREATE TABLE IF NOT EXISTS theauth_oidc_auth_codes (
   code_challenge         TEXT,
   code_challenge_method  TEXT,
   used                   BOOLEAN NOT NULL DEFAULT FALSE,
-  expires_at             TIMESTAMPTZ   NOT NULL,
-  created_at             TIMESTAMPTZ   NOT NULL
+  expires_at             BIGINT   NOT NULL,
+  created_at             BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_oidc_refresh_tokens (
@@ -651,15 +651,15 @@ CREATE TABLE IF NOT EXISTS theauth_oidc_refresh_tokens (
   user_id     TEXT    NOT NULL,
   scopes      TEXT    NOT NULL,
   revoked     BOOLEAN NOT NULL DEFAULT FALSE,
-  expires_at  TIMESTAMPTZ   NOT NULL,
-  created_at  TIMESTAMPTZ   NOT NULL
+  expires_at  BIGINT   NOT NULL,
+  created_at  BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_oidc_logout_clients (
   client_id                   TEXT NOT NULL PRIMARY KEY,
   post_logout_redirect_uris   JSONB NOT NULL,
   backchannel_logout_uri      TEXT,
-  updated_at                  TIMESTAMPTZ   NOT NULL
+  updated_at                  BIGINT   NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_oidc_sessions (
@@ -669,7 +669,7 @@ CREATE TABLE IF NOT EXISTS theauth_oidc_sessions (
   user_id     TEXT NOT NULL,
   client_id   TEXT NOT NULL,
   code_hash   TEXT,
-  created_at  TIMESTAMPTZ   NOT NULL
+  created_at  BIGINT   NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS theauth_oidc_sessions_sid
@@ -683,7 +683,7 @@ CREATE TABLE IF NOT EXISTS theauth_rebac_resources (
   type        TEXT NOT NULL,
   parent_id   TEXT,
   parent_type TEXT,
-  created_at  TIMESTAMPTZ NOT NULL
+  created_at  BIGINT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS theauth_rebac_resources_parent
@@ -696,7 +696,7 @@ CREATE TABLE IF NOT EXISTS theauth_rebac_relationships (
   relation     TEXT NOT NULL,
   object_type  TEXT NOT NULL,
   object_id    TEXT NOT NULL,
-  created_at   TIMESTAMPTZ NOT NULL
+  created_at   BIGINT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS theauth_rebac_relationships_subject
@@ -714,9 +714,9 @@ CREATE TABLE IF NOT EXISTS theauth_federation_instances (
   instance_url  TEXT NOT NULL,
   public_key_jwk TEXT,
   trust_level   TEXT NOT NULL DEFAULT 'verify-only',
-  discovered_at TIMESTAMPTZ,
-  created_at    TIMESTAMPTZ NOT NULL,
-  updated_at    TIMESTAMPTZ NOT NULL
+  discovered_at BIGINT,
+  created_at    BIGINT NOT NULL,
+  updated_at    BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS theauth_federation_tokens (
@@ -728,8 +728,8 @@ CREATE TABLE IF NOT EXISTS theauth_federation_tokens (
   direction           TEXT    NOT NULL,
   permissions         JSONB NOT NULL,
   trust_score         INTEGER,
-  expires_at          TIMESTAMPTZ   NOT NULL,
-  created_at          TIMESTAMPTZ   NOT NULL
+  expires_at          BIGINT   NOT NULL,
+  created_at          BIGINT   NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS theauth_federation_tokens_agent
@@ -738,4 +738,4 @@ CREATE INDEX IF NOT EXISTS theauth_federation_tokens_agent
 CREATE INDEX IF NOT EXISTS theauth_federation_tokens_source
   ON theauth_federation_tokens (source_instance_id);
 
-INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0000', 'baseline', 'b7015e8fb13130ad1d38b6e8f92c92c5b3a0589397068594ce01b272f2cfbf69', NOW());
+INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0000', 'baseline', 'a416639f645b90ff12c86e58f625b7d2024c293e9146b63183991d3a4059a818', NOW());

@@ -1,4 +1,5 @@
-import { eq, like, sql } from "drizzle-orm";
+import type { AnyColumn, SQL } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { organizations, users } from "../db/schema.js";
 import type { FilterAst } from "./scim-filter.js";
 import { parseFilter } from "./scim-filter.js";
@@ -234,29 +235,45 @@ export function compareSortValues(a: unknown, b: unknown): number {
 	return String(a).localeCompare(String(b));
 }
 
-export function buildUserSqlConditions(list: FilterClause[]): ReturnType<typeof eq>[] | null {
-	const conds: ReturnType<typeof eq>[] = [];
+/** Escapes LIKE wildcards with `!` (paired with ESCAPE '!', which every dialect reads the same way, unlike a backslash). */
+export function escapeLike(value: string): string {
+	return value.replace(/[!%_]/g, (c) => `!${c}`);
+}
+
+/**
+ * RFC 7644 filters on userName and emails.value are case insensitive (caseExact false in RFC 7643). SQLite LIKE folds ASCII case and Postgres does not, so both sides are lowered explicitly. `value` must already be lowercased by the caller.
+ */
+function eqLower(column: AnyColumn, value: string): SQL {
+	return sql`lower(${column}) = ${value}`;
+}
+
+function likeLower(column: AnyColumn, pattern: string): SQL {
+	return sql`lower(${column}) LIKE ${pattern} ESCAPE '!'`;
+}
+
+export function buildUserSqlConditions(list: FilterClause[]): SQL[] | null {
+	const conds: SQL[] = [];
 	for (const clause of list) {
 		if (clause.attribute === "username" && clause.value !== undefined) {
 			if (clause.op === "eq") {
-				conds.push(sql`(${users.username} = ${clause.value} OR ${users.email} = ${clause.value})`);
+				const v = clause.value.toLowerCase();
+				conds.push(or(eqLower(users.username, v), eqLower(users.email, v)) as SQL);
 			} else if (clause.op === "co") {
-				conds.push(
-					sql`(${users.username} LIKE ${`%${clause.value}%`} OR ${users.email} LIKE ${`%${clause.value}%`})`,
-				);
+				const p = `%${escapeLike(clause.value.toLowerCase())}%`;
+				conds.push(or(likeLower(users.username, p), likeLower(users.email, p)) as SQL);
 			} else if (clause.op === "sw") {
-				conds.push(
-					sql`(${users.username} LIKE ${`${clause.value}%`} OR ${users.email} LIKE ${`${clause.value}%`})`,
-				);
+				const p = `${escapeLike(clause.value.toLowerCase())}%`;
+				conds.push(or(likeLower(users.username, p), likeLower(users.email, p)) as SQL);
 			} else {
 				return null;
 			}
 			continue;
 		}
 		if (clause.attribute === "emails.value" && clause.value !== undefined) {
-			if (clause.op === "eq") conds.push(eq(users.email, clause.value));
-			else if (clause.op === "co") conds.push(like(users.email, `%${clause.value}%`));
-			else if (clause.op === "sw") conds.push(like(users.email, `${clause.value}%`));
+			const lowered = clause.value.toLowerCase();
+			if (clause.op === "eq") conds.push(eqLower(users.email, lowered));
+			else if (clause.op === "co") conds.push(likeLower(users.email, `%${escapeLike(lowered)}%`));
+			else if (clause.op === "sw") conds.push(likeLower(users.email, `${escapeLike(lowered)}%`));
 			else return null;
 			continue;
 		}
@@ -276,14 +293,16 @@ export function buildUserSqlConditions(list: FilterClause[]): ReturnType<typeof 
 	return conds;
 }
 
-export function buildGroupSqlConditions(list: FilterClause[]): ReturnType<typeof eq>[] | null {
-	const conds: ReturnType<typeof eq>[] = [];
+export function buildGroupSqlConditions(list: FilterClause[]): SQL[] | null {
+	const conds: SQL[] = [];
 	for (const clause of list) {
 		if (clause.attribute !== "displayname" || clause.value === undefined) return null;
 		if (clause.op === "eq") conds.push(eq(organizations.name, clause.value));
-		else if (clause.op === "co") conds.push(like(organizations.name, `%${clause.value}%`));
-		else if (clause.op === "sw") conds.push(like(organizations.name, `${clause.value}%`));
-		else return null;
+		else if (clause.op === "co") {
+			conds.push(likeLower(organizations.name, `%${escapeLike(clause.value.toLowerCase())}%`));
+		} else if (clause.op === "sw") {
+			conds.push(likeLower(organizations.name, `${escapeLike(clause.value.toLowerCase())}%`));
+		} else return null;
 	}
 	return conds;
 }

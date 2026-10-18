@@ -1,4 +1,5 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { bigintNumber, bool, json, timestampSec } from "./columns.js";
 import { agents, users } from "./core.js";
 
 export const auditLogs = sqliteTable("theauth_audit_logs", {
@@ -11,7 +12,7 @@ export const auditLogs = sqliteTable("theauth_audit_logs", {
 		.references(() => users.id),
 	action: text("action").notNull(), // "execute", "read", "write", "delete"
 	resource: text("resource").notNull(), // "mcp:github:create_issue"
-	parameters: text("parameters", { mode: "json" }).$type<Record<string, unknown>>(),
+	parameters: json<Record<string, unknown>>("parameters"),
 	result: text("result", { enum: ["allowed", "denied", "rate_limited", "escalated"] }).notNull(),
 	reason: text("reason"), // why denied/rate_limited/escalated
 	// Machine-readable outcome (DecisionCode). Index convenience, NOT part of the audit hash. NULL on rows written before it existed.
@@ -21,12 +22,12 @@ export const auditLogs = sqliteTable("theauth_audit_logs", {
 	ip: text("ip"),
 	userAgent: text("user_agent"),
 	// True when this audit row corresponds to a policy-engine cache-hit evaluation.
-	cacheHit: integer("cache_hit", { mode: "boolean" }).notNull().default(false),
-	timestamp: integer("timestamp", { mode: "timestamp" }).notNull(),
+	cacheHit: bool("cache_hit").notNull().default(false),
+	timestamp: timestampSec("timestamp").notNull(),
 	// Millisecond write order. Strictly increasing per agent chain (and per process), so rows
 	// written in the same second still read back in write order. NOT part of the audit hash;
 	// NULL only on rows from before migration 0003 on databases that skipped migrations.
-	recordedAtMs: integer("recorded_at_ms"),
+	recordedAtMs: bigintNumber("recorded_at_ms"),
 	// Tamper-evident chain (all nullable: rows written before opt-in stay as they are).
 	// One chain per agent: chainSeq counts up from 1, prevHash is the previous row's hash.
 	chainSeq: integer("chain_seq"),
@@ -41,19 +42,19 @@ export const auditLogs = sqliteTable("theauth_audit_logs", {
 	actorId: text("actor_id"),
 	policyVersion: text("policy_version"),
 	approverId: text("approver_id"),
-	delegationChain: text("delegation_chain", { mode: "json" }).$type<string[]>(),
-	inputProvenance: text("input_provenance", { mode: "json" }).$type<Record<string, unknown>>(),
+	delegationChain: json<string[]>("delegation_chain"),
+	inputProvenance: json<Record<string, unknown>>("input_provenance"),
 	// Keyed pseudonyms (HMAC) of userId, agentId, subjectId, actorId and approverId
 	// for version 2 rows. The hash covers these instead of the raw ids, so erasing
 	// the raw ids (GDPR) leaves the hash valid. NULL on version 1 rows.
-	idPseudonyms: text("id_pseudonyms", { mode: "json" }).$type<Record<string, string>>(),
+	idPseudonyms: json<Record<string, string>>("id_pseudonyms"),
 });
 
 // Per-installation secret for audit id pseudonyms when no audit.hmacKey is set.
 export const auditSecrets = sqliteTable("theauth_audit_secrets", {
 	id: text("id").primaryKey(),
 	secret: text("secret").notNull(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const costEvents = sqliteTable("theauth_cost_events", {
@@ -65,18 +66,18 @@ export const costEvents = sqliteTable("theauth_cost_events", {
 	inputTokens: integer("input_tokens"),
 	outputTokens: integer("output_tokens"),
 	/** Cost stored as integer microdollars (costUsd × 1_000_000) to avoid float drift */
-	costMicros: integer("cost_micros").notNull(),
+	costMicros: bigintNumber("cost_micros").notNull(),
 	currency: text("currency").notNull().default("USD"),
-	metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>(),
+	metadata: json<Record<string, unknown>>("metadata"),
 	delegationChainId: text("delegation_chain_id"), // null when not part of a chain
-	recordedAt: integer("recorded_at", { mode: "timestamp" }).notNull(),
+	recordedAt: timestampSec("recorded_at").notNull(),
 });
 
 export const streamEvents = sqliteTable("theauth_stream_events", {
 	id: text("id").primaryKey(),
 	type: text("type").notNull(),
-	timestamp: integer("timestamp", { mode: "timestamp" }).notNull(),
-	data: text("data", { mode: "json" }).notNull().$type<Record<string, unknown>>(),
+	timestamp: timestampSec("timestamp").notNull(),
+	data: json<Record<string, unknown>>("data").notNull(),
 	agentId: text("agent_id"),
 	userId: text("user_id"),
 });

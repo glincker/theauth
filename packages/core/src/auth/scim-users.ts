@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { sessions, users } from "../db/schema.js";
 import type { FilterAst } from "./scim-filter.js";
 import { evaluateFilter, ScimFilterError } from "./scim-filter.js";
@@ -60,7 +60,7 @@ export function createScimUserHandlers(ctx: ScimHandlerContext) {
 		// Sorting needs the full filtered set before pagination, and SQL ORDER BY cannot reach JSON metadata.
 		if (conditions !== null && !sortSpec) {
 			const countRows = await db
-				.select({ count: sql<number>`count(*)` })
+				.select({ count: sql<number>`count(*)`.mapWith(Number) })
 				.from(users)
 				.where(whereClause);
 			const totalResults = Number(countRows[0]?.count ?? 0);
@@ -144,7 +144,7 @@ export function createScimUserHandlers(ctx: ScimHandlerContext) {
 		const existing = (await db
 			.select()
 			.from(users)
-			.where(sql`${users.email} = ${primaryEmail} OR ${users.username} = ${userName}`)
+			.where(or(eq(users.email, primaryEmail), eq(users.username, userName)))
 			.limit(1)) as UserRow[];
 
 		if (existing.length > 0) {

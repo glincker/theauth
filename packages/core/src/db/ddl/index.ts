@@ -9,6 +9,8 @@ import { orgDdl } from "./org.js";
 import type { TaggedStatement } from "./types.js";
 import { ddlTypes } from "./types.js";
 
+export type { TimestampColumn, TimestampUnit } from "./timestamp-columns.js";
+export { TIMESTAMP_COLUMNS } from "./timestamp-columns.js";
 export type { DdlTypes, TaggedStatement } from "./types.js";
 export { ddlTypes } from "./types.js";
 

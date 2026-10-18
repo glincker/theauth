@@ -37,8 +37,7 @@ interface ColumnSpec {
 }
 
 const json = (d: Dialect) => (d === "postgres" ? "JSONB" : d === "mysql" ? "JSON" : "TEXT");
-const ts = (d: Dialect) =>
-	d === "postgres" ? "TIMESTAMPTZ" : d === "mysql" ? "DATETIME(3)" : "INTEGER";
+const ts = (d: Dialect) => (d === "postgres" || d === "mysql" ? "BIGINT" : "INTEGER");
 const plain = (type: string) => () => type;
 
 /** Columns added to the audit table after its first release (hash chain and accountability fields). Present in the baseline CREATE; older databases get them added. */

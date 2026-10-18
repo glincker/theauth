@@ -1,4 +1,5 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { bool, flag01, json, timestampMs, timestampSec } from "./columns.js";
 import { users } from "./core.js";
 
 interface TotpBackupCode {
@@ -10,18 +11,18 @@ export const magicLinks = sqliteTable("theauth_magic_links", {
 	id: text("id").primaryKey(),
 	email: text("email").notNull(),
 	token: text("token").notNull().unique(),
-	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-	used: integer("used", { mode: "boolean" }).notNull().default(false),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	expiresAt: timestampSec("expires_at").notNull(),
+	used: bool("used").notNull().default(false),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const emailOtps = sqliteTable("theauth_email_otps", {
 	id: text("id").primaryKey(),
 	email: text("email").notNull(),
 	codeHash: text("code_hash").notNull(),
-	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+	expiresAt: timestampSec("expires_at").notNull(),
 	attempts: integer("attempts").notNull().default(0),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const totpRecords = sqliteTable("theauth_totp", {
@@ -29,10 +30,10 @@ export const totpRecords = sqliteTable("theauth_totp", {
 		.primaryKey()
 		.references(() => users.id),
 	secret: text("secret").notNull(), // base32-encoded TOTP secret
-	enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
-	backupCodes: text("backup_codes", { mode: "json" }).notNull().$type<TotpBackupCode[]>(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+	enabled: bool("enabled").notNull().default(false),
+	backupCodes: json<TotpBackupCode[]>("backup_codes").notNull(),
+	createdAt: timestampSec("created_at").notNull(),
+	updatedAt: timestampSec("updated_at").notNull(),
 });
 
 export const passkeyCredentials = sqliteTable("theauth_passkey_credentials", {
@@ -45,8 +46,8 @@ export const passkeyCredentials = sqliteTable("theauth_passkey_credentials", {
 	counter: integer("counter").notNull().default(0),
 	deviceName: text("device_name"),
 	transports: text("transports"), // JSON array, e.g. '["internal","usb"]'
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-	lastUsedAt: integer("last_used_at", { mode: "timestamp" }).notNull(),
+	createdAt: timestampSec("created_at").notNull(),
+	lastUsedAt: timestampSec("last_used_at").notNull(),
 });
 
 export const ssoConnections = sqliteTable("theauth_sso_connections", {
@@ -56,7 +57,7 @@ export const ssoConnections = sqliteTable("theauth_sso_connections", {
 	type: text("type", { enum: ["saml", "oidc"] }).notNull(),
 	domain: text("domain").notNull().unique(),
 	enabled: integer("enabled").notNull().default(1),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const apiKeys = sqliteTable("theauth_api_keys", {
@@ -67,10 +68,10 @@ export const apiKeys = sqliteTable("theauth_api_keys", {
 	name: text("name").notNull(),
 	keyHash: text("key_hash").notNull(),
 	keyPrefix: text("key_prefix").notNull(),
-	permissions: text("permissions", { mode: "json" }).notNull().$type<string[]>(),
-	expiresAt: integer("expires_at", { mode: "timestamp" }),
-	lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	permissions: json<string[]>("permissions").notNull(),
+	expiresAt: timestampSec("expires_at"),
+	lastUsedAt: timestampSec("last_used_at"),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const passkeyChallenges = sqliteTable("theauth_passkey_challenges", {
@@ -78,8 +79,8 @@ export const passkeyChallenges = sqliteTable("theauth_passkey_challenges", {
 	challenge: text("challenge").notNull().unique(),
 	userId: text("user_id"), // null for discoverable credential flows
 	type: text("type", { enum: ["registration", "authentication"] }).notNull(),
-	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	expiresAt: timestampSec("expires_at").notNull(),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const usernameAccounts = sqliteTable("theauth_username_accounts", {
@@ -89,8 +90,8 @@ export const usernameAccounts = sqliteTable("theauth_username_accounts", {
 		.references(() => users.id, { onDelete: "cascade" }),
 	username: text("username").notNull().unique(),
 	passwordHash: text("password_hash").notNull(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+	createdAt: timestampSec("created_at").notNull(),
+	updatedAt: timestampSec("updated_at").notNull(),
 });
 
 export const phoneVerifications = sqliteTable("theauth_phone_verifications", {
@@ -98,8 +99,8 @@ export const phoneVerifications = sqliteTable("theauth_phone_verifications", {
 	phoneNumber: text("phone_number").notNull(),
 	codeHash: text("code_hash").notNull(),
 	attempts: integer("attempts").notNull().default(0),
-	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	expiresAt: timestampSec("expires_at").notNull(),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const trustedDevices = sqliteTable("theauth_trusted_devices", {
@@ -109,8 +110,8 @@ export const trustedDevices = sqliteTable("theauth_trusted_devices", {
 		.references(() => users.id, { onDelete: "cascade" }),
 	fingerprint: text("fingerprint").notNull(), // HMAC-SHA256 of stable request headers
 	label: text("label").notNull(), // human-readable, e.g. "Mac", "iPhone"
-	trustedAt: integer("trusted_at", { mode: "timestamp" }).notNull(),
-	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+	trustedAt: timestampSec("trusted_at").notNull(),
+	expiresAt: timestampSec("expires_at").notNull(),
 });
 
 export const oneTimeTokens = sqliteTable("theauth_one_time_tokens", {
@@ -120,10 +121,10 @@ export const oneTimeTokens = sqliteTable("theauth_one_time_tokens", {
 		enum: ["email-verify", "password-reset", "invitation", "custom"],
 	}).notNull(),
 	identifier: text("identifier").notNull(), // email, userId, or any caller-supplied key
-	metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>(),
-	used: integer("used", { mode: "boolean" }).notNull().default(false),
-	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	metadata: json<Record<string, unknown>>("metadata"),
+	used: bool("used").notNull().default(false),
+	expiresAt: timestampSec("expires_at").notNull(),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const loginHistory = sqliteTable("theauth_login_history", {
@@ -134,7 +135,7 @@ export const loginHistory = sqliteTable("theauth_login_history", {
 	method: text("method").notNull(), // LoginMethod: kept as text to support oauth:{provider} variants
 	ip: text("ip"),
 	userAgent: text("user_agent"),
-	timestamp: integer("timestamp", { mode: "timestamp_ms" }).notNull(),
+	timestamp: timestampMs("timestamp").notNull(),
 });
 
 export const jwtRefreshTokens = sqliteTable("theauth_jwt_refresh_tokens", {
@@ -146,9 +147,9 @@ export const jwtRefreshTokens = sqliteTable("theauth_jwt_refresh_tokens", {
 		.notNull()
 		.references(() => users.id, { onDelete: "cascade" }),
 	/** True once the token has been used in a refresh or explicit revocation. */
-	used: integer("used", { mode: "boolean" }).notNull().default(false),
-	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	used: bool("used").notNull().default(false),
+	expiresAt: timestampSec("expires_at").notNull(),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const refreshTokenFamilies = sqliteTable("theauth_refresh_token_families", {
@@ -157,10 +158,10 @@ export const refreshTokenFamilies = sqliteTable("theauth_refresh_token_families"
 		.notNull()
 		.references(() => users.id, { onDelete: "cascade" }),
 	/** Absolute session expiry, no rotation can extend beyond this date. */
-	absoluteExpiresAt: integer("absolute_expires_at", { mode: "timestamp" }).notNull(),
+	absoluteExpiresAt: timestampSec("absolute_expires_at").notNull(),
 	/** 0 = active, 1 = revoked (reuse detection or explicit logout). */
-	revoked: integer("revoked").notNull().default(0),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	revoked: flag01("revoked").notNull().default(0),
+	createdAt: timestampSec("created_at").notNull(),
 });
 
 export const refreshTokens = sqliteTable("theauth_refresh_tokens", {
@@ -171,7 +172,7 @@ export const refreshTokens = sqliteTable("theauth_refresh_tokens", {
 	/** SHA-256 hash of the opaque token, never store the raw token. */
 	tokenHash: text("token_hash").notNull().unique(),
 	/** 0 = unused, 1 = already consumed (one-time use). */
-	used: integer("used").notNull().default(0),
-	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	used: flag01("used").notNull().default(0),
+	expiresAt: timestampSec("expires_at").notNull(),
+	createdAt: timestampSec("created_at").notNull(),
 });

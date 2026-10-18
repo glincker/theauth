@@ -1,8 +1,8 @@
 import type { DdlTypes, TaggedStatement } from "./types.js";
 
-/** Baseline DDL for the "audit" domain. Columns added by migrations 0001 to 0003 (cache_hit, decision_code, recorded_at_ms) are not here: the migrations add them. */
+/** Baseline DDL for the "audit" domain. Columns added by migrations 0001, 0002 and 0004 (cache_hit, decision_code, recorded_at_ms) are not here: the migrations add them. */
 export function auditDdl(t: DdlTypes): TaggedStatement[] {
-	const { isMysql, ts, json, ifne } = t;
+	const { isMysql, ts, big, json, ifne } = t;
 
 	return [
 		{
@@ -63,7 +63,7 @@ export function auditDdl(t: DdlTypes): TaggedStatement[] {
   tool                TEXT    NOT NULL,
   input_tokens        INTEGER,
   output_tokens       INTEGER,
-  cost_micros         INTEGER NOT NULL,
+  cost_micros         ${big} NOT NULL,
   currency            TEXT    NOT NULL DEFAULT 'USD',
   metadata            ${json},
   delegation_chain_id TEXT,

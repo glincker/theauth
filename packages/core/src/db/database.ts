@@ -28,7 +28,7 @@ interface D1ExecResult {
 }
 
 /**
- * The fully-typed SQLite Drizzle database. Postgres and MySQL connections are cast to this type at the adapter boundary: TheAuth queries them through the SQLite schema in `schema/*.ts`, and the per dialect DDL (`ddl/*.ts`, applied by the migration runner) gives the tables the column types each driver needs.
+ * The fully-typed SQLite Drizzle database. Postgres and MySQL connections are cast to this type at the adapter boundary, so TheAuth queries every provider through the same typed interface.
  */
 export type Database = BaseSQLiteDatabase<"sync" | "async", Record<string, unknown>, typeof schema>;
 
@@ -50,10 +50,12 @@ type D1DrizzleDatabase = any;
 export type DatabaseConfig =
 	| {
 			provider: "sqlite" | "sqlite-native" | "postgres" | "mysql";
-			/** Connection URL / file path. Required for sqlite, postgres, and mysql. */
+			/** Connection URL / file path. Required for sqlite-native, postgres, and mysql. `sqlite` (sql.js) accepts only `:memory:` and throws THEAUTH_SQLITE_NOT_PERSISTENT for a file path. */
 			url: string;
 			/** Skip automatic table creation on init (default: false) */
 			skipMigrations?: boolean;
+			/** Opt in to the unsupported MySQL provider. Without it, `provider: "mysql"` throws THEAUTH_MYSQL_UNSUPPORTED. */
+			experimental?: boolean;
 	  }
 	| {
 			provider: "d1";
@@ -65,13 +67,25 @@ export type DatabaseConfig =
 
 /**
  * Create a database connection.
- * - **SQLite**, fully typed Drizzle ORM via `sql.js` (WASM, default).
+ * - **SQLite** (`sqlite`), fully typed Drizzle ORM via `sql.js` (WASM, in-memory only, `:memory:`).
+ * - **SQLite** (`sqlite-native`), `better-sqlite3`, for a database file that persists.
  */
 export async function createDatabase(config: DatabaseConfig): Promise<Database> {
-	// SQLite (WASM, default)
-	// Uses sql.js (SQLite compiled to WebAssembly). Zero native deps.
-	// Works on Node.js, Bun, Deno, Vercel, Cloudflare, everywhere.
+	// SQLite (WASM, in-memory only)
+	// Uses sql.js (SQLite compiled to WebAssembly). Zero native deps, never persists to disk.
 	if (config.provider === "sqlite") {
+		// sql.js is an in-memory engine. It never writes a database file, so a file URL would look
+		// like it works and then lose every row on restart. Refuse it instead of accepting it.
+		const url = config.url;
+		if (url !== undefined && url !== "" && url !== ":memory:") {
+			throw new Error(
+				`THEAUTH_SQLITE_NOT_PERSISTENT: provider "sqlite" uses sql.js, which keeps the database in memory ` +
+					`and does not write "${url}" to disk, so data would be lost on restart. ` +
+					'For a database file use provider: "sqlite-native" (better-sqlite3; install it with: npm install better-sqlite3) ' +
+					'or provider: "postgres" or "d1". For an ephemeral database pass url: ":memory:".',
+			);
+		}
+
 		const initSqlJs = (
 			await import("sql.js").catch(() => {
 				throw new Error(
@@ -81,64 +95,12 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 			})
 		).default;
 		const { drizzle: drizzleSqlJs } = await import("drizzle-orm/sql-js");
-		const fs = await import("node:fs").catch(() => null);
 
 		const SQL = await initSqlJs();
-
-		let db: InstanceType<typeof SQL.Database>;
-
-		// Load existing database file if it exists
-		if (config.url !== ":memory:" && fs) {
-			try {
-				const existsSync = fs.existsSync(config.url);
-				if (existsSync) {
-					const buffer = fs.readFileSync(config.url);
-					db = new SQL.Database(new Uint8Array(buffer));
-				} else {
-					db = new SQL.Database();
-				}
-			} catch {
-				db = new SQL.Database();
-			}
-		} else {
-			db = new SQL.Database();
-		}
-
+		const db = new SQL.Database();
 		db.run("PRAGMA foreign_keys = ON");
 
-		const drizzleDb = drizzleSqlJs(db, { schema });
-
-		// Auto-persist to disk after mutations (non-memory mode)
-		if (config.url !== ":memory:" && fs) {
-			const persist = () => {
-				try {
-					const data = db.export();
-					fs.writeFileSync(config.url, Buffer.from(data));
-				} catch {
-					// Silently fail on edge runtimes where fs is unavailable
-				}
-			};
-
-			// Proxy to auto-save after write operations
-			const originalRun = db.run.bind(db);
-			db.run = (...args: Parameters<typeof db.run>) => {
-				const result = originalRun(...args);
-				const sql = typeof args[0] === "string" ? args[0].trim().toUpperCase() : "";
-				if (
-					sql.startsWith("INSERT") ||
-					sql.startsWith("UPDATE") ||
-					sql.startsWith("DELETE") ||
-					sql.startsWith("CREATE") ||
-					sql.startsWith("ALTER") ||
-					sql.startsWith("DROP")
-				) {
-					persist();
-				}
-				return result;
-			};
-		}
-
-		return drizzleDb as unknown as Database;
+		return drizzleSqlJs(db, { schema }) as unknown as Database;
 	}
 
 	// SQLite (native, optional)
@@ -178,6 +140,13 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 	}
 
 	if (config.provider === "mysql") {
+		if (config.experimental !== true) {
+			throw new Error(
+				'THEAUTH_MYSQL_UNSUPPORTED: provider "mysql" is not supported yet. ' +
+					"See docs/choose-storage for supported databases. " +
+					"Set database.experimental: true to opt in to the unverified MySQL provider.",
+			);
+		}
 		// Dynamic import keeps `mysql2` an optional peer dep.
 		const mysql2 = await import("mysql2/promise").catch(() => {
 			throw new Error(

@@ -85,7 +85,7 @@ export async function verifyAuditChain(
 		if (opts.agentId) base.push(eq(auditLogs.agentId, opts.agentId));
 
 		const unchainedRows = await db
-			.select({ n: sql<number>`count(*)` })
+			.select({ n: sql<number>`count(*)`.mapWith(Number) })
 			.from(auditLogs)
 			.where(and(isNull(auditLogs.hash), ne(auditLogs.action, ERASURE_ACTION), ...base));
 		const unchained = Number(unchainedRows[0]?.n ?? 0);

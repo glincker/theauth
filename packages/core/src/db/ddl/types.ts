@@ -12,10 +12,12 @@ export interface DdlTypes {
 	dialect: Dialect;
 	isPostgres: boolean;
 	isMysql: boolean;
-	/** Timestamp column type. */
+	/** Timestamp column type: integer epoch seconds on every dialect (BIGINT on Postgres and MySQL). */
 	ts: string;
 	/** Nullable timestamp column type (same type, kept for readability at call sites). */
 	tsNull: string;
+	/** 64 bit integer column (epoch milliseconds, micro-dollar costs). */
+	big: string;
 	json: string;
 	bool: string;
 	/** `IF NOT EXISTS` clause. */
@@ -27,13 +29,14 @@ export interface DdlTypes {
 export function ddlTypes(dialect: Dialect): DdlTypes {
 	const isPostgres = dialect === "postgres";
 	const isMysql = dialect === "mysql";
-	const ts = isPostgres ? "TIMESTAMPTZ" : isMysql ? "DATETIME(3)" : "INTEGER";
+	const big = isPostgres || isMysql ? "BIGINT" : "INTEGER";
 	return {
 		dialect,
 		isPostgres,
 		isMysql,
-		ts,
-		tsNull: ts,
+		ts: big,
+		tsNull: big,
+		big,
 		json: isPostgres ? "JSONB" : isMysql ? "JSON" : "TEXT",
 		bool: isPostgres ? "BOOLEAN" : isMysql ? "TINYINT(1)" : "INTEGER",
 		ifne: "IF NOT EXISTS",

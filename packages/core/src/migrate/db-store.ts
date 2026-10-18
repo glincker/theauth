@@ -1,26 +1,46 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
+import { createExecutor, toDialect } from "../db/migrate/executor.js";
+import type { Dialect, SchemaProvider } from "../db/migrate/types.js";
 import { usernameAccounts, users } from "../db/schema.js";
 import type { ImportedUser, MigrationRecord, MigrationStore, StoredUser } from "./types.js";
 
-const LEDGER_DDL = `CREATE TABLE IF NOT EXISTS theauth_migration_ledger (
-	id TEXT PRIMARY KEY,
-	user_id TEXT,
-	source TEXT NOT NULL,
-	status TEXT NOT NULL,
-	cohort TEXT,
-	error_code TEXT,
-	at INTEGER NOT NULL
+/** Ledger DDL per dialect. `at` is epoch milliseconds, which needs 64 bits on Postgres and MySQL. */
+function ledgerDdl(dialect: Dialect): string {
+	const idType = dialect === "mysql" ? "VARCHAR(191)" : "TEXT";
+	const textType = dialect === "mysql" ? "VARCHAR(191)" : "TEXT";
+	const atType = dialect === "sqlite" ? "INTEGER" : "BIGINT";
+	return `CREATE TABLE IF NOT EXISTS theauth_migration_ledger (
+	id ${idType} PRIMARY KEY,
+	user_id ${textType},
+	source ${textType} NOT NULL,
+	status ${textType} NOT NULL,
+	cohort ${textType},
+	error_code ${textType},
+	at ${atType} NOT NULL
 )`;
+}
 
-interface LedgerRow {
-	user_id: string | null;
-	source: string;
-	status: string;
-	cohort: string | null;
-	error_code: string | null;
-	at: number;
+const ledger = sqliteTable("theauth_migration_ledger", {
+	id: text("id").primaryKey(),
+	userId: text("user_id"),
+	source: text("source").notNull(),
+	status: text("status").notNull(),
+	cohort: text("cohort"),
+	errorCode: text("error_code"),
+	// BIGINT on Postgres comes back as a string; read through mapWith(Number).
+	at: integer("at").notNull(),
+});
+
+/** Picks the SQL dialect from the Drizzle instance when the caller does not say. */
+function detectProvider(db: Database): SchemaProvider {
+	const dialectName = (db as unknown as { dialect?: { constructor?: { name?: string } } }).dialect
+		?.constructor?.name;
+	if (dialectName === "PgDialect") return "postgres";
+	if (dialectName === "MySqlDialect") return "mysql";
+	return "sqlite";
 }
 
 function toStored(r: typeof users.$inferSelect): StoredUser {
@@ -30,8 +50,11 @@ function toStored(r: typeof users.$inferSelect): StoredUser {
 /**
  * Store backed by theauth's own tables. Users go into `theauth_users` (external id and source in the existing columns), password hashes into `theauth_username_accounts` keyed by the lowercased email, and progress into `theauth_migration_ledger`, which this creates on first use. The ledger holds ids and counts, never email or hashes.
  */
-export async function createDbMigrationStore(db: Database): Promise<MigrationStore> {
-	await db.run(sql.raw(LEDGER_DDL));
+export async function createDbMigrationStore(
+	db: Database,
+	provider: SchemaProvider = detectProvider(db),
+): Promise<MigrationStore> {
+	await createExecutor(db, provider).run(ledgerDdl(toDialect(provider)));
 
 	async function userById(id: string): Promise<typeof users.$inferSelect | undefined> {
 		return (await db.select().from(users).where(eq(users.id, id)))[0];
@@ -109,21 +132,34 @@ export async function createDbMigrationStore(db: Database): Promise<MigrationSto
 			}
 		},
 		async recordMigration(r: MigrationRecord) {
-			await db.run(
-				sql`INSERT INTO theauth_migration_ledger (id, user_id, source, status, cohort, error_code, at)
-					VALUES (${generateId()}, ${r.userId}, ${r.source}, ${r.status}, ${r.cohort}, ${r.errorCode}, ${r.at.getTime()})`,
-			);
+			await db.insert(ledger).values({
+				id: generateId(),
+				userId: r.userId,
+				source: r.source,
+				status: r.status,
+				cohort: r.cohort,
+				errorCode: r.errorCode,
+				at: r.at.getTime(),
+			});
 		},
 		async listMigrations() {
-			const rows = (await db.all(
-				sql`SELECT user_id, source, status, cohort, error_code, at FROM theauth_migration_ledger ORDER BY at ASC`,
-			)) as LedgerRow[];
+			const rows = await db
+				.select({
+					userId: ledger.userId,
+					source: ledger.source,
+					status: ledger.status,
+					cohort: ledger.cohort,
+					errorCode: ledger.errorCode,
+					at: sql<number>`${ledger.at}`.mapWith(Number),
+				})
+				.from(ledger)
+				.orderBy(asc(ledger.at));
 			return rows.map((r) => ({
-				userId: r.user_id,
+				userId: r.userId,
 				source: r.source,
 				status: r.status as MigrationRecord["status"],
 				cohort: r.cohort,
-				errorCode: r.error_code,
+				errorCode: r.errorCode,
 				at: new Date(r.at),
 			}));
 		},

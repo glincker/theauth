@@ -102,7 +102,7 @@ describe("baseline DDL", () => {
 		}
 	});
 
-	it("keeps the columns migrations 0001 to 0003 add out of the baseline", () => {
+	it("keeps the columns migrations 0001, 0002 and 0004 add out of the baseline", () => {
 		const audit = baselineStatements("sqlite").find((s) =>
 			s.sql.includes("CREATE TABLE IF NOT EXISTS theauth_audit_logs "),
 		);

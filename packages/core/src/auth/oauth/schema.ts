@@ -3,7 +3,8 @@
  * Import from the main schema barrel (`db/schema.ts`) is intentionally avoided here to keep this file self-contained and easy to tree-shake.
  */
 
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { timestampSec } from "../../db/schema/columns.js";
 import { users } from "../../db/schema.js";
 
 /**
@@ -24,9 +25,9 @@ export const oauthAccounts = sqliteTable("theauth_oauth_accounts", {
 	/** Refresh token, when the provider issues one. */
 	refreshToken: text("refresh_token"),
 	/** When the access token expires (`null` when unknown). */
-	expiresAt: integer("expires_at", { mode: "timestamp" }),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-	updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+	expiresAt: timestampSec("expires_at"),
+	createdAt: timestampSec("created_at").notNull(),
+	updatedAt: timestampSec("updated_at").notNull(),
 });
 
 /**
@@ -43,6 +44,6 @@ export const oauthStates = sqliteTable("theauth_oauth_states", {
 	/** Provider this state belongs to, e.g. `'google'`. */
 	provider: text("provider").notNull(),
 	/** When this state entry must be considered expired and rejected. */
-	expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	expiresAt: timestampSec("expires_at").notNull(),
+	createdAt: timestampSec("created_at").notNull(),
 });
