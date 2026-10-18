@@ -1,5 +1,6 @@
 import { and, desc, eq, gt } from "drizzle-orm";
 import { recordAuditEvent } from "../audit/record.js";
+import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { approvalRequests } from "../db/schema.js";
 import { scrub } from "./validate.js";
@@ -87,18 +88,20 @@ export async function decideApproval(db: Database, input: DecisionInput): Promis
 		};
 	}
 	const now = new Date();
-	const updated = await db
-		.update(approvalRequests)
-		.set({ status: input.decision, respondedAt: now, respondedBy: input.approverId })
-		.where(
-			and(
-				eq(approvalRequests.id, input.id),
-				eq(approvalRequests.status, "pending"),
-				gt(approvalRequests.expiresAt, now),
+	const updated = await claimCount(
+		db
+			.update(approvalRequests)
+			.set({ status: input.decision, respondedAt: now, respondedBy: input.approverId })
+			.where(
+				and(
+					eq(approvalRequests.id, input.id),
+					eq(approvalRequests.status, "pending"),
+					gt(approvalRequests.expiresAt, now),
+				),
 			),
-		)
-		.returning({ id: approvalRequests.id });
-	if (updated.length === 0) {
+		{ id: approvalRequests.id },
+	);
+	if (updated === 0) {
 		return {
 			ok: false,
 			status: 409,

@@ -49,7 +49,14 @@ For REST API calls, errors are returned as JSON with the corresponding HTTP stat
 | `time_restricted` | Outside the permission's `timeWindow`. | `time_restricted` |
 | `argument_rejected` | An argument failed `allowedArgPatterns`, or a pattern is not a valid regex. | `permission_denied` |
 | `approval_required` | The permission has `requireApproval` and no approval id was given, or a `beforeAuthorize` hook returned `escalate`. | `approval_required` |
-| `approval_invalid` | The approval id is unknown, not approved, already used, or for another call. | `approval_required` |
+| `approval_not_found` | No approval request has this id. | `approval_required` |
+| `approval_pending` | The approval request has no answer yet. | `approval_required` |
+| `approval_denied` | A human denied the approval request. | `approval_required` |
+| `approval_expired` | The approval request passed its `expiresAt`. | `approval_required` |
+| `approval_already_used` | The approval was already spent. | `approval_required` |
+| `approval_mismatch` | The approval is for another agent, action or resource. | `approval_required` |
+| `approval_arguments_mismatch` | The arguments differ from the ones the human approved. | `approval_required` |
+| `approval_granted` | Lifecycle event only: a human approved a request. Never returned by `authorize()`. | none |
 | `agent_not_found` | No agent with that id. | `permission_denied` |
 | `agent_revoked` | The agent is revoked. | `permission_denied` |
 | `agent_expired` | The agent is expired. | `permission_denied` |

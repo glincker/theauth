@@ -5,7 +5,7 @@ import type { DelegationLink, HookDelegationChain } from "../hooks/lifecycle.js"
 import type { BeforeAuthorizeRunner, HookOutcome } from "../hooks/run.js";
 import type { Result } from "../mcp/types.js";
 import type { DecisionCode } from "../permission/codes.js";
-import { DECISION_CODES } from "../permission/codes.js";
+import { DECISION_CODES, isApprovalDenial } from "../permission/codes.js";
 import type { SetEvaluation } from "../simulator/evaluate-set.js";
 import { evaluateSet, matchKind } from "../simulator/evaluate-set.js";
 import type { TraceStep } from "../simulator/types.js";
@@ -269,9 +269,7 @@ export function createExplainer(deps: ExplainerDeps): Explainer {
 					flat[via.match?.index ?? -1]?.link,
 				);
 				// Mirror authorize: delegated wins when it allows or holds for approval, else the own verdict stands.
-				const approvalCode =
-					via.code === DECISION_CODES.APPROVAL_INVALID ||
-					via.code === DECISION_CODES.APPROVAL_REQUIRED;
+				const approvalCode = isApprovalDenial(via.code);
 				if (via.allowed || approvalCode) {
 					final = via;
 					grant = viaGrant;

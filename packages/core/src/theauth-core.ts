@@ -54,10 +54,14 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	await ensureSchema(db, config);
 
 	// The policy engine can open approval requests, so the approval module is created first.
-	const approvalModule = createApprovalModule(config.approval ?? {}, db);
 	const hooks = config.hooks ?? {};
 	const { runBeforeAuthorize, guardAgentCreate } = createHookRuntime(hooks, config.hookSafety);
 	const observability = createObservability(config.observability, config.logger);
+	const approvalModule = createApprovalModule(config.approval ?? {}, db, {
+		observability,
+		// The webhook module is built further down, so it is looked up when a request opens.
+		webhooks: () => webhookModule,
+	});
 	const policyEngine: PolicyEngine = createPolicyEngine({
 		db,
 		config: config.policy,

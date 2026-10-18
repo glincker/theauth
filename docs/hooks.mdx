@@ -130,7 +130,7 @@ hooks: {
 | `rate_limited` | `rate_limited` |
 | `ip_blocked` | `ip_not_allowed` (the request IP is missing or not in the permission's `ipAllowlist`) |
 | `time_restricted` | `time_restricted` (outside the permission's `timeWindow`) |
-| `approval_required` | `approval_required`, `approval_invalid` |
+| `approval_required` | `approval_required` and every `approval_*` denial |
 | `permission_denied` | every other code |
 
 A `beforeAuthorize` deny reports code `hook_denied`, so its `type` is `permission_denied` whatever the reason text says. A timeout reports `hook_timeout` and an error `hook_error`, also `permission_denied`. An escalate verdict reports `approval_required`. See [Errors](/errors#decision-codes) for the full list of codes.

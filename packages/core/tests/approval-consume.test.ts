@@ -102,9 +102,9 @@ describe("approvalId consumption", () => {
 				action: "execute",
 				resource: RESOURCE,
 			});
-			expect((await call(pending.id)).reason).toBe("APPROVAL_NOT_APPROVED");
+			expect((await call(pending.id)).reason).toBe("APPROVAL_PENDING");
 			await theauth.approval.deny(pending.id, "human-1");
-			expect((await call(pending.id)).reason).toBe("APPROVAL_NOT_APPROVED");
+			expect((await call(pending.id)).reason).toBe("APPROVAL_DENIED");
 		});
 
 		it("denies an expired approval", async () => {

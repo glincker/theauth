@@ -8,7 +8,7 @@ import type { BeforeAuthorizeRunner, HookOutcome } from "../hooks/run.js";
 import { depthOfPath, hookFieldsOf } from "../observability/events.js";
 import type { Observability } from "../observability/index.js";
 import type { DecisionEvent } from "../observability/types.js";
-import { DECISION_CODES, violationTypeOf } from "../permission/codes.js";
+import { DECISION_CODES, isApprovalDenial, violationTypeOf } from "../permission/codes.js";
 import type { createPermissionEngine } from "../permission/engine.js";
 import type { AgentIdentity, AuthorizeRequest, AuthorizeResult, RequestContext } from "../types.js";
 import type { HookBlock } from "./hook-outcome.js";
@@ -208,9 +208,7 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 					{ deferDenialAudit: true, auditParameters },
 				);
 				// Both denied: keep the original denial, unless an approval failure is more specific.
-				const approvalDenied =
-					delegatedResult.code === DECISION_CODES.APPROVAL_INVALID ||
-					delegatedResult.code === DECISION_CODES.APPROVAL_REQUIRED;
+				const approvalDenied = isApprovalDenial(delegatedResult.code);
 				finalResult = delegatedResult.allowed || approvalDenied ? delegatedResult : ownResult;
 			}
 		}

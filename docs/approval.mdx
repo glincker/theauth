@@ -14,7 +14,7 @@ theAuth supports this with a permission constraint called `requireApproval`. Whe
 The flow is async. The agent does not block waiting. The human can respond minutes or hours later, within the request's TTL.
 
 <Warning>
-  An approval only unlocks an action when the call carries its id. A permission with `requireApproval: true` is still denied every time unless you pass `approvalId` to `authorize()` or `policy.evaluate()`. Note that `approve()` does not check `expiresAt`; the TTL is applied when the approval is spent (an expired request is refused) and when you call `cleanup()`, which marks overdue pending requests as `expired`.
+  An approval only unlocks an action when the call carries its id. A permission with `requireApproval: true` is still denied every time unless you pass `approvalId` to `authorize()` or `policy.evaluate()`. `approve()`, `deny()` and `decide()` refuse a request past its `expiresAt` and mark it `expired`. `cleanup()` marks every overdue pending request as `expired`.
 </Warning>
 
 <Info>
@@ -69,15 +69,48 @@ When the matched permission requires approval (or `policy.evaluate` would escala
 
 If the approval cannot be spent, the call is denied with one of these reasons:
 
-| Code | Meaning |
-| --- | --- |
-| `APPROVAL_NOT_FOUND` | No request has this id. |
-| `APPROVAL_NOT_APPROVED` | The request is pending or denied. |
-| `APPROVAL_MISMATCH` | The request is for another agent, action or resource. |
-| `APPROVAL_EXPIRED` | The request passed its `expiresAt`. |
-| `APPROVAL_ALREADY_USED` | The request was already spent. |
+| `reason` | `code` | Meaning |
+| --- | --- | --- |
+| `APPROVAL_NOT_FOUND` | `approval_not_found` | No request has this id. |
+| `APPROVAL_PENDING` | `approval_pending` | Nobody has answered yet. |
+| `APPROVAL_DENIED` | `approval_denied` | A human denied the request. |
+| `APPROVAL_MISMATCH` | `approval_mismatch` | The request is for another agent, action or resource. |
+| `APPROVAL_ARGUMENTS_MISMATCH` | `approval_arguments_mismatch` | The call's arguments differ from the ones the human approved. |
+| `APPROVAL_EXPIRED` | `approval_expired` | The request passed its `expiresAt`, answered or not. |
+| `APPROVAL_ALREADY_USED` | `approval_already_used` | The request was already spent. |
+
+The approval is bound to a hash of the action, resource and arguments. Reserved keys such as `approvalId` are stripped from the arguments before hashing, and a request stored without arguments only covers a call without arguments. A successful spend returns `allowed: true` with code `approval_consumed`. The generic `approval_invalid` code is no longer returned.
 
 The allow is audited with `approver_id` set to the request's `respondedBy` and the approval id in the row's `parameters.approvalId`. Upgrading adds a nullable `consumed_at` column to `theauth_approval_requests` automatically.
+
+## Requesting and deciding
+
+```typescript
+const req = await theauth.approval.request({
+  agentId,
+  userId: ownerId,
+  action: "execute",
+  resource: "mcp:payments:refund",
+  arguments: { amount: 10 },
+});
+
+// The owner's inbox: pending and not yet expired.
+const inbox = await theauth.approval.listPending(ownerId);
+
+await theauth.approval.decide(req.id, { decision: "approve", decidedBy: ownerId });
+// or: theauth.approval.approve(id, by), theauth.approval.deny(id, by)
+```
+
+Every step writes an audit row (`approval.request`, `approval.approve`, `approval.deny`, `approval.expire`). When `observability.onDecision` is set, each step also emits a decision event with `source: "approval"`:
+
+| Step | `decision` | `code` |
+| --- | --- | --- |
+| request | `escalate` | `approval_pending` |
+| approve | `allow` | `approval_granted` |
+| deny | `deny` | `approval_denied` |
+| expire | `deny` | `approval_expired` |
+
+Spending the approval in `authorize()` emits the usual event with code `approval_consumed`.
 
 ## ApprovalRequest fields
 
@@ -126,6 +159,10 @@ const theauth = await createTheAuth({
 ```
 
 Both `webhookUrl` and `onApprovalNeeded` fire asynchronously (not awaited) so the `request()` call is not delayed by notification latency. If both are set, both fire.
+
+## The approval.pending webhook
+
+When `webhooks` is configured, a new pending request also sends `approval.pending` to endpoints that subscribe to it. The payload carries `approvalId`, `agentId`, `userId`, `action`, `resource`, `argumentsHash`, `expiresAt` and `createdAt`. It never carries the raw arguments, so fetch them with `approval.get(approvalId)` when your approver needs to see them.
 
 ## How webhooks work
 

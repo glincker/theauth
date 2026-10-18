@@ -35,12 +35,14 @@ export const AuthorizeSchema = z.object({
 	action: z.string().min(1),
 	resource: z.string().min(1),
 	arguments: z.record(z.unknown()).optional(),
+	approvalId: z.string().min(1).optional(),
 });
 
 export const AuthorizeByTokenSchema = z.object({
 	action: z.string().min(1),
 	resource: z.string().min(1),
 	arguments: z.record(z.unknown()).optional(),
+	approvalId: z.string().min(1).optional(),
 });
 
 export const DelegateSchema = z.object({

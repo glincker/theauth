@@ -20,7 +20,8 @@ export type DecisionHookOutcome = "allow" | "deny" | "escalate" | "timeout" | "e
  * arguments. `resource` passes through `observability.redactResource` first.
  */
 export interface DecisionEvent {
-	source: AuthorizeSource;
+	/** `approval` marks a lifecycle event from the approval module (request, approve, deny, expire). */
+	source: AuthorizeSource | "approval";
 	/** Absent for policy.evaluate on a user subject, and for an unknown token. */
 	agentId?: string;
 	ownerId?: string;

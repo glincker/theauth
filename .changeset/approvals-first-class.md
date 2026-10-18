@@ -1,0 +1,5 @@
+---
+"@glinr/theauth": major
+---
+
+Approvals are a first-class flow. A failed `approvalId` spend in `authorize()`, `authorizeByToken()` and `policy.evaluate()` now returns a distinct code: `approval_not_found`, `approval_pending`, `approval_denied`, `approval_expired`, `approval_already_used`, `approval_mismatch` or `approval_arguments_mismatch`. The generic `approval_invalid` code is no longer returned (breaking), and the `APPROVAL_NOT_APPROVED` reason is split into `APPROVAL_PENDING` and `APPROVAL_DENIED`. `approval.approve()` and `approval.deny()` throw for an expired request and mark it `expired`, and `approval.listPending(ownerId)` leaves out expired requests. Added `approval.decide(id, { decision, decidedBy })`, an `approval.expire` audit row, decision events with `source: "approval"` (codes `approval_pending`, `approval_granted`, `approval_denied`, `approval_expired`), and an `approval.pending` webhook event that carries a hash of the arguments, not the arguments. New exports: `decisionCodeOfApproval`, `isApprovalDenial`, `ApprovalDeps`, `DecideInput`. See `docs/upgrading-to-2.mdx`.

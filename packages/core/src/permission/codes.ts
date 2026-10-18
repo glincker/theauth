@@ -12,7 +12,17 @@ export const DECISION_CODES = {
 	TIME_RESTRICTED: "time_restricted",
 	ARGUMENT_REJECTED: "argument_rejected",
 	APPROVAL_REQUIRED: "approval_required",
+	/** Generic fallback. The approval paths now emit one of the specific `approval_*` codes below. */
 	APPROVAL_INVALID: "approval_invalid",
+	APPROVAL_NOT_FOUND: "approval_not_found",
+	APPROVAL_PENDING: "approval_pending",
+	APPROVAL_DENIED: "approval_denied",
+	APPROVAL_EXPIRED: "approval_expired",
+	APPROVAL_ALREADY_USED: "approval_already_used",
+	APPROVAL_MISMATCH: "approval_mismatch",
+	APPROVAL_ARGUMENTS_MISMATCH: "approval_arguments_mismatch",
+	/** Lifecycle only: a human approved a request. Never returned by authorize. */
+	APPROVAL_GRANTED: "approval_granted",
 	AGENT_NOT_FOUND: "agent_not_found",
 	AGENT_REVOKED: "agent_revoked",
 	AGENT_EXPIRED: "agent_expired",
@@ -28,8 +38,11 @@ export const DECISION_CODES = {
 
 export type DecisionCode = (typeof DECISION_CODES)[keyof typeof DECISION_CODES];
 
-/** Every code except the two that mean the call went through. */
-export type DenialCode = Exclude<DecisionCode, "allowed" | "approval_consumed">;
+/** Every code except the ones that mean the call went through or a human said yes. */
+export type DenialCode = Exclude<
+	DecisionCode,
+	"allowed" | "approval_consumed" | "approval_granted"
+>;
 
 /** Coarse grouping reported as `onViolation.type`. */
 export type ViolationType =
@@ -45,6 +58,11 @@ export function isDecisionCode(value: unknown): value is DecisionCode {
 	return typeof value === "string" && CODE_VALUES.has(value);
 }
 
+/** True for approval_required and every code that explains why an approval could not be spent. */
+export function isApprovalDenial(code: DecisionCode | undefined): boolean {
+	return code !== undefined && violationTypeOf(code) === "approval_required";
+}
+
 /** Map a decision code to the coarse `onViolation.type` grouping. */
 export function violationTypeOf(code: DecisionCode): ViolationType {
 	switch (code) {
@@ -56,6 +74,13 @@ export function violationTypeOf(code: DecisionCode): ViolationType {
 			return "time_restricted";
 		case "approval_required":
 		case "approval_invalid":
+		case "approval_not_found":
+		case "approval_pending":
+		case "approval_denied":
+		case "approval_expired":
+		case "approval_already_used":
+		case "approval_mismatch":
+		case "approval_arguments_mismatch":
 			return "approval_required";
 		default:
 			return "permission_denied";

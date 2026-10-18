@@ -3,7 +3,7 @@
 
 import { eq } from "drizzle-orm";
 import type { ApprovalModule } from "../approval/approval.js";
-import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
+import { APPROVAL_CODES, consumeApproval, decisionCodeOfApproval } from "../approval/consume.js";
 import { recordAuditEvent } from "../audit/record.js";
 import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { withHookDetail } from "../authorize/hook-outcome.js";
@@ -150,7 +150,10 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		});
 		if (!spent.ok) {
 			return {
-				decision: { ...withEffect(decision, "deny", "approval_invalid"), reason: spent.code },
+				decision: {
+					...withEffect(decision, "deny", decisionCodeOfApproval(spent.code)),
+					reason: spent.code,
+				},
 			};
 		}
 		return {
@@ -479,7 +482,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			ip: input.context?.ip,
 			userAgent: typeof input.context?.userAgent === "string" ? input.context.userAgent : undefined,
 			cacheHit: decision.cacheHit,
-			inputProvenance: provenanceRecord(input, decision),
+			inputProvenance: await provenanceRecord(input, decision),
 			subjectId: decision.principal?.subjectId,
 			actorId: decision.principal?.actorId,
 			policyVersion,
