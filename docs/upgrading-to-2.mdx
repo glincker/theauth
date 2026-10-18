@@ -266,3 +266,52 @@ Revoking a delegation, an agent, a user's sessions or a token now reaches MCP ac
 ## Observability is opt in
 
 `observability.onDecision(event)` receives one typed event per `authorize`, `authorizeByToken` and `policy.evaluate` decision, and `logger` receives hook timeout and listener warnings. Nothing changes unless you set them. Events carry no tokens or raw arguments, and `observability.redactResource` rewrites the resource string. The dashboard audit page now sends `codes` to your audit endpoint and calls `/api/explain`, so mount the HTTP handler at `/api`. See [Observability](/observability).
+
+## Approval denials carry specific codes
+
+`approval_invalid` is gone from `authorize()`, `authorizeByToken()` and `policy.evaluate()`. A failed spend returns one of `approval_not_found`, `approval_pending`, `approval_denied`, `approval_expired`, `approval_already_used`, `approval_mismatch` or `approval_arguments_mismatch`, and all of them still map to `onViolation.type` `approval_required`. The `reason` string `APPROVAL_NOT_APPROVED` is split into `APPROVAL_PENDING` and `APPROVAL_DENIED`, and a pending request past its expiry reports `APPROVAL_EXPIRED`. Branch on `code` instead of `approval_invalid`. `approval.approve()` and `approval.deny()` now throw for an expired request and mark it `expired`, and `approval.listPending()` leaves out expired ones. New: `approval.decide()`, the `approval.pending` webhook event, and decision events with `source: "approval"`. See [Approval flows](/approval).
+
+## Stateless and JWT sessions refuse banned users
+
+The database session manager already refused a banned user. The JWT session module and the stateless session manager did not, so a banned user could still get tokens or cookies on those paths.
+
+- `createJwtSessionModule(...).createSession` now returns `USER_BANNED` for a banned user (an expired ban no longer counts) and writes a denied `sign_in` audit row. `refreshSession` goes through the same check, so a ban stops refresh token rotation. Access tokens already issued stay valid until `accessTokenTtl`.
+- `createStatelessSessions` has no database, so the check is opt in. Pass `db` to run the same check against the `users` table (the identity `sub` must be your local user id), or pass `isBanned(identity)` for a store of your own. `createSession` then returns `USER_BANNED`, and with `isBanned` set `getSession` returns null for a banned user, which ends sessions already issued.
+- Before: a banned user could sign in through these managers. After: `USER_BANNED`, with the same generic message as the other sign-in paths.
+- Action: pass `db` or `isBanned` to `createStatelessSessions`. Handle the `USER_BANNED` code where you call `createSession`.
+
+## Org and API key handlers fail closed
+
+`org.handleRequest` and `apiKeys.handleRequest` used to act on any request, trusting the `userId`, `ownerId` and `invitedBy` in the body. They now answer 401 unless the caller is authenticated.
+
+- Through `createTheAuth` nothing to wire: the handlers use your auth adapter, then the session token, like the TOTP and passkey handlers.
+- For a module built on its own (`createOrgModule(config, db, { resolveUser })`, `createApiKeyManagerModule(config, db, { resolveUser })`), pass a `resolveUser` that returns `{ id }` or null. With no resolver every route answers 401.
+- With a resolver, API key routes only reach the caller's own keys (403 otherwise). Org routes need membership to read and the `owner` or `admin` role to change anything. A member may remove themselves. `ownerId`, `invitedBy` and the accepting user are taken from the session, and a body value for another user is a 403.
+- Opt out for trusted server code that has already authenticated and authorized the caller: `org: { trustedServerUse: true }` or `apiKeys: { trustedServerUse: true }`. The handler then trusts ids in the request, as before. A configured resolver always wins over the flag.
+- Before: unauthenticated requests could create orgs, add members and mint API keys for any user. After: 401, or 403 for another user's data.
+
+## Authorization code grant refuses another user's agent client
+
+A client bound to an agent with `mcp.clients.bindAgent` now only gets a code, and only redeems one, for the agent's owner. Before, any signed-in user could authorize that client and receive tokens carrying the agent's identity.
+
+- The authorization endpoint returns `ACCESS_DENIED`, and the token endpoint returns `INVALID_GRANT`, both with `details.decisionCode` set to `owner_mismatch` and the message "This client is bound to an agent owned by another user and cannot act for you". The refusal is also written to the audit log under the agent.
+- Without `auth` (no database stores) there is no agent store and nothing changes.
+- Action: bind a client to an agent only when the users who authorize it own that agent. For shared service clients, bind them with a service account that owns the agent.
+
+## `inputProvenance` is a reserved audit argument name
+
+Tool arguments named `inputProvenance` are now dropped from audit `parameters`, like `approvalId` and the `theauth*` names, because input provenance is recorded only from the trusted `context.inputs` (kind, id and content hash, never content).
+
+- Action: if a tool takes an argument called `inputProvenance`, rename it, or it will not appear in the audit row.
+- Pseudonym rotation (`audit.pseudonymRotation`) is opt in. Without it nothing changes.
+
+## `generateOpenAPISpec` is generated from the route table
+
+The OpenAPI document is no longer hand written. It is built from the handler's routes and the core result shapes, and `sdks/openapi.json` is the checked-in copy.
+
+- `servers[0].url` is now `baseUrl` plus `basePath` (default `/api/theauth`). Before, `baseUrl` was used as is, so pass the origin only.
+- Paths match what the handler serves: `POST /authorize` takes `agentId` in the body, and `POST /authorize/token` is the bearer token form. The old `/agents/{id}/authorize` entry did not exist on the server.
+- `AuthorizeResult` has a required `code` (a decision code). `ExplainResult`, the delegation chain fields (`rootOwnerId`, `path`), approvals and `/mcp/introspect` are described.
+- `POST /authorize` and `POST /authorize/token` accept `approvalId`. Before, the HTTP body schema dropped it, so an approved request could not be spent over HTTP.
+- Action: regenerate any client you built from the old document, and pass the origin as `baseUrl`.
+

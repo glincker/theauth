@@ -369,6 +369,9 @@
               "vercel-ai-sdk",
               "openai-agents-sdk",
               "agent-frameworks",
+              "integrations/vercel-ai-sdk",
+              "integrations/openai-agents-sdk",
+              "integrations/langgraph-crewai",
               "simulator",
               "explain",
               "rate-limiting",
@@ -486,7 +489,8 @@
               "sign-in-gate",
               "trusted-device",
               "multi-session",
-              "owasp-agentic-mapping"
+              "owasp-agentic-mapping",
+              "security-doctor"
             ]
           },
           {
