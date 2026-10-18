@@ -1,8 +1,8 @@
-/** `theauth audit verify-go <file>`: verify a hash chain exported by theauth-go. Reads a file only. */
+/** `theauth audit verify-go <file>`: verify a hash chain exported by theauth-go. Reads files only. */
 
 import { readFile } from "node:fs/promises";
-import type { GoAuditRow } from "@glinr/theauth";
-import { verifyGoAuditChain } from "@glinr/theauth";
+import type { CheckpointPublicKey, GoAuditRow, GoHeadResult } from "@glinr/theauth";
+import { verifyGoAuditChain, verifyGoHeadCheckpoint } from "@glinr/theauth";
 import type { AuditArgs, AuditRunResult } from "./audit-commands.js";
 
 /** Accepts a JSON array, an object with a `rows` or `events` array, or NDJSON (one row per line). */
@@ -22,30 +22,67 @@ export function parseGoExport(text: string): GoAuditRow[] {
 		.map((l) => JSON.parse(l) as GoAuditRow);
 }
 
+/** Reads a public key file: one key, a list of keys, or `{"keys": [...]}`. */
+export function parseHeadKeys(text: string): CheckpointPublicKey[] {
+	const doc = JSON.parse(text) as unknown;
+	const list = Array.isArray(doc)
+		? doc
+		: Array.isArray((doc as { keys?: unknown } | null)?.keys)
+			? (doc as { keys: unknown[] }).keys
+			: [doc];
+	const keys = list.filter(
+		(k): k is CheckpointPublicKey =>
+			typeof k === "object" &&
+			k !== null &&
+			typeof (k as CheckpointPublicKey).keyId === "string" &&
+			typeof (k as CheckpointPublicKey).publicKey === "object" &&
+			(k as CheckpointPublicKey).publicKey !== null,
+	);
+	if (keys.length === 0) throw new Error("no public key with keyId and publicKey found");
+	return keys;
+}
+
 export async function runVerifyGo(args: AuditArgs): Promise<AuditRunResult> {
 	let r: Awaited<ReturnType<typeof verifyGoAuditChain>>;
+	let head: GoHeadResult | null = null;
 	try {
 		const rows = parseGoExport(await readFile(args.file ?? "", "utf8"));
 		r = await verifyGoAuditChain(rows, {
 			pseudonymSecret: args.secretHex ?? undefined,
 			allowPartialStart: args.partial,
 		});
+		if (args.head !== null && args.headKey !== null) {
+			const checkpoint = JSON.parse(await readFile(args.head, "utf8")) as unknown;
+			const keys = parseHeadKeys(await readFile(args.headKey, "utf8"));
+			head = await verifyGoHeadCheckpoint(checkpoint, keys, rows);
+		}
 	} catch (e) {
 		return {
 			code: 2,
 			output: `Cannot verify export: ${e instanceof Error ? e.message : "unknown"}\n`,
 		};
 	}
-	if (args.json) return { code: r.ok ? 0 : 1, output: `${JSON.stringify(r, null, 2)}\n` };
-	if (r.ok) {
-		return {
-			code: 0,
-			output: `OK: ${r.checked} rows in ${r.chains} chain(s) verified, ${r.erased} erased, ${r.unchained} unchained skipped.\n`,
-		};
+	const headOk = head === null || head.valid;
+	const code = r.ok && headOk ? 0 : 1;
+	if (args.json) {
+		return { code, output: `${JSON.stringify(head === null ? r : { ...r, head }, null, 2)}\n` };
 	}
-	const f = r.firstFailure;
-	return {
-		code: 1,
-		output: `BROKEN: ${f?.reason} in chain "${f?.chainKey}" at seq ${f?.seq} (row ${f?.rowId}, index ${f?.index}).\n`,
-	};
+	let out = "";
+	if (r.ok) {
+		out += `OK: ${r.checked} rows in ${r.chains} chain(s) verified, ${r.erased} erased, ${r.unchained} unchained skipped.\n`;
+	} else {
+		const f = r.firstFailure;
+		out += `BROKEN: ${f?.reason} in chain "${f?.chainKey}" at seq ${f?.seq} (row ${f?.rowId}, index ${f?.index}).\n`;
+	}
+	if (head !== null) {
+		if (head.valid) {
+			out +=
+				"OK: head checkpoint signature is valid and every signed chain head is in the export.\n";
+		} else if (head.chainKey === undefined) {
+			out += `BROKEN: head checkpoint ${head.reason}.\n`;
+		} else {
+			out += `BROKEN: head checkpoint ${head.reason} in chain "${head.chainKey}".\n`;
+		}
+	}
+	return { code, output: out };
 }
