@@ -1,6 +1,8 @@
 import type { AgentConfig } from "./agent/types.js";
 import type { ApprovalConfig } from "./approval/approval.js";
 import type { ChainCheckpointOptions, ChainCheckpointResult } from "./audit/chain-anchor.js";
+import type { InputSource, ProvenanceFilter } from "./audit/provenance.js";
+import type { PseudonymRotation } from "./audit/pseudonym-rotation.js";
 import type {
 	AgentReplay,
 	AuditChainExportOptions,
@@ -279,6 +281,8 @@ export interface RequestContext {
 	/** Client IP address, used for ipAllowlist enforcement and audit logging */
 	ip?: string;
 	userAgent?: string;
+	/** Where the inputs of this call came from. Recorded in the audit row as kind, id and content hash, never the content. */
+	inputs?: InputSource[];
 }
 
 export interface AuthorizeRequest {
@@ -319,6 +323,10 @@ export interface AuditConfig {
 	tamperEvident?: boolean;
 	/** Secret for HMAC-SHA256 hashing. Set it so someone with write access to the database but not to this key cannot rewrite rows and recompute the chain. */
 	hmacKey?: string;
+	/**
+	 * Rotate the id pseudonyms. Each period uses its own random secret, so one subject has a different pseudonym in every period, and once an old period secret is shredded nobody, the key holder included, can link a subject across periods. Off by default (one stable pseudonym per subject).
+	 */
+	pseudonymRotation?: PseudonymRotation;
 	/** Called when a best-effort audit write fails. */
 	onAuditError?: (info: { error: unknown; pendingFailures: number; totalFailures: number }) => void;
 }
@@ -383,6 +391,8 @@ export interface AuditFilter {
 	events?: AuditEvent[];
 	/** Exact resource, or a prefix when it ends with `*` (for example `mcp:github:*`). */
 	resource?: string;
+	/** Only rows that recorded an input of this kind and/or with this content hash (see `hashInputContent`). */
+	provenance?: ProvenanceFilter;
 	/** Write order. Default "desc" (newest first), unchanged from earlier versions. */
 	order?: "asc" | "desc";
 	/** Opaque cursor from `AuditPage.nextCursor`. Continue the same filter and order from where the last page ended. */

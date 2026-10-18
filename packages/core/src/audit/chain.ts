@@ -11,6 +11,8 @@ import { auditLogs } from "../db/schema.js";
 import { errorText, isUniqueViolation } from "../db/unique-violation.js";
 import { eventForAction } from "./events.js";
 import { computePseudonyms, resolvePseudonymKey } from "./pseudonym.js";
+import type { PseudonymRotation } from "./pseudonym-rotation.js";
+import { pseudonymsForWrite } from "./pseudonym-rotation.js";
 
 export type AuditInsert = typeof auditLogs.$inferInsert;
 export type AuditRow = typeof auditLogs.$inferSelect;
@@ -18,6 +20,8 @@ export type AuditRow = typeof auditLogs.$inferSelect;
 export interface AuditChainConfig {
 	/** Secret for HMAC-SHA256 hashing. Without it hashes are plain SHA-256. */
 	hmacKey?: string;
+	/** Per-period pseudonym secrets instead of one stable pseudonym per subject. */
+	pseudonymRotation?: PseudonymRotation;
 }
 
 /** Version stamped on rows this code writes. Rows with a NULL hash_version are version 1. */
@@ -201,7 +205,9 @@ async function appendChained(
 	};
 	const pseudonymKey = await resolvePseudonymKey(db, config.hmacKey, true);
 	if (!pseudonymKey) throw new Error("no audit pseudonym key available");
-	stamped.idPseudonyms = await computePseudonyms(stamped, pseudonymKey);
+	stamped.idPseudonyms = config.pseudonymRotation
+		? await pseudonymsForWrite(db, stamped, config.pseudonymRotation)
+		: await computePseudonyms(stamped, pseudonymKey);
 
 	let lastError: unknown;
 	for (let attempt = 0; attempt < MAX_APPEND_ATTEMPTS; attempt++) {

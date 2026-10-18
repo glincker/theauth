@@ -1,5 +1,6 @@
 // Public types for the unified policy engine.
 
+import type { InputSource } from "../audit/provenance.js";
 import type { DecisionCode } from "../permission/codes.js";
 import type { ProvenanceMap, TaintConfig, TaintVerdict } from "../taint/types.js";
 
@@ -73,6 +74,8 @@ export interface PolicyEvaluationContext {
 	arguments?: Record<string, unknown>;
 	/** Provenance labels per argument name ("*" for the whole call). Checked against `PolicyEngineConfig.taint` and written to the audit record's input_provenance. */
 	provenance?: ProvenanceMap;
+	/** Where the inputs of this call came from. Recorded as kind, id and content hash in the audit row. */
+	inputs?: InputSource[];
 	timestamp?: Date;
 	[key: string]: unknown;
 }

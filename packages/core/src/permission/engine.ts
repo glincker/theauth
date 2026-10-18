@@ -1,5 +1,6 @@
-import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
+import { APPROVAL_CODES, consumeApproval, decisionCodeOfApproval } from "../approval/consume.js";
 import { insertAuditRow } from "../audit/chain.js";
+import { buildInputProvenance } from "../audit/provenance.js";
 import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
@@ -98,7 +99,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 						constraintResult = {
 							allowed: false,
 							reason: spent.code,
-							code: DECISION_CODES.APPROVAL_INVALID,
+							code: decisionCodeOfApproval(spent.code),
 						};
 					}
 				} else {
@@ -180,6 +181,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 				subjectId: extra?.subjectId ?? null,
 				actorId: extra?.actorId ?? null,
 				delegationChain: extra?.delegationChain ?? null,
+				inputProvenance: (await buildInputProvenance(request.context?.inputs)) ?? null,
 				ip: request.context?.ip ?? request.ip ?? null,
 				userAgent: request.context?.userAgent ?? null,
 			});
@@ -266,6 +268,7 @@ async function writeAuditLog(
 			reason: result.reason ?? null,
 			decisionCode: result.code ?? null,
 			approverId: consumed?.approverId ?? null,
+			inputProvenance: (await buildInputProvenance(request.context?.inputs)) ?? null,
 			durationMs,
 			timestamp: new Date(),
 			ip: request.context?.ip ?? request.ip ?? null,

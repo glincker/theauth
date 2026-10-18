@@ -49,6 +49,21 @@ export type {
 	GoChainVerifyResult,
 } from "./go-chain-verify.js";
 export { goChainPayload, verifyGoAuditChain } from "./go-chain-verify.js";
+export type {
+	InputProvenanceRecord,
+	InputSource,
+	InputSourceKind,
+	InputSourceRecord,
+	ProvenanceFilter,
+} from "./provenance.js";
+export {
+	buildInputProvenance,
+	hashInputContent,
+	INPUT_SOURCE_KINDS,
+	isInputSourceKind,
+} from "./provenance.js";
+export type { PseudonymRotation } from "./pseudonym-rotation.js";
+export { shredPseudonymPeriods } from "./pseudonym-rotation.js";
 export { decodeAuditCursor, encodeAuditCursor, isInvalidAuditCursor } from "./query.js";
 export type { AuditWriteError, AuditWriteErrorHandler, RecordedEvent } from "./record.js";
 export {

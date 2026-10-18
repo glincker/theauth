@@ -1,6 +1,7 @@
 // Framework-agnostic guard: put theAuth policy in front of an agent tool.
 // No framework imports. A tool is any object with an `execute` function.
 
+import type { InputSource } from "../audit/provenance.js";
 import type {
 	EvaluateInput,
 	EvaluateOptions,
@@ -62,6 +63,8 @@ export interface GuardOptions<A = unknown, C = unknown> {
 	 * Provenance labels of the arguments, e.g. `{ recipient: ["untrusted_web"] }`. Use the key "*" for labels that cover the whole call. Merged with labels read from `tracker` and from values tagged with `tainted()`. With none of these, the call is evaluated as before.
 	 */
 	provenance?: ProvenanceMap | ((args: A, ctx: C | undefined) => ProvenanceMap | undefined);
+	/** Where the inputs of the call came from (user message id, tool output, retrieved document, another agent). Recorded in the audit row as kind, id and content hash, never the content. */
+	inputs?: InputSource[] | ((args: A, ctx: C | undefined) => InputSource[] | undefined);
 	/** Tracker that reads labels off the arguments and registers this tool's result as `tool_output:<name>` (plus the labels of its arguments), so the output flows into the arguments of later guarded calls. */
 	tracker?: ProvenanceTracker;
 	/** Open an approval request when the decision escalates. Default true. */
@@ -148,14 +151,20 @@ export function guardTool<T extends GuardableTool>(
 			const risk = options.risk?.(args);
 			const approvalId = options.approvalId?.(ctx, args);
 			provenance = resolveProvenance(options, args, ctx);
+			const inputs =
+				typeof options.inputs === "function" ? options.inputs(args, ctx) : options.inputs;
 			decision = await theauth.policy.evaluate(
 				{
 					subject: { agentId },
 					action: options.action ?? "execute",
 					resource,
 					context:
-						risk || provenance
-							? { ...(risk ? { risk } : {}), ...(provenance ? { provenance } : {}) }
+						risk || provenance || inputs?.length
+							? {
+									...(risk ? { risk } : {}),
+									...(provenance ? { provenance } : {}),
+									...(inputs?.length ? { inputs } : {}),
+								}
 							: undefined,
 					...(approvalId ? { approvalId } : {}),
 				},

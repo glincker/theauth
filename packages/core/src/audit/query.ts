@@ -10,6 +10,7 @@ import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
 import { isDecisionCode } from "../permission/codes.js";
 import type { AuditEntry, AuditFilter, AuditPage } from "../types.js";
+import { provenanceNeedle } from "./provenance.js";
 
 const CURSOR_PREFIX = "c1.";
 const LIKE_ESCAPE = "!";
@@ -90,6 +91,13 @@ function buildConditions(filter: AuditFilter, cursor: CursorPosition | null): SQ
 			conditions.push(sql`${auditLogs.resource} LIKE ${`${prefix}%`} ESCAPE '!'`);
 		} else {
 			conditions.push(eq(auditLogs.resource, filter.resource));
+		}
+	}
+	if (filter.provenance) {
+		const needle = provenanceNeedle(filter.provenance);
+		if (needle) {
+			// The column is JSON on every dialect. Casting to text keeps the match portable; the needle has no LIKE wildcards.
+			conditions.push(sql`CAST(${auditLogs.inputProvenance} AS TEXT) LIKE ${`%${needle}%`}`);
 		}
 	}
 	if (cursor) {
