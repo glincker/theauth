@@ -1,6 +1,5 @@
 /** Tests for SSO module (SAML 2.0 + OIDC). */
 
-import { createHash, createSign, generateKeyPairSync } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { SsoAuditEvent, SsoModule, XmlNode } from "../src/auth/sso.js";
 import {
@@ -21,6 +20,7 @@ import {
 import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
+import { buildResponse, generateTestKeys, signResponse } from "./fixtures/saml/test-signer.js";
 
 async function createTestDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
@@ -28,25 +28,21 @@ async function createTestDb(): Promise<Database> {
 	return db;
 }
 
-/** Generate an RSA key pair for signature testing. */
+/** Generate an RSA key pair for signature testing (a SPKI public key PEM is accepted as the IdP key). */
 function generateTestKeyPair(): { publicKey: string; privateKey: string; cert: string } {
-	const { publicKey, privateKey } = generateKeyPairSync("rsa", {
-		modulusLength: 2048,
-		publicKeyEncoding: { type: "spki", format: "pem" },
-		privateKeyEncoding: { type: "pkcs8", format: "pem" },
-	});
-	// For testing we use the public key as a "certificate" since createVerify
-	// accepts both PEM certificates and public keys
-	return { publicKey, privateKey, cert: publicKey };
+	const keys = generateTestKeys();
+	return { ...keys, cert: keys.publicKey };
 }
 
 const TEST_KEYS = generateTestKeyPair();
+const TEST_REQUEST_ID = "_test_request";
 
 const SAML_PROVIDER = {
 	id: "okta",
 	name: "Okta",
 	entryPoint: "https://okta.example.com/sso/saml",
 	issuer: "https://app.example.com",
+	idpEntityId: "https://idp.example.com",
 	cert: TEST_KEYS.cert,
 	callbackUrl: "https://app.example.com/auth/sso/saml/conn1/acs",
 };
@@ -61,7 +57,7 @@ const OIDC_PROVIDER = {
 	scopes: ["openid", "email", "profile"],
 };
 
-/** Build a minimal SAML response XML for testing. */
+/** Build a SAML response for testing. Signed (Assertion) unless `unsigned` is set. */
 function buildTestSamlResponse(opts: {
 	email: string;
 	firstName?: string;
@@ -73,98 +69,33 @@ function buildTestSamlResponse(opts: {
 	notBefore?: string;
 	notOnOrAfter?: string;
 	namespacePrefix?: string;
-	includeSignature?: boolean;
+	unsigned?: boolean;
 	privateKey?: string;
 	includeEncryptedAssertion?: boolean;
 }): string {
-	const ns = opts.namespacePrefix ?? "saml";
-	const pNs = opts.namespacePrefix === "" ? "" : `${opts.namespacePrefix ?? "samlp"}:`;
-	const aNs = opts.namespacePrefix === "" ? "" : `${ns}:`;
-
-	const now = new Date().toISOString();
-	const inFiveMinutes = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-	const issuer = opts.issuer ?? "https://idp.example.com";
-	const destination = opts.destination ? ` Destination="${opts.destination}"` : "";
-	const inResponseTo = opts.inResponseTo ? ` InResponseTo="${opts.inResponseTo}"` : "";
-	const notBefore = opts.notBefore ?? now;
-	const notOnOrAfter = opts.notOnOrAfter ?? inFiveMinutes;
-	const audience = opts.audience ?? "https://app.example.com";
-
-	const assertionId = `_assertion_${Date.now()}`;
-
-	let attributeStatement = "";
-	if (opts.firstName || opts.lastName) {
-		attributeStatement = `<${aNs}AttributeStatement>`;
-		if (opts.firstName) {
-			attributeStatement += `<${aNs}Attribute Name="firstName"><${aNs}AttributeValue>${opts.firstName}</${aNs}AttributeValue></${aNs}Attribute>`;
-		}
-		if (opts.lastName) {
-			attributeStatement += `<${aNs}Attribute Name="lastName"><${aNs}AttributeValue>${opts.lastName}</${aNs}AttributeValue></${aNs}Attribute>`;
-		}
-		attributeStatement += `</${aNs}AttributeStatement>`;
-	}
-
-	const assertionContent =
-		`<${aNs}Issuer>${issuer}</${aNs}Issuer>` +
-		`<${aNs}Subject><${aNs}NameID>${opts.email}</${aNs}NameID></${aNs}Subject>` +
-		`<${aNs}Conditions NotBefore="${notBefore}" NotOnOrAfter="${notOnOrAfter}">` +
-		`<${aNs}AudienceRestriction><${aNs}Audience>${audience}</${aNs}Audience></${aNs}AudienceRestriction>` +
-		`</${aNs}Conditions>` +
-		attributeStatement;
-
-	let assertion = `<${aNs}Assertion ID="${assertionId}">${assertionContent}</${aNs}Assertion>`;
-
-	// Add signature if requested
-	let signatureXml = "";
-	if (opts.includeSignature && opts.privateKey) {
-		// Compute digest of the assertion (without signature, as per enveloped transform)
-		const digest = createHash("sha256").update(assertion).digest("base64");
-
-		const signedInfo =
-			`<ds:SignedInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">` +
-			`<ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>` +
-			`<ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>` +
-			`<ds:Reference URI="#${assertionId}">` +
-			`<ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></ds:Transforms>` +
-			`<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>` +
-			`<ds:DigestValue>${digest}</ds:DigestValue>` +
-			`</ds:Reference>` +
-			`</ds:SignedInfo>`;
-
-		const signer = createSign("RSA-SHA256");
-		signer.update(signedInfo);
-		const signatureValue = signer.sign(opts.privateKey, "base64");
-
-		signatureXml =
-			`<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">` +
-			signedInfo +
-			`<ds:SignatureValue>${signatureValue}</ds:SignatureValue>` +
-			`</ds:Signature>`;
-	}
-
-	let encryptedSection = "";
+	let xml = buildResponse({
+		email: opts.email,
+		firstName: opts.firstName,
+		lastName: opts.lastName,
+		idp: opts.issuer,
+		destination: opts.destination,
+		audience: opts.audience,
+		inResponseTo: opts.inResponseTo ?? TEST_REQUEST_ID,
+		notBefore: opts.notBefore,
+		notOnOrAfter: opts.notOnOrAfter,
+	});
 	if (opts.includeEncryptedAssertion) {
-		encryptedSection = `<${aNs}EncryptedAssertion><xenc:EncryptedData xmlns:xenc="http://www.w3.org/2001/04/xmlenc#"><xenc:CipherData><xenc:CipherValue>deadbeef</xenc:CipherValue></xenc:CipherData></xenc:EncryptedData></${aNs}EncryptedAssertion>`;
+		xml = xml.replace(
+			"</samlp:Response>",
+			'<saml:EncryptedAssertion><xenc:EncryptedData xmlns:xenc="http://www.w3.org/2001/04/xmlenc#"><xenc:CipherData><xenc:CipherValue>deadbeef</xenc:CipherValue></xenc:CipherData></xenc:EncryptedData></saml:EncryptedAssertion></samlp:Response>',
+		);
 	}
-
-	// Re-build assertion with signature inside it
-	if (signatureXml) {
-		assertion = `<${aNs}Assertion ID="${assertionId}">${signatureXml}${assertionContent}</${aNs}Assertion>`;
+	if (!opts.unsigned) xml = signResponse(xml, opts.privateKey ?? TEST_KEYS.privateKey);
+	const ns = opts.namespacePrefix;
+	if (ns && ns !== "saml") {
+		xml = xml.replace(/xmlns:saml=/g, `xmlns:${ns}=`).replace(/(<\/?)saml:/g, `$1${ns}:`);
 	}
-
-	const nsDecl =
-		opts.namespacePrefix === ""
-			? ""
-			: ` xmlns:${pNs.replace(":", "")}="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:${aNs.replace(":", "")}="urn:oasis:names:tc:SAML:2.0:assertion"`;
-
-	return (
-		`<${pNs}Response${nsDecl}${destination}${inResponseTo}>` +
-		`<${aNs}Issuer>${issuer}</${aNs}Issuer>` +
-		assertion +
-		encryptedSection +
-		`</${pNs}Response>`
-	);
+	return xml;
 }
 
 function encodeSamlResponse(xml: string): string {
@@ -385,8 +316,6 @@ describe("SAML signature verification", () => {
 	it("verifies a valid RSA-SHA256 signature", async () => {
 		const xml = buildTestSamlResponse({
 			email: "user@example.com",
-			includeSignature: true,
-			privateKey: TEST_KEYS.privateKey,
 		});
 		const doc = parseXml(xml);
 		const result = await verifySamlSignature(doc, TEST_KEYS.cert);
@@ -396,8 +325,6 @@ describe("SAML signature verification", () => {
 	it("rejects a tampered assertion", async () => {
 		const xml = buildTestSamlResponse({
 			email: "user@example.com",
-			includeSignature: true,
-			privateKey: TEST_KEYS.privateKey,
 		});
 		// Tamper with the email
 		const tampered = xml.replace("user@example.com", "attacker@evil.com");
@@ -408,7 +335,7 @@ describe("SAML signature verification", () => {
 	});
 
 	it("returns false when no signature element exists", async () => {
-		const xml = buildTestSamlResponse({ email: "user@example.com" });
+		const xml = buildTestSamlResponse({ email: "user@example.com", unsigned: true });
 		const doc = parseXml(xml);
 		const result = await verifySamlSignature(doc, TEST_KEYS.cert);
 		expect(result).toBe(false);
@@ -418,8 +345,6 @@ describe("SAML signature verification", () => {
 		const otherKeys = generateTestKeyPair();
 		const xml = buildTestSamlResponse({
 			email: "user@example.com",
-			includeSignature: true,
-			privateKey: TEST_KEYS.privateKey,
 		});
 		const doc = parseXml(xml);
 		const result = await verifySamlSignature(doc, otherKeys.cert);
@@ -438,7 +363,6 @@ describe("SAML condition validation", () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule({ saml: [provider] }, db);
 		const conn = await mod.createConnection({
@@ -455,16 +379,15 @@ describe("SAML condition validation", () => {
 			notBefore: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
 		});
 
-		await expect(mod.handleSamlResponse(conn.id, encodeSamlResponse(xml))).rejects.toThrow(
-			/expired/i,
-		);
+		await expect(
+			mod.handleSamlResponse(conn.id, encodeSamlResponse(xml), TEST_REQUEST_ID),
+		).rejects.toThrow(/expired/i);
 	});
 
 	it("rejects assertions not yet valid (NotBefore in the future)", async () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 			clockSkewSeconds: 0,
 		};
 		const mod = createSsoModule({ saml: [provider] }, db);
@@ -481,16 +404,15 @@ describe("SAML condition validation", () => {
 			notBefore: futureTime,
 		});
 
-		await expect(mod.handleSamlResponse(conn.id, encodeSamlResponse(xml))).rejects.toThrow(
-			/not yet valid/i,
-		);
+		await expect(
+			mod.handleSamlResponse(conn.id, encodeSamlResponse(xml), TEST_REQUEST_ID),
+		).rejects.toThrow(/not yet valid/i);
 	});
 
 	it("rejects audience mismatch", async () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule({ saml: [provider] }, db);
 		const conn = await mod.createConnection({
@@ -505,16 +427,15 @@ describe("SAML condition validation", () => {
 			audience: "https://wrong-audience.com",
 		});
 
-		await expect(mod.handleSamlResponse(conn.id, encodeSamlResponse(xml))).rejects.toThrow(
-			/audience/i,
-		);
+		await expect(
+			mod.handleSamlResponse(conn.id, encodeSamlResponse(xml), TEST_REQUEST_ID),
+		).rejects.toThrow(/audience/i);
 	});
 
 	it("rejects destination mismatch", async () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule({ saml: [provider] }, db);
 		const conn = await mod.createConnection({
@@ -529,16 +450,15 @@ describe("SAML condition validation", () => {
 			destination: "https://wrong-destination.com/acs",
 		});
 
-		await expect(mod.handleSamlResponse(conn.id, encodeSamlResponse(xml))).rejects.toThrow(
-			/destination/i,
-		);
+		await expect(
+			mod.handleSamlResponse(conn.id, encodeSamlResponse(xml), TEST_REQUEST_ID),
+		).rejects.toThrow(/destination/i);
 	});
 
 	it("accepts valid assertions with correct conditions", async () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule({ saml: [provider] }, db);
 		const conn = await mod.createConnection({
@@ -555,7 +475,7 @@ describe("SAML condition validation", () => {
 			destination: SAML_PROVIDER.callbackUrl,
 		});
 
-		const result = await mod.handleSamlResponse(conn.id, encodeSamlResponse(xml));
+		const result = await mod.handleSamlResponse(conn.id, encodeSamlResponse(xml), TEST_REQUEST_ID);
 		expect(result.user.email).toBe("user@acme.com");
 		expect(result.user.name).toBe("Jane Doe");
 		expect(result.orgId).toBe("org_1");
@@ -573,7 +493,6 @@ describe("SAML InResponseTo validation", () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule({ saml: [provider] }, db);
 		const conn = await mod.createConnection({
@@ -597,7 +516,6 @@ describe("SAML InResponseTo validation", () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule({ saml: [provider] }, db);
 		const conn = await mod.createConnection({
@@ -628,7 +546,6 @@ describe("SAML encrypted assertion detection", () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule({ saml: [provider] }, db);
 		const conn = await mod.createConnection({
@@ -643,9 +560,9 @@ describe("SAML encrypted assertion detection", () => {
 			includeEncryptedAssertion: true,
 		});
 
-		await expect(mod.handleSamlResponse(conn.id, encodeSamlResponse(xml))).rejects.toThrow(
-			/encrypted/i,
-		);
+		await expect(
+			mod.handleSamlResponse(conn.id, encodeSamlResponse(xml), TEST_REQUEST_ID),
+		).rejects.toThrow(/encrypted/i);
 	});
 });
 
@@ -660,7 +577,6 @@ describe("Malformed XML handling", () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule({ saml: [provider] }, db);
 		const conn = await mod.createConnection({
@@ -670,14 +586,13 @@ describe("Malformed XML handling", () => {
 			domain: "acme.com",
 		});
 
-		await expect(mod.handleSamlResponse(conn.id, btoa(""))).rejects.toThrow();
+		await expect(mod.handleSamlResponse(conn.id, btoa(""), TEST_REQUEST_ID)).rejects.toThrow();
 	});
 
 	it("does not crash on garbage input", async () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule({ saml: [provider] }, db);
 		const conn = await mod.createConnection({
@@ -687,14 +602,15 @@ describe("Malformed XML handling", () => {
 			domain: "acme.com",
 		});
 
-		await expect(mod.handleSamlResponse(conn.id, btoa("not xml at all"))).rejects.toThrow();
+		await expect(
+			mod.handleSamlResponse(conn.id, btoa("not xml at all"), TEST_REQUEST_ID),
+		).rejects.toThrow();
 	});
 
 	it("does not crash on XXE attempt", async () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule({ saml: [provider] }, db);
 		const conn = await mod.createConnection({
@@ -706,7 +622,9 @@ describe("Malformed XML handling", () => {
 
 		const xxeXml =
 			'<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><Response><Assertion><Subject><NameID>&xxe;</NameID></Subject></Assertion></Response>';
-		await expect(mod.handleSamlResponse(conn.id, btoa(xxeXml))).rejects.toThrow(/DOCTYPE/i);
+		await expect(mod.handleSamlResponse(conn.id, btoa(xxeXml), TEST_REQUEST_ID)).rejects.toThrow(
+			/DOCTYPE/i,
+		);
 	});
 });
 
@@ -764,7 +682,6 @@ describe("Rate limiting", () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule(
 			{ saml: [provider], rateLimitMax: 2, rateLimitWindowSeconds: 60 },
@@ -777,14 +694,14 @@ describe("Rate limiting", () => {
 			domain: "acme.com",
 		});
 
-		const xml = buildTestSamlResponse({ email: "user@example.com" });
-		const encoded = encodeSamlResponse(xml);
+		// Fresh responses each time: the assertion replay cache would reject a repeat.
+		const fresh = () => encodeSamlResponse(buildTestSamlResponse({ email: "user@example.com" }));
 
-		await mod.handleSamlResponse(conn.id, encoded);
-		await mod.handleSamlResponse(conn.id, encoded);
+		await mod.handleSamlResponse(conn.id, fresh(), TEST_REQUEST_ID);
+		await mod.handleSamlResponse(conn.id, fresh(), TEST_REQUEST_ID);
 
 		// Third should be rate limited
-		await expect(mod.handleSamlResponse(conn.id, encoded)).rejects.toThrow(
+		await expect(mod.handleSamlResponse(conn.id, fresh(), TEST_REQUEST_ID)).rejects.toThrow(
 			/Too many SSO login attempts/,
 		);
 	});
@@ -797,7 +714,6 @@ describe("Audit trail", () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: false,
 		};
 		const mod = createSsoModule({ saml: [provider], onAuditEvent: (e) => events.push(e) }, db);
 		const conn = await mod.createConnection({
@@ -808,7 +724,7 @@ describe("Audit trail", () => {
 		});
 
 		const xml = buildTestSamlResponse({ email: "user@example.com" });
-		await mod.handleSamlResponse(conn.id, encodeSamlResponse(xml));
+		await mod.handleSamlResponse(conn.id, encodeSamlResponse(xml), TEST_REQUEST_ID);
 
 		// Should have: connection_created, login_attempt, login_success
 		expect(events.some((e) => e.type === "sso_connection_created")).toBe(true);
@@ -822,7 +738,6 @@ describe("Audit trail", () => {
 		const provider = {
 			...SAML_PROVIDER,
 			cert: TEST_KEYS.cert,
-			wantAuthnResponseSigned: true, // will fail with our test responses
 		};
 		const mod = createSsoModule({ saml: [provider], onAuditEvent: (e) => events.push(e) }, db);
 		const conn = await mod.createConnection({
@@ -832,9 +747,9 @@ describe("Audit trail", () => {
 			domain: "acme.com",
 		});
 
-		const xml = buildTestSamlResponse({ email: "user@example.com" }); // no signature
+		const xml = buildTestSamlResponse({ email: "user@example.com", unsigned: true }); // no signature
 		try {
-			await mod.handleSamlResponse(conn.id, encodeSamlResponse(xml));
+			await mod.handleSamlResponse(conn.id, encodeSamlResponse(xml), TEST_REQUEST_ID);
 		} catch {}
 
 		expect(events.some((e) => e.type === "sso_login_failure")).toBe(true);
@@ -1126,7 +1041,6 @@ describe("SsoModule.handleRequest", () => {
 	it("returns error code in SAML ACS error responses", async () => {
 		const provider = {
 			...SAML_PROVIDER,
-			wantAuthnResponseSigned: true,
 		};
 		const modWithSigning = createSsoModule({ saml: [provider] }, db);
 		const conn = await modWithSigning.createConnection({
@@ -1136,9 +1050,11 @@ describe("SsoModule.handleRequest", () => {
 			domain: "acme.com",
 		});
 
-		const xml = buildTestSamlResponse({ email: "user@example.com" }); // no signature
+		const authUrl = new URL(await modWithSigning.getSamlAuthUrl(conn.id));
+		const xml = buildTestSamlResponse({ email: "user@example.com", unsigned: true }); // no signature
 		const formData = new FormData();
 		formData.set("SAMLResponse", encodeSamlResponse(xml));
+		formData.set("RelayState", authUrl.searchParams.get("RelayState") ?? "");
 
 		const req = new Request(`http://localhost/auth/sso/saml/${conn.id}/acs`, {
 			method: "POST",

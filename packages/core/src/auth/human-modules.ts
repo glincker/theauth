@@ -1,5 +1,6 @@
 import type { Database } from "../db/database.js";
 import type { SessionManager } from "../session/session.js";
+import { createSecondaryStorageResolver } from "../storage/resolve.js";
 import type { TheAuthConfig } from "../types.js";
 import type { AdminModule } from "./admin.js";
 import { createAdminModule } from "./admin.js";
@@ -60,7 +61,18 @@ export function createHumanAuthModules(
 
 	const orgModule: OrgModule | null = config.org ? createOrgModule(config.org, db) : null;
 
-	const ssoModule: SsoModule | null = config.sso ? createSsoModule(config.sso, db) : null;
+	// SAML request ids and the assertion replay cache live in secondary storage (feature "nonces").
+	const ssoModule: SsoModule | null = config.sso
+		? createSsoModule(
+				{
+					...config.sso,
+					storage:
+						config.sso.storage ??
+						createSecondaryStorageResolver(config.secondaryStorage, db).for("nonces"),
+				},
+				db,
+			)
+		: null;
 
 	const adminModule: AdminModule | null = config.admin
 		? createAdminModule(config.admin, db, sessionManager)

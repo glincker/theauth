@@ -1,0 +1,28 @@
+<p:Response xmlns:p="urn:oasis:names:tc:SAML:2.0:protocol" Destination="https://sp.example.com/auth/sso/saml/conn1/acs" ID="_pretty_resp" InResponseTo="_req0123456789abcdef" IssueInstant="2026-10-17T12:00:00Z" Version="2.0">
+  <a:Issuer xmlns:a="urn:oasis:names:tc:SAML:2.0:assertion">https://idp.example.org/metadata</a:Issuer>
+  <p:Status>
+    <p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"></p:StatusCode>
+  </p:Status>
+  <a:Assertion xmlns:a="urn:oasis:names:tc:SAML:2.0:assertion" ID="_pretty_assert" IssueInstant="2026-10-17T12:00:00Z" Version="2.0">
+    <a:Issuer>https://idp.example.org/metadata</a:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"></ds:CanonicalizationMethod><ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"></ds:SignatureMethod><ds:Reference URI="#_pretty_assert"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"></ds:Transform><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"></ds:Transform></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"></ds:DigestMethod><ds:DigestValue>lzi0+d3lNL/ism8kaTVYsbixzqJ+vQLNQx3U1y8fskg=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>ZteBsUTEb8mZOGdOu1inopMsid9sQApM9sp3iZFJD3Rgm4XXpPGK7rWwDd4Rc7H2y7k8bXWENHaxiFhMqZfAxpNbl8fVJrAefUZmvhC+mHMUbeyaJf72lU4m77W2/aw9GvXkXpFKpCKtLQhsXPmS88DCXKfK4sufsJg8uH99NYmB0HMndYNJrz9q2F0upzYW0fex3FT+SpjhIhqp5pu1WaFworBc6iZ7GMX9KbCCcGDWDMezrLwPYIsqtHW7eb1zbrnqLGE2fvVhqK9Y5ri14oTSL4KSCCsaEvIFRcYnckvYaBcCf4tOsUBGhQBNt4+KZEA2j0a+f6xsLKbN0CtZFQ==</ds:SignatureValue></ds:Signature>
+    <a:Subject>
+      <a:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">jane@acme.com</a:NameID>
+      <a:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+        <a:SubjectConfirmationData InResponseTo="_req0123456789abcdef" NotOnOrAfter="2026-10-17T12:05:00Z" Recipient="https://sp.example.com/auth/sso/saml/conn1/acs"></a:SubjectConfirmationData>
+      </a:SubjectConfirmation>
+    </a:Subject>
+    <a:Conditions NotBefore="2026-10-17T11:59:30Z" NotOnOrAfter="2026-10-17T12:05:00Z">
+      <a:AudienceRestriction>
+        <a:Audience>https://sp.example.com/metadata</a:Audience>
+      </a:AudienceRestriction>
+    </a:Conditions>
+    <a:AttributeStatement>
+      <a:Attribute FriendlyName="Given &amp; &quot;first&quot; &#x9;name" Name="firstName">
+        <a:AttributeValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="xs:string">Jane &amp; &lt;J&gt;</a:AttributeValue>
+      </a:Attribute>
+      <a:Attribute Name="lastName">
+        <a:AttributeValue>Doe &lt;Jr&gt;</a:AttributeValue>
+      </a:Attribute>
+    </a:AttributeStatement>
+  </a:Assertion>
+</p:Response>

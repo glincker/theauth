@@ -1,13 +1,15 @@
 /**
  * SAML 2.0 and OIDC enterprise SSO. Connections link to organizations and route by email domain.
- * Security hardening: namespace-aware XML parsing, XXE blocking, SAML condition checks, InResponseTo replay tracking, signature digest checks, OIDC nonce and at_hash checks, state expiry, rate limiting and audit logging.
+ * SAML: mandatory XML signature on the Response or Assertion (exclusive c14n, allowlisted algorithms), claims read only from the verified Assertion,
+ * Issuer checked against `idpEntityId`, Conditions, audience, Recipient, Destination, InResponseTo bound to RelayState and an assertion replay cache.
+ * OIDC: nonce and at_hash checks. Both: state expiry, rate limiting and audit logging.
  *
  * @example
  * ```typescript
  * const theauth = await createTheAuth({
  *   database: { provider: 'sqlite', url: 'theauth.db' },
  *   sso: {
- *     saml: [{ id: 'okta', name: 'Okta', entryPoint: '...', issuer: '...', cert: '...', callbackUrl: '...' }],
+ *     saml: [{ id: 'okta', name: 'Okta', entryPoint: '...', issuer: '...', idpEntityId: '...', cert: '...', callbackUrl: '...' }],
  *   },
  * });
  *
@@ -20,14 +22,18 @@ import { and, eq } from "drizzle-orm";
 import { generateId, sha256Raw, toHex } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { ssoConnections } from "../db/schema.js";
+import { memoryStorage } from "../storage/memory.js";
+import { createSamlStateStore } from "./saml-request-store.js";
 import { createOidcFlow } from "./sso-oidc.js";
 import { RateLimiter } from "./sso-rate-limit.js";
 import { createSsoRouteHandler } from "./sso-routes.js";
-import { buildSamlAuthnRequest, parseSamlResponse } from "./sso-saml.js";
+import { assertSamlProviderConfig, buildSamlAuthnRequest, parseSamlResponse } from "./sso-saml.js";
 import { encodeState, validateStateToken } from "./sso-state.js";
 import type {
 	OidcProvider,
+	SamlLoginResult,
 	SamlProvider,
+	SamlResponseOptions,
 	SsoAuditEvent,
 	SsoConfig,
 	SsoConnection,
@@ -44,6 +50,10 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 		config.rateLimitWindowSeconds ?? 60,
 	);
 	const auditLog = config.onAuditEvent ?? (() => {});
+	const samlState = createSamlStateStore(
+		config.storage ?? memoryStorage(),
+		config.samlRequestTtlSeconds ?? 600,
+	);
 
 	const pruneInterval = setInterval(() => rateLimiter.prune(), 5 * 60 * 1000);
 	// Allow the process to exit without waiting for this timer
@@ -137,10 +147,13 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 				`SAML provider "${conn.providerId}" not configured`,
 			);
 
-		const { encoded } = await buildSamlAuthnRequest(provider);
+		assertSamlProviderConfig(provider);
+		const { requestId, base64 } = await buildSamlAuthnRequest(provider);
+		// RelayState carries an opaque single-use token bound to this AuthnRequest id; the app relay state stays server side.
+		const token = await samlState.issue({ requestId, connectionId, appRelayState: relayState });
 		const url = new URL(provider.entryPoint);
-		url.searchParams.set("SAMLRequest", encoded);
-		if (relayState) url.searchParams.set("RelayState", relayState);
+		url.searchParams.set("SAMLRequest", base64);
+		url.searchParams.set("RelayState", token);
 
 		return url.toString();
 	}
@@ -148,8 +161,10 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 	async function handleSamlResponse(
 		connectionId: string,
 		samlResponse: string,
-		expectedRequestId?: string,
-	): Promise<{ user: { id: string; email: string; name?: string }; orgId: string }> {
+		options?: string | SamlResponseOptions,
+	): Promise<SamlLoginResult> {
+		const opts: SamlResponseOptions =
+			typeof options === "string" ? { expectedRequestId: options } : (options ?? {});
 		emitAudit({ type: "sso_login_attempt", connectionId, metadata: { protocol: "saml" } });
 
 		if (!rateLimiter.check(`saml:${connectionId}`)) {
@@ -176,7 +191,35 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 			);
 
 		try {
-			const { email, name } = await parseSamlResponse(samlResponse, provider, expectedRequestId);
+			let expectedRequestId: string | null = opts.expectedRequestId ?? null;
+			let appRelayState: string | undefined;
+			if (expectedRequestId === null && opts.relayState) {
+				const pending = await samlState.consume(opts.relayState, connectionId);
+				if (!pending) {
+					throw new SsoError(
+						SSO_ERROR.SAML_REQUEST_NOT_FOUND,
+						"No pending SAML request for this RelayState (unknown, expired or already used)",
+					);
+				}
+				expectedRequestId = pending.requestId;
+				appRelayState = pending.appRelayState;
+			}
+			if (expectedRequestId === null && provider.allowIdpInitiated !== true) {
+				throw new SsoError(
+					SSO_ERROR.SAML_REQUEST_NOT_FOUND,
+					"Unsolicited SAML response: no pending AuthnRequest. Start the login with getSamlAuthUrl, or set allowIdpInitiated.",
+				);
+			}
+			const parsed = await parseSamlResponse(samlResponse, provider, expectedRequestId);
+			const fresh = await samlState.markAssertionUsed(
+				conn.providerId,
+				parsed.assertionId,
+				parsed.replayTtlSeconds,
+			);
+			if (!fresh) {
+				throw new SsoError(SSO_ERROR.SAML_REPLAY_DETECTED, "SAML assertion has already been used");
+			}
+			const { email, name } = parsed;
 
 			const userIdHash = await sha256Raw(`${conn.providerId}:${email}`);
 			const userId = `saml_${toHex(userIdHash).slice(0, 32)}`;
@@ -191,6 +234,8 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 			return {
 				user: { id: userId, email, name },
 				orgId: conn.orgId,
+				sessionIndex: parsed.sessionIndex,
+				relayState: appRelayState,
 			};
 		} catch (err) {
 			emitAudit({
@@ -242,8 +287,9 @@ export function createSsoModule(config: SsoConfig, db: Database): SsoModule {
 	};
 }
 
+export { spkiFromConfiguredKey } from "./saml-x509.js";
 export { verifySamlSignature } from "./sso-saml.js";
-export type { XmlNode } from "./sso-types.js";
+export type { SamlLoginResult, SamlResponseOptions, XmlLimits, XmlNode } from "./sso-types.js";
 export {
 	checkXxe,
 	findAllElements,

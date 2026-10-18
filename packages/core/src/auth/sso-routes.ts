@@ -94,16 +94,20 @@ export function createSsoRouteHandler(
 		if (method === "POST" && samlAcsMatch) {
 			const connId = decodeURIComponent(samlAcsMatch[1] ?? "");
 			let samlResponse: string;
+			let relayState: string | undefined;
 			try {
 				const formData = await request.formData();
 				const val = formData.get("SAMLResponse");
 				if (typeof val !== "string") throw new Error("Missing SAMLResponse");
 				samlResponse = val;
+				const rs = formData.get("RelayState");
+				relayState = typeof rs === "string" && rs.length > 0 ? rs : undefined;
 			} catch {
 				return json({ error: "Missing or invalid SAMLResponse" }, 400);
 			}
 			try {
-				const result = await handleSamlResponse(connId, samlResponse);
+				// RelayState resolves the stored AuthnRequest id, so InResponseTo is enforced.
+				const result = await handleSamlResponse(connId, samlResponse, { relayState });
 				return json(result);
 			} catch (err) {
 				const status = err instanceof SsoError && err.code === SSO_ERROR.RATE_LIMITED ? 429 : 401;
