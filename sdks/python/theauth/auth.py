@@ -105,11 +105,12 @@ class AsyncAuthResource:
             request: The action and resource to check.
 
         Returns:
-            :class:`~theauth.types.AuthorizeResult`.
+            :class:`~theauth.types.AuthorizeResult`. A denial, including an
+            invalid or revoked token (HTTP 401), is a result with ``allowed``
+            false and ``code`` set, not an exception.
         """
-        data = await self._http.request(
-            "POST",
-            "/authorize",
+        data = await self._http.request_decision(
+            "/authorize/token",
             json=request.to_dict(),
             extra_headers={"Authorization": f"Bearer {agent_token}"},
         )
@@ -166,9 +167,8 @@ class SyncAuthResource:
         request: AuthorizeRequest,
     ) -> AuthorizeResult:
         """Authorize an action using an agent bearer token directly."""
-        data = self._http.request(
-            "POST",
-            "/authorize",
+        data = self._http.request_decision(
+            "/authorize/token",
             json=request.to_dict(),
             extra_headers={"Authorization": f"Bearer {agent_token}"},
         )

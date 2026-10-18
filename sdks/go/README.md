@@ -14,6 +14,8 @@ go get github.com/glincker/theauth-go
 
 Requires Go 1.21+. No external dependencies.
 
+This is the REST client for the TypeScript server. The Go server library (v2) is a separate project, [theauth-go](https://github.com/glincker/theauth-go).
+
 ## Quickstart
 
 ```go
@@ -117,10 +119,47 @@ result, err := client.Agents.Authorize(ctx, "agent-id", theauth.AuthorizeRequest
 })
 // result.Allowed bool
 // result.AuditID string
+// result.Code    theauth.DecisionCode, for example theauth.DecisionNoPermission
 
 // Effective permissions (own + delegated)
 perms, err := client.Agents.GetEffectivePermissions(ctx, "agent-id")
 ```
+
+## Decisions, explain, approvals and introspection
+
+A denied call is a result, not an error: the server answers 403 (401 for a bad
+token), and the client returns `Allowed: false` with a `Code` to branch on.
+
+```go
+result, err := client.Agents.Authorize(ctx, "agent-id", theauth.AuthorizeRequest{
+    Action: "write", Resource: "db:orders",
+})
+if err == nil && result.Code == theauth.DecisionApprovalRequired {
+    // open an approval, wait for a human, then retry with ApprovalID set
+}
+
+// Explain: the decision, the delegation chain behind the agent, constraint
+// checks and the closest grants that did not match. Nothing is audited.
+why, err := client.Agents.Explain(ctx, theauth.ExplainRequest{
+    AgentID: "agent-id", Action: "write", Resource: "db:orders",
+})
+// why.Delegation.RootOwnerID, why.Delegation.Path, why.NearMisses[0].Hint
+
+// Approvals (admin API plugin, admin user token)
+opened, err := client.Approvals.Open(ctx, theauth.OpenApprovalInput{Action: "admin:rotate", Resource: "agent:a1"})
+decision, err := client.Approvals.Approve(ctx, opened.ID)
+spent, err := client.Approvals.Consume(ctx, opened.ID, theauth.ConsumeApprovalInput{Action: "admin:rotate", Resource: "agent:a1"})
+
+// Token introspection (RFC 7662), authenticated as an OAuth client
+info, err := client.MCP.Introspect(ctx, theauth.IntrospectInput{
+    Token: accessToken, ClientID: "rs-1", ClientSecret: "...",
+})
+// info.Active, info.AgentID, info.Delegation.Agt, info.InactiveReason
+```
+
+The request and response shapes follow [`sdks/openapi.json`](../openapi.json),
+which is generated from the server's route table. A test in this module checks
+that the routes these calls use exist in that document.
 
 ## Auth (human users)
 

@@ -6,6 +6,7 @@ from typing import List, Optional
 from urllib.parse import quote
 
 from theauth._http import AsyncTransport, SyncTransport
+from theauth.decisions import ExplainRequest, ExplainResult
 from theauth.types import (
     Agent,
     AgentFilters,
@@ -109,14 +110,23 @@ class AsyncAgentsResource:
             request: The action and resource to check.
 
         Returns:
-            :class:`~theauth.types.AuthorizeResult` with ``allowed`` flag and audit ID.
+            :class:`~theauth.types.AuthorizeResult` with ``allowed``, ``code`` and audit ID.
+            A denial is a normal result, not an exception.
         """
-        data = await self._http.request(
-            "POST",
-            f"/agents/{quote(agent_id)}/authorize",
-            json=request.to_dict(),
+        data = await self._http.request_decision(
+            "/authorize",
+            json={"agentId": agent_id, **request.to_dict()},
         )
         return AuthorizeResult.from_dict(data)
+
+    async def explain(self, request: ExplainRequest) -> ExplainResult:
+        """Explain an authorization decision without recording it.
+
+        Returns the decision, the delegation chain behind the agent, the
+        constraint checks and the closest grants that did not match.
+        """
+        data = await self._http.request("POST", "/explain", json=request.to_dict())
+        return ExplainResult.from_dict(data)
 
     async def get_effective_permissions(self, agent_id: str) -> List[Permission]:
         """Get the effective permissions for an agent, including delegated ones.
@@ -181,12 +191,16 @@ class SyncAgentsResource:
 
     def authorize(self, agent_id: str, request: AuthorizeRequest) -> AuthorizeResult:
         """Check whether an agent is authorized to perform an action."""
-        data = self._http.request(
-            "POST",
-            f"/agents/{quote(agent_id)}/authorize",
-            json=request.to_dict(),
+        data = self._http.request_decision(
+            "/authorize",
+            json={"agentId": agent_id, **request.to_dict()},
         )
         return AuthorizeResult.from_dict(data)
+
+    def explain(self, request: ExplainRequest) -> ExplainResult:
+        """Explain an authorization decision without recording it."""
+        data = self._http.request("POST", "/explain", json=request.to_dict())
+        return ExplainResult.from_dict(data)
 
     def get_effective_permissions(self, agent_id: str) -> List[Permission]:
         """Get the effective permissions for an agent, including delegated ones."""

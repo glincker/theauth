@@ -36,8 +36,10 @@ type Client struct {
 	Audit *AuditResource
 	// Delegation manages delegation chains between agents.
 	Delegation *DelegationResource
-	// MCP manages MCP server registrations.
+	// MCP manages MCP server registrations and token introspection.
 	MCP *MCPResource
+	// Approvals opens, decides and spends human approval requests (admin API plugin).
+	Approvals *ApprovalsResource
 
 	tp *transport
 }
@@ -115,6 +117,7 @@ func NewClient(baseURL string, opts ...Option) *Client {
 		Audit:      &AuditResource{tp: tp},
 		Delegation: &DelegationResource{tp: tp},
 		MCP:        &MCPResource{tp: tp},
+		Approvals:  &ApprovalsResource{tp: tp},
 		tp:         tp,
 	}
 }

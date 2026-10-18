@@ -145,7 +145,7 @@ All packages live in this monorepo and publish under `@glinr/`. Versions come fr
 | [`create-theauth-app`](packages/create-theauth-app) | 0.5.0 | Beta | Scaffold an app |
 | [`theauth-extension`](packages/extension) | 0.1.0 | Experimental | OAuth 2.1 for Manifest V3 browser extensions |
 
-Other languages: [Go](https://github.com/glincker/theauth-go), [Python](https://pypi.org/project/theauth/) ([source](sdks/python)) and a [Terraform provider](https://registry.terraform.io/providers/glincker/theauth) ([source](sdks/terraform)).
+Other languages: a [Go client](sdks/go) and a [Python client](https://pypi.org/project/theauth/) ([source](sdks/python)) for this REST API, both checked against the generated [`sdks/openapi.json`](sdks/openapi.json), and a [Terraform provider](https://registry.terraform.io/providers/glincker/theauth) ([source](sdks/terraform)). [theauth-go](https://github.com/glincker/theauth-go) is a different thing: the Go server library (v2), not a client for this API.
 
 ### Framework adapters
 

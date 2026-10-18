@@ -4,15 +4,16 @@ description: Generate an OpenAPI 3.1 document for the theAuth REST API to build 
 icon: file-code
 ---
 
-`generateOpenAPISpec` returns an OpenAPI 3.1 document describing the agent, authorization, audit and delegation REST endpoints. Feed it to a code generator to produce a client for Python, Java, Rust or any other language.
+`generateOpenAPISpec` returns an OpenAPI 3.1 document describing the REST endpoints `createTheAuthHandler` serves. It is generated from the handler's route table and the typed result shapes in core, so it cannot lag behind the routes. The same document is checked in as `sdks/openapi.json`, and a test fails when the two differ. Feed it to a code generator to produce a client for Python, Java, Rust or any other language.
 
 ```ts title="openapi.ts"
 import { generateOpenAPISpec } from '@glinr/theauth';
 import { writeFileSync } from 'node:fs';
 
 const spec = generateOpenAPISpec({
-  baseUrl: 'https://auth.example.com/api/theauth', // default http://localhost:3000
-  version: '1.0.0',                                // default 0.0.1
+  baseUrl: 'https://auth.example.com', // origin, default http://localhost:3000
+  basePath: '/api/theauth',            // where the handler is mounted, default /api/theauth
+  version: '2.0.0',                    // contract version, default 2.0.0
 });
 
 writeFileSync('theauth-openapi.json', JSON.stringify(spec, null, 2));
@@ -32,13 +33,27 @@ The function is pure, so you can expose it from any route:
 app.get('/openapi.json', (c) => c.json(generateOpenAPISpec({ baseUrl: new URL(c.req.url).origin })));
 ```
 
+## Options
+
+| Option | Default | Effect |
+|---|---|---|
+| `baseUrl` | `http://localhost:3000` | Origin in `servers[0].url` |
+| `basePath` | `/api/theauth` | Mount path appended to `baseUrl` |
+| `version` | `2.0.0` | `info.version` |
+| `handler` | all routes | Pass your `TheAuthHandlerOptions`, and routes the handler would not serve (`routes.explain: false`, `routes.mcp: false`) are left out |
+| `adminApi` | `true` | Include the approval routes of the admin API plugin |
+
 ## What it covers
 
-| Path | Purpose |
-|---|---|
-| `/agents`, `/agents/{id}`, `/agents/{id}/rotate` | Create, read, update, revoke and rotate agents |
-| `/authorize`, `/authorize/token` | Authorization checks by agent ID or bearer token |
-| `/audit` | Query the audit trail |
-| `/delegations` | Delegation chains |
+Every route in the handler's route table: agents, `/authorize` and `/authorize/token`, `/explain`, delegations, audit, dashboard aggregates and the MCP OAuth endpoints (including `/mcp/introspect`). The admin API approval routes (`/approvals`) are added unless you set `adminApi: false`.
 
-Requests authenticate with a bearer token (`BearerAuth` security scheme). The spec describes the core agent API only. Endpoints that plugins register (email, OAuth, passkeys and so on) are not included; see [Writing plugins](/plugins) for how those are mounted.
+`AuthorizeResult` carries `code`, one of the decision codes, and a denied call (403, or 401 for an identity failure) returns the same `{ data }` result as an allowed one. `ExplainResult` includes the delegation chain (`delegation.path`, `links`, `inbound`), the constraint checks and near misses.
+
+## Regenerating `sdks/openapi.json`
+
+```bash
+pnpm --filter @glinr/theauth exec jiti scripts/generate-openapi.ts          # write
+pnpm --filter @glinr/theauth exec jiti scripts/generate-openapi.ts check  # exit 1 when stale
+```
+
+Requests authenticate with a bearer token (`BearerAuth` for signed-in callers, `AgentToken` for `/authorize/token`, `ClientBasic` for OAuth client endpoints). Endpoints that other plugins register (email, OAuth, passkeys and so on) are not included; see [Writing plugins](/plugins) for how those are mounted.

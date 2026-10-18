@@ -165,6 +165,52 @@ result = await client.auth.authorize_by_token(
 
 ---
 
+### Decision codes
+
+A denied call is a result, not an exception: the server answers 403 (401 for a
+bad token) and the client returns `allowed=False` with a `code` to branch on.
+Scope refusals (`{ error }` bodies) still raise `PermissionError`.
+
+```python
+from theauth import is_allowed_code
+from theauth.types import AuthorizeRequest
+
+result = await client.agents.authorize(
+    agent.id,
+    AuthorizeRequest(action="write", resource="db:orders", approval_id=approval_id),
+)
+if result.code == "approval_required":
+    ...  # open an approval, wait for a human, retry with approval_id
+print(is_allowed_code(result.code))
+```
+
+### Explain
+
+```python
+from theauth import ExplainRequest
+
+why = await client.agents.explain(
+    ExplainRequest(agent_id=agent.id, action="write", resource="db:orders")
+)
+print(why.decision, why.code)
+print(why.delegation.root_owner_id, why.delegation.path)  # who stands behind the agent
+for miss in why.near_misses:
+    print(miss.hint)
+```
+
+### Approvals
+
+Needs the admin API plugin and an admin user token.
+
+```python
+from theauth import ConsumeApprovalInput, OpenApprovalInput
+
+opened = await client.approvals.open(OpenApprovalInput("admin:rotate", "agent:a1"))
+pending = await client.approvals.list_pending(limit=20)
+await client.approvals.approve(opened.id)
+spent = await client.approvals.consume(opened.id, ConsumeApprovalInput("admin:rotate", "agent:a1"))
+```
+
 ## Permissions helpers
 
 The `theauth.permissions` module provides shorthand constructors.
@@ -285,6 +331,21 @@ server = await client.mcp.get(server.id)  # None if not found
 ```
 
 ---
+
+### Token introspection
+
+```python
+from theauth import IntrospectInput
+
+info = await client.mcp.introspect(
+    IntrospectInput(token=access_token, client_id="rs-1", client_secret="...")
+)
+print(info.active, info.agent_id, info.delegation, info.inactive_reason)
+```
+
+The request and response shapes follow [`sdks/openapi.json`](../openapi.json),
+which is generated from the server's route table. `tests/test_parity.py` checks
+that the routes these calls use exist in that document.
 
 ## Plugin routes
 

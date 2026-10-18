@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional
 
+from theauth.codes import DecisionCode
+
 
 # ---------------------------------------------------------------------------
 # Permissions
@@ -200,6 +202,9 @@ class AuthorizeRequest:
     action: str
     resource: str
     arguments: Optional[Dict[str, Any]] = None
+    #: Id of an approved approval request. When the matched permission requires
+    #: approval, the server spends it (single use) and allows the call.
+    approval_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         out: Dict[str, Any] = {
@@ -208,16 +213,24 @@ class AuthorizeRequest:
         }
         if self.arguments is not None:
             out["arguments"] = self.arguments
+        if self.approval_id is not None:
+            out["approvalId"] = self.approval_id
         return out
 
 
 @dataclass
 class AuthorizeResult:
-    """Result of an authorization check."""
+    """Result of an authorization check.
+
+    A denied call is still a result (the server answers 403, or 401 for an
+    identity failure): branch on ``code``, not on ``reason``.
+    """
 
     allowed: bool
     audit_id: str
     reason: Optional[str] = None
+    #: Machine-readable outcome, one of :data:`theauth.codes.DecisionCode`.
+    code: Optional[DecisionCode] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AuthorizeResult":
@@ -225,6 +238,7 @@ class AuthorizeResult:
             allowed=data["allowed"],
             audit_id=data["auditId"],
             reason=data.get("reason"),
+            code=data.get("code"),
         )
 
 
@@ -266,6 +280,10 @@ class DelegationChain:
     expires_at: str
     depth: int
     created_at: str
+    #: Human owning the root agent of the chain, the accountable principal.
+    root_owner_id: Optional[str] = None
+    #: Agent ids from the root agent to this link.
+    path: Optional[List[str]] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DelegationChain":
@@ -277,6 +295,8 @@ class DelegationChain:
             expires_at=data["expiresAt"],
             depth=data["depth"],
             created_at=data["createdAt"],
+            root_owner_id=data.get("rootOwnerId"),
+            path=data.get("path"),
         )
 
 
@@ -284,7 +304,7 @@ class DelegationChain:
 # Audit
 # ---------------------------------------------------------------------------
 
-AuditResult = Literal["allowed", "denied", "rate_limited"]
+AuditResult = Literal["allowed", "denied", "rate_limited", "escalated"]
 
 
 @dataclass
@@ -302,6 +322,10 @@ class AuditEntry:
     timestamp: str
     reason: Optional[str] = None
     tokens_cost: Optional[float] = None
+    #: Decision code of the entry, absent on rows written before it existed.
+    code: Optional[DecisionCode] = None
+    #: What happened: ``authorize``, ``delegation.create``, ``approval.approve`` and so on.
+    event: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AuditEntry":
@@ -317,6 +341,8 @@ class AuditEntry:
             timestamp=data["timestamp"],
             reason=data.get("reason"),
             tokens_cost=data.get("tokensCost"),
+            code=data.get("code"),
+            event=data.get("event"),
         )
 
 

@@ -27,6 +27,7 @@ const (
 	AuditResultAllowed     AuditResult = "allowed"
 	AuditResultDenied      AuditResult = "denied"
 	AuditResultRateLimited AuditResult = "rate_limited"
+	AuditResultEscalated   AuditResult = "escalated"
 )
 
 // ExportFormat specifies the format for audit log exports.
@@ -104,13 +105,20 @@ type AuthorizeRequest struct {
 	Action    string                 `json:"action"`
 	Resource  string                 `json:"resource"`
 	Arguments map[string]interface{} `json:"arguments,omitempty"`
+	// ApprovalID is the id of an approved approval request. When the matched
+	// permission requires approval, the server spends it (single use) and allows the call.
+	ApprovalID string `json:"approvalId,omitempty"`
 }
 
-// AuthorizeResult is the result of an authorization check.
+// AuthorizeResult is the result of an authorization check. A denied call
+// still returns a result (the server answers 403, or 401 for an identity
+// failure) so callers can branch on Code.
 type AuthorizeResult struct {
 	Allowed bool    `json:"allowed"`
 	AuditID string  `json:"auditId"`
 	Reason  *string `json:"reason,omitempty"`
+	// Code is the machine-readable outcome. Branch on it, not on Reason.
+	Code DecisionCode `json:"code"`
 }
 
 // AuthorizeByTokenInput is used to authorize using an agent bearer token directly.
@@ -137,6 +145,10 @@ type DelegationChain struct {
 	ExpiresAt   string       `json:"expiresAt"`
 	Depth       int          `json:"depth"`
 	CreatedAt   string       `json:"createdAt"`
+	// RootOwnerID is the human who owns the root agent of the chain, the accountable principal.
+	RootOwnerID *string `json:"rootOwnerId,omitempty"`
+	// Path lists agent ids from the root agent to this link.
+	Path []string `json:"path,omitempty"`
 }
 
 // AuditEntry is a single audit log record.
@@ -152,6 +164,10 @@ type AuditEntry struct {
 	Timestamp  string                 `json:"timestamp"`
 	Reason     *string                `json:"reason,omitempty"`
 	TokensCost *float64               `json:"tokensCost,omitempty"`
+	// Code is the decision code of the entry, absent on rows written before it existed.
+	Code *DecisionCode `json:"code,omitempty"`
+	// Event says what happened (authorize, delegation.create, approval.approve, ...).
+	Event *string `json:"event,omitempty"`
 }
 
 // AuditFilters are query parameters for the audit log.

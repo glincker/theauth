@@ -8,6 +8,7 @@ import httpx
 
 from theauth._http import AsyncTransport, SyncTransport
 from theauth.agents import AsyncAgentsResource, SyncAgentsResource
+from theauth.approvals import AsyncApprovalsResource, SyncApprovalsResource
 from theauth.audit import AsyncAuditResource, SyncAuditResource
 from theauth.auth import AsyncAuthResource, SyncAuthResource
 from theauth.delegation import AsyncDelegationResource, SyncDelegationResource
@@ -91,6 +92,7 @@ class TheAuthClient:
         self.audit = AsyncAuditResource(self._transport)
         self.delegation = AsyncDelegationResource(self._transport)
         self.mcp = AsyncMcpResource(self._transport)
+        self.approvals = AsyncApprovalsResource(self._transport)
 
     async def authorize(
         self,
@@ -134,7 +136,7 @@ class TheAuthClient:
             TheAuthError: Any other non-2xx response, mapped by status.
         """
         return await self._transport.request(
-            method.upper(), path, json=json, params=_clean_params(params)
+            method.upper(), path, json=json, params=_clean_params(params), unwrap_data=False
         )
 
     async def close(self) -> None:
@@ -204,6 +206,7 @@ class TheAuthSyncClient:
         self.audit = SyncAuditResource(self._transport)
         self.delegation = SyncDelegationResource(self._transport)
         self.mcp = SyncMcpResource(self._transport)
+        self.approvals = SyncApprovalsResource(self._transport)
 
     def authorize(
         self,
@@ -237,7 +240,7 @@ class TheAuthSyncClient:
             TheAuthError: Any other non-2xx response, mapped by status.
         """
         return self._transport.request(
-            method.upper(), path, json=json, params=_clean_params(params)
+            method.upper(), path, json=json, params=_clean_params(params), unwrap_data=False
         )
 
     def close(self) -> None:

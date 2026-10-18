@@ -54,6 +54,21 @@ from theauth.client import (
     TheAuthClient,
     TheAuthSyncClient,
 )
+from theauth.approvals import (
+    ApprovalDecision,
+    ApprovalOpened,
+    ApprovalState,
+    ConsumeApprovalInput,
+    OpenApprovalInput,
+    PendingApproval,
+)
+from theauth.codes import DECISION_CODES, DecisionCode, is_allowed_code
+from theauth.decisions import (
+    DecisionDelegation,
+    DelegationLink,
+    ExplainRequest,
+    ExplainResult,
+)
 from theauth.dpop import DPoPAuth, DPoPProver, normalize_htu
 from theauth.errors import (
     AuthenticationError,
@@ -65,6 +80,12 @@ from theauth.errors import (
     ServerError,
     TheAuthError,
     ValidationError,
+)
+from theauth.introspection import (
+    ActorClaim,
+    DelegationBinding,
+    IntrospectInput,
+    IntrospectionResponse,
 )
 from theauth.types import (
     Agent,
@@ -109,6 +130,24 @@ __all__ = [
     "ServerError",
     "NetworkError",
     "ValidationError",
+    # Decisions, approvals, introspection
+    "DECISION_CODES",
+    "DecisionCode",
+    "is_allowed_code",
+    "ExplainRequest",
+    "ExplainResult",
+    "DecisionDelegation",
+    "DelegationLink",
+    "OpenApprovalInput",
+    "ApprovalOpened",
+    "PendingApproval",
+    "ApprovalState",
+    "ApprovalDecision",
+    "ConsumeApprovalInput",
+    "IntrospectInput",
+    "IntrospectionResponse",
+    "ActorClaim",
+    "DelegationBinding",
     # Types
     "Agent",
     "AgentFilters",

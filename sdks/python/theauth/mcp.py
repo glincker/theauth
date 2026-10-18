@@ -7,6 +7,7 @@ from urllib.parse import quote
 
 from theauth._http import AsyncTransport, SyncTransport
 from theauth.errors import NotFoundError
+from theauth.introspection import IntrospectInput, IntrospectionResponse
 from theauth.types import McpServer, RegisterMcpServerInput
 
 
@@ -41,6 +42,22 @@ class AsyncMcpResource:
             return None
         return McpServer.from_dict(data)
 
+    async def introspect(self, input: IntrospectInput) -> IntrospectionResponse:
+        """Ask the server whether a token is live and what it carries (RFC 7662).
+
+        The caller authenticates as an OAuth client (``client_id`` and
+        ``client_secret``, sent as HTTP Basic). The endpoint answers 404 unless
+        the server enables introspection.
+
+        Returns:
+            :class:`~theauth.introspection.IntrospectionResponse` with the agent
+            id and the delegation binding when the token carries them.
+        """
+        data = await self._http.request_form(
+            "/mcp/introspect", data=input.form(), extra_headers=input.headers()
+        )
+        return IntrospectionResponse.from_dict(data)
+
 
 class SyncMcpResource:
     """Sync MCP server registry (``/mcp/servers``)."""
@@ -65,3 +82,10 @@ class SyncMcpResource:
         except NotFoundError:
             return None
         return McpServer.from_dict(data)
+
+    def introspect(self, input: IntrospectInput) -> IntrospectionResponse:
+        """Ask the server whether a token is live and what it carries (RFC 7662)."""
+        data = self._http.request_form(
+            "/mcp/introspect", data=input.form(), extra_headers=input.headers()
+        )
+        return IntrospectionResponse.from_dict(data)

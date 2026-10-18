@@ -88,17 +88,17 @@ func (r *AgentsResource) Rotate(ctx context.Context, agentID string) (*Agent, er
 	return &agent, nil
 }
 
+// authorizeBody is the body of POST /authorize: the agent id plus the request.
+type authorizeBody struct {
+	AgentID string `json:"agentId"`
+	AuthorizeRequest
+}
+
 // Authorize checks whether an agent is permitted to perform an action on a resource.
+// A denial is a normal result (Allowed false, Code set), not an error. Errors are
+// for transport failures, bad input and scope refusals.
 func (r *AgentsResource) Authorize(ctx context.Context, agentID string, req AuthorizeRequest) (*AuthorizeResult, error) {
-	var raw json.RawMessage
-	if err := r.tp.doJSON(ctx, "POST", "/agents/"+url.PathEscape(agentID)+"/authorize", req, nil, &raw); err != nil {
-		return nil, err
-	}
-	var result AuthorizeResult
-	if err := json.Unmarshal(unwrapAPIData(raw), &result); err != nil {
-		return nil, fmt.Errorf("theauth: decode authorize result: %w", err)
-	}
-	return &result, nil
+	return r.tp.doDecision(ctx, "/authorize", authorizeBody{AgentID: agentID, AuthorizeRequest: req}, nil)
 }
 
 // GetEffectivePermissions returns the merged set of permissions for an agent,
