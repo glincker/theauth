@@ -1,0 +1,108 @@
+---
+title: "Security doctor"
+sidebarTitle: "Security doctor"
+description: "theauth doctor --security lints a config file for weak secrets, loose cookies, disabled lockout and open handlers, with stable finding ids and a CI exit code."
+---
+`theauth doctor --security` reads a theauth config file and reports unsafe settings. It does not open a database or call a server, so it runs in CI before deploy. For the setup and live server checks, see [CLI tools](/cli-tools).
+
+```sh
+theauth doctor --security
+theauth doctor --security --config ./config/theauth.json --json --fail-on high
+```
+
+## Options
+
+| Option | Meaning |
+| --- | --- |
+| `--config <file>` | JSON or ES module config. Default: `theauth.config.mjs`, `.js` or `.json` in `--cwd`. |
+| `--cwd <dir>` | Directory to look in. |
+| `--json` | Print `{ ok, failOn, findings }`. |
+| `--fail-on <level>` | Lowest severity that exits 1: `high` (default), `medium` or `low`. |
+
+Exit codes: 0 no finding at or above the threshold, 1 at least one, 2 usage error or a config that cannot be loaded.
+
+## Output
+
+```json
+{
+  "ok": false,
+  "failOn": "high",
+  "findings": [
+    {
+      "id": "sec.lockout.off",
+      "severity": "high",
+      "message": "Login lockout is turned off, so one account can be guessed without limit",
+      "fix": "Add rateLimit() to plugins, or confirm the handler or a gateway in front enforces limits.",
+      "docs": "/security-doctor#sec-lockout-off"
+    }
+  ]
+}
+```
+
+Finding ids never change once released, so you can suppress or alert on them. Findings are sorted high first.
+
+## Findings
+
+The linter reads the real `createTheAuth` config (`TheAuthConfig`). Settings that live outside that object cannot be read, so they are not linted: the `createTheAuthHandler` options (`cors`, `rateLimit`, `trustedOrigins`), the cookie flags of the session cookie, the options a plugin factory such as `rateLimit()` closes over, the `resolveUser` dependency of a handler, a stateless session manager, and the audit anchors you store outside the database.
+
+<a id="sec-session-secret-weak"></a>
+### sec.session.secret_weak (high)
+`secret`, `auth.session.secret`, `mcp.signingSecret` (or `THEAUTH_SECRET`) is under 32 characters, repeats few distinct characters, or contains a word such as `secret`, `password`, `example` or `changeme`. Generate one with `theauth secret`.
+
+<a id="sec-cookie-secure-off"></a>
+### sec.cookie.secure_off (high)
+`redirects.cookie.secure` is `false` while `baseUrl` is not localhost. The redirect chain cookie is the only cookie whose flags `TheAuthConfig` carries. The session cookie is `Secure` by default on every runtime (it no longer depends on `NODE_ENV`), and its flags are not config options.
+
+<a id="sec-cookie-samesite-none"></a>
+### sec.cookie.samesite_none (high)
+`redirects.cookie.sameSite` is `none`. Use `lax` or `strict` unless you embed the app cross-site on purpose.
+
+<a id="sec-cookie-host-prefix-missing"></a>
+### sec.cookie.host_prefix_missing (low)
+`auth.session` is set, `baseUrl` is not localhost, and `auth.session.cookieName` (default `theauth_session`) does not start with `__Host-`. The prefix stops a sibling subdomain from overwriting the cookie. Fires on the default name.
+
+<a id="sec-password-pbkdf2-low"></a>
+### sec.password.pbkdf2_low (high)
+`username.pbkdf2Iterations`, `passwordReset.pbkdf2Iterations` or `THEAUTH_PBKDF2_ITERATIONS` resolves below 600000 (the core default) for a flow that is configured.
+
+<a id="sec-rate-limit-off"></a>
+### sec.rate_limit.off (medium)
+`username`, `passwordReset`, `magicLink`, `emailOtp` or `phone` is configured and `plugins` has no `rateLimit()` plugin (id `theauth-rate-limit`). A limit you disable inside `rateLimit()` is not visible to the linter, and neither are the `createTheAuthHandler` limits, so this checks that the plugin is registered. Ignore it when the handler or a gateway enforces limits.
+
+<a id="sec-lockout-off"></a>
+### sec.lockout.off (high)
+`username.lockout` is `false`, or `THEAUTH_LOGIN_LOCKOUT_DISABLED` is `1` or `true`, while `username` is configured. One account can then be guessed without limit.
+
+<a id="sec-hosts-wildcard"></a>
+### sec.hosts.wildcard (high)
+`allowedHosts` contains a bare `*` or `**` (optionally with a scheme), so any `Host` header is accepted when building callback and magic link URLs. Use exact hosts or a suffix pattern such as `*.example.com`. This replaces the earlier `sec.cors.wildcard`, which read options that are not part of the config.
+
+<a id="sec-redirect-allowlist-empty"></a>
+### sec.redirect.allowlist_empty (medium)
+`redirects` is set but `redirects.allowedOrigins` is empty or missing, so only same-origin return URLs work.
+
+<a id="sec-mcp-revocation-offline"></a>
+### sec.mcp.revocation_offline (medium)
+`mcp.enabled` with `mcp.revocation.mode` `offline` (or `THEAUTH_MCP_REVOCATION_MODE=offline`). Revoked tokens then stay valid until they expire. Use `live` or `cached`. When neither the config nor the env sets a mode, core picks `live` if the module has a database, so the linter stays quiet.
+
+<a id="sec-org-no-auth"></a>
+### sec.org.no_auth (high)
+`org.trustedServerUse` is `true`. The org `handleRequest` then acts on ids in the request without resolving a caller. Pass a `resolveUser` dependency and remove the flag, unless your own code authorizes every call first.
+
+<a id="sec-api-keys-no-auth"></a>
+### sec.api_keys.no_auth (high)
+`apiKeys.trustedServerUse` is `true`. Same risk and fix as the org handler.
+
+## Dropped checks
+
+- `sec.session.stateless_no_ban_check`: the stateless session manager is created in code, not in `TheAuthConfig`, and its ban check (`db` or `isBanned`) cannot be read from a config file.
+- `sec.audit.anchors_missing`: anchors come from `audit.checkpoint()` and are stored outside the config, so no option says whether they exist. See [audit checkpoints](/audit-checkpoints).
+- `sec.cors.wildcard`: replaced by `sec.hosts.wildcard`. CORS is an option of `createTheAuthHandler`, not of the config.
+
+## CI
+
+```yaml
+- run: npx theauth doctor --security --fail-on high
+```
+
+The linter reads only the `TheAuthConfig` fields named above. A field it does not know is ignored, and a rule fires only on the unsafe value, so an unset optional field stays quiet unless the table says it fires when missing.

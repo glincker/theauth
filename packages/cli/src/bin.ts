@@ -18,6 +18,11 @@ import { formatInit, INIT_HELP, parseInitArgs, runInit } from "./init.js";
 import { MIGRATE_HELP, parseMigrateArgs, runMigrate } from "./migrate-commands.js";
 import { runPolicyCommand } from "./policy-commands.js";
 import {
+	parseSecurityArgs,
+	runSecurityDoctor,
+	SECURITY_DOCTOR_HELP,
+} from "./security-doctor-run.js";
+import {
 	parseSimulateArgs,
 	runPermissions,
 	runSimulate,
@@ -75,6 +80,7 @@ Examples:
   theauth init --framework hono --yes
   theauth init --agent --target claude,cursor
   theauth doctor --live http://localhost:3000/api/theauth
+  theauth doctor --security --json --fail-on high
   theauth dev
   theauth mcp
   theauth migrate
@@ -270,7 +276,27 @@ function handleSecret(): void {
 	stdout.write(runSecret(parsed));
 }
 
+async function handleSecurityDoctor(): Promise<void> {
+	const parsed = parseSecurityArgs(argv.slice(3), process.cwd());
+	if (parsed.help) {
+		stdout.write(SECURITY_DOCTOR_HELP);
+		return;
+	}
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${SECURITY_DOCTOR_HELP}`);
+		exit(2);
+		return;
+	}
+	const { text, code } = await runSecurityDoctor(parsed, process.env);
+	stdout.write(text);
+	if (code !== 0) exit(code);
+}
+
 async function handleDoctor(): Promise<void> {
+	if (argv.slice(3).includes("--security")) {
+		await handleSecurityDoctor();
+		return;
+	}
 	const parsed = parseDoctorArgs(argv.slice(3), process.cwd());
 	if (parsed.help) {
 		stdout.write(DOCTOR_HELP);
