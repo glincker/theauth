@@ -19,6 +19,8 @@ export interface TheAuthHandlerOptions extends AdapterSecurityOptions {
 		mcp?: boolean | Partial<McpMountedRoutes>;
 		plugins?: boolean;
 		explain?: boolean;
+		/** Device facing routes under `/device/*` (enroll, authorize, bundle, jwks). The `/devices` management routes follow `management`. */
+		devices?: boolean;
 	};
 	/** Largest accepted request body in bytes. Default 1048576 (1 MiB). Larger bodies get 413. */
 	maxBodyBytes?: number;
@@ -34,7 +36,7 @@ export interface TheAuthHandlerOptions extends AdapterSecurityOptions {
 
 export type TheAuthHandler = (request: Request) => Promise<Response>;
 
-export type RouteAuthLevel = "admin" | "agent" | "client" | "public";
+export type RouteAuthLevel = "admin" | "agent" | "client" | "device" | "public";
 
 /** One served route. Also the input for generated documentation and OpenAPI. */
 export interface RouteSpec {
@@ -45,6 +47,7 @@ export interface RouteSpec {
 	 * admin: a signed-in user (or your `authenticate` principal), limited to their own resources by default.
 	 * agent: an agent bearer token.
 	 * client: an OAuth client (credentials in the request).
+	 * device: an IoT device credential (PSK bearer, signed device assertion, or a client certificate your proxy vouches for).
 	 * public: no credentials needed (the route does its own checks).
 	 */
 	auth: RouteAuthLevel;
@@ -69,7 +72,7 @@ export interface RouteContext {
 
 export interface HttpRoute extends RouteSpec {
 	/** Which option group turns this route off. */
-	group: "management" | "mcp" | "explain";
+	group: "management" | "mcp" | "explain" | "devices";
 	/** For MCP routes, the mounted-set key that gates it. */
 	mcpRoute?: keyof McpMountedRoutes;
 	handle: (ctx: RouteContext) => Promise<Response>;

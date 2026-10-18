@@ -26,11 +26,14 @@ import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
 import type { SessionActivityConfig, SessionInvalidReason } from "./activity.js";
 import {
+	AUTH_EVENTS_KEY,
 	LAST_ACTIVE_KEY,
 	REMEMBER_ME_KEY,
 	resolveSessionActivity,
 	splitMetadata,
 } from "./activity.js";
+import type { AuthContext, AuthMethod } from "./auth-context.js";
+import { normalizeEvents, recordAuthEvent, resolveAuthContext } from "./auth-context.js";
 import { assertUserNotBanned } from "./banned.js";
 import { MultiSessionLimitError } from "./multi-session.js";
 
@@ -61,6 +64,8 @@ export interface Session {
 	lastActiveAt?: Date;
 	/** Set when the session was created with an explicit `rememberMe` choice. */
 	rememberMe?: boolean;
+	/** How and when the user proved who they are: `amr`, `acr` and `authTime`. See `auth-context.ts`. A session that predates tracking reports `acr: none` and `authTime` of its creation. */
+	auth?: AuthContext;
 }
 
 export type SessionValidation =
@@ -72,9 +77,13 @@ export interface CreateSessionOptions {
 	replacing?: string;
 	/** `true` gives the session the longer `rememberMeMaxAge` lifetime (capped by `rememberMeMaxAgeCap`). `false` keeps the normal lifetime and records that the cookie should be a browser session cookie. Unset keeps the legacy behavior. */
 	rememberMe?: boolean;
+	/** The methods the user just proved, for example `["password"]` or `["passkey"]`. Recorded with the current time. A refresh keeps the stored events and ignores this. */
+	authMethods?: AuthMethod[];
 }
 
 export interface SessionManager {
+	/** Name of the session cookie (`SessionConfig.cookieName`, default `theauth_session`). The built-in handlers read, set and clear this cookie. Optional so custom managers still type check. */
+	readonly cookieName?: string;
 	/** Creates a session for a user, persists it, and returns the record with its token. */
 	create(
 		userId: string,
@@ -96,6 +105,11 @@ export interface SessionManager {
 
 	/** Lists active sessions for a user, newest first. */
 	list(userId: string): Promise<Session[]>;
+
+	/**
+	 * Records that the signed-in user just proved `method` again (a TOTP code, a passkey) and returns the session with its new `auth` context. This is the step-up write (RFC 9470): it refreshes `authTime` and can raise `acr`. Returns null when the session does not exist. Call it only after the proof was verified.
+	 */
+	recordAuth(sessionId: string, method: AuthMethod): Promise<Session | null>;
 }
 
 const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
@@ -131,6 +145,10 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			...(split.metadata !== undefined && { metadata: split.metadata }),
 			...(split.lastActiveAt !== undefined && { lastActiveAt: new Date(split.lastActiveAt) }),
 			...(split.rememberMe !== undefined && { rememberMe: split.rememberMe }),
+			auth: resolveAuthContext(
+				normalizeEvents(split.authEvents),
+				Math.floor(row.createdAt.getTime() / 1000),
+			),
 		};
 	}
 
@@ -249,10 +267,20 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 		const rememberMe = options?.rememberMe ?? split.rememberMe;
 		const lifetime = rememberMe === true ? activity.rememberMeSeconds : maxAge;
 		const expiresAt = new Date(nowMs + lifetime * 1000);
+		// A refresh (`replacing`) passes the old row's metadata back, so its events carry over untouched.
+		// Any other caller starts from an empty history and names its methods in options, so metadata
+		// can never be used to claim a stronger login.
+		const nowSec = Math.floor(nowMs / 1000);
+		let events = options?.replacing ? normalizeEvents(split.authEvents) : [];
+		if (options?.authMethods) {
+			events = [];
+			for (const method of options.authMethods) events = recordAuthEvent(events, method, nowSec);
+		}
 		const stored: Record<string, unknown> = {
 			...(split.metadata ?? {}),
 			...(rememberMe !== undefined && { [REMEMBER_ME_KEY]: rememberMe }),
 			...(activity.idleTimeoutMs !== undefined && { [LAST_ACTIVE_KEY]: nowMs }),
+			...(events.length > 0 && { [AUTH_EVENTS_KEY]: events }),
 		};
 
 		await db.insert(sessions).values({
@@ -278,6 +306,7 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			...(split.metadata !== undefined && { metadata: split.metadata }),
 			...(activity.idleTimeoutMs !== undefined && { lastActiveAt: now }),
 			...(rememberMe !== undefined && { rememberMe }),
+			auth: resolveAuthContext(events, nowSec),
 		};
 
 		return { session, token };
@@ -381,5 +410,33 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			.map(rowToSession);
 	}
 
-	return { create, validate, validateDetailed, revoke, revokeAll, list };
+	async function recordAuth(sessionId: string, method: AuthMethod): Promise<Session | null> {
+		const row = (await db.select().from(sessions).where(eq(sessions.id, sessionId)))[0];
+		if (!row || row.expiresAt.getTime() <= activity.now()) return null;
+		const split = splitMetadata(row.metadata);
+		const events = recordAuthEvent(
+			normalizeEvents(split.authEvents),
+			method,
+			Math.floor(activity.now() / 1000),
+		);
+		await db
+			.update(sessions)
+			.set({ metadata: { ...(row.metadata ?? {}), [AUTH_EVENTS_KEY]: events } })
+			.where(eq(sessions.id, sessionId));
+		return rowToSession({
+			...row,
+			metadata: { ...(row.metadata ?? {}), [AUTH_EVENTS_KEY]: events },
+		});
+	}
+
+	return {
+		cookieName: config.cookieName ?? "theauth_session",
+		create,
+		validate,
+		validateDetailed,
+		revoke,
+		revokeAll,
+		list,
+		recordAuth,
+	};
 }

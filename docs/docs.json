@@ -326,6 +326,7 @@
               "agents",
               "ephemeral-sessions",
               "delegation",
+              "iot-devices",
               "token-vault"
             ]
           },
@@ -348,6 +349,7 @@
               "accountability-raci-template",
               "audit",
               "audit-trail",
+              "input-provenance",
               "audit-receipts",
               "audit-checkpoints",
               "observability",
@@ -362,6 +364,7 @@
             "icon": "gauge",
             "pages": [
               "approval",
+              "step-up-auth",
               "agent-tools",
               "taint-guard",
               "guards",
@@ -411,8 +414,10 @@
               "conformance",
               "admin-mcp",
               "dpop",
+              "dpop-agent-tokens",
               "gateway",
-              "gateway-mcp"
+              "gateway-mcp",
+              "robotics-ros2"
             ]
           },
           {

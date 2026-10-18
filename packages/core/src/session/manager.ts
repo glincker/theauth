@@ -38,7 +38,13 @@ import type { CookieOptions } from "./cookie.js";
 import { getCookie, serializeCookieDeletion } from "./cookie.js";
 import type { SessionCookieCacheConfig } from "./cookie-cache.js";
 import { createSessionCookieCache } from "./cookie-cache.js";
-import type { Session, SessionConfig, SessionInvalidReason, SessionManager } from "./session.js";
+import type {
+	CreateSessionOptions,
+	Session,
+	SessionConfig,
+	SessionInvalidReason,
+	SessionManager,
+} from "./session.js";
 import { createSessionManager } from "./session.js";
 import { buildSessionCookie } from "./session-cookie.js";
 
@@ -79,7 +85,7 @@ export interface CookieSessionManager {
 	createSession(
 		userId: string,
 		metadata?: Record<string, unknown>,
-		options?: { rememberMe?: boolean },
+		options?: Pick<CreateSessionOptions, "rememberMe" | "authMethods">,
 	): Promise<CreateSessionResult>;
 
 	/** Parses the Cookie header and looks up the session. Extends expiry when `autoRefresh` is on. */
@@ -150,7 +156,7 @@ export function createCookieSessionManager(
 	async function createSession(
 		userId: string,
 		metadata?: Record<string, unknown>,
-		options?: { rememberMe?: boolean },
+		options?: Pick<CreateSessionOptions, "rememberMe" | "authMethods">,
 	): Promise<CreateSessionResult> {
 		const { session, token } = await raw.create(userId, metadata, options);
 		const cacheCookieHeaders = await seedCache(session, token, "");

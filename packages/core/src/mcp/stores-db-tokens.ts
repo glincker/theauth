@@ -3,7 +3,12 @@ import { generateId } from "../crypto/web-crypto.js";
 import { affectedRows } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { oauthAccessTokens, oauthAuthorizationCodes } from "../db/schema.js";
-import type { McpAccessToken, McpAuthorizationCode, McpFamilyAccessTokenRef } from "./types.js";
+import type {
+	McpAccessToken,
+	McpAuthEvidence,
+	McpAuthorizationCode,
+	McpFamilyAccessTokenRef,
+} from "./types.js";
 
 export interface McpTokenStore {
 	storeAuthorizationCode: (code: McpAuthorizationCode) => Promise<void>;
@@ -21,6 +26,25 @@ export interface McpTokenStoreOptions {
 
 const DEFAULT_REFRESH_TTL = 604_800;
 
+/** The evidence columns of a code or token row, or undefined when the grant carries none. */
+function evidenceFromRow(row: {
+	authAcr: string | null;
+	authAmr: string | null;
+	authTime: number | null;
+}): McpAuthEvidence | undefined {
+	if (row.authAcr === null || row.authTime === null) return undefined;
+	return {
+		acr: row.authAcr,
+		amr: (row.authAmr ?? "").split(" ").filter(Boolean),
+		authTime: Number(row.authTime),
+	};
+}
+
+function optionalEvidence(row: Parameters<typeof evidenceFromRow>[0]): { auth?: McpAuthEvidence } {
+	const auth = evidenceFromRow(row);
+	return auth ? { auth } : {};
+}
+
 function codeFromRow(row: typeof oauthAuthorizationCodes.$inferSelect): McpAuthorizationCode {
 	return {
 		code: row.code,
@@ -31,6 +55,7 @@ function codeFromRow(row: typeof oauthAuthorizationCodes.$inferSelect): McpAutho
 		codeChallenge: row.codeChallenge ?? "",
 		codeChallengeMethod: "S256",
 		resource: row.resource,
+		...optionalEvidence(row),
 		expiresAt: row.expiresAt,
 		createdAt: row.createdAt,
 	};
@@ -44,6 +69,7 @@ function tokenFromRow(row: typeof oauthAccessTokens.$inferSelect): McpAccessToke
 		...(row.familyId ? { familyId: row.familyId } : {}),
 		tokenType: row.tokenType === "DPoP" ? "DPoP" : "Bearer",
 		...(row.dpopJkt ? { dpopJkt: row.dpopJkt } : {}),
+		...optionalEvidence(row),
 		expiresIn: Math.max(
 			0,
 			Math.round((row.accessTokenExpiresAt.getTime() - row.createdAt.getTime()) / 1000),
@@ -80,6 +106,9 @@ export function createDbTokenStore(
 				codeChallenge: c.codeChallenge,
 				codeChallengeMethod: c.codeChallengeMethod,
 				resource: c.resource,
+				authAcr: c.auth?.acr ?? null,
+				authAmr: c.auth ? c.auth.amr.join(" ") : null,
+				authTime: c.auth?.authTime ?? null,
 				expiresAt: c.expiresAt,
 				createdAt: c.createdAt,
 			});
@@ -137,6 +166,9 @@ export function createDbTokenStore(
 				familyId: t.familyId ?? null,
 				tokenType: t.tokenType,
 				dpopJkt: t.dpopJkt ?? null,
+				authAcr: t.auth?.acr ?? null,
+				authAmr: t.auth ? t.auth.amr.join(" ") : null,
+				authTime: t.auth?.authTime ?? null,
 				createdAt: t.createdAt,
 			});
 		},

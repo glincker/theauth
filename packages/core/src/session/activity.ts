@@ -6,6 +6,8 @@
 
 export const LAST_ACTIVE_KEY = "theauthLastActiveAt";
 export const REMEMBER_ME_KEY = "theauthRememberMe";
+/** Authentication events (`AuthEvent[]`) behind `Session.auth`. */
+export const AUTH_EVENTS_KEY = "theauthAuthEvents";
 
 const DAY_SECONDS = 60 * 60 * 24;
 const DEFAULT_ACTIVITY_GRANULARITY_MS = 60_000;
@@ -89,15 +91,30 @@ export interface SplitMetadata {
 	metadata: Record<string, unknown> | undefined;
 	lastActiveAt: number | undefined;
 	rememberMe: boolean | undefined;
+	/** The stored authentication events, unvalidated. Run them through `normalizeEvents`. */
+	authEvents: unknown;
 }
 
 /** Separate the reserved keys from the metadata a caller stored. */
 export function splitMetadata(raw: Record<string, unknown> | null | undefined): SplitMetadata {
-	if (!raw) return { metadata: undefined, lastActiveAt: undefined, rememberMe: undefined };
-	const { [LAST_ACTIVE_KEY]: last, [REMEMBER_ME_KEY]: remember, ...rest } = raw;
+	if (!raw) {
+		return {
+			metadata: undefined,
+			lastActiveAt: undefined,
+			rememberMe: undefined,
+			authEvents: undefined,
+		};
+	}
+	const {
+		[LAST_ACTIVE_KEY]: last,
+		[REMEMBER_ME_KEY]: remember,
+		[AUTH_EVENTS_KEY]: authEvents,
+		...rest
+	} = raw;
 	return {
 		metadata: Object.keys(rest).length > 0 ? rest : undefined,
 		lastActiveAt: typeof last === "number" && Number.isFinite(last) ? last : undefined,
 		rememberMe: typeof remember === "boolean" ? remember : undefined,
+		authEvents,
 	};
 }

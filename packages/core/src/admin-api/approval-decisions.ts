@@ -1,8 +1,11 @@
 import { and, desc, eq, gt } from "drizzle-orm";
+import { approverEvidence } from "../approval/approval.js";
 import { recordAuditEvent } from "../audit/record.js";
 import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { approvalRequests } from "../db/schema.js";
+import type { AuthAssertion, AuthRequirementResult } from "../session/auth-context.js";
+import { evaluateAuthRequirement } from "../session/auth-context.js";
 import { scrub } from "./validate.js";
 
 const MAX_ARGUMENT_CHARS = 2048;
@@ -17,6 +20,10 @@ export interface PendingApprovalView {
 	/** JSON text of the arguments with secret-looking keys redacted, cut at 2 KB. */
 	arguments: string;
 	argumentsTruncated: boolean;
+	/** Approving needs this acr (RFC 9470). Absent: no step-up rule. */
+	requiredAcr?: string;
+	/** Approving needs a proving event at most this many seconds old. */
+	maxAuthAge?: number;
 }
 
 function summarize(args: Record<string, unknown> | null): {
@@ -51,13 +58,23 @@ export async function listPendingApprovals(
 			expiresAt: r.expiresAt.toISOString(),
 			arguments: summary.text,
 			argumentsTruncated: summary.truncated,
+			...(r.requiredAcr !== null && { requiredAcr: r.requiredAcr }),
+			...(r.maxAuthAge !== null && { maxAuthAge: r.maxAuthAge }),
 		};
 	});
 }
 
 export type DecisionResult =
 	| { ok: true; id: string; status: "approved" | "denied"; respondedAt: string }
-	| { ok: false; status: 403 | 404 | 409; code: string; message: string };
+	| { ok: false; status: 403 | 404 | 409; code: string; message: string }
+	/** The approver must authenticate again first. Answer 401 with a `WWW-Authenticate` step-up challenge built from `stepUp`. */
+	| {
+			ok: false;
+			status: 401;
+			code: "STEP_UP_REQUIRED";
+			message: string;
+			stepUp: Exclude<AuthRequirementResult, { ok: true }>;
+	  };
 
 export interface DecisionInput {
 	id: string;
@@ -65,6 +82,8 @@ export interface DecisionInput {
 	approverId: string;
 	systemAgentId: string;
 	allowSelfApproval: boolean;
+	/** The approver's session assertion. Needed to approve a request that carries a step-up rule. */
+	authContext?: AuthAssertion;
 }
 
 /**
@@ -86,6 +105,29 @@ export async function decideApproval(db: Database, input: DecisionInput): Promis
 			code: "SELF_APPROVAL",
 			message: "The admin who opened a request cannot decide it",
 		};
+	}
+	const requirement =
+		input.decision === "approved" && (row.requiredAcr !== null || row.maxAuthAge !== null)
+			? {
+					...(row.requiredAcr !== null && { acr: row.requiredAcr }),
+					...(row.maxAuthAge !== null && { maxAge: row.maxAuthAge }),
+				}
+			: null;
+	if (requirement) {
+		const verdict = evaluateAuthRequirement(
+			input.authContext,
+			requirement,
+			Math.floor(Date.now() / 1000),
+		);
+		if (!verdict.ok) {
+			return {
+				ok: false,
+				status: 401,
+				code: "STEP_UP_REQUIRED",
+				message: "This approval needs a stronger or more recent sign-in",
+				stepUp: verdict,
+			};
+		}
 	}
 	const now = new Date();
 	const updated = await claimCount(
@@ -124,6 +166,7 @@ export async function decideApproval(db: Database, input: DecisionInput): Promis
 			requesterId: row.userId,
 			action: row.action,
 			resource: row.resource,
+			...(requirement && input.authContext && approverEvidence(input.authContext)),
 		},
 	});
 	return { ok: true, id: row.id, status: input.decision, respondedAt: now.toISOString() };

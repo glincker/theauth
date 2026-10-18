@@ -7,17 +7,22 @@ import type { ModuleRequestDeps } from "./request-user.js";
 export interface OrgHandlerGuard {
 	deps: ModuleRequestDeps;
 	config: OrgConfig;
-	/** Org that owns an invitation, so invite revocation can be limited to that org's admins. */
-	invitationOrgId: (invitationId: string) => Promise<string | null>;
+	/** Org and invited email of an invitation: revocation is limited to that org's admins, acceptance to that email. */
+	invitationOf: (invitationId: string) => Promise<{ orgId: string; email: string } | null>;
+	/** Email of a user, to match an invitation on accept. */
+	userEmail: (userId: string) => Promise<string | null>;
 }
 
-const ADMIN_ROLES = new Set(["owner", "admin"]);
+const OWNER = "owner";
+const ADMIN_ROLES = new Set([OWNER, "admin"]);
 
 /**
  * HTTP request routing for the organization module.
  * Fails closed: without an authenticate resolver (and without `trustedServerUse`) every route answers 401.
  * With a resolver, the caller must be a member of the org to read it and an owner or admin to change it, and ids
  * the caller could otherwise forge (owner, inviter, accepting user) are bound to the authenticated user.
+ * Owner level stays with owners: only an owner grants the owner role, changes or removes another owner, or
+ * deletes the org. An invitation can only be accepted by the user whose email it was sent to.
  */
 export function createOrgHandlers(
 	ctx: Omit<OrgModule, "handleRequest">,
@@ -53,6 +58,48 @@ export function createOrgHandlers(
 		const member = await getMember(orgId, actor);
 		if (!member) return forbidden();
 		if (admin && !ADMIN_ROLES.has(member.role)) return forbidden();
+		return null;
+	}
+
+	/** True when the caller may act at owner level: trusted server use, or an owner of the org. */
+	async function actsAsOwner(orgId: string, actor: string | null): Promise<boolean> {
+		if (actor === null) return true;
+		return (await getMember(orgId, actor))?.role === OWNER;
+	}
+
+	/** Role the request body asks for, read from a clone so the route can still parse the body. */
+	async function requestedRole(request: Request): Promise<string | undefined> {
+		try {
+			const body = (await request.clone().json()) as { role?: unknown };
+			return typeof body.role === "string" ? body.role : undefined;
+		} catch {
+			return undefined;
+		}
+	}
+
+	/** Owner-only operations inside an org, checked after membership. Null when allowed. */
+	async function denyOwnerLevel(
+		request: Request,
+		method: string,
+		subPath: string,
+		orgId: string,
+		actor: string | null,
+	): Promise<Response | null> {
+		if (actor === null) return null;
+		const memberMatch = subPath.match(/^\/members\/([^/]+)$/);
+		const target = memberMatch?.[1];
+		let ownerOnly = false;
+		if (method === "DELETE" && subPath === "") ownerOnly = true;
+		else if (method === "POST" && (subPath === "/members" || subPath === "/invite")) {
+			ownerOnly = (await requestedRole(request)) === OWNER;
+		} else if (method === "PATCH" && target) {
+			ownerOnly =
+				(await requestedRole(request)) === OWNER ||
+				(await getMember(orgId, target))?.role === OWNER;
+		} else if (method === "DELETE" && target && target !== actor) {
+			ownerOnly = (await getMember(orgId, target))?.role === OWNER;
+		}
+		if (ownerOnly && !(await actsAsOwner(orgId, actor))) return forbidden();
 		return null;
 	}
 
@@ -99,9 +146,12 @@ export function createOrgHandlers(
 		const subPath = orgBaseMatch[2] ?? "";
 
 		// Reads need membership. Changes need owner or admin. A member may remove themselves.
-		const isRead = method === "GET";
+		// Pending invitation ids work as bearer links, so listing them needs owner or admin too.
+		const isRead = method === "GET" && subPath !== "/invitations";
 		const selfRemoval = method === "DELETE" && subPath === `/members/${actor}`;
-		const denied = await denyUnlessMember(orgId, actor, !isRead && !selfRemoval);
+		const denied =
+			(await denyUnlessMember(orgId, actor, !isRead && !selfRemoval)) ??
+			(await denyOwnerLevel(request, method, subPath, orgId, actor));
 		if (denied) return denied;
 
 		if (method === "GET" && subPath === "") {
@@ -218,6 +268,14 @@ export function createOrgHandlers(
 	// are matched inside handleRequest via a secondary pass when orgId catches "invite"
 	// We need a top-level check before the orgId route for invite-specific paths.
 
+	/** The signed-in user is the one the invitation was sent to (emails compared case-insensitively). An unknown invitation passes so accept reports it. */
+	async function invitedActor(invitationId: string, actor: string): Promise<boolean> {
+		const invitation = await guard.invitationOf(invitationId);
+		if (!invitation) return true;
+		const email = await guard.userEmail(actor);
+		return email !== null && email.trim().toLowerCase() === invitation.email.trim().toLowerCase();
+	}
+
 	async function route(request: Request, actor: string | null): Promise<Response | null> {
 		const url = new URL(request.url);
 		const { pathname } = url;
@@ -231,6 +289,7 @@ export function createOrgHandlers(
 				const body = (await request.json()) as { userId?: string };
 				if (actor !== null && body.userId !== undefined && body.userId !== actor)
 					return forbidden();
+				if (actor !== null && !(await invitedActor(invitationId, actor))) return forbidden();
 				const member = await acceptInvitation(invitationId, actor ?? body.userId ?? "");
 				return jsonResponse(member, 201);
 			} catch (err) {
@@ -243,9 +302,9 @@ export function createOrgHandlers(
 			const invitationId = revokeMatch[1];
 			if (!invitationId) return errorResponse("Missing invitationId", 400);
 			if (actor !== null) {
-				const owningOrg = await guard.invitationOrgId(invitationId);
-				if (!owningOrg) return errorResponse("Invitation not found", 404);
-				const denied = await denyUnlessMember(owningOrg, actor, true);
+				const invitation = await guard.invitationOf(invitationId);
+				if (!invitation) return errorResponse("Invitation not found", 404);
+				const denied = await denyUnlessMember(invitation.orgId, actor, true);
 				if (denied) return denied;
 			}
 			await revokeInvitation(invitationId);

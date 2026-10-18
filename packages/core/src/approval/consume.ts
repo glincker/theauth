@@ -7,6 +7,8 @@ import type { Database } from "../db/database.js";
 import { approvalRequests } from "../db/schema.js";
 import type { DenialCode } from "../permission/codes.js";
 import { DECISION_CODES } from "../permission/codes.js";
+import type { AuthRequirement } from "../session/auth-context.js";
+import { ACR_ORDER, acrList } from "../session/auth-context.js";
 
 /** Reason codes returned when an approval cannot be spent. */
 export const APPROVAL_CODES = {
@@ -20,6 +22,8 @@ export const APPROVAL_CODES = {
 	ALREADY_USED: "APPROVAL_ALREADY_USED",
 	/** The arguments presented at spend time differ from the ones the human approved. */
 	ARGUMENTS_MISMATCH: "APPROVAL_ARGUMENTS_MISMATCH",
+	/** The approval was granted under a weaker step-up rule than the policy demands. */
+	STEP_UP_INSUFFICIENT: "APPROVAL_STEP_UP_INSUFFICIENT",
 	/** Reason recorded on the allow that spent an approval. */
 	CONSUMED: "APPROVAL_CONSUMED",
 } as const;
@@ -31,7 +35,8 @@ export type ApprovalDenialCode =
 	| typeof APPROVAL_CODES.MISMATCH
 	| typeof APPROVAL_CODES.EXPIRED
 	| typeof APPROVAL_CODES.ALREADY_USED
-	| typeof APPROVAL_CODES.ARGUMENTS_MISMATCH;
+	| typeof APPROVAL_CODES.ARGUMENTS_MISMATCH
+	| typeof APPROVAL_CODES.STEP_UP_INSUFFICIENT;
 
 const DECISION_BY_DENIAL: Record<ApprovalDenialCode, DenialCode> = {
 	APPROVAL_NOT_FOUND: DECISION_CODES.APPROVAL_NOT_FOUND,
@@ -41,6 +46,7 @@ const DECISION_BY_DENIAL: Record<ApprovalDenialCode, DenialCode> = {
 	APPROVAL_EXPIRED: DECISION_CODES.APPROVAL_EXPIRED,
 	APPROVAL_ALREADY_USED: DECISION_CODES.APPROVAL_ALREADY_USED,
 	APPROVAL_ARGUMENTS_MISMATCH: DECISION_CODES.APPROVAL_ARGUMENTS_MISMATCH,
+	APPROVAL_STEP_UP_INSUFFICIENT: DECISION_CODES.APPROVAL_STEP_UP_INSUFFICIENT,
 };
 
 /** The typed decision code an approval denial reports on `AuthorizeResult.code` and `PolicyDecision.code`. */
@@ -55,6 +61,30 @@ export interface ConsumeApprovalInput {
 	resource: string;
 	/** The arguments of the call being authorized. Must hash equal to the ones the human approved. Absent means no arguments. */
 	arguments?: Record<string, unknown>;
+	/** The step-up rule the policy demands. The approval must have been granted under a rule at least this strong, so an ordinary approval cannot stand in for a step-up one. */
+	minStepUp?: AuthRequirement;
+}
+
+/** True when the rule stored on an approval row is at least as strong as `needed`. */
+function stepUpCovers(
+	row: { requiredAcr: string | null; maxAuthAge: number | null },
+	needed: AuthRequirement,
+): boolean {
+	const wanted = acrList(needed.acr);
+	if (wanted.length > 0) {
+		const rank = (v: string): number => (ACR_ORDER as readonly string[]).indexOf(v);
+		const need = Math.min(...wanted.map(rank).filter((r) => r >= 0));
+		const have = Math.min(
+			...acrList(row.requiredAcr ?? "")
+				.map(rank)
+				.filter((r) => r >= 0),
+		);
+		if (!Number.isFinite(need) || !Number.isFinite(have) || have < need) return false;
+	}
+	if (needed.maxAge !== undefined) {
+		if (row.maxAuthAge === null || row.maxAuthAge > needed.maxAge) return false;
+	}
+	return true;
 }
 
 /** Canonical hash of what an approver signs off on: the action, the resource and the arguments. Absent arguments and an empty object hash the same. */
@@ -108,6 +138,9 @@ async function classify(
 	}
 	if (row.consumedAt) return APPROVAL_CODES.ALREADY_USED;
 	if (row.expiresAt <= now) return APPROVAL_CODES.EXPIRED;
+	if (input.minStepUp && !stepUpCovers(row, input.minStepUp)) {
+		return APPROVAL_CODES.STEP_UP_INSUFFICIENT;
+	}
 	// Bind the spend to the arguments the human saw. A request stored without arguments only
 	// covers an argument-less call. Stored arguments are never edited, so this check cannot
 	// drift between here and the conditional UPDATE below.

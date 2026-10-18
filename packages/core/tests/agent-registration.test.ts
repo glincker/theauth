@@ -119,6 +119,18 @@ describe("agent registration tokens", () => {
 		expect((await mod.list({ status: "active" })).map((t) => t.id)).toContain(made.data.id);
 	});
 
+	it("refuses an agent type it cannot mint, such as device or a made up string", async () => {
+		const { mod } = await setup();
+		for (const agentType of ["device", "superuser"]) {
+			const made = await mod.create({
+				ownerId: "u1",
+				permissions: PERMS,
+				agentType: agentType as "service",
+			});
+			expect(made).toMatchObject({ success: false, error: { code: "INVALID_AGENT_TYPE" } });
+		}
+	});
+
 	it("validates create input and lists by status", async () => {
 		const { mod } = await setup();
 		expect(await mod.create({ ownerId: "u1", permissions: [] })).toMatchObject({ success: false });

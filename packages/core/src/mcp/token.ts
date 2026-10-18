@@ -311,6 +311,7 @@ async function handleAuthorizationCodeGrant(
 		authCode.scope,
 		resource,
 		dpopJkt,
+		authCode.auth ? { auth: authCode.auth } : {},
 	);
 
 	const includeRefreshToken = authCode.scope.includes("offline_access");
@@ -329,6 +330,7 @@ async function handleAuthorizationCodeGrant(
 		...(familyId ? { familyId } : {}),
 		tokenType: dpopJkt ? "DPoP" : "Bearer",
 		...(dpopJkt ? { dpopJkt } : {}),
+		...(authCode.auth ? { auth: authCode.auth } : {}),
 		expiresIn: ttlSeconds,
 		scope: authCode.scope,
 		clientId: data.client_id,

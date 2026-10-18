@@ -10,6 +10,7 @@ interface Call {
 	method: string;
 	path: string;
 	body: unknown;
+	search?: string;
 }
 
 function json(status: number, body: unknown): Response {
@@ -28,6 +29,7 @@ async function connect(opts: { allowWrites?: boolean; approvalStatus?: string })
 		calls.push({
 			method,
 			path,
+			search: url.search,
 			body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
 		});
 		if (path === "/approvals" && method === "POST")
@@ -138,5 +140,48 @@ describe("admin tools", () => {
 			actor: "admin@example.com",
 			action: "admin_mcp.list_sessions",
 		});
+	});
+});
+
+describe("input provenance in _meta", () => {
+	const inputs = [{ kind: "retrieved_document", id: "doc-1", content: "page text" }];
+
+	it("forwards valid inputs to the audit event of a read tool", async () => {
+		const { client, calls } = await connect({});
+		await client.callTool({
+			name: "list_agents",
+			arguments: {},
+			_meta: { "io.theauth/inputs": inputs },
+		});
+		const events = calls.filter((c) => c.path === "/audit/events");
+		expect((events[0]?.body as { inputs?: unknown }).inputs).toEqual(inputs);
+	});
+
+	it("forwards inputs on write tools and drops a malformed claim without failing the call", async () => {
+		const { client, calls } = await connect({ allowWrites: true });
+		await client.callTool({
+			name: "revoke_agent",
+			arguments: { id: "a1", reason: "test" },
+			_meta: { "io.theauth/inputs": inputs },
+		});
+		await client.callTool({
+			name: "list_agents",
+			arguments: {},
+			_meta: { "io.theauth/inputs": [{ kind: "bogus", content: "x" }] },
+		});
+		const events = calls.filter((c) => c.path === "/audit/events");
+		expect((events[0]?.body as { inputs?: unknown }).inputs).toEqual(inputs);
+		expect((events[events.length - 1]?.body as { inputs?: unknown }).inputs).toBeUndefined();
+	});
+
+	it("query_audit passes the provenance filters", async () => {
+		const { client, calls } = await connect({});
+		await client.callTool({
+			name: "query_audit",
+			arguments: { provenanceKind: "retrieved_document", provenanceContent: "page text" },
+		});
+		const q = new URLSearchParams(calls.find((c) => c.path === "/audit")?.search);
+		expect(q.get("provenanceKind")).toBe("retrieved_document");
+		expect(q.get("provenanceContent")).toBe("page text");
 	});
 });

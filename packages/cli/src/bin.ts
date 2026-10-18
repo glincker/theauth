@@ -13,10 +13,12 @@ import { startDashboardServer } from "./dashboard-server.js";
 import { runDbCommand } from "./db-commands.js";
 import { startDemoServer } from "./demo-server.js";
 import { DEV_HELP, parseDevArgs, runDev } from "./dev-command.js";
+import { runDeviceCommand } from "./device-commands.js";
 import { runDoctor } from "./doctor-live.js";
 import { formatInit, INIT_HELP, parseInitArgs, runInit } from "./init.js";
 import { MIGRATE_HELP, parseMigrateArgs, runMigrate } from "./migrate-commands.js";
 import { runPolicyCommand } from "./policy-commands.js";
+import { runRos2Command } from "./ros2-commands.js";
 import {
 	parseSecurityArgs,
 	runSecurityDoctor,
@@ -61,9 +63,11 @@ Commands:
   login         Sign in with the device flow (RFC 8628)
   logout        Revoke and forget the saved login
   whoami        Show the signed-in user
-  audit         Verify the audit hash chain, replay an agent (verify, replay)
+  audit         Verify the audit hash chain, replay an agent, query rows (verify, replay, query)
   db            Schema migrations ledger (status, up, sql)
   policy        Test policy suites against explain(): theauth policy test <suite>
+  ros2          Export a robot's permissions as SROS2 and DDS Security files (export, diff)
+  device        IoT devices: register, list, suspend, resume, revoke, enroll-token
   simulate      Ask what an agent could do, no side effects (--json)
   permissions   Show an agent's effective permissions (--json)
   doctor        Check your setup and a running server (--live <url>, --json, --fail-on <severity>)
@@ -429,6 +433,12 @@ async function main(): Promise<void> {
 			break;
 		case "policy":
 			await runPolicyCommand(argv.slice(3));
+			break;
+		case "ros2":
+			await runRos2Command(argv.slice(3));
+			break;
+		case "device":
+			await runDeviceCommand(argv.slice(3));
 			break;
 		default:
 			stdout.write(`Unknown command: ${command}\n\n`);

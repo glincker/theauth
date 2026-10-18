@@ -1,4 +1,5 @@
 import { createAgentModule } from "./agent/agent.js";
+import { createAgentConfirmationVerifier } from "./agent/confirmation-http.js";
 import { createAgentFacade } from "./agent/facade.js";
 import { createPrivilegeAnalyzer } from "./analyzer/privilege.js";
 import { createApprovalModule } from "./approval/approval.js";
@@ -12,6 +13,7 @@ import { createAuthorizePipeline } from "./authorize/pipeline.js";
 import type { Database } from "./db/database.js";
 import { createSchemaApi, ensureSchema } from "./db/migrations.js";
 import { createDelegationModule } from "./delegation/delegation.js";
+import { createConfiguredDeviceModule } from "./device/wiring.js";
 import { createDidModule } from "./did/module.js";
 import { createExplainer } from "./explain/explain.js";
 import { createHookRuntime } from "./hooks/runtime.js";
@@ -112,6 +114,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		agentModule,
 		permissionEngine,
 		delegationModule,
+		requireConfirmation: config.agents?.confirmation?.required === true,
 	});
 	const { explain } = createExplainer({
 		db,
@@ -146,6 +149,10 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	// Runs after core modules so plugins can depend on them.
 	assertSecondaryStorageConfig(config.secondaryStorage);
 	const secondaryStorage = createSecondaryStorageResolver(config.secondaryStorage, db);
+	const agentConfirmation = createAgentConfirmationVerifier(
+		config.agents?.confirmation,
+		secondaryStorage.for("nonces"),
+	);
 	const pluginRegistry = await initializePlugins(
 		withSignInGatePlugin(config.plugins ?? [], sessionManager !== null),
 		db,
@@ -176,12 +183,27 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		pluginContext: pluginRegistry.pluginContext,
 	});
 
+	const device = createConfiguredDeviceModule(config, {
+		db,
+		storage: secondaryStorage.for("deviceAuth"),
+		agent: agentProxy,
+		delegate,
+		getEffectivePermissions: delegationModule.getEffectivePermissions,
+		authorize,
+		recordDenial: permissionEngine.recordDenial,
+		guardAgentCreate,
+	});
+
 	return {
 		agent: agentProxy,
+		/** IoT devices as principals backed by `device` agents. Null unless `devices` is configured. */
+		device,
 		/** User rows: idempotent `create({ email, name?, id? })` and `get(idOrEmail)`. */
 		user: userModule,
 		authorize,
 		authorizeByToken,
+		/** @internal Reads DPoP and certificate proofs off a request for `requireAgent` and the HTTP handler. */
+		agentConfirmation,
 		/** Read-only account of what `authorize()` would decide and why. No audit rows, no counters. */
 		explain,
 		/** Logger and decision event counters: `stats()` reports emitted, errors and slow listener calls. */
@@ -245,26 +267,9 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 * ```
 		 */
 		did: didModule,
-		/**
-		 * Magic link authentication. Null unless `magicLink` and `auth.session` are configured.
-		 *
-		 * @example
-		 * ```typescript
-		 * // In your route handler
-		 * const response = await theauth.magicLink?.handleRequest(request);
-		 * if (response) return response;
-		 * ```
-		 */
+		/** Magic link authentication, `await theauth.magicLink?.handleRequest(request)`. Null unless `magicLink` and `auth.session` are configured. */
 		magicLink: magicLinkModule,
-		/**
-		 * Email OTP authentication. Null unless `emailOtp` and `auth.session` are configured.
-		 *
-		 * @example
-		 * ```typescript
-		 * const response = await theauth.emailOtp?.handleRequest(request);
-		 * if (response) return response;
-		 * ```
-		 */
+		/** Email OTP authentication, `await theauth.emailOtp?.handleRequest(request)`. Null unless `emailOtp` and `auth.session` are configured. */
 		emailOtp: emailOtpModule,
 		/**
 		 * TOTP two-factor authentication. Null unless `totp` is configured.

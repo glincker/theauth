@@ -73,6 +73,7 @@ export {
 	users,
 } from "./db/schema.js";
 export * from "./delegation/index.js";
+export * from "./device/index.js";
 export * from "./did/index.js";
 export type {
 	EmailTemplate,
@@ -135,6 +136,7 @@ export * from "./trust/index.js";
 export type {
 	AgentFilter,
 	AgentIdentity,
+	AgentType,
 	AuthConfig,
 	AuthInstance,
 	AuthorizeRequest,

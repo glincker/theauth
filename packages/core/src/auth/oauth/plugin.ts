@@ -278,7 +278,12 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 								rememberMe === undefined ? undefined : { rememberMe },
 							);
 							const isSecure = baseUrl.startsWith("https://");
-							const cookie = buildSessionSetCookie("theauth_session", token, session, isSecure);
+							const cookie = buildSessionSetCookie(
+								sessionManager.cookieName ?? "theauth_session",
+								token,
+								session,
+								isSecure,
+							);
 
 							// Pass user info (not the token) as a URL param for the frontend
 							const userInfo = encodeURIComponent(JSON.stringify({ id: userId, email }));

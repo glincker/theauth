@@ -1,3 +1,4 @@
+import { exportJWK, generateKeyPair } from "jose";
 import { users } from "../../src/db/schema.js";
 import type { TheAuth } from "../../src/theauth.js";
 import { createTheAuth } from "../../src/theauth.js";
@@ -16,7 +17,17 @@ export async function makeAuth(): Promise<TheAuth> {
 			tokenExpiry: "24h",
 		},
 		auth: { session: { secret: SESSION_SECRET } },
+		devices: { bundleSigning: await testBundleKey() },
 	});
+}
+
+async function testBundleKey() {
+	const pair = await generateKeyPair("ES256", { extractable: true });
+	return {
+		alg: "ES256" as const,
+		kid: "test-bundle",
+		privateKey: await exportJWK(pair.privateKey),
+	};
 }
 
 export async function seedUser(auth: TheAuth, id: string): Promise<void> {

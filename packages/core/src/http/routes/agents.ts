@@ -1,4 +1,5 @@
 import { HookBlockedError } from "../../hooks/safety.js";
+import { AgentIntrospectionSchema } from "../../openapi-schemas.js";
 import type { AgentFilter, CreateAgentInput, Permission, UpdateAgentInput } from "../../types.js";
 import {
 	created,
@@ -11,7 +12,12 @@ import {
 	scopeUnavailable,
 	validationError,
 } from "../respond.js";
-import { CreateAgentSchema, UpdateAgentSchema } from "../schemas.js";
+import {
+	CreateAgentSchema,
+	IntrospectAgentTokenSchema,
+	RotateAgentSchema,
+	UpdateAgentSchema,
+} from "../schemas.js";
 import type { HttpRoute, RouteContext } from "../types.js";
 
 /** A refusal by the `beforeAgentCreate` policy (on create or update) is a 403, not an opaque 500. */
@@ -115,10 +121,43 @@ async function rotateAgent(ctx: RouteContext): Promise<Response> {
 	const id = ctx.params.id ?? "";
 	const denial = await ctx.scope.checkAgent(id);
 	if (denial) return scopeDenied(denial);
+	// The body is optional: a bare POST rotates the token and keeps its binding.
+	const text = (await ctx.request.text()).trim();
+	let cnf: Parameters<typeof ctx.auth.agent.rotate>[1];
+	if (text.length > 0) {
+		let raw: unknown;
+		try {
+			raw = JSON.parse(text);
+		} catch {
+			return errorResponse("BAD_REQUEST", "Invalid JSON body", 400);
+		}
+		const parsed = RotateAgentSchema.safeParse(raw);
+		if (!parsed.success) return validationError(parsed.error.issues);
+		if (parsed.data.cnf !== undefined) cnf = { cnf: parsed.data.cnf };
+	}
 	try {
-		return ok(await ctx.auth.agent.rotate(id));
+		return ok(await ctx.auth.agent.rotate(id, cnf));
 	} catch (err) {
 		return failure(err, "Failed to rotate agent token");
+	}
+}
+
+/** RFC 7662 view of an agent token. Tokens of agents outside the caller's scope read as inactive, like unknown ones. */
+async function introspectAgent(ctx: RouteContext): Promise<Response> {
+	if (!ctx.scope) return scopeUnavailable();
+	const body = await readJsonBody(ctx.request, ctx.maxBodyBytes);
+	if (!body.ok) return body.response;
+	const parsed = IntrospectAgentTokenSchema.safeParse(body.data);
+	if (!parsed.success) return validationError(parsed.error.issues);
+	try {
+		const result = await ctx.auth.agent.introspect(parsed.data.token);
+		if (result.active && result.agent_id) {
+			const denial = await ctx.scope.checkAgent(result.agent_id);
+			if (denial) return ok({ active: false });
+		}
+		return ok(result);
+	} catch (err) {
+		return failure(err, "Failed to introspect agent token");
 	}
 }
 
@@ -170,7 +209,18 @@ export const agentRoutes: HttpRoute[] = [
 		path: "/agents/:id/rotate",
 		auth: "admin",
 		group: "management",
-		summary: "Rotate an agent token",
+		body: RotateAgentSchema,
+		summary: "Rotate an agent token, optionally rebinding it to a key (body optional)",
 		handle: rotateAgent,
+	},
+	{
+		method: "POST",
+		path: "/agents/introspect",
+		auth: "admin",
+		group: "management",
+		body: IntrospectAgentTokenSchema,
+		response: AgentIntrospectionSchema,
+		summary: "Introspect an agent token (RFC 7662), including cnf for sender constrained tokens",
+		handle: introspectAgent,
 	},
 ];

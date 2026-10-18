@@ -284,6 +284,10 @@ if (request?.status === 'approved') {
 }
 ```
 
+## Requiring a fresh passkey or TOTP code
+
+For risky actions you can require that the person approving just proved who they are. Set `approval.requireAcr`, `approval.maxAuthAge` or an `approval.stepUp` callback, or pass `stepUp` to `request()`. The rule is stored on the request and enforced when someone approves it. See [step-up authentication](/step-up-auth).
+
 ## Next steps
 
 <CardGroup cols={2}>

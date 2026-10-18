@@ -42,12 +42,28 @@ export const PermissionSchema = z.object({
 	relation: z.string().optional().describe("Optional ReBAC relation checked by the policy engine"),
 });
 
+export const AgentIntrospectionSchema = z.object({
+	active: z.boolean(),
+	token_type: z.enum(["Bearer", "DPoP"]).optional(),
+	sub: z.string().describe("The user who owns the agent").optional(),
+	agent_id: z.string().optional(),
+	agent_type: z.string().optional(),
+	exp: z.number().int().optional(),
+	iat: z.number().int().optional(),
+	cnf: z
+		.record(z.string())
+		.describe("RFC 7800 confirmation claim: jkt for DPoP, x5t#S256 for mutual TLS")
+		.optional(),
+});
+
 export const AgentSchema = z.object({
 	id: z.string(),
 	ownerId: z.string(),
 	tenantId: z.string().optional(),
 	name: z.string(),
-	type: z.enum(["autonomous", "delegated", "service"]),
+	type: z
+		.enum(["autonomous", "delegated", "service", "device"])
+		.describe("`device` is the backing agent of an IoT device, created by the device routes."),
 	token: z
 		.string()
 		.describe(
@@ -56,6 +72,12 @@ export const AgentSchema = z.object({
 	permissions: z.array(PermissionSchema),
 	status: z.enum(["active", "revoked", "expired"]),
 	expiresAt: z.string().nullable(),
+	cnf: z
+		.record(z.string())
+		.describe(
+			"Sender constraint of the token (RFC 7800): jkt for a DPoP key, x5t#S256 for a client certificate. Absent for a bearer token.",
+		)
+		.optional(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 });
@@ -80,6 +102,17 @@ export const AuditEntrySchema = z.object({
 	event: z.string().nullable(),
 	durationMs: z.number().int(),
 	tokensCost: z.number().optional(),
+	inputs: z
+		.array(
+			z.object({
+				kind: z.enum(["user_message", "tool_output", "retrieved_document", "agent"]),
+				id: z.string().optional(),
+				hash: z.string(),
+				hv: z.literal(2).optional(),
+			}),
+		)
+		.optional()
+		.describe("Inputs the caller recorded for this call, as kind, id and content hash"),
 	timestamp: z.string(),
 });
 
@@ -255,6 +288,15 @@ export const PendingApprovalSchema = z.object({
 	expiresAt: z.string(),
 	arguments: z.string().describe("JSON text with secret-looking keys redacted, cut at 2 KB"),
 	argumentsTruncated: z.boolean(),
+	requiredAcr: z
+		.string()
+		.describe("Approving needs a sign-in that reached this acr (RFC 9470). Absent: no step-up rule")
+		.optional(),
+	maxAuthAge: z
+		.number()
+		.int()
+		.describe("Approving needs a sign-in event at most this many seconds old")
+		.optional(),
 });
 
 export const ApprovalStatusSchema = z.object({
@@ -264,6 +306,8 @@ export const ApprovalStatusSchema = z.object({
 	resource: z.string(),
 	expiresAt: z.string(),
 	respondedAt: z.string().optional(),
+	requiredAcr: z.string().optional(),
+	maxAuthAge: z.number().int().optional(),
 });
 
 export const ApprovalDecisionSchema = z.object({
@@ -300,6 +344,16 @@ export const IntrospectionResponseSchema = z.object({
 	jti: z.string().optional(),
 	token_type: z.enum(["Bearer", "DPoP"]).optional(),
 	cnf: z.object({ jkt: z.string() }).optional(),
+	acr: z
+		.string()
+		.describe("RFC 9470: authentication context class reference of the login")
+		.optional(),
+	amr: z.array(z.string()).describe("RFC 8176 authentication methods of the login").optional(),
+	auth_time: z
+		.number()
+		.int()
+		.describe("RFC 9470: epoch seconds of the user's authentication event")
+		.optional(),
 	act: z
 		.custom<McpActorClaim>()
 		.describe(
@@ -346,6 +400,7 @@ export const COMPONENT_SCHEMAS = {
 	ApprovalDecision: ApprovalDecisionSchema,
 	ApprovalConsumed: ApprovalConsumedSchema,
 	IntrospectionResponse: IntrospectionResponseSchema,
+	AgentIntrospection: AgentIntrospectionSchema,
 } as const;
 
 // Compile-time drift guards. Wire<T> is T as JSON: dates become strings.

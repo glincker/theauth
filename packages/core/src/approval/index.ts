@@ -3,9 +3,11 @@ export type {
 	ApprovalDeps,
 	ApprovalModule,
 	ApprovalRequest,
+	ApprovalStepUp,
+	ApprovalStepUpInput,
 	DecideInput,
 } from "./approval.js";
-export { createApprovalModule } from "./approval.js";
+export { approverEvidence, createApprovalModule } from "./approval.js";
 export type {
 	ApprovalDenialCode,
 	ConsumeApprovalInput,

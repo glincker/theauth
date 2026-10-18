@@ -160,6 +160,19 @@ export async function shredPseudonymPeriods(
 	return stale.map((s) => s.period).sort((a, b) => a - b);
 }
 
+async function newestPeriod(db: Database): Promise<number | undefined> {
+	const rows = await db
+		.select({ id: auditSecrets.id })
+		.from(auditSecrets)
+		.where(like(auditSecrets.id, `${SECRET_PREFIX}%`));
+	let newest: number | undefined;
+	for (const { id } of rows) {
+		const period = Number(id.slice(SECRET_PREFIX.length));
+		if (Number.isInteger(period) && (newest === undefined || period > newest)) newest = period;
+	}
+	return newest;
+}
+
 const lastSwept = new WeakMap<object, number>();
 
 /** Pseudonyms for a row about to be written under rotation. The first write of a new period also shreds the secrets that fell out of the retention window. */
@@ -169,7 +182,13 @@ export async function pseudonymsForWrite(
 	rotation: PseudonymRotation,
 ): Promise<Record<string, string>> {
 	const { periodDays, retainPeriods } = normalizeRotation(rotation);
-	const period = periodOf(row.timestamp, periodDays);
+	let period = periodOf(row.timestamp, periodDays);
+	if (!(await resolvePeriodSecret(db, period, false))) {
+		// A backdated row (clock skew, import) for a period that fell out of the window must not bring
+		// its secret back. It is keyed under the newest period instead, which the row records.
+		const newest = await newestPeriod(db);
+		if (newest !== undefined && period < newest - retainPeriods) period = newest;
+	}
 	const secret = await resolvePeriodSecret(db, period, true);
 	if (!secret) throw new Error("no audit pseudonym period secret available");
 	if (lastSwept.get(db) !== period) {

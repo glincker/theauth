@@ -110,8 +110,9 @@ export function createGate<C = unknown>(options: GateOptions<C>): Gate<C> {
 			resource,
 			...(record ? { arguments: record } : {}),
 		};
+		// Only a literal true allows. A loosely typed result ("false", 1, {}) from a custom transport denies.
 		let result = await options.authorize(agentId, request);
-		if (result.allowed) return null;
+		if (result.allowed === true) return null;
 		if (result.code === APPROVAL_REQUIRED && options.requestApproval) {
 			const approvalId = await options.requestApproval({
 				toolName,
@@ -123,7 +124,7 @@ export function createGate<C = unknown>(options: GateOptions<C>): Gate<C> {
 			});
 			if (approvalId) {
 				result = await options.authorize(agentId, { ...request, approvalId });
-				if (result.allowed) return null;
+				if (result.allowed === true) return null;
 			}
 		}
 		return denial(toolName, result);

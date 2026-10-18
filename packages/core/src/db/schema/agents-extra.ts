@@ -69,6 +69,10 @@ export const approvalRequests = sqliteTable("theauth_approval_requests", {
 	respondedBy: text("responded_by"),
 	/** Set once, atomically, when authorize or evaluate spends the approval. */
 	consumedAt: timestampSec("consumed_at"),
+	/** The approver must have reached this acr before approving (RFC 9470). Null: no requirement. */
+	requiredAcr: text("required_acr"),
+	/** The approver's proving event must be at most this many seconds old. Null: no requirement. */
+	maxAuthAge: integer("max_auth_age"),
 	createdAt: timestampSec("created_at").notNull(),
 });
 

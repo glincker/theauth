@@ -36,7 +36,7 @@ import { runPolicyHook } from "./hook-gate.js";
 import { createRbacResolver } from "./rbac.js";
 import { createRebacBridge } from "./rebac-bridge.js";
 import { applyRisk } from "./risk.js";
-import { applyTaint, normalizeProvenance } from "./taint.js";
+import { applyTaint, normalizeProvenance, withInputLabels } from "./taint.js";
 import type {
 	DecisionPrincipal,
 	EvaluateInput,
@@ -80,7 +80,10 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		// Risk is applied after the cache so it never poisons cached decisions.
 		const risked = applyRisk(base, config.risk, input.context?.risk);
 		// Taint is applied before an approval is spent, so an approved retry still passes through it.
-		const provenance = normalizeProvenance(input.context?.provenance);
+		const supplied = normalizeProvenance(input.context?.provenance);
+		const provenance = config.taint?.inputLabels
+			? withInputLabels(supplied, input.context?.inputs)
+			: supplied;
 		const tainted = applyTaint(risked, config.taint, {
 			resource: input.resource,
 			action: input.action,
@@ -135,7 +138,8 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		const agentId = input.subject.agentId;
 		if (
 			decision.decision !== "escalate" ||
-			decision.escalation?.requirement !== "approval" ||
+			(decision.escalation?.requirement !== "approval" &&
+				decision.escalation?.requirement !== "step_up") ||
 			!input.approvalId ||
 			!agentId
 		) {
@@ -147,6 +151,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			action: input.action,
 			resource: input.resource,
 			arguments: input.context?.arguments,
+			minStepUp: decision.escalation.stepUp,
 		});
 		if (!spent.ok) {
 			return {
@@ -189,6 +194,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 				action: input.action,
 				resource: input.resource,
 				arguments: input.context?.arguments,
+				stepUp: decision.escalation?.stepUp,
 			});
 			const escalation = decision.escalation ?? {
 				tier: "constraint",
@@ -482,7 +488,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			ip: input.context?.ip,
 			userAgent: typeof input.context?.userAgent === "string" ? input.context.userAgent : undefined,
 			cacheHit: decision.cacheHit,
-			inputProvenance: await provenanceRecord(input, decision),
+			inputProvenance: await provenanceRecord(db, input, decision),
 			subjectId: decision.principal?.subjectId,
 			actorId: decision.principal?.actorId,
 			policyVersion,

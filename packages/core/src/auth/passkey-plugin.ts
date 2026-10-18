@@ -162,11 +162,10 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 								}
 							}
 							const rememberMe = parseRememberMe(body.rememberMe);
-							const { session, token } = await ctx.sessionManager.create(
-								result.userId,
-								undefined,
-								rememberMe === undefined ? undefined : { rememberMe },
-							);
+							const { session, token } = await ctx.sessionManager.create(result.userId, undefined, {
+								authMethods: [result.userVerified ? "passkey" : "passkey_presence"],
+								...(rememberMe !== undefined && { rememberMe }),
+							});
 
 							return new Response(
 								JSON.stringify({
@@ -179,7 +178,7 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 									headers: {
 										"Content-Type": "application/json",
 										"Set-Cookie": buildSessionSetCookie(
-											"theauth_session",
+											ctx.sessionManager.cookieName ?? "theauth_session",
 											token,
 											session,
 											(ctx.config.baseUrl ?? "").startsWith("https://"),

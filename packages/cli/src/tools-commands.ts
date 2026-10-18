@@ -438,6 +438,8 @@ export const COMMAND_NAMES = [
 	"whoami",
 	"simulate",
 	"permissions",
+	"ros2",
+	"device",
 	"doctor",
 	"secret",
 	"completions",

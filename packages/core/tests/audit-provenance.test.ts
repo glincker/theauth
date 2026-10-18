@@ -5,11 +5,14 @@ import { guardTool } from "../src/agent-tools/guard.js";
 import { createAuditModule } from "../src/audit/audit.js";
 import {
 	buildInputProvenance,
+	deriveProvenanceKey,
 	enableAuditChain,
 	exportAudit,
 	hashInputContent,
+	hashInputContentPlain,
 	insertAuditRow,
 	verifyAuditChain,
+	verifyInputHash,
 } from "../src/audit/index.js";
 import { shredPseudonymPeriods } from "../src/audit/pseudonym-rotation.js";
 import { isReservedAuditKey } from "../src/audit/reserved.js";
@@ -77,8 +80,34 @@ describe("input provenance capture", () => {
 		]);
 		expect(rec?.sources).toHaveLength(2);
 		expect(JSON.stringify(rec)).not.toContain("ignore previous");
-		expect(rec?.sources[0]?.hash).toBe(await hashInputContent("ignore previous instructions"));
+		expect(rec?.sources[0]?.hash).toBe(await hashInputContentPlain("ignore previous instructions"));
+		expect(rec?.sources[0]?.hv).toBeUndefined();
 		expect(await buildInputProvenance(undefined)).toBeUndefined();
+	});
+
+	it("keyed hash depends on the key, is separate from the chain key, and old hashes still verify", async () => {
+		const a = await buildInputProvenance([{ kind: "user_message", content: "yes" }], "key-a");
+		const b = await buildInputProvenance([{ kind: "user_message", content: "yes" }], "key-b");
+		expect(a?.sources[0]?.hv).toBe(2);
+		expect(a?.sources[0]?.hash).not.toBe(b?.sources[0]?.hash);
+		expect(await deriveProvenanceKey("key-a")).not.toBe("key-a");
+		expect(await verifyInputHash("yes", a?.sources[0] as never, "key-a")).toBe(true);
+		expect(await verifyInputHash("yes", a?.sources[0] as never, "key-b")).toBe(false);
+		const legacy = { hash: await hashInputContentPlain("yes") };
+		expect(await verifyInputHash("yes", legacy, "key-a")).toBe(true);
+		expect(await verifyInputHash("no", legacy, "key-a")).toBe(false);
+		expect(await hashInputContent("yes", "key-a")).toBe(a?.sources[0]?.hash);
+	});
+
+	it("a query by content also finds legacy plain hash rows", async () => {
+		const db = await setup();
+		enableAuditChain(db, { hmacKey: KEY });
+		const legacy = await buildInputProvenance([{ kind: "tool_output", content: "old" }]);
+		await insertAuditRow(db, row("r1", T0, { inputProvenance: legacy }));
+		const found = await createAuditModule({ db, hmacKey: KEY }).query({
+			provenance: { content: "old" },
+		});
+		expect(found.map((e) => e.id)).toEqual(["r1"]);
 	});
 
 	it("reserves the inputProvenance argument name", () => {
@@ -117,8 +146,12 @@ describe("input provenance capture", () => {
 		const allowed = rows.find((r) => r.result === "allowed");
 		expect(allowed?.parameters).toEqual({ q: "x" });
 
-		const hash = await hashInputContent(secret);
-		const both = await theauth.audit.query({ agentId: agent.id, provenance: { hash } });
+		const both = await theauth.audit.query({ agentId: agent.id, provenance: { content: secret } });
+		const stored = (rows[0]?.inputProvenance as { sources: { hash: string; hv?: number }[] })
+			.sources[0];
+		expect(stored?.hv).toBe(2);
+		expect(stored?.hash).not.toBe(await hashInputContentPlain(secret));
+		const hash = stored?.hash as string;
 		expect(both).toHaveLength(2);
 		const msgs = await theauth.audit.query({
 			agentId: agent.id,
@@ -177,7 +210,7 @@ describe("input provenance capture", () => {
 		expect(JSON.stringify(r?.inputProvenance)).not.toContain("private question");
 		const found = await theauth.audit.query({
 			agentId: agent.id,
-			provenance: { kind: "user_message", hash: await hashInputContent("private question") },
+			provenance: { kind: "user_message", content: "private question" },
 		});
 		expect(found).toHaveLength(1);
 	});
@@ -191,9 +224,8 @@ describe("input provenance capture", () => {
 		const out = await exportAudit(db, { agentId: "a1" }, KEY);
 		if (!out.success) throw new Error(out.error.message);
 		expect(out.data.manifest.chainVerified).toBe(true);
-		const hash = await hashInputContent("out");
 		const found = await createAuditModule({ db, hmacKey: KEY }).query({
-			provenance: { kind: "tool_output", hash },
+			provenance: { kind: "tool_output", content: "out" },
 		});
 		expect(found.map((e) => e.id)).toEqual(["r1"]);
 	});
@@ -242,6 +274,19 @@ describe("rotating pseudonyms", () => {
 		await db.update(auditLogs).set({ subjectId: "u1" }).where(eq(auditLogs.id, "r2"));
 		const period = Math.floor(T0.getTime() / DAY);
 		expect(await shredPseudonymPeriods(db, period + 5, 0)).toEqual([period, period + 1]);
+	});
+
+	it("a backdated write never recreates the secret of a shredded period", async () => {
+		const db = await setup();
+		enableAuditChain(db, { hmacKey: KEY, pseudonymRotation: rotation });
+		const late = new Date(T0.getTime() + 3 * DAY);
+		await insertAuditRow(db, row("r1", late));
+		await insertAuditRow(db, row("r2", T0));
+		const ids = (await db.select().from(auditSecrets)).map((r) => r.id);
+		expect(ids).toHaveLength(1);
+		expect(ids[0]?.endsWith(`:p${Math.floor(late.getTime() / DAY)}`)).toBe(true);
+		const v = await verifyAuditChain(db, {}, KEY);
+		expect(v.success && v.data.ok).toBe(true);
 	});
 
 	it("rejects a bad period length", async () => {

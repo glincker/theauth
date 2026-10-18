@@ -1,0 +1,263 @@
+---
+title: IoT devices
+description: Sensors, gateways and machines as principals with their own credentials, scoped permissions, enrollment, live revocation and signed offline policy bundles.
+icon: microchip
+---
+
+A device in theAuth is a principal like an agent. It has an owner, groups, permissions with constraints, delegation from agents, audit rows and revocation. Under the hood each device is backed by an agent row of type `device`, so the permission engine, the delegation chain, the revocation bus and the hash chained audit log all apply without a second rule system.
+
+What a device gets that an agent does not:
+
+- Credentials made for hardware: a pre shared key, a public key that signs short assertions, or a TLS client certificate thumbprint.
+- Enrollment by claim code (one device, typed by a person) or bulk token (a factory line, with a use limit).
+- An attestation hook for evidence such as an EAT (RFC 9711) at enrollment.
+- A signed offline policy bundle for devices that cannot call home on every decision.
+- Suspend and resume, separate from permanent revoke.
+
+## Turn it on
+
+Devices need `agents`. Add `devices` to your config:
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "file:./theauth.db" },
+  agents: { enabled: true },
+  devices: {
+    // Optional. Signs offline policy bundles. Use ES256 or EdDSA, keep the private key in your secret store.
+    bundleSigning: { alg: "ES256", kid: "bundle-2026-10", privateKey: JSON.parse(process.env.DEVICE_BUNDLE_KEY!) },
+  },
+  // Assertion replay cache and attestation nonces. Use "database" or Redis with more than one server.
+  secondaryStorage: { deviceAuth: "database" },
+});
+```
+
+Migration `0010-devices` adds three tables (`theauth_devices`, `theauth_device_credentials`, `theauth_device_enrollments`). It runs on the next boot, or apply it with `theauth db up`.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `maxPerOwner` | 10000 | Devices per owner that are not revoked. Devices do not count against `agents.maxPerUser`. |
+| `audience` | `"theauth"` | `aud` a device assertion must carry. |
+| `issuer` | `"theauth"` | `iss` of offline bundles. |
+| `bundleSigning` | none | `{ alg, kid, privateKey, previous? }`. Without it bundles are refused. |
+| `bundleTtlSeconds` | 3600 | Bundle lifetime. Capped at 86400. |
+| `attestation` | none | `{ required?, verify? }`. Evidence without a `verify` function is refused. |
+| `clientCertThumbprint` | none | `(request) => x5t#S256 or null`, for mTLS terminated at your proxy. |
+
+## A runnable example
+
+```ts
+import { createTheAuth, evaluateDeviceBundle, verifyDeviceBundle } from "@glinr/theauth";
+import { exportJWK, generateKeyPair } from "jose";
+
+const signing = await generateKeyPair("ES256", { extractable: true });
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true },
+  devices: { bundleSigning: { alg: "ES256", kid: "k1", privateKey: await exportJWK(signing.privateKey) } },
+});
+await theauth.user.create({ id: "owner-1", email: "owner@example.com" });
+const devices = theauth.device!;
+
+// Register a thermostat with a pre shared key. The secret is returned once.
+const { device, credential } = await devices.register({
+  ownerId: "owner-1",
+  name: "thermostat-hall",
+  kind: "sensor",
+  hardwareId: "SN-0042",
+  groups: ["hvac"],
+  permissions: [
+    { resource: "mqtt:sensors:temp:*", actions: ["publish"] },
+    { resource: "coap:valve:hall", actions: ["put"], constraints: { requireApproval: true } },
+  ],
+  credential: { kind: "psk" },
+});
+console.log("psk", credential?.secret);
+
+// Online decision: same engine as agents, audit row marked theauthPrincipal = { type: "device" }.
+console.log(await devices.authorize(device.id, { action: "publish", resource: "mqtt:sensors:temp:hall" }));
+
+// Offline: sign a bundle, verify it on the device side, decide without the server.
+const bundle = await devices.issueBundle(device.id);
+const checked = await verifyDeviceBundle(bundle.token, { keys: devices.jwks(), deviceId: device.id });
+if (checked.ok) {
+  console.log(evaluateDeviceBundle(checked.claims, { action: "publish", resource: "mqtt:sensors:temp:hall" }));
+  // requireApproval cannot be met offline, so this one is denied.
+  console.log(evaluateDeviceBundle(checked.claims, { action: "put", resource: "coap:valve:hall" }));
+}
+
+// Kill it. The backing agent is revoked too, which reaches every server through the revocation bus.
+await devices.revoke(device.id, "returned to vendor");
+```
+
+## Credentials
+
+| Kind | Stored | The device sends |
+| --- | --- | --- |
+| `psk` | SHA-256 of the secret and a 16 character lookup prefix | `Authorization: Bearer tdk_...` |
+| `jwk` | the public key and its RFC 7638 thumbprint | a device assertion JWT as `Authorization: Bearer <jwt>` |
+| `x509` | the `x5t#S256` thumbprint (RFC 8705 section 3.1) | its TLS client certificate; your proxy passes the thumbprint through `clientCertThumbprint` |
+
+Accepted keys are EC P-256, EC P-384 and Ed25519. A private key or an RSA key is refused at registration. A device can hold several credentials, so rotate by adding the new one and revoking the old one:
+
+```ts
+const next = await devices.addCredential(device.id, { kind: "jwk", jwk: newPublicJwk });
+await devices.revokeCredential(device.id, oldCredentialId);
+```
+
+### Device assertions
+
+A device with a key signs a short JWT for each connection or request. The layout follows RFC 7523 section 3, the replay rules follow DPoP (RFC 9449):
+
+```jsonc
+// header
+{ "alg": "ES256", "typ": "device-assertion+jwt", "kid": "<RFC 7638 thumbprint of the device key>" }
+// payload
+{ "iss": "<deviceId>", "sub": "<deviceId>", "aud": "theauth", "iat": 1760000000, "exp": 1760000060, "jti": "<16+ random chars>" }
+```
+
+The server checks the signature with the registered key (the algorithm is pinned to the key type), `iss` and `sub` equal the device id, `aud`, a lifetime of at most 300 seconds, `iat` no more than 30 seconds ahead, and a `jti` it has not seen for this device. In Node:
+
+```ts
+import { SignJWT, importJWK } from "jose";
+
+const key = await importJWK(devicePrivateJwk, "ES256");
+const jwt = await new SignJWT({ jti: crypto.randomUUID() })
+  .setProtectedHeader({ alg: "ES256", typ: "device-assertion+jwt", kid: deviceKeyThumbprint })
+  .setIssuer(deviceId)
+  .setSubject(deviceId)
+  .setAudience("theauth")
+  .setIssuedAt()
+  .setExpirationTime("60s")
+  .sign(key);
+```
+
+## Enrollment
+
+Ship devices without per device secrets and bind them on first boot.
+
+```ts
+// One device, a person types the code from a label or app: XXXXX-XXXXX, 15 minutes, single use.
+const claim = await devices.createEnrollmentToken({ ownerId: "owner-1", kind: "claim", groups: ["hvac"] });
+
+// A factory line: long token, use limit, 24 hours by default (30 days max).
+const bulk = await devices.createEnrollmentToken({
+  ownerId: "owner-1",
+  kind: "bulk",
+  maxUses: 500,
+  permissions: [{ resource: "mqtt:sensors:*", actions: ["publish"] }],
+});
+```
+
+The device then enrolls itself:
+
+```bash
+curl -X POST https://auth.example.com/api/theauth/device/enroll \
+  -H 'content-type: application/json' \
+  -d '{"token":"7KQ2M-9XR4T","name":"thermostat-hall","hardwareId":"SN-0042","credential":{"kind":"psk"}}'
+```
+
+Codes and tokens are stored as hashes. A use is claimed with one conditional UPDATE, so two devices racing for the last use cannot both win. A bad credential in the request is refused before a use is spent. Each device records the token that created it (`enrollmentId`), so if a bulk token leaks you can list and suspend exactly the devices it made: `devices.list({ enrollmentId })`.
+
+<Warning>
+`POST /device/enroll` and `POST /device/attestation-nonce` take no credentials. Keep the adapter rate limiter on for them.
+</Warning>
+
+### Attestation
+
+Set `attestation.verify` to check evidence (for example an EAT from a secure element) before the device is created. The device first asks for a nonce and binds it into its evidence, so old evidence cannot be replayed:
+
+```ts
+devices: {
+  attestation: {
+    required: true,
+    verify: async ({ evidence, nonce, hardwareId }) => {
+      const claims = await myEatVerifier(evidence); // your RATS Verifier (RFC 9334)
+      if (claims.eat_nonce !== nonce) return { ok: false, reason: "stale evidence" };
+      return { ok: true, claims: { ueid: claims.ueid } };
+    },
+  },
+}
+```
+
+A verifier that throws counts as a refusal. The claims you return are stored on the device as `attestation`.
+
+## Authorization, delegation and revocation
+
+- `devices.authorize(id, request)` checks the device state first (`device_suspended`, `device_revoked`, `device_expired`, `device_not_found`), then runs the same pipeline as agents: `beforeAuthorize` hooks, own and delegated permissions, constraints, approvals and audit.
+- Every audit row for a device has `parameters.theauthPrincipal = { type: "device", id }`. Keys starting with `theauth` are reserved, so a device cannot plant that marker through arguments.
+- `devices.delegate({ fromAgent, deviceId, permissions, expiresAt })` lets an agent hand a subset of its permissions to a device. Revoking the agent revokes the chain.
+- `devices.suspend(id)` is reversible. `devices.revoke(id)` is permanent, revokes the backing agent and cascades its delegations.
+- Device backing agents are hidden from `agent.list()` unless you pass `type: "device"`, and their bearer token can never be used or rotated.
+
+## Offline policy bundles
+
+A bundle is a compact JWS with `typ: device-policy+jwt`, signed with `bundleSigning`:
+
+```json
+{
+  "iss": "theauth", "sub": "<deviceId>", "aud": "<deviceId>",
+  "iat": 1760000000, "nbf": 1760000000, "exp": 1760003600, "jti": "...",
+  "seq": 1760000000123, "owner": "owner-1", "groups": ["hvac"],
+  "perms": [{ "resource": "mqtt:sensors:temp:*", "actions": ["publish"] }]
+}
+```
+
+Rules on the device, as implemented by `verifyDeviceBundle` and `evaluateDeviceBundle`:
+
+1. Verify the signature against `GET /device/jwks`, `typ`, `iss`, and that `sub` and `aud` are this device. Respect `nbf` and `exp` with 30 seconds of skew.
+2. Keep the highest `seq` accepted and refuse a lower one, so an old and wider bundle cannot be replayed.
+3. Match permissions the same way the server does.
+4. `requireApproval` always denies offline. `maxCallsPerHour` denies unless you pass the local call count. Time windows use the device clock.
+
+`perms` is the device's own permissions plus active delegations at issue time. A revocation reaches online checks at once but reaches an offline device only when its bundle expires, so pick the TTL as the longest stale window you accept. One hour is the default.
+
+## HTTP routes
+
+Management routes need a signed in owner and only show that owner's devices:
+
+| Method | Path | |
+| --- | --- | --- |
+| GET | `/devices` | list (`ownerId`, `status`, `group`, `enrollmentId`, `limit`, `offset`) |
+| POST | `/devices` | register |
+| GET, PATCH, DELETE | `/devices/:id` | get with credentials, update, revoke |
+| POST | `/devices/:id/suspend`, `/devices/:id/resume` | pause and resume |
+| POST, DELETE | `/devices/:id/credentials[/:credentialId]` | add, revoke a credential |
+| POST | `/devices/:id/bundle` | issue a bundle |
+| POST, DELETE | `/devices/enrollment-tokens[/:id]` | create, revoke an enrollment token |
+
+Device facing routes (turn them off with `routes: { devices: false }`):
+
+| Method | Path | Auth |
+| --- | --- | --- |
+| POST | `/device/enroll` | enrollment token in the body |
+| POST | `/device/attestation-nonce` | none |
+| POST | `/device/authorize` | device credential; 401 bad credential, 403 denied |
+| GET | `/device/bundle` | device credential |
+| GET | `/device/jwks` | none |
+
+`/auth/device/*` is a different thing: the RFC 8628 flow where a person signs in on a TV or CLI.
+
+## Resource names for device protocols
+
+Resources are colon separated, and `*` matches the rest:
+
+- MQTT topic `sensors/temp/42` is `mqtt:sensors:temp:42`, actions `publish` and `subscribe`. The filter `sensors/#` is `mqtt:sensors:*`. `+` has no direct equivalent, so a broker plugin should expand or deny it.
+- CoAP `/actuators/valve` is `coap:actuators:valve`, actions `get`, `put`, `post`, `delete`, `observe`.
+- ROS 2 topics follow [Robotics and ROS 2](/robotics-ros2).
+
+## CLI
+
+```bash
+theauth device register --config ./theauth.config.mjs --owner owner-1 --name gw-1 --psk \
+  --perm "mqtt:sensors:*=publish" --group yard
+theauth device list --config ./theauth.config.mjs --status active
+theauth device enroll-token --config ./theauth.config.mjs --owner owner-1 --kind bulk --max-uses 200
+theauth device suspend <deviceId> --config ./theauth.config.mjs --reason "battery swap"
+theauth device revoke <deviceId> --config ./theauth.config.mjs
+```
+
+## What is not here yet
+
+CWT and COSE encoding of bundles for very small devices, a built in EAT verifier, uploading decisions a device made offline into the audit chain, and a dashboard page.

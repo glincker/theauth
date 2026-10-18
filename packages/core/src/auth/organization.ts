@@ -2,7 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
-import { orgInvitations } from "../db/schema.js";
+import { orgInvitations, users } from "../db/schema.js";
 import { createOrgCore } from "./organization-core.js";
 import { createOrgHandlers } from "./organization-handlers.js";
 import {
@@ -55,13 +55,21 @@ export function createOrgModule(
 		{
 			deps,
 			config,
-			invitationOrgId: async (invitationId) => {
+			invitationOf: async (invitationId) => {
 				const rows = await db
-					.select({ orgId: orgInvitations.orgId })
+					.select({ orgId: orgInvitations.orgId, email: orgInvitations.email })
 					.from(orgInvitations)
 					.where(eq(orgInvitations.id, invitationId))
 					.limit(1);
-				return rows[0]?.orgId ?? null;
+				return rows[0] ?? null;
+			},
+			userEmail: async (userId) => {
+				const rows = await db
+					.select({ email: users.email })
+					.from(users)
+					.where(eq(users.id, userId))
+					.limit(1);
+				return rows[0]?.email ?? null;
 			},
 		},
 	);

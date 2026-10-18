@@ -211,7 +211,9 @@ export function createUsernameAuthModule(
 			updatedAt: now,
 		});
 
-		const { token, session } = await sessionManager.create(userId);
+		const { token, session } = await sessionManager.create(userId, undefined, {
+			authMethods: ["password"],
+		});
 
 		return {
 			user: { id: userId, username: normalisedUsername, name: input.name ?? null },
@@ -277,11 +279,10 @@ export function createUsernameAuthModule(
 		});
 		if (decision.action !== "allow") throw new SignInGateError(decision);
 
-		const { token, session } = await sessionManager.create(
-			account.userId,
-			undefined,
-			input.rememberMe === undefined ? undefined : { rememberMe: input.rememberMe },
-		);
+		const { token, session } = await sessionManager.create(account.userId, undefined, {
+			authMethods: ["password"],
+			...(input.rememberMe !== undefined && { rememberMe: input.rememberMe }),
+		});
 
 		return {
 			user: { id: account.userId, username: normalisedUsername },

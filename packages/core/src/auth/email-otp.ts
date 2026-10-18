@@ -200,7 +200,9 @@ export function createEmailOtpModule(
 		});
 		if (decision.action !== "allow") throw new SignInGateError(decision);
 
-		const { token: sessionToken, session } = await sessionManager.create(user.id);
+		const { token: sessionToken, session } = await sessionManager.create(user.id, undefined, {
+			authMethods: ["otp"],
+		});
 
 		return {
 			user,

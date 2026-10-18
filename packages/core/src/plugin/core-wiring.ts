@@ -35,7 +35,7 @@ export function createEndpointContext(
 			}
 
 			if (sessionManager) {
-				const token = extractToken(request);
+				const token = extractToken(request, sessionManager.cookieName);
 				if (!token) return null;
 
 				try {
@@ -92,7 +92,7 @@ export function registerSessionEndpoints(
 		path: "/auth/sign-out",
 		metadata: { description: "Revoke the current session and clear cookie" },
 		async handler(request) {
-			const token = extractToken(request);
+			const token = extractToken(request, sessionManager.cookieName);
 			if (!token) return json({ error: "No session" }, 401);
 
 			try {
@@ -108,7 +108,7 @@ export function registerSessionEndpoints(
 				status: 200,
 				headers: {
 					"Content-Type": "application/json",
-					"Set-Cookie": buildClearCookie("theauth_session"),
+					"Set-Cookie": buildClearCookie(sessionManager.cookieName ?? "theauth_session"),
 				},
 			});
 		},
@@ -122,7 +122,7 @@ export function registerSessionEndpoints(
 			const user = await endpointCtx.getUser(request);
 			if (!user) return json({ error: "Not authenticated" }, 401);
 
-			const token = extractToken(request);
+			const token = extractToken(request, sessionManager.cookieName);
 			const session = token ? await sessionManager.validate(token) : null;
 
 			return json({

@@ -4,7 +4,7 @@ description: Bind MCP access tokens to a client key with DPoP (RFC 9449) and pro
 icon: key
 ---
 
-A bearer token works for whoever holds it. If an agent's token leaks from a log or a proxy, the thief can call your tools. DPoP closes that gap: the token carries the thumbprint of a key the client holds, and every request has to include a short-lived proof signed with that key.
+A bearer token works for whoever holds it. (Agent tokens, the `ta_` strings, can be bound too: see [sender constrained agent tokens](/dpop-agent-tokens).) If an agent's token leaks from a log or a proxy, the thief can call your tools. DPoP closes that gap: the token carries the thumbprint of a key the client holds, and every request has to include a short-lived proof signed with that key.
 
 DPoP is opt-in. Without `dpop` in your MCP config nothing changes.
 

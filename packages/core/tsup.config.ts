@@ -19,6 +19,7 @@ export default defineConfig({
 		"http/index": "src/http/index.ts",
 		"testing/index": "src/testing/index.ts",
 		"integrations/index": "src/integrations/index.ts",
+		"robotics/index": "src/robotics/index.ts",
 	},
 	format: ["esm"],
 	dts: true,

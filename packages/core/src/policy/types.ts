@@ -2,6 +2,7 @@
 
 import type { InputSource } from "../audit/provenance.js";
 import type { DecisionCode } from "../permission/codes.js";
+import type { AuthRequirement } from "../session/auth-context.js";
 import type { ProvenanceMap, TaintConfig, TaintVerdict } from "../taint/types.js";
 
 export type PolicyEffect = "permit" | "deny" | "indeterminate" | "escalate";
@@ -40,6 +41,8 @@ export interface RiskTierRule {
 	tier: string;
 	when: RiskCondition;
 	require: ApprovalRequirement;
+	/** What the approver must prove before approving an action in this tier (RFC 9470). With `require: "step_up"` the default is multi factor within the last 5 minutes. */
+	stepUp?: AuthRequirement;
 }
 
 export interface RiskConfig {
@@ -51,6 +54,8 @@ export interface EscalationInfo {
 	tier: string;
 	requirement: Exclude<ApprovalRequirement, "none">;
 	reason: string;
+	/** The step-up rule the approval must have been granted under. Set by risk tiers. */
+	stepUp?: AuthRequirement;
 	/** Set when evaluate() was called with openApproval and a request was opened. */
 	approvalRequestId?: string;
 }

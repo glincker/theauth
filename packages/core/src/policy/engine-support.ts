@@ -1,7 +1,7 @@
 // Pure helpers and small queries used by the policy engine, split out to keep engine.ts under 500 lines.
 
 import { eq } from "drizzle-orm";
-import { buildInputProvenance, withInputSources } from "../audit/provenance.js";
+import { captureInputProvenance, withInputSources } from "../audit/provenance.js";
 import type { Database } from "../db/database.js";
 import { permissions as permissionsTable } from "../db/schema.js";
 import { getDelegatedPermissions } from "../delegation/delegation.js";
@@ -13,6 +13,7 @@ import { POLICY_ERROR_CODES } from "./types.js";
 
 /** The input_provenance value for the audit row: labels, the taint verdict and the captured input sources (hashes only), or undefined. */
 export async function provenanceRecord(
+	db: Database,
 	input: EvaluateInput,
 	decision: PolicyDecision,
 ): Promise<Record<string, unknown> | undefined> {
@@ -26,7 +27,7 @@ export async function provenanceRecord(
 						? { taint: { verdict: decision.taint.verdict, matches: decision.taint.matches } }
 						: {}),
 				};
-	return withInputSources(base, await buildInputProvenance(input.context?.inputs));
+	return withInputSources(base, await captureInputProvenance(db, input.context?.inputs));
 }
 
 export function buildCacheKey(input: EvaluateInput): string {

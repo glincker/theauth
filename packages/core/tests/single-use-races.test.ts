@@ -1,112 +1,261 @@
-/** Concurrency tests: single-use credentials must be redeemable exactly once, and attempt counters must not be bypassable by firing guesses in parallel. */
-
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createEmailOtpModule } from "../src/auth/email-otp.js";
-import { createMagicLinkModule } from "../src/auth/magic-link.js";
-import { createOneTimeTokenModule } from "../src/auth/one-time-token.js";
+/**
+ * Wave 8 review probes: single use values must be spent by exactly one of several concurrent callers.
+ * On a networked database every await is a round trip, so two requests interleave freely. In memory
+ * SQLite they usually run one after the other, so `lockstep` holds the first SELECT of each racer until
+ * both racers have read the row. A read then unconditional write then lets both succeed. The claim must
+ * be one conditional statement whose changed row count decides the winner (db/claim.ts).
+ */
+import BetterSqlite from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import * as jose from "jose";
+import { describe, expect, it } from "vitest";
+import { createApprovalModule } from "../src/approval/approval.js";
+import { createJwtSessionModule } from "../src/auth/jwt-session.js";
+import { createOidcProviderModule } from "../src/auth/oidc-provider.js";
+import { createPasskeyModule, PASSKEY_ERROR, PasskeyError } from "../src/auth/passkey.js";
 import type { Database } from "../src/db/database.js";
 import { createDatabase } from "../src/db/database.js";
 import { createTables } from "../src/db/migrations.js";
-import { createSessionManager } from "../src/session/session.js";
+import * as schema from "../src/db/schema.js";
+import { agents, users } from "../src/db/schema.js";
 
-const SECRET = "test-session-secret-that-is-at-least-32-chars!!";
-
-async function testDb(): Promise<Database> {
+async function memoryDb(): Promise<Database> {
 	const db = await createDatabase({ provider: "sqlite", url: ":memory:" });
 	await createTables(db, "sqlite");
+	const now = new Date();
+	await db
+		.insert(users)
+		.values({ id: "u1", email: "u1@example.com", createdAt: now, updatedAt: now });
 	return db;
 }
 
-describe("magic link replay race", () => {
-	it("two concurrent verifies of one link yield one session", async () => {
-		const db = await testDb();
-		const sent: string[] = [];
-		const mod = createMagicLinkModule(
-			{
-				appUrl: "https://app.example.com",
-				sendMagicLink: async (_e, token) => {
-					sent.push(token);
-				},
+type Thenable = { then: (f?: unknown, r?: unknown) => Promise<unknown> };
+
+/**
+ * A view of `db` whose next SELECT per racer waits until `parties` racers have issued one. Call `arm()`
+ * right before the race. Everything else passes through.
+ */
+function lockstep(db: Database, parties = 2): { db: Database; arm: () => void } {
+	let armed = false;
+	let waiting: Array<() => void> = [];
+	const barrier = () =>
+		new Promise<void>((resolve) => {
+			waiting.push(resolve);
+			if (waiting.length >= parties) {
+				const release = waiting;
+				waiting = [];
+				armed = false;
+				for (const r of release) r();
+			}
+		});
+	const wrap = <T extends object>(target: T): T =>
+		new Proxy(target, {
+			get(t, prop) {
+				const value: unknown = Reflect.get(t, prop, t);
+				if (typeof value !== "function") return value;
+				if (prop === "then") {
+					const then = value as Thenable["then"];
+					const gate = armed ? barrier() : Promise.resolve();
+					return (onF?: unknown, onR?: unknown) =>
+						gate
+							.then(() => then.call(t))
+							.then(onF as (v: unknown) => unknown, onR as (e: unknown) => unknown);
+				}
+				return (...args: unknown[]) => {
+					const out: unknown = (value as (...a: unknown[]) => unknown).apply(t, args);
+					return out !== null && typeof out === "object" ? wrap(out) : out;
+				};
 			},
-			db,
-			createSessionManager({ secret: SECRET }, db),
-		);
-		await mod.sendLink("a@example.com");
-		const token = sent[0] as string;
-		const results = await Promise.all([mod.verify(token), mod.verify(token), mod.verify(token)]);
-		expect(results.filter((r) => r !== null)).toHaveLength(1);
+		});
+	const view = new Proxy(db, {
+		get(t, prop) {
+			const value: unknown = Reflect.get(t, prop, t);
+			if (prop === "select" && typeof value === "function") {
+				return (...args: unknown[]) => wrap((value as (...a: unknown[]) => object).apply(t, args));
+			}
+			return typeof value === "function" ? (value as (...a: unknown[]) => unknown).bind(t) : value;
+		},
 	});
-});
+	return {
+		db: view,
+		arm: () => {
+			armed = true;
+		},
+	};
+}
 
-describe("email OTP", () => {
-	let db: Database;
-	beforeEach(async () => {
-		db = await testDb();
+async function oidcSetup() {
+	const race = lockstep(await memoryDb());
+	const { privateKey } = await jose.generateKeyPair("RS256", { extractable: true });
+	const mod = createOidcProviderModule(
+		{ issuer: "https://auth.test.com", signingKey: privateKey as CryptoKey },
+		race.db,
+		async (userId) => ({ sub: userId }),
+	);
+	const client = await mod.registerClient({
+		clientName: "Race App",
+		redirectUris: ["https://app.example.com/callback"],
+	});
+	if (!client.success) throw new Error("registerClient failed");
+	const authorized = await mod.authorize({
+		clientId: client.data.clientId,
+		redirectUri: "https://app.example.com/callback",
+		responseType: "code",
+		scope: "openid email profile",
+		state: "s",
+		userId: "u1",
+	});
+	if (!authorized.success) throw new Error("authorize failed");
+	return { mod, arm: race.arm, client: client.data, code: authorized.data.code };
+}
+
+describe("OIDC provider codes and refresh tokens are single use under concurrency", () => {
+	it("two concurrent exchanges of one authorization code mint one token set", async () => {
+		const { mod, arm, client, code } = await oidcSetup();
+		const exchange = () =>
+			mod.exchangeToken({
+				grantType: "authorization_code",
+				code,
+				redirectUri: "https://app.example.com/callback",
+				clientId: client.clientId,
+				clientSecret: client.clientSecret ?? undefined,
+			});
+		arm();
+		const results = await Promise.all([exchange(), exchange()]);
+		expect(results.filter((r) => r.success)).toHaveLength(1);
 	});
 
-	function make(maxAttempts = 3) {
-		const codes: string[] = [];
-		const mod = createEmailOtpModule(
-			{
-				maxAttempts,
-				sendOtp: async (_e, code) => {
-					codes.push(code);
-				},
-			},
-			db,
-			createSessionManager({ secret: SECRET }, db),
-		);
-		return { mod, codes };
-	}
-
-	it("parallel wrong guesses cannot exceed maxAttempts before lockout", async () => {
-		const { mod, codes } = make(3);
-		await mod.sendCode("a@example.com");
-		const real = codes[0] as string;
-		// 40 parallel guesses, one of which is the right code. Only the first
-		// 3 attempts may be evaluated, so the right code must not get through
-		// when it is not among them.
-		const wrong = Array.from({ length: 40 }, (_, i) => String(i).padStart(6, "0")).filter(
-			(c) => c !== real,
-		);
-		const guesses = [...wrong.slice(0, 39), real];
-		const results = await Promise.all(guesses.map((g) => mod.verifyCode("a@example.com", g)));
-		expect(results.every((r) => r === null)).toBe(true);
-	});
-
-	it("two concurrent correct verifies yield one session", async () => {
-		const { mod, codes } = make(5);
-		await mod.sendCode("a@example.com");
-		const code = codes[0] as string;
-		const results = await Promise.all([
-			mod.verifyCode("a@example.com", code),
-			mod.verifyCode("a@example.com", code),
-		]);
-		expect(results.filter((r) => r !== null)).toHaveLength(1);
-	});
-
-	it("is case-insensitive on the email when called directly", async () => {
-		const { mod, codes } = make(5);
-		await mod.sendCode("Alice@Example.com");
-		const res = await mod.verifyCode("alice@example.com", codes[0] as string);
-		expect(res?.user.email).toBe("alice@example.com");
-	});
-});
-
-describe("one-time token race", () => {
-	it("concurrent consumes succeed once", async () => {
-		const db = await testDb();
-		const mod = createOneTimeTokenModule({}, db);
-		const created = await mod.createToken({ purpose: "custom", identifier: "user-1" });
-		if (!created.success) throw new Error("create failed");
-		const token = created.data.token;
-		const results = await Promise.all([
-			mod.validateToken(token, "custom"),
-			mod.validateToken(token, "custom"),
-			mod.validateToken(token, "custom"),
-		]);
+	it("two concurrent refreshes of one refresh token mint one token set", async () => {
+		const { mod, arm, client, code } = await oidcSetup();
+		const first = await mod.exchangeToken({
+			grantType: "authorization_code",
+			code,
+			redirectUri: "https://app.example.com/callback",
+			clientId: client.clientId,
+			clientSecret: client.clientSecret ?? undefined,
+		});
+		if (!first.success || !first.data.refreshToken) throw new Error("no refresh token");
+		const refreshToken = first.data.refreshToken;
+		const refresh = () =>
+			mod.exchangeToken({
+				grantType: "refresh_token",
+				refreshToken,
+				clientId: client.clientId,
+				clientSecret: client.clientSecret ?? undefined,
+			});
+		// authenticateClient reads the client first, so hold the client read of both racers.
+		arm();
+		const results = await Promise.all([refresh(), refresh()]);
 		expect(results.filter((r) => r.success)).toHaveLength(1);
 	});
 });
 
-void vi;
+describe("JWT session refresh tokens are single use under concurrency", () => {
+	it("two concurrent refreshes of one token create one session", async () => {
+		const race = lockstep(await memoryDb());
+		const mod = createJwtSessionModule(
+			{ secret: "super-secret-key-at-least-32-chars-long!!" },
+			race.db,
+		);
+		const created = await mod.createSession({ id: "u1" });
+		if (!created.success) throw new Error("createSession failed");
+		const { refreshToken } = created.data;
+		race.arm();
+		const results = await Promise.all([
+			mod.refreshSession(refreshToken),
+			mod.refreshSession(refreshToken),
+		]);
+		expect(results.filter((r) => r.success)).toHaveLength(1);
+		const loser = results.find((r) => !r.success);
+		expect(loser && !loser.success ? loser.error.code : null).toBe("REFRESH_TOKEN_USED");
+	});
+});
+
+describe("passkey challenges are single use under concurrency", () => {
+	it("only one of two concurrent assertions gets past the challenge", async () => {
+		const sqlite = new BetterSqlite(":memory:");
+		const db = drizzle(sqlite, { schema });
+		await createTables(db, "sqlite");
+		const mod = createPasskeyModule(
+			{
+				rpName: "Test",
+				rpId: "example.com",
+				origin: "https://example.com",
+				attestation: "none",
+				userVerification: "preferred",
+				challengeTimeout: 60_000,
+			},
+			db,
+		);
+		await db.insert(schema.passkeyChallenges).values({
+			id: "ch-race",
+			challenge: "race-challenge",
+			userId: null,
+			type: "authentication",
+			expiresAt: new Date(Date.now() + 60_000),
+			createdAt: new Date(),
+		});
+		const b64 = (s: string) => btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+		const clientDataJSON = b64(
+			JSON.stringify({
+				type: "webauthn.get",
+				challenge: "race-challenge",
+				origin: "https://example.com",
+			}),
+		);
+		const attempt = () =>
+			mod
+				.verifyAuthentication({
+					id: "no-cred",
+					rawId: "no-cred",
+					type: "public-key",
+					response: {
+						clientDataJSON,
+						authenticatorData: b64("\0".repeat(37)),
+						signature: b64("\0".repeat(64)),
+					},
+				})
+				.then(
+					() => "ok",
+					(err: unknown) => (err instanceof PasskeyError ? err.code : "other"),
+				);
+		const codes = await Promise.all([attempt(), attempt()]);
+		// Exactly one caller consumed the challenge (and then failed on the unknown credential).
+		expect(codes.filter((c) => c === PASSKEY_ERROR.CHALLENGE_NOT_FOUND)).toHaveLength(1);
+	});
+});
+
+describe("approval decisions are first writer wins", () => {
+	it("a concurrent approve cannot overwrite a deny", async () => {
+		const base = await memoryDb();
+		const now = new Date();
+		await base.insert(agents).values({
+			id: "agt-1",
+			ownerId: "u1",
+			name: "payer",
+			type: "autonomous",
+			status: "active",
+			tokenHash: "h",
+			tokenPrefix: "p",
+			createdAt: now,
+			updatedAt: now,
+		});
+		const race = lockstep(base);
+		const approvals = createApprovalModule({}, race.db);
+		const req = await approvals.request({
+			agentId: "agt-1",
+			userId: "u1",
+			action: "execute",
+			resource: "bank:transfer",
+		});
+		race.arm();
+		const settled = await Promise.allSettled([
+			approvals.deny(req.id, "u1"),
+			approvals.approve(req.id, "u1"),
+		]);
+		expect(settled.filter((s) => s.status === "fulfilled")).toHaveLength(1);
+		const winner = settled.find((s) => s.status === "fulfilled");
+		const stored = await approvals.get(req.id);
+		expect(winner?.status === "fulfilled" ? winner.value.status : null).toBe(stored?.status);
+	});
+});

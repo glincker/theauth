@@ -1,3 +1,4 @@
+import { ACR_ORDER } from "../session/auth-context.js";
 import { CLIENT_ASSERTION_ALGS } from "./client-assertion.js";
 import { getDpopAlgs } from "./dpop.js";
 import {
@@ -72,6 +73,7 @@ export function getAuthorizationServerMetadata(ctx: McpAuthContext): McpServerMe
 		authorization_response_iss_parameter_supported: true,
 		client_id_metadata_document_supported: ctx.config.clientIdMetadataDocuments?.enabled === true,
 		...(ctx.config.dpop ? { dpop_signing_alg_values_supported: getDpopAlgs(ctx) } : {}),
+		...(ctx.resolveAuthContext ? { acr_values_supported: [...ACR_ORDER] } : {}),
 	};
 }
 

@@ -68,6 +68,10 @@ export const oauthAccessTokens = sqliteTable("theauth_oauth_access_tokens", {
 	familyId: text("family_id"),
 	tokenType: text("token_type").notNull().default("Bearer"),
 	dpopJkt: text("dpop_jkt"),
+	/** Added by migration 0011: how the user authenticated (`acr`, space separated `amr`, `auth_time` in epoch seconds). */
+	authAcr: text("auth_acr"),
+	authAmr: text("auth_amr"),
+	authTime: bigintNumber("auth_time"),
 	createdAt: timestampSec("created_at").notNull(),
 });
 
@@ -85,6 +89,10 @@ export const oauthAuthorizationCodes = sqliteTable("theauth_oauth_authorization_
 	codeChallenge: text("code_challenge"), // PKCE
 	codeChallengeMethod: text("code_challenge_method"), // "S256"
 	resource: text("resource"), // RFC 8707
+	/** Added by migration 0011: how the user authenticated (`acr`, space separated `amr`, `auth_time` in epoch seconds). */
+	authAcr: text("auth_acr"),
+	authAmr: text("auth_amr"),
+	authTime: bigintNumber("auth_time"),
 	expiresAt: timestampSec("expires_at").notNull(),
 	createdAt: timestampSec("created_at").notNull(),
 });

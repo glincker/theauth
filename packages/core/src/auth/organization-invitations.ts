@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { claimCount } from "../db/claim.js";
 import { orgInvitations, orgRoles } from "../db/schema.js";
 import { makeInvId, rowToInvitation } from "./organization-helpers.js";
 import type { OrgContext, OrgInvitation, OrgMember, OrgModule } from "./organization-types.js";
@@ -111,15 +112,27 @@ export function createOrgInvitations(
 			throw new Error(`Invitation "${invitationId}" has expired.`);
 		}
 
-		// Add member (will throw if already a member or cap hit)
-		const member = await addMember(inv.orgId, userId, inv.role);
-
-		await db
-			.update(orgInvitations)
-			.set({ status: "accepted" })
-			.where(eq(orgInvitations.id, invitationId));
-
-		return member;
+		// Claim the invitation first with one conditional UPDATE, so two concurrent accepts cannot
+		// both add a member. Put it back if adding the member fails (already a member, cap hit).
+		const claimed = await claimCount(
+			db
+				.update(orgInvitations)
+				.set({ status: "accepted" })
+				.where(and(eq(orgInvitations.id, invitationId), eq(orgInvitations.status, "pending"))),
+			{ id: orgInvitations.id },
+		);
+		if (claimed === 0) {
+			throw new Error(`Invitation "${invitationId}" is not pending.`);
+		}
+		try {
+			return await addMember(inv.orgId, userId, inv.role);
+		} catch (err) {
+			await db
+				.update(orgInvitations)
+				.set({ status: "pending" })
+				.where(eq(orgInvitations.id, invitationId));
+			throw err;
+		}
 	}
 
 	async function listInvitations(orgId: string): Promise<OrgInvitation[]> {

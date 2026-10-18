@@ -1,0 +1,229 @@
+---
+title: Step-up authentication
+description: Ask for a fresher or stronger sign-in before a risky action (RFC 9470). Session context, approvals that need a fresh passkey or TOTP code, and the MCP OAuth server.
+icon: fingerprint
+---
+
+A session that logged in with a password this morning is fine for reading a dashboard. It is not enough to approve a wire transfer an agent asked for. Step-up authentication is the pattern for that gap: the resource says "I need a stronger or more recent sign-in", and the user proves themselves again.
+
+theAuth implements it in three places:
+
+- Sessions remember how and when the user proved who they are (`session.auth`).
+- Approvals can demand a fresh passkey or TOTP code from the person approving.
+- The MCP OAuth server honors `acr_values` and `max_age`, puts `acr`, `amr` and `auth_time` in access tokens, and `requireMcpAuth` can answer with the `insufficient_user_authentication` challenge from [RFC 9470](https://www.rfc-editor.org/rfc/rfc9470).
+
+## What a session knows
+
+Every session built by `createSessionManager` carries an `auth` object:
+
+```ts
+const session = await theauth.auth.session?.validate(token);
+session?.auth;
+// {
+//   acr: "urn:theauth:acr:mfa",
+//   amr: ["mfa", "otp", "pwd"],
+//   authTime: 1800000000,               // epoch seconds of the newest proof
+//   events: [{ method: "totp", at: 1800000000 }, { method: "password", at: 1799990000 }],
+// }
+```
+
+`events` holds one entry per method, the last time it was proven. The other fields are derived from it.
+
+| Method | Recorded when | `amr` values |
+| --- | --- | --- |
+| `password` | Username and password sign-in | `pwd` |
+| `otp` | Magic link, email OTP, phone OTP, a backup code | `otp` |
+| `totp` | Sign-in gate second factor, `POST /auth/2fa/verify` | `otp` |
+| `passkey` | Passkey assertion with user verification | `swk`, `user` (plus `mfa`) |
+| `passkey_presence` | Passkey assertion without user verification | `swk`, `user` |
+
+Social login, one tap, SIWE and device sign-ins record nothing. A session that started that way reports `acr: "urn:theauth:acr:none"` until the user proves something theAuth can rate. A session created before this feature, or by your own code without `authMethods`, reports the same.
+
+The classes are ordered, weakest first:
+
+| `acr` | Reached when |
+| --- | --- |
+| `urn:theauth:acr:none` | No recorded proof |
+| `urn:theauth:acr:single-factor` | One proof, or two proofs of the same kind (two codes) |
+| `urn:theauth:acr:mfa` | A knowledge factor plus a possession factor, for example password plus TOTP |
+| `urn:theauth:acr:phishing-resistant` | A passkey with user verification |
+
+The ordering is a theAuth rule: a stronger class satisfies a request for a weaker one. RFC 9470 itself treats `acr` values as opaque strings. The constants are exported as `ACR` and the list as `ACR_ORDER`.
+
+### Freshness is judged per class
+
+`max_age` does not look only at the newest event. A password typed a minute ago must not make a passkey from last week look fresh. With a maximum age, the class needs a recent event that can vouch for it:
+
+- single factor: any recent event
+- multi factor: a recent TOTP code or passkey (a password alone does not count)
+- phishing resistant: a recent passkey
+
+So a user who logged in with a password two hours ago and entered a TOTP code ten seconds ago passes "multi factor within five minutes". A user who typed their password ten seconds ago after a passkey two hours ago does not pass "phishing resistant within five minutes".
+
+### Recording a step-up
+
+`POST /auth/2fa/verify` and `POST /auth/2fa/otp/verify` record the proof on the session that made the request, when the code is correct. A passkey sign-in creates a new session that carries the passkey event. If you verify a proof yourself, record it after the check:
+
+```ts
+const sessions = theauth.auth.session;
+if (!sessions) throw new Error("sessions are not configured");
+
+const { valid } = await theauth.totp!.verify(userId, code);
+if (valid) await sessions.recordAuth(session.id, "totp");
+```
+
+`recordAuth` refreshes `authTime` and can raise `acr`. Call it only after the proof was verified. If you use the session cookie cache, call its `clear` helper afterwards so the cached copy does not hide the step-up for up to its `maxAge`.
+
+A session refresh keeps its stored events. Refreshing never makes a login look newer.
+
+## Approvals that need a strong approver
+
+An approval is a human saying yes to an agent action. When the action is risky, you can require that the human just proved who they are.
+
+```ts
+import { ACR, createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "./theauth.db" },
+  agents: { enabled: true },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  approval: {
+    // Every approval needs a multi factor sign-in no older than 10 minutes.
+    requireAcr: ACR.mfa,
+    maxAuthAge: 600,
+    // Wire transfers need a passkey from the last two minutes.
+    stepUp: (request) =>
+      request.action === "wire:send"
+        ? { acr: ACR.phishingResistant, maxAge: 120 }
+        : undefined, // fall back to the defaults above
+  },
+});
+```
+
+The rule is stored on the request (`requiredAcr`, `maxAuthAge`), so the approval UI can tell the user what to do before they click. A single request can also carry its own rule, which beats both settings above:
+
+```ts
+const request = await theauth.approval.request({
+  agentId,
+  userId,
+  action: "wire:send",
+  resource: "account:ops",
+  stepUp: { acr: ACR.phishingResistant, maxAge: 120 },
+});
+```
+
+Deciding passes the approver's session assertion:
+
+```ts
+import { StepUpRequiredError } from "@glinr/theauth";
+
+try {
+  await theauth.approval.approve(request.id, approver.id, session.auth);
+} catch (error) {
+  if (error instanceof StepUpRequiredError) {
+    // error.failure.acr and error.failure.maxAge say what to ask the user for.
+    return redirectToReauth(error.failure);
+  }
+  throw error;
+}
+```
+
+- Approving without an assertion, or with a weak or old one, throws `StepUpRequiredError`. The request stays pending.
+- Denying never needs step-up. Saying no is always safe.
+- The audit row for the approval records `approverAcr`, `approverAmr` and `approverAuthTime`.
+- `approval.decide(id, { decision, decidedBy, authContext })` takes the same assertion.
+
+The admin API (`adminApi`) enforces the same rule on `POST /approvals/:id/approve`. A refused approval answers `401` with `WWW-Authenticate: Bearer error="insufficient_user_authentication", acr_values="...", max_age="..."` and the body error code `STEP_UP_REQUIRED`. It reads the approver's assertion from the session behind the Bearer token, or from `resolveApproverAuth` if you sign admins in another way. With neither, a request that has a rule cannot be approved there.
+
+### Risk tiers
+
+Risk tiers in the policy engine can name the rule. A tier with `require: "step_up"` and no explicit rule asks for multi factor within five minutes:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  policy: {
+    risk: {
+      tiers: [
+        { tier: "high", when: { minAmount: 10_000 }, require: "step_up" },
+        {
+          tier: "wire",
+          when: { minAmount: 500, currency: "USD" },
+          require: "approval",
+          stepUp: { acr: ACR.phishingResistant, maxAge: 120 },
+        },
+      ],
+    },
+  },
+});
+```
+
+`policy.evaluate(input, { openApproval: true })` opens the approval with the tier's rule. When the agent retries with `approvalId`, spending the approval checks that it was granted under a rule at least as strong as the tier demands. An ordinary approval cannot stand in for a step-up one: the call is denied with `approval_step_up_insufficient`.
+
+## The MCP OAuth server
+
+Give the module a way to read the signed-in user's `session.auth`:
+
+```ts
+import { createMcpModule } from "@glinr/theauth/mcp";
+
+const mcp = createMcpModule({
+  auth: theauth,
+  config: {
+    enabled: true,
+    issuer: "https://auth.example.com",
+    baseUrl: "https://auth.example.com/api/auth",
+    signingSecret: process.env.MCP_SIGNING_SECRET!,
+    resource: "https://mcp.example.com",
+    loginPage: "https://app.example.com/login",
+  },
+  resolveUserId: async (request) => (await sessionOf(request))?.userId ?? null,
+  resolveAuthContext: async (request) => (await sessionOf(request))?.auth ?? null,
+});
+```
+
+With `resolveAuthContext` set:
+
+- The authorization endpoint accepts `acr_values` (space separated, any one acceptable) and `max_age`.
+- If the session already meets them, the code is issued. If not, the answer is `LOGIN_REQUIRED` and the built-in routes redirect to `loginPage` with `returnTo`, `acr_values`, `max_age` and `prompt=login`. Your login page asks for the missing proof, records it (see above) and sends the user back to `returnTo`.
+- If the server cannot judge, or every `acr_values` entry is unknown to it, the answer is `unmet_authentication_requirements` (RFC 9470 section 5). That stops a client from looping on a token the resource would refuse.
+- `max_age` below 30 seconds is raised to 30, so the round trip to the login page cannot loop.
+- Access tokens carry `acr`, `amr` and `auth_time`. A refreshed token keeps the original values. Introspection returns them as top-level members.
+- The authorization server metadata lists `acr_values_supported`.
+
+Without `resolveAuthContext` nothing changes, except that a request that asks for `acr_values` or `max_age` gets `unmet_authentication_requirements` instead of being ignored.
+
+If you use a consent page, read the user's `session.auth` on the server when you approve and pass it to `approveConsent({ ..., auth: { acr, amr, authTime } })`. Never take it from the request.
+
+### Asking from the resource side
+
+`requireMcpAuth` and `requireScopes` can demand more than scopes:
+
+```ts
+const wire = mcp.requireMcpAuth(
+  async (request, principal) => Response.json({ ok: true, acr: principal.auth?.acr }),
+  { requiredScopes: ["bank:write"], requireAcr: ACR.phishingResistant, maxAge: 300 },
+);
+
+// or, without the wrapper
+const check = await mcp.requireScopes(request, ["bank:write"], { acr: ACR.mfa, maxAge: 300 });
+if (!check.authorized) return check.response;
+```
+
+When the login behind the token is too weak or too old, the response is `401` with:
+
+```http
+WWW-Authenticate: Bearer error="insufficient_user_authentication",
+  error_description="A stronger authentication is required",
+  acr_values="urn:theauth:acr:phishing-resistant", max_age="300",
+  resource_metadata="https://auth.example.com/api/auth/.well-known/oauth-protected-resource"
+```
+
+A client that understands RFC 9470 sends the user through the authorization endpoint again with the same `acr_values` and `max_age` and retries with the new token. A token without an `acr` claim, such as one from the client credentials grant, never satisfies a requirement. Agents acting alone cannot pass a human step-up.
+
+## Things to know
+
+- The `acr` and `auth_time` in a token describe the login that produced it. They do not change while the token lives. A resource that needs a recent login should set `maxAge`, and clients get a new token by going through authorize again.
+- RFC 9470 says a client must not read these claims out of an access token. Only the resource server does.
+- `acr_values` can leak what you require. Do not put anything sensitive in a custom class name.
+- Passkeys count as phishing resistant only when the assertion had the user verified flag. Set `userVerification: "required"` in the passkey config if you rely on it.

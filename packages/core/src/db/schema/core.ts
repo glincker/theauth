@@ -16,6 +16,11 @@ interface PermissionConstraintsRow {
 	ipAllowlist?: string[];
 }
 
+interface AgentConfirmationRow {
+	jkt?: string;
+	"x5t#S256"?: string;
+}
+
 interface DelegationPermissionRow {
 	resource: string;
 	actions: string[];
@@ -72,7 +77,7 @@ export const agents = sqliteTable("theauth_agents", {
 		.references(() => users.id),
 	tenantId: text("tenant_id").references(() => tenants.id), // nullable, for multi-tenant scoping
 	name: text("name").notNull(),
-	type: text("type", { enum: ["autonomous", "delegated", "service"] }).notNull(),
+	type: text("type", { enum: ["autonomous", "delegated", "service", "device"] }).notNull(),
 	status: text("status", { enum: ["active", "revoked", "expired"] })
 		.notNull()
 		.default("active"),
@@ -81,6 +86,8 @@ export const agents = sqliteTable("theauth_agents", {
 	expiresAt: timestampSec("expires_at"),
 	lastActiveAt: timestampSec("last_active_at"),
 	metadata: json<Record<string, unknown>>("metadata"),
+	/** Confirmation claim (RFC 7800) the token is bound to: `jkt` (DPoP) or `x5t#S256` (mTLS). Null means a plain bearer token. */
+	cnf: json<AgentConfirmationRow>("cnf"),
 	createdAt: timestampSec("created_at").notNull(),
 	updatedAt: timestampSec("updated_at").notNull(),
 });

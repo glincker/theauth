@@ -1,3 +1,5 @@
+import type { LoginRedirectDetails } from "../../mcp/login-redirect.js";
+import { loginRedirectUrl } from "../../mcp/login-redirect.js";
 import {
 	applyMountedToResourceMetadata,
 	applyMountedToServerMetadata,
@@ -110,14 +112,8 @@ async function authorize(ctx: RouteContext): Promise<Response> {
 		const result = await mcp.authorize(ctx.request);
 		if (!result.success) {
 			if (result.error.code === "LOGIN_REQUIRED") {
-				const details = result.error.details as
-					| { loginPage?: string; returnTo?: string }
-					| undefined;
-				if (details?.loginPage) {
-					const loginUrl = new URL(details.loginPage);
-					if (details.returnTo) loginUrl.searchParams.set("returnTo", details.returnTo);
-					return Response.redirect(loginUrl.toString(), 302);
-				}
+				const loginUrl = loginRedirectUrl(result.error.details as LoginRedirectDetails | undefined);
+				if (loginUrl) return Response.redirect(loginUrl, 302);
 			}
 			return mcpError(result.error.code.toLowerCase(), result.error.message, 400);
 		}

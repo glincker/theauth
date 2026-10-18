@@ -287,8 +287,20 @@ The database session manager already refused a banned user. The JWT session modu
 - Through `createTheAuth` nothing to wire: the handlers use your auth adapter, then the session token, like the TOTP and passkey handlers.
 - For a module built on its own (`createOrgModule(config, db, { resolveUser })`, `createApiKeyManagerModule(config, db, { resolveUser })`), pass a `resolveUser` that returns `{ id }` or null. With no resolver every route answers 401.
 - With a resolver, API key routes only reach the caller's own keys (403 otherwise). Org routes need membership to read and the `owner` or `admin` role to change anything. A member may remove themselves. `ownerId`, `invitedBy` and the accepting user are taken from the session, and a body value for another user is a 403.
+- Owner level stays with owners. Only an owner can grant the `owner` role (add, invite or role change), change or remove another owner, or delete the org. An admin who tries gets 403.
+- An invitation can only be accepted by the signed-in user whose email it was sent to (compared without case). Anyone else holding the invitation id gets 403. `GET /auth/org/:orgId/invitations` needs `owner` or `admin`, because the ids it returns work as join links.
+- `acceptInvitation` claims the invitation with one conditional write, so a second accept of the same invitation fails with "not pending" even when both run at once.
 - Opt out for trusted server code that has already authenticated and authorized the caller: `org: { trustedServerUse: true }` or `apiKeys: { trustedServerUse: true }`. The handler then trusts ids in the request, as before. A configured resolver always wins over the flag.
 - Before: unauthenticated requests could create orgs, add members and mint API keys for any user. After: 401, or 403 for another user's data.
+
+## Single use codes and tokens are claimed atomically
+
+Several redemptions read a row, checked it, then marked it used with a separate write. Two requests that arrived together could both pass the check. Each one is now a single conditional `UPDATE` or `DELETE`, and only the caller whose statement changed the row continues.
+
+- OIDC provider: an authorization code exchanged twice at once yields one token set. The other call gets `CODE_ALREADY_USED`. A refresh token used twice at once yields one rotation, the other gets `REFRESH_TOKEN_REVOKED`.
+- JWT sessions: `refreshSession` called twice with one refresh token creates one session. The other call gets `REFRESH_TOKEN_USED`.
+- Passkeys: a registration or authentication challenge is spent by one request. A concurrent second request gets `CHALLENGE_NOT_FOUND`.
+- Action: none, unless your client retries a refresh in parallel. Send one refresh at a time and reuse its result.
 
 ## Authorization code grant refuses another user's agent client
 
@@ -305,6 +317,15 @@ Tool arguments named `inputProvenance` are now dropped from audit `parameters`, 
 - Action: if a tool takes an argument called `inputProvenance`, rename it, or it will not appear in the audit row.
 - Pseudonym rotation (`audit.pseudonymRotation`) is opt in. Without it nothing changes.
 
+## Input provenance uses a keyed hash
+
+`hashInputContent(content)` is now `hashInputContent(content, auditKey)` and returns an HMAC-SHA-256 under a subkey derived from the audit key, so a reader of the audit table cannot confirm a guess at short content. The old unkeyed function is `hashInputContentPlain(content)`.
+
+- Rows recorded with `context.inputs` now carry `hv: 2` on each source. Rows written before keep the plain hash and no `hv`, and still match queries by content.
+- `audit.query({ provenance: { hash } })` still works for a stored hash. To look up content, use `provenance: { content }`: the server hashes it for you, so nothing needs the key on the client.
+- Action: if you computed `hashInputContent(text)` yourself to filter, switch to `provenance: { content: text }`. Hashes you pass as `hash` in `inputs` are stored as given.
+- `AuditEntry` gains an optional `inputs` list (kind, id, hash, hv). `POST /authorize` and `POST /authorize/token` accept `inputs`, and `GET /audit` takes `provenanceKind`, `provenanceHash` and `provenanceContent`.
+
 ## `generateOpenAPISpec` is generated from the route table
 
 The OpenAPI document is no longer hand written. It is built from the handler's routes and the core result shapes, and `sdks/openapi.json` is the checked-in copy.
@@ -315,3 +336,32 @@ The OpenAPI document is no longer hand written. It is built from the handler's r
 - `POST /authorize` and `POST /authorize/token` accept `approvalId`. Before, the HTTP body schema dropped it, so an approved request could not be spent over HTTP.
 - Action: regenerate any client you built from the old document, and pass the origin as `baseUrl`.
 
+
+## Agent type `device` and the IoT device tables
+
+IoT devices are backed by agent rows of the new type `device` (see [IoT devices](/iot-devices)). Nothing changes unless you set `devices` in the config, but the types widen.
+
+- `AgentIdentity["type"]`, `AgentFilter["type"]` and `CreateAgentInput["type"]` now include `"device"` (exported as `AgentType`). A `switch` over agent types that assumes three cases needs a `device` branch or a default.
+- `agent.create({ type: "device" })` throws. Devices are created with `theauth.device.register` or enrollment.
+- `agent.list()` leaves device agents out unless you pass `type: "device"`, and they do not count against `agents.maxPerUser`. `agent.rotate` refuses a device agent.
+- Agent registration tokens accept only `autonomous`, `delegated` and `service` as `agentType` (`agent_type` over HTTP). Before, any string was stored and became the agent type.
+- New decision codes: `device_not_found`, `device_suspended`, `device_revoked`, `device_expired`. `statusForDecisionCode` maps the first, third and fourth to 401.
+- Migration `0010-devices` creates `theauth_devices`, `theauth_device_credentials` and `theauth_device_enrollments` when agents are enabled. With `database.skipMigrations`, apply it with `theauth db sql --dialect <sqlite|postgres|mysql> --from 0010`.
+- `/devices` is now a protected adapter path, and the handler serves the device facing routes under `/device/*` unless you set `routes: { devices: false }`. They answer 404 while `devices` is not configured.
+- Action: add a `device` case where you branch on agent type. If you mount your own routes under `/devices` or `/device`, move them or turn the device routes off.
+
+## Step-up authentication and sender constrained agent tokens
+
+Sessions now remember how the user proved who they are, approvals can demand a fresh passkey or TOTP code, the MCP server honors `acr_values` and `max_age`, and agent tokens can be bound to a DPoP key or a client certificate. See [step-up authentication](/step-up-auth) and [sender constrained agent tokens](/dpop-agent-tokens). Everything is opt in, but some types and behaviors changed.
+
+- New decision codes: `confirmation_required`, `confirmation_failed` (both 401 from `statusForDecisionCode`) and `approval_step_up_insufficient`. A `switch` over `DecisionCode` that is exhaustive needs the new cases.
+- `SessionManager` has a new method, `recordAuth(sessionId, method)`. A custom implementation of the interface must add it. `Session` gains an optional `auth` object, and `CreateSessionOptions` gains `authMethods`.
+- A risk tier with `require: "step_up"` could never be satisfied before: the call always escalated. Now an approval spends it, provided the approval was opened under a rule at least as strong as the tier (default: multi factor within 5 minutes). If you relied on the tier to block those calls for good, keep it blocked with a `deny` hook.
+- `approval.approve(id, by)` throws `StepUpRequiredError` when the request carries a step-up rule and no assertion is passed. Requests opened without a rule behave as before.
+- `approval.approve`, `deny` and `decide` now change a request with one conditional update. Before, two concurrent decisions could both succeed and the last one won.
+- `AgentIdentity` gains an optional `cnf`. `RequestContext` gains `confirmation`. `agent.rotate(id)` keeps the binding, and takes `{ cnf }` to change it.
+- `POST /agents/introspect` is a new route, so a custom route table that mirrors `listRoutes()` needs it. `POST /authorize/token` and `requireAgent` also accept `Authorization: DPoP <token>`.
+- `passkey.verifyAuthentication` returns `userVerified` next to `userId` and `credential`.
+- The MCP `McpAuthModule.requireScopes` takes an optional third argument, and `McpPrincipal` has an `auth` field. `McpAuthErrorCode` gains `INSUFFICIENT_USER_AUTHENTICATION`.
+- Migrations: `0009-step-up-and-confirmation` adds `cnf` to `theauth_agents` and `required_acr` and `max_auth_age` to `theauth_approval_requests` (agents enabled). `0011-oauth-auth-evidence` adds `auth_acr`, `auth_amr` and `auth_time` to the OAuth code and token tables (OAuth enabled). All columns are nullable. With `database.skipMigrations`, apply them with `theauth db sql --dialect <sqlite|postgres|mysql> --from 0009`.
+- Action: add the new decision codes where you branch on them, add `recordAuth` to custom session managers, and run `theauth db up`.

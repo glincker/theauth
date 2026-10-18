@@ -23,7 +23,7 @@ describe("migration 0008-cimd on SQLite", () => {
 		);
 
 		const result = await runMigrations(db, "sqlite");
-		expect(result.applied).toEqual(["0007", "0008"]);
+		expect(result.applied).toEqual(MIGRATIONS.map((m) => m.id).filter((id) => id >= "0007"));
 		expect(await ledgerIds(exec)).toEqual(MIGRATIONS.map((m) => m.id));
 
 		const rows = await exec.all(

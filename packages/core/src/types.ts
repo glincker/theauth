@@ -1,7 +1,8 @@
+import type { AgentConfirmation } from "./agent/confirmation.js";
 import type { AgentConfig } from "./agent/types.js";
 import type { ApprovalConfig } from "./approval/approval.js";
 import type { ChainCheckpointOptions, ChainCheckpointResult } from "./audit/chain-anchor.js";
-import type { InputSource, ProvenanceFilter } from "./audit/provenance.js";
+import type { InputSource, InputSourceKind, ProvenanceFilter } from "./audit/provenance.js";
 import type { PseudonymRotation } from "./audit/pseudonym-rotation.js";
 import type {
 	AgentReplay,
@@ -28,6 +29,7 @@ import type { AuthAdapter } from "./auth/types.js";
 import type { UsernameAuthConfig } from "./auth/username.js";
 import type { WebhookConfig } from "./auth/webhooks.js";
 import type { DatabaseConfig } from "./db/database.js";
+import type { DeviceConfig } from "./device/types.js";
 import type { DidWebConfig } from "./did/types.js";
 import type { TheAuthHooks } from "./hooks/lifecycle.js";
 import type { HookSafetyConfig } from "./hooks/safety.js";
@@ -49,6 +51,8 @@ export interface TheAuthConfig {
 	database: DatabaseConfig;
 
 	agents?: AgentConfig;
+	/** IoT devices as principals (`theauth.device`). Needs `agents`. See docs/iot-devices.mdx. */
+	devices?: DeviceConfig;
 
 	audit?: AuditConfig;
 
@@ -213,16 +217,22 @@ export interface McpModule {
 }
 
 // Placeholder types - will be fully defined in their respective modules
+/** Every agent type, including the `device` type of IoT device backing agents. */
+export type AgentType = "autonomous" | "delegated" | "service" | "device";
+
 export interface AgentIdentity {
 	id: string;
 	ownerId: string;
 	tenantId?: string;
 	name: string;
-	type: "autonomous" | "delegated" | "service";
+	/** `device` marks the backing agent of an IoT device (see `theauth.device`). Never accepted on create. */
+	type: AgentType;
 	token: string;
 	permissions: Permission[];
 	status: "active" | "revoked" | "expired";
 	expiresAt: Date | null;
+	/** Sender constraint of the token (RFC 7800): `jkt` for DPoP, `x5t#S256` for mutual TLS. Absent for a plain bearer token. See `docs/dpop-agent-tokens.mdx`. */
+	cnf?: AgentConfirmation;
 	createdAt: Date;
 	updatedAt: Date;
 }
@@ -247,10 +257,13 @@ export interface CreateAgentInput {
 	ownerId: string;
 	tenantId?: string;
 	name: string;
-	type: "autonomous" | "delegated" | "service";
+	/** `device` is refused here: device agents are created by `theauth.device.register`. It is in the union so `beforeAgentCreate` policies see device registrations. */
+	type: AgentType;
 	permissions: Permission[];
 	expiresAt?: Date;
 	metadata?: Record<string, unknown>;
+	/** Bind the token to a key or certificate (RFC 7800). The token then works only for a request that proves the key, for example with a DPoP proof (RFC 9449). */
+	cnf?: AgentConfirmation;
 }
 
 export interface UpdateAgentInput {
@@ -264,7 +277,8 @@ export interface AgentFilter {
 	userId?: string;
 	tenantId?: string;
 	status?: "active" | "revoked" | "expired";
-	type?: "autonomous" | "delegated" | "service";
+	/** Device backing agents are left out unless `type: "device"` is asked for. */
+	type?: AgentType;
 }
 
 export interface AuthorizeResult {
@@ -278,6 +292,8 @@ export interface AuthorizeResult {
 export type AuthorizeFn = (agentId: string, request: AuthorizeRequest) => Promise<AuthorizeResult>;
 
 export interface RequestContext {
+	/** Proofs of possession the transport already verified for this request, by `cnf` member (`jkt`, `x5t#S256`). An agent token bound with `cnf` is refused unless these match. Set it only from verified data, `requireAgent` and the HTTP handler do. */
+	confirmation?: AgentConfirmation;
 	/** Client IP address, used for ipAllowlist enforcement and audit logging */
 	ip?: string;
 	userAgent?: string;
@@ -346,7 +362,17 @@ export interface AuditEntry {
 	event: AuditEvent | null;
 	durationMs: number;
 	tokensCost?: number;
+	/** Inputs the caller said were in context for this call (kind, optional id, content hash). Never the content. Absent when none were recorded. */
+	inputs?: AuditInputRef[];
 	timestamp: Date;
+}
+
+/** One recorded input of a call. `hv` is 2 for the keyed hash, absent for plain SHA-256 hashes of older rows. */
+export interface AuditInputRef {
+	kind: InputSourceKind;
+	id?: string;
+	hash: string;
+	hv?: 2;
 }
 
 /**

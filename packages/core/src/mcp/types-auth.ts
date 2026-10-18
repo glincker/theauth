@@ -30,6 +30,7 @@ export type McpAuthErrorCode =
 	| "DELEGATION_REVOKED"
 	| "INSUFFICIENT_SCOPE"
 	| "DPOP_REQUIRED"
+	| "INSUFFICIENT_USER_AUTHENTICATION"
 	| "SERVER_ERROR";
 
 /** Who a rejected token belonged to. Only filled from a token whose signature verified. */
@@ -51,3 +52,11 @@ export type RequireScopesResult =
 			rejected?: McpRejectedToken;
 			response: Response;
 	  };
+
+/** How the user authenticated when the grant was made (RFC 9470, RFC 8176). Carried into the token claims `acr`, `amr` and `auth_time`. */
+export interface McpAuthEvidence {
+	acr: string;
+	amr: string[];
+	/** Epoch seconds of the authentication event. */
+	authTime: number;
+}

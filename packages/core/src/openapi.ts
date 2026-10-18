@@ -79,6 +79,7 @@ const SECURITY: Record<RouteAuthLevel, Array<Record<string, string[]>>> = {
 	admin: [{ BearerAuth: [] }],
 	agent: [{ AgentToken: [] }],
 	client: [{ ClientBasic: [] }, {}],
+	device: [{ DeviceCredential: [] }],
 	public: [],
 };
 
@@ -261,6 +262,12 @@ export function generateOpenAPISpec(options: GenerateOpenAPIOptions = {}): OpenA
 					type: "http",
 					scheme: "bearer",
 					bearerFormat: "TheAuth Agent Token (ta_...)",
+				},
+				DeviceCredential: {
+					type: "http",
+					scheme: "bearer",
+					description:
+						"A device pre shared key (tdk_...) or a device assertion JWT (typ device-assertion+jwt). A client certificate checked by your proxy also works when devices.clientCertThumbprint is set.",
 				},
 				ClientBasic: {
 					type: "http",

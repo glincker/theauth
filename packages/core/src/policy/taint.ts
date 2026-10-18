@@ -2,6 +2,7 @@
 // Applied after permission matching and risk tiers, before an approval is spent,
 // so a tainted call that was permitted becomes an escalate (or a deny).
 
+import { isInputSourceKind } from "../audit/provenance.js";
 import { compareStrings } from "../internal-compare.js";
 import { matchLabel, setOwn } from "../taint/labels.js";
 import type {
@@ -31,6 +32,24 @@ export function normalizeProvenance(raw: unknown): ProvenanceMap | undefined {
 		if (clean.length > 0) setOwn(out, arg, clean.sort(compareStrings));
 	}
 	return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** Add `input:<kind>` call labels for the kinds in `inputs` to the supplied labels. Only used when `TaintConfig.inputLabels` is on. */
+export function withInputLabels(
+	provenance: ProvenanceMap | undefined,
+	inputs: unknown,
+): ProvenanceMap | undefined {
+	if (!Array.isArray(inputs)) return provenance;
+	const kinds = new Set<string>();
+	for (const input of inputs) {
+		const kind = (input as { kind?: unknown } | null)?.kind;
+		if (isInputSourceKind(kind)) kinds.add(`input:${kind}`);
+	}
+	if (kinds.size === 0) return provenance;
+	return normalizeProvenance({
+		...(provenance ?? {}),
+		[CALL_LABELS_KEY]: [...(provenance?.[CALL_LABELS_KEY] ?? []), ...kinds],
+	});
 }
 
 /** Record which rule produced a match. The index is non-enumerable so the verdict that is stored in the audit row (and hashed into it) keeps its exact shape. */

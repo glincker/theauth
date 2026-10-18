@@ -23,6 +23,19 @@ import { extractBearerToken, timingSafeEqual } from "./utils.js";
 
 const MAX_DELEGATION_DEPTH = 10;
 
+/** The `acr`, `amr` and `auth_time` claims of a verified token, each only when well formed. */
+function authClaimsOf(payload: McpTokenPayload): Pick<McpSession, "auth"> | Record<string, never> {
+	const auth: NonNullable<McpSession["auth"]> = {};
+	if (typeof payload.acr === "string") auth.acr = payload.acr;
+	if (Array.isArray(payload.amr) && payload.amr.every((v) => typeof v === "string")) {
+		auth.amr = payload.amr;
+	}
+	if (typeof payload.auth_time === "number" && Number.isFinite(payload.auth_time)) {
+		auth.authTime = payload.auth_time;
+	}
+	return Object.keys(auth).length > 0 ? { auth } : {};
+}
+
 /** Identify a token whose signature verified, for attributing a refusal. Returns undefined when the claims do not name a subject, client and token id. */
 function rejectedFrom(claims: unknown): McpRejectedToken | undefined {
 	if (typeof claims !== "object" || claims === null) return undefined;
@@ -318,6 +331,7 @@ export async function validateAccessToken(
 		expiresAt: new Date(payload.exp * 1000),
 		tokenId: payload.jti,
 		...(boundJkt ? { dpopJkt: boundJkt } : {}),
+		...authClaimsOf(payload),
 		...(typeof payload.agent_id === "string"
 			? {
 					agent: {

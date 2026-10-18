@@ -17,6 +17,7 @@ export interface JsonSchema {
 	additionalProperties?: JsonSchema | boolean;
 	oneOf?: JsonSchema[];
 	anyOf?: JsonSchema[];
+	discriminator?: { propertyName: string };
 }
 
 interface ZodDef {
@@ -111,6 +112,11 @@ export function zodToJsonSchema(
 			);
 		case "ZodUnion":
 			return { oneOf: (def.options as ZodTypeAny[]).map(recurse) };
+		case "ZodDiscriminatedUnion":
+			return {
+				oneOf: [...(def.options as Iterable<ZodTypeAny>)].map(recurse),
+				discriminator: { propertyName: def.discriminator as string },
+			};
 		case "ZodObject": {
 			const shape = (def.shape as () => Record<string, ZodTypeAny>)();
 			const properties: Record<string, JsonSchema> = {};

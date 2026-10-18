@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, ListChecks, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { TheAuthApiClient } from "../api/client.js";
 import type { PendingApproval } from "../api/types.js";
+import { Badge } from "../components/badge.js";
 import { Button } from "../components/button.js";
 import { PageHeader } from "../components/layout.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
@@ -16,6 +17,24 @@ type Decision = "approve" | "deny";
 /** The approvals routes are opt in on the server; a 404 means they are not mounted, not that loading broke. */
 export function approvalsUnavailable(error: { code: string }): boolean {
 	return error.code === "HTTP_404";
+}
+
+const ACR_LABELS: Record<string, string> = {
+	"urn:theauth:acr:single-factor": "a sign-in",
+	"urn:theauth:acr:mfa": "a second factor",
+	"urn:theauth:acr:phishing-resistant": "a passkey",
+};
+
+/** What the approver must prove, or null when the request has no step-up rule. */
+export function stepUpHint(
+	approval: Pick<PendingApproval, "requiredAcr" | "maxAuthAge">,
+): string | null {
+	const { requiredAcr, maxAuthAge } = approval;
+	if (requiredAcr === undefined && maxAuthAge === undefined) return null;
+	const what = requiredAcr === undefined ? "a sign-in" : (ACR_LABELS[requiredAcr] ?? requiredAcr);
+	if (maxAuthAge === undefined) return `Needs ${what}`;
+	const fresh = maxAuthAge < 60 ? `${maxAuthAge}s` : `${Math.round(maxAuthAge / 60)}m`;
+	return `Needs ${what} within ${fresh}`;
 }
 
 export function formatExpiresIn(iso: string, now: number): string {
@@ -66,6 +85,11 @@ function ApprovalRow({
 					<code className="text-xs font-mono text-zinc-700 dark:text-zinc-300">
 						{approval.action}
 					</code>
+					{stepUpHint(approval) && (
+						<div className="mt-1">
+							<Badge variant="yellow">{stepUpHint(approval)}</Badge>
+						</div>
+					)}
 				</Td>
 				<Td>
 					<code className="text-xs font-mono text-zinc-400 max-w-[220px] truncate block">
@@ -176,6 +200,11 @@ export function ApprovalsPage({ client }: ApprovalsPageProps) {
 			setConfirm(null);
 			if (result.success) {
 				toast("success", v.decision === "approve" ? "Request approved" : "Request denied");
+			} else if (result.error.code === "STEP_UP_REQUIRED") {
+				toast(
+					"error",
+					"This approval needs a fresher or stronger sign-in. Sign in again, then retry.",
+				);
 			} else {
 				toast("error", result.error.message);
 			}

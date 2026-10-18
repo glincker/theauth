@@ -110,7 +110,7 @@ export interface PasskeyModule {
 			authenticatorData: string;
 			signature: string;
 		};
-	}) => Promise<{ userId: string; credential: PasskeyCredential }>;
+	}) => Promise<{ userId: string; credential: PasskeyCredential; userVerified: boolean }>;
 
 	listCredentials: (userId: string) => Promise<PasskeyCredential[]>;
 	removeCredential: (credentialId: string, userId: string) => Promise<void>;

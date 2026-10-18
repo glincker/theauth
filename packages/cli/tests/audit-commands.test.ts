@@ -104,3 +104,57 @@ describe("runAudit", () => {
 		expect(out.output).toContain("Chain: broken");
 	});
 });
+
+describe("audit query", () => {
+	const HASH = "ab".repeat(32);
+
+	it("parses --provenance as kind, kind:hash or :hash and rejects bad values", () => {
+		expect(parseAuditArgs(["query", "--provenance", "retrieved_document"])).toMatchObject({
+			provenanceKind: "retrieved_document",
+			provenanceHash: null,
+			error: null,
+		});
+		expect(parseAuditArgs(["query", "--provenance", `tool_output:${HASH}`])).toMatchObject({
+			provenanceKind: "tool_output",
+			provenanceHash: HASH,
+		});
+		expect(parseAuditArgs(["query", `--provenance=:${HASH}`])).toMatchObject({
+			provenanceKind: null,
+			provenanceHash: HASH,
+		});
+		expect(parseAuditArgs(["query", "--provenance", "bogus:x"]).error).toMatch(/kind must be/);
+		expect(parseAuditArgs(["query", "--provenance", "agent:zz"]).error).toMatch(/64 lowercase/);
+		expect(parseAuditArgs(["query", "--limit", "0"]).error).toMatch(/positive integer/);
+	});
+
+	it("passes the filter to the audit module and prints input chips", async () => {
+		let seen: unknown;
+		const audit = fakeAudit({
+			query: async (filter) => {
+				seen = filter;
+				return [
+					{
+						id: "r1",
+						agentId: "a1",
+						userId: "u1",
+						action: "read",
+						resource: "mcp:github:issues",
+						parameters: {},
+						result: "allowed",
+						event: "authorize",
+						durationMs: 1,
+						timestamp: new Date("2026-10-18T10:00:00Z"),
+						inputs: [{ kind: "retrieved_document", id: "doc-1", hash: HASH }],
+					},
+				];
+			},
+		});
+		const r = await runAudit(
+			parseAuditArgs(["query", "--agent", "a1", "--input-content", "bad page", "--limit", "5"]),
+			audit,
+		);
+		expect(seen).toMatchObject({ agentId: "a1", limit: 5, provenance: { content: "bad page" } });
+		expect(r.code).toBe(0);
+		expect(r.output).toContain("retrieved_document(doc-1)");
+	});
+});

@@ -73,6 +73,8 @@ export {
 	type McpSigningKeyPair,
 	toPublicJwk,
 } from "./keys.js";
+export type { LoginRedirectDetails } from "./login-redirect.js";
+export { loginRedirectUrl } from "./login-redirect.js";
 export {
 	createInMemoryBlockStore,
 	createInMemoryJtiDenylist,
@@ -121,7 +123,12 @@ export {
 	type McpModuleAuth,
 	type McpModuleParams,
 } from "./server.js";
-export { buildStepUpResponse } from "./step-up.js";
+export type { McpUserAuthRequirement } from "./step-up.js";
+export {
+	buildInsufficientUserAuthResponse,
+	buildStepUpResponse,
+	checkUserAuthentication,
+} from "./step-up.js";
 export { createMcpStores, type McpStores, type McpStoresOptions } from "./stores-db.js";
 export { createDbBindingStore } from "./stores-db-binding.js";
 export { createDbRevocationStore } from "./stores-db-revocation.js";
@@ -136,6 +143,7 @@ export type {
 	McpAsymmetricAlg,
 	McpAuthContext,
 	McpAuthErrorCode,
+	McpAuthEvidence,
 	McpAuthModule,
 	McpAuthorizationCode,
 	McpAuthorizeRequest,

@@ -731,10 +731,10 @@ CREATE INDEX theauth_rebac_resources_parent
 
 CREATE TABLE IF NOT EXISTS theauth_rebac_relationships (
   id           VARCHAR(191) NOT NULL PRIMARY KEY,
-  subject_type VARCHAR(191) NOT NULL,
+  subject_type VARCHAR(128) NOT NULL,
   subject_id   VARCHAR(191) NOT NULL,
-  relation     VARCHAR(191) NOT NULL,
-  object_type  VARCHAR(191) NOT NULL,
+  relation     VARCHAR(128) NOT NULL,
+  object_type  VARCHAR(128) NOT NULL,
   object_id    VARCHAR(191) NOT NULL,
   created_at   BIGINT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
@@ -778,4 +778,4 @@ CREATE INDEX theauth_federation_tokens_agent
 CREATE INDEX theauth_federation_tokens_source
   ON theauth_federation_tokens (source_instance_id);
 
-INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0000', 'baseline', '39ad0ce2839fd7c2abde0cc0b0a1262b2504a2b75004cde101f15cb24ade10d7', UTC_TIMESTAMP(3));
+INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0000', 'baseline', '4ddbc1eb2fcce97315facf194c54bf061e6fcf3590c1466b8509b8131c713038', UTC_TIMESTAMP(3));

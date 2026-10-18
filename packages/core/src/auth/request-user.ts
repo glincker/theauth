@@ -37,7 +37,7 @@ export function createRequestUserResolver(
 			}
 		}
 		if (!sessionManager) return null;
-		const token = extractToken(request);
+		const token = extractToken(request, sessionManager.cookieName);
 		if (!token) return null;
 		try {
 			const session = await sessionManager.validate(token);

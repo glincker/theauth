@@ -102,20 +102,19 @@ await theauth.authorize(agent.id, { action: "execute", resource: "mcp:github:cre
 });
 ```
 
-The kinds are `user_message`, `tool_output`, `retrieved_document` and `agent`. Only a SHA-256 of the content is stored (pass `content` and it is hashed and dropped, or pass a `hash` you computed), plus the optional `id`. The record is `{ sources: [{ kind, id?, hash }], keys: ["<kind>:<hash>"] }` and merges with the taint labels when a policy supplies them. On version 2 rows it is covered by the chain hash. For tools, `guardTool(theauth, { inputs: (args) => [...] }, tool)` does the same on every call.
+The kinds are `user_message`, `tool_output`, `retrieved_document` and `agent`. Only a hash of the content is stored: an HMAC-SHA-256 under a subkey derived from the audit key (pass `content` and it is hashed and dropped, or pass a `hash` you computed), plus the optional `id`. The record is `{ sources: [{ kind, id?, hash, hv? }], keys: ["<kind>:<hash>"] }`, where `hv` is 2 for the keyed hash and absent on older rows with a plain SHA-256 and merges with the taint labels when a policy supplies them. On version 2 rows it is covered by the chain hash. For tools, `guardTool(theauth, { inputs: (args) => [...] }, tool)` does the same on every call.
 
 Provenance is read only from the trusted context, never from tool arguments. The argument name `inputProvenance` is reserved (see the reserved key rules in `src/audit/reserved.ts`), so an argument cannot plant or forge a source.
 
 Filter on it with the audit query:
 
 ```ts
-import { hashInputContent } from "@glinr/theauth";
-
-const hash = await hashInputContent(documentText);
-const rows = await theauth.audit.query({ provenance: { kind: "retrieved_document", hash } });
+const rows = await theauth.audit.query({
+  provenance: { kind: "retrieved_document", content: documentText },
+});
 ```
 
-`kind` and `hash` can be used together or alone. `hash` must be 64 lowercase hex characters. Verification, replay and export carry the record unchanged.
+`kind`, `hash` and `content` can be combined or used alone. `content` is hashed by the server with the audit key and matches both keyed and older plain hashes. `hash` must be 64 lowercase hex characters, exactly as stored. See [input provenance](/input-provenance) for the HTTP header, gateway, MCP and CLI forms. Verification, replay and export carry the record unchanged.
 
 ### Rotating pseudonyms
 
@@ -226,7 +225,7 @@ Both exit 1 when the chain is broken. `--db <url>` overrides `DATABASE_URL`. The
 - Anyone holding `hmacKey` and database write access can forge a chain. Keep the key outside the database host.
 - Retention cleanup and GDPR erasure remove or rewrite rows. Cleanup leaves a checkpoint row and erasure leaves an `audit.erasure` record. Rewriting a row in the middle by other means is flagged.
 - A pseudonym is linkable by whoever holds the key (`audit.hmacKey` or the stored secret).
-- `input_provenance` records the sources you declare (`context.inputs`, or the `inputs` option of `guardTool`) as kind, id and content hash. The SDK does not infer where an input came from, and a hash of a short or guessable text can be confirmed by anyone who guesses it.
+- `input_provenance` records the sources you declare (`context.inputs`, or the `inputs` option of `guardTool`) as kind, id and content hash. The SDK does not infer where an input came from. Hashes written before the keyed hash are plain SHA-256, so short or guessable text in those rows can be confirmed by anyone who guesses it.
 - Under pseudonym rotation, a raw id that is still present in a period whose secret was shredded cannot be checked against its pseudonym. The chain hash is still verified.
 - Audit writes for policy decisions, delegation, approval and SCIM events are best effort. Failures are counted and followed by an `audit.write_failed` row (with the count and the first and last failure times), but a write that fails is not retried.
 

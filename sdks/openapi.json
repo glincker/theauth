@@ -262,6 +262,12 @@
                   "metadata": {
                     "type": "object",
                     "additionalProperties": {}
+                  },
+                  "cnf": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
                   }
                 },
                 "required": [
@@ -578,7 +584,7 @@
     },
     "/agents/{id}/rotate": {
       "post": {
-        "summary": "Rotate an agent token",
+        "summary": "Rotate an agent token, optionally rebinding it to a key (body optional)",
         "operationId": "rotateAgentToken",
         "tags": [
           "Agents"
@@ -647,7 +653,111 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cnf": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/introspect": {
+      "post": {
+        "summary": "Introspect an agent token (RFC 7662), including cnf for sender constrained tokens",
+        "operationId": "introspectAgentToken",
+        "tags": [
+          "Agents"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AgentIntrospection"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "token"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/authorize": {
@@ -746,6 +856,38 @@
                   "approvalId": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "inputs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "user_message",
+                            "tool_output",
+                            "retrieved_document",
+                            "agent"
+                          ]
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "content": {
+                          "type": "string"
+                        },
+                        "hash": {
+                          "type": "string"
+                        },
+                        "hashVersion": {
+                          "const": 2
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -859,6 +1001,38 @@
                   "approvalId": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "inputs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "user_message",
+                            "tool_output",
+                            "retrieved_document",
+                            "agent"
+                          ]
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "content": {
+                          "type": "string"
+                        },
+                        "hash": {
+                          "type": "string"
+                        },
+                        "hashVersion": {
+                          "const": 2
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -1282,6 +1456,39 @@
               "type": "string"
             },
             "description": "Only entries for this resource"
+          },
+          {
+            "name": "provenanceKind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user_message",
+                "tool_output",
+                "retrieved_document",
+                "agent"
+              ]
+            },
+            "description": "Only entries that recorded an input of this kind"
+          },
+          {
+            "name": "provenanceHash",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only entries that recorded an input with this stored hash (64 lowercase hex)"
+          },
+          {
+            "name": "provenanceContent",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only entries that recorded an input with this content. The server hashes it with the audit key, so no key is needed on the client"
           },
           {
             "name": "result",
@@ -1718,6 +1925,39 @@
               "type": "string"
             },
             "description": "Only entries for this resource"
+          },
+          {
+            "name": "provenanceKind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user_message",
+                "tool_output",
+                "retrieved_document",
+                "agent"
+              ]
+            },
+            "description": "Only entries that recorded an input of this kind"
+          },
+          {
+            "name": "provenanceHash",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only entries that recorded an input with this stored hash (64 lowercase hex)"
+          },
+          {
+            "name": "provenanceContent",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only entries that recorded an input with this content. The server hashes it with the audit key, so no key is needed on the client"
           },
           {
             "name": "result",
@@ -2315,6 +2555,3304 @@
         }
       }
     },
+    "/devices": {
+      "get": {
+        "summary": "List devices (filters: ownerId, status, group, enrollmentId)",
+        "operationId": "listDevices",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "agentId": {
+                            "type": "string",
+                            "description": "Backing agent that holds permissions, delegations and audit rows"
+                          },
+                          "ownerId": {
+                            "type": "string"
+                          },
+                          "tenantId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "hardwareId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "suspended",
+                              "revoked"
+                            ]
+                          },
+                          "statusReason": {
+                            "type": "string"
+                          },
+                          "groups": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "permissions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "resource": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "actions": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "minItems": 1
+                                },
+                                "constraints": {
+                                  "type": "object",
+                                  "properties": {
+                                    "maxCallsPerHour": {
+                                      "type": "integer",
+                                      "minimum": 0
+                                    },
+                                    "allowedArgPatterns": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "requireApproval": {
+                                      "type": "boolean"
+                                    },
+                                    "timeWindow": {
+                                      "type": "object",
+                                      "properties": {
+                                        "start": {
+                                          "type": "string"
+                                        },
+                                        "end": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "start",
+                                        "end"
+                                      ]
+                                    },
+                                    "ipAllowlist": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "required": [
+                                "resource",
+                                "actions"
+                              ]
+                            }
+                          },
+                          "metadata": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
+                          "enrollmentId": {
+                            "type": "string"
+                          },
+                          "attestation": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
+                          "expiresAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastSeenAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastSeenIp": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "agentId",
+                          "ownerId",
+                          "name",
+                          "status",
+                          "groups",
+                          "permissions",
+                          "metadata",
+                          "expiresAt",
+                          "lastSeenAt",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ownerId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only devices of this owner"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "suspended",
+                "revoked"
+              ]
+            },
+            "description": "Only devices in this state"
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only devices in this group"
+          },
+          {
+            "name": "enrollmentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only devices enrolled with this token"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page size, default 100, max 1000"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Rows to skip"
+          }
+        ]
+      },
+      "post": {
+        "summary": "Register a device",
+        "operationId": "registerDevice",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "device": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "agentId": {
+                              "type": "string",
+                              "description": "Backing agent that holds permissions, delegations and audit rows"
+                            },
+                            "ownerId": {
+                              "type": "string"
+                            },
+                            "tenantId": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "hardwareId": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "suspended",
+                                "revoked"
+                              ]
+                            },
+                            "statusReason": {
+                              "type": "string"
+                            },
+                            "groups": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "permissions": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "resource": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "actions": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "minItems": 1
+                                  },
+                                  "constraints": {
+                                    "type": "object",
+                                    "properties": {
+                                      "maxCallsPerHour": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "allowedArgPatterns": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "requireApproval": {
+                                        "type": "boolean"
+                                      },
+                                      "timeWindow": {
+                                        "type": "object",
+                                        "properties": {
+                                          "start": {
+                                            "type": "string"
+                                          },
+                                          "end": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "start",
+                                          "end"
+                                        ]
+                                      },
+                                      "ipAllowlist": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "resource",
+                                  "actions"
+                                ]
+                              }
+                            },
+                            "metadata": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            },
+                            "enrollmentId": {
+                              "type": "string"
+                            },
+                            "attestation": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            },
+                            "expiresAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastSeenAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastSeenIp": {
+                              "type": "string"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "agentId",
+                            "ownerId",
+                            "name",
+                            "status",
+                            "groups",
+                            "permissions",
+                            "metadata",
+                            "expiresAt",
+                            "lastSeenAt",
+                            "createdAt",
+                            "updatedAt"
+                          ]
+                        },
+                        "credential": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "deviceId": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "psk",
+                                "jwk",
+                                "x509"
+                              ]
+                            },
+                            "lookup": {
+                              "type": "string"
+                            },
+                            "publicJwk": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "revoked"
+                              ]
+                            },
+                            "expiresAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastUsedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "secret": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "deviceId",
+                            "kind",
+                            "lookup",
+                            "status",
+                            "expiresAt",
+                            "lastUsedAt",
+                            "createdAt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "device"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate hardware id or key, or device cap reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ownerId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "hardwareId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "permissions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "resource": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "minItems": 1
+                        },
+                        "constraints": {
+                          "type": "object",
+                          "properties": {
+                            "maxCallsPerHour": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "allowedArgPatterns": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "requireApproval": {
+                              "type": "boolean"
+                            },
+                            "timeWindow": {
+                              "type": "object",
+                              "properties": {
+                                "start": {
+                                  "type": "string"
+                                },
+                                "end": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "start",
+                                "end"
+                              ]
+                            },
+                            "ipAllowlist": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "resource",
+                        "actions"
+                      ]
+                    }
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "credential": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "psk"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "jwk"
+                          },
+                          "jwk": {
+                            "type": "object",
+                            "properties": {
+                              "kty": {
+                                "type": "string"
+                              },
+                              "crv": {
+                                "type": "string"
+                              },
+                              "x": {
+                                "type": "string"
+                              },
+                              "y": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kty",
+                              "crv",
+                              "x"
+                            ],
+                            "description": "Public EC P-256, EC P-384 or OKP Ed25519 key. Private members are refused."
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "jwk"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "x509"
+                          },
+                          "thumbprint": {
+                            "type": "string",
+                            "description": "x5t#S256: base64url SHA-256 of the DER certificate (RFC 8705)"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "thumbprint"
+                        ]
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "kind"
+                    }
+                  }
+                },
+                "required": [
+                  "ownerId",
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devices/enrollment-tokens": {
+      "post": {
+        "summary": "Create a claim code or bulk enrollment token",
+        "operationId": "createDeviceEnrollmentToken",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "claim",
+                            "bulk"
+                          ]
+                        },
+                        "token": {
+                          "type": "string",
+                          "description": "Plaintext claim code or bulk token, returned once"
+                        },
+                        "ownerId": {
+                          "type": "string"
+                        },
+                        "maxUses": {
+                          "type": "integer"
+                        },
+                        "expiresAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "token",
+                        "ownerId",
+                        "maxUses",
+                        "expiresAt"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ownerId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "claim",
+                      "bulk"
+                    ]
+                  },
+                  "maxUses": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "ttlSeconds": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "permissions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "resource": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "minItems": 1
+                        },
+                        "constraints": {
+                          "type": "object",
+                          "properties": {
+                            "maxCallsPerHour": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "allowedArgPatterns": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "requireApproval": {
+                              "type": "boolean"
+                            },
+                            "timeWindow": {
+                              "type": "object",
+                              "properties": {
+                                "start": {
+                                  "type": "string"
+                                },
+                                "end": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "start",
+                                "end"
+                              ]
+                            },
+                            "ipAllowlist": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "resource",
+                        "actions"
+                      ]
+                    }
+                  },
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "deviceKind": {
+                    "type": "string"
+                  },
+                  "deviceTtlSeconds": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "ownerId",
+                  "kind"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devices/enrollment-tokens/{id}": {
+      "delete": {
+        "summary": "Revoke an enrollment token",
+        "operationId": "revokeDeviceEnrollmentToken",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Enrollment token not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/devices/stats": {
+      "get": {
+        "summary": "Fleet health counters (per status, seen in the last hour or day, never seen)",
+        "operationId": "getDeviceFleetStats",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        },
+                        "active": {
+                          "type": "integer"
+                        },
+                        "suspended": {
+                          "type": "integer"
+                        },
+                        "revoked": {
+                          "type": "integer"
+                        },
+                        "seenLastHour": {
+                          "type": "integer"
+                        },
+                        "seenLastDay": {
+                          "type": "integer"
+                        },
+                        "neverSeen": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "active",
+                        "suspended",
+                        "revoked",
+                        "seenLastHour",
+                        "seenLastDay",
+                        "neverSeen"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ownerId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only devices of this owner"
+          }
+        ]
+      }
+    },
+    "/devices/{id}": {
+      "get": {
+        "summary": "Get a device and its credentials",
+        "operationId": "getDevice",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "description": "Backing agent that holds permissions, delegations and audit rows"
+                        },
+                        "ownerId": {
+                          "type": "string"
+                        },
+                        "tenantId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "hardwareId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "suspended",
+                            "revoked"
+                          ]
+                        },
+                        "statusReason": {
+                          "type": "string"
+                        },
+                        "groups": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "permissions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "resource": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "actions": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "minItems": 1
+                              },
+                              "constraints": {
+                                "type": "object",
+                                "properties": {
+                                  "maxCallsPerHour": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "allowedArgPatterns": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "requireApproval": {
+                                    "type": "boolean"
+                                  },
+                                  "timeWindow": {
+                                    "type": "object",
+                                    "properties": {
+                                      "start": {
+                                        "type": "string"
+                                      },
+                                      "end": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "start",
+                                      "end"
+                                    ]
+                                  },
+                                  "ipAllowlist": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "required": [
+                              "resource",
+                              "actions"
+                            ]
+                          }
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "enrollmentId": {
+                          "type": "string"
+                        },
+                        "attestation": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "expiresAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSeenAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSeenIp": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "agentId",
+                        "ownerId",
+                        "name",
+                        "status",
+                        "groups",
+                        "permissions",
+                        "metadata",
+                        "expiresAt",
+                        "lastSeenAt",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found, not yours, or devices are not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "summary": "Update a device (name, groups, permissions, metadata)",
+        "operationId": "updateDevice",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "description": "Backing agent that holds permissions, delegations and audit rows"
+                        },
+                        "ownerId": {
+                          "type": "string"
+                        },
+                        "tenantId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "hardwareId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "suspended",
+                            "revoked"
+                          ]
+                        },
+                        "statusReason": {
+                          "type": "string"
+                        },
+                        "groups": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "permissions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "resource": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "actions": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "minItems": 1
+                              },
+                              "constraints": {
+                                "type": "object",
+                                "properties": {
+                                  "maxCallsPerHour": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "allowedArgPatterns": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "requireApproval": {
+                                    "type": "boolean"
+                                  },
+                                  "timeWindow": {
+                                    "type": "object",
+                                    "properties": {
+                                      "start": {
+                                        "type": "string"
+                                      },
+                                      "end": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "start",
+                                      "end"
+                                    ]
+                                  },
+                                  "ipAllowlist": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "required": [
+                              "resource",
+                              "actions"
+                            ]
+                          }
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "enrollmentId": {
+                          "type": "string"
+                        },
+                        "attestation": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "expiresAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSeenAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSeenIp": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "agentId",
+                        "ownerId",
+                        "name",
+                        "status",
+                        "groups",
+                        "permissions",
+                        "metadata",
+                        "expiresAt",
+                        "lastSeenAt",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found, not yours, or devices are not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Device is revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "permissions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "resource": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "minItems": 1
+                        },
+                        "constraints": {
+                          "type": "object",
+                          "properties": {
+                            "maxCallsPerHour": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "allowedArgPatterns": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "requireApproval": {
+                              "type": "boolean"
+                            },
+                            "timeWindow": {
+                              "type": "object",
+                              "properties": {
+                                "start": {
+                                  "type": "string"
+                                },
+                                "end": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "start",
+                                "end"
+                              ]
+                            },
+                            "ipAllowlist": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "resource",
+                        "actions"
+                      ]
+                    }
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Revoke a device (permanent, cascades delegations)",
+        "operationId": "revokeDevice",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "revokedDelegations": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "revokedDelegations"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found, not yours, or devices are not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/devices/{id}/suspend": {
+      "post": {
+        "summary": "Suspend a device (reversible)",
+        "operationId": "suspendDevice",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "description": "Backing agent that holds permissions, delegations and audit rows"
+                        },
+                        "ownerId": {
+                          "type": "string"
+                        },
+                        "tenantId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "hardwareId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "suspended",
+                            "revoked"
+                          ]
+                        },
+                        "statusReason": {
+                          "type": "string"
+                        },
+                        "groups": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "permissions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "resource": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "actions": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "minItems": 1
+                              },
+                              "constraints": {
+                                "type": "object",
+                                "properties": {
+                                  "maxCallsPerHour": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "allowedArgPatterns": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "requireApproval": {
+                                    "type": "boolean"
+                                  },
+                                  "timeWindow": {
+                                    "type": "object",
+                                    "properties": {
+                                      "start": {
+                                        "type": "string"
+                                      },
+                                      "end": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "start",
+                                      "end"
+                                    ]
+                                  },
+                                  "ipAllowlist": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "required": [
+                              "resource",
+                              "actions"
+                            ]
+                          }
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "enrollmentId": {
+                          "type": "string"
+                        },
+                        "attestation": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "expiresAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSeenAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSeenIp": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "agentId",
+                        "ownerId",
+                        "name",
+                        "status",
+                        "groups",
+                        "permissions",
+                        "metadata",
+                        "expiresAt",
+                        "lastSeenAt",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found, not yours, or devices are not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Device is revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devices/{id}/resume": {
+      "post": {
+        "summary": "Resume a suspended device",
+        "operationId": "resumeDevice",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "description": "Backing agent that holds permissions, delegations and audit rows"
+                        },
+                        "ownerId": {
+                          "type": "string"
+                        },
+                        "tenantId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "hardwareId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "suspended",
+                            "revoked"
+                          ]
+                        },
+                        "statusReason": {
+                          "type": "string"
+                        },
+                        "groups": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "permissions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "resource": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "actions": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "minItems": 1
+                              },
+                              "constraints": {
+                                "type": "object",
+                                "properties": {
+                                  "maxCallsPerHour": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "allowedArgPatterns": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "requireApproval": {
+                                    "type": "boolean"
+                                  },
+                                  "timeWindow": {
+                                    "type": "object",
+                                    "properties": {
+                                      "start": {
+                                        "type": "string"
+                                      },
+                                      "end": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "start",
+                                      "end"
+                                    ]
+                                  },
+                                  "ipAllowlist": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "required": [
+                              "resource",
+                              "actions"
+                            ]
+                          }
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "enrollmentId": {
+                          "type": "string"
+                        },
+                        "attestation": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "expiresAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSeenAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSeenIp": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "agentId",
+                        "ownerId",
+                        "name",
+                        "status",
+                        "groups",
+                        "permissions",
+                        "metadata",
+                        "expiresAt",
+                        "lastSeenAt",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found, not yours, or devices are not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Device is revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/devices/{id}/credentials": {
+      "post": {
+        "summary": "Add a device credential",
+        "operationId": "addDeviceCredential",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "deviceId": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "psk",
+                            "jwk",
+                            "x509"
+                          ]
+                        },
+                        "lookup": {
+                          "type": "string"
+                        },
+                        "publicJwk": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "revoked"
+                          ]
+                        },
+                        "expiresAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastUsedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "secret": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "deviceId",
+                        "kind",
+                        "lookup",
+                        "status",
+                        "expiresAt",
+                        "lastUsedAt",
+                        "createdAt"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid key or thumbprint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found, not yours, or devices are not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Key already registered or device revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "psk"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "jwk"
+                      },
+                      "jwk": {
+                        "type": "object",
+                        "properties": {
+                          "kty": {
+                            "type": "string"
+                          },
+                          "crv": {
+                            "type": "string"
+                          },
+                          "x": {
+                            "type": "string"
+                          },
+                          "y": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kty",
+                          "crv",
+                          "x"
+                        ],
+                        "description": "Public EC P-256, EC P-384 or OKP Ed25519 key. Private members are refused."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "jwk"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "x509"
+                      },
+                      "thumbprint": {
+                        "type": "string",
+                        "description": "x5t#S256: base64url SHA-256 of the DER certificate (RFC 8705)"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "thumbprint"
+                    ]
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devices/{id}/credentials/{credentialId}": {
+      "delete": {
+        "summary": "Revoke a device credential",
+        "operationId": "revokeDeviceCredential",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device or credential not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/devices/{id}/bundle": {
+      "post": {
+        "summary": "Issue a signed offline policy bundle for a device",
+        "operationId": "issueDeviceBundle",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "type": "string",
+                          "description": "Compact JWS, typ device-policy+jwt"
+                        },
+                        "claims": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "token",
+                        "claims"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "devices.bundleSigning is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found, not yours, or devices are not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Device is not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ttlSeconds": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/device/enroll": {
+      "post": {
+        "summary": "Enroll a device with a claim code or bulk token (put this route behind the rate limiter)",
+        "operationId": "enrollDevice",
+        "tags": [
+          "Device API"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "device": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "agentId": {
+                              "type": "string",
+                              "description": "Backing agent that holds permissions, delegations and audit rows"
+                            },
+                            "ownerId": {
+                              "type": "string"
+                            },
+                            "tenantId": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "hardwareId": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "suspended",
+                                "revoked"
+                              ]
+                            },
+                            "statusReason": {
+                              "type": "string"
+                            },
+                            "groups": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "permissions": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "resource": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "actions": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "minItems": 1
+                                  },
+                                  "constraints": {
+                                    "type": "object",
+                                    "properties": {
+                                      "maxCallsPerHour": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "allowedArgPatterns": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "requireApproval": {
+                                        "type": "boolean"
+                                      },
+                                      "timeWindow": {
+                                        "type": "object",
+                                        "properties": {
+                                          "start": {
+                                            "type": "string"
+                                          },
+                                          "end": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "start",
+                                          "end"
+                                        ]
+                                      },
+                                      "ipAllowlist": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "resource",
+                                  "actions"
+                                ]
+                              }
+                            },
+                            "metadata": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            },
+                            "enrollmentId": {
+                              "type": "string"
+                            },
+                            "attestation": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            },
+                            "expiresAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastSeenAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastSeenIp": {
+                              "type": "string"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "agentId",
+                            "ownerId",
+                            "name",
+                            "status",
+                            "groups",
+                            "permissions",
+                            "metadata",
+                            "expiresAt",
+                            "lastSeenAt",
+                            "createdAt",
+                            "updatedAt"
+                          ]
+                        },
+                        "credential": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "deviceId": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "psk",
+                                "jwk",
+                                "x509"
+                              ]
+                            },
+                            "lookup": {
+                              "type": "string"
+                            },
+                            "publicJwk": {
+                              "type": "object",
+                              "additionalProperties": {}
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "revoked"
+                              ]
+                            },
+                            "expiresAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lastUsedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "secret": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "deviceId",
+                            "kind",
+                            "lookup",
+                            "status",
+                            "expiresAt",
+                            "lastUsedAt",
+                            "createdAt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "device"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or attestation refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Enrollment token invalid, expired or used up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Devices are not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate hardware id or key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "hardwareId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "credential": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "psk"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "jwk"
+                          },
+                          "jwk": {
+                            "type": "object",
+                            "properties": {
+                              "kty": {
+                                "type": "string"
+                              },
+                              "crv": {
+                                "type": "string"
+                              },
+                              "x": {
+                                "type": "string"
+                              },
+                              "y": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kty",
+                              "crv",
+                              "x"
+                            ],
+                            "description": "Public EC P-256, EC P-384 or OKP Ed25519 key. Private members are refused."
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "jwk"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "x509"
+                          },
+                          "thumbprint": {
+                            "type": "string",
+                            "description": "x5t#S256: base64url SHA-256 of the DER certificate (RFC 8705)"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "thumbprint"
+                        ]
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "kind"
+                    }
+                  },
+                  "evidence": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "nonce": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "token",
+                  "name",
+                  "credential"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/device/attestation-nonce": {
+      "post": {
+        "summary": "Get a single use nonce to bind into attestation evidence (RFC 9334 freshness)",
+        "operationId": "getDeviceAttestationNonce",
+        "tags": [
+          "Device API"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "404": {
+            "description": "Devices are not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/device/authorize": {
+      "post": {
+        "summary": "Check an action as the calling device (401 bad credential, 403 denied)",
+        "operationId": "authorizeDevice",
+        "tags": [
+          "Device API"
+        ],
+        "security": [
+          {
+            "DeviceCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AuthorizeResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device credential invalid, or device revoked or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Decision made, the call is not allowed. The body is the same result as on success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AuthorizeResult"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "resource": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "arguments": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  "approvalId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "inputs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "user_message",
+                            "tool_output",
+                            "retrieved_document",
+                            "agent"
+                          ]
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "content": {
+                          "type": "string"
+                        },
+                        "hash": {
+                          "type": "string"
+                        },
+                        "hashVersion": {
+                          "const": 2
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "action",
+                  "resource"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/device/bundle": {
+      "get": {
+        "summary": "Get a fresh signed offline policy bundle for the calling device",
+        "operationId": "getDeviceBundle",
+        "tags": [
+          "Device API"
+        ],
+        "security": [
+          {
+            "DeviceCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "type": "string",
+                          "description": "Compact JWS, typ device-policy+jwt"
+                        },
+                        "claims": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "token",
+                        "claims"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "devices.bundleSigning is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device credential invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device suspended",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/device/jwks": {
+      "get": {
+        "summary": "Public keys that verify offline policy bundles",
+        "operationId": "getDeviceBundleJwks",
+        "tags": [
+          "Device API"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "keys"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/approvals": {
       "post": {
         "summary": "Open an admin approval request",
@@ -2590,7 +6128,7 @@
             }
           },
           "401": {
-            "description": "Not signed in",
+            "description": "Step-up authentication required (WWW-Authenticate: insufficient_user_authentication, RFC 9470)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2858,11 +6396,18 @@
           "approval_already_used",
           "approval_mismatch",
           "approval_arguments_mismatch",
+          "approval_step_up_insufficient",
           "approval_granted",
           "agent_not_found",
           "agent_revoked",
           "agent_expired",
           "invalid_token",
+          "confirmation_required",
+          "confirmation_failed",
+          "device_not_found",
+          "device_suspended",
+          "device_revoked",
+          "device_expired",
           "owner_mismatch",
           "hook_denied",
           "hook_timeout",
@@ -2955,8 +6500,10 @@
             "enum": [
               "autonomous",
               "delegated",
-              "service"
-            ]
+              "service",
+              "device"
+            ],
+            "description": "`device` is the backing agent of an IoT device, created by the device routes."
           },
           "token": {
             "type": "string",
@@ -2981,6 +6528,13 @@
               "string",
               "null"
             ]
+          },
+          "cnf": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Sender constraint of the token (RFC 7800): jkt for a DPoP key, x5t#S256 for a client certificate. Absent for a bearer token."
           },
           "createdAt": {
             "type": "string"
@@ -3072,6 +6626,36 @@
           },
           "tokensCost": {
             "type": "number"
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "user_message",
+                    "tool_output",
+                    "retrieved_document",
+                    "agent"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "hash": {
+                  "type": "string"
+                },
+                "hv": {
+                  "const": 2
+                }
+              },
+              "required": [
+                "kind",
+                "hash"
+              ]
+            }
           },
           "timestamp": {
             "type": "string"
@@ -3723,6 +7307,14 @@
           },
           "argumentsTruncated": {
             "type": "boolean"
+          },
+          "requiredAcr": {
+            "type": "string",
+            "description": "Approving needs a sign-in that reached this acr (RFC 9470). Absent: no step-up rule"
+          },
+          "maxAuthAge": {
+            "type": "integer",
+            "description": "Approving needs a sign-in event at most this many seconds old"
           }
         },
         "required": [
@@ -3762,6 +7354,12 @@
           },
           "respondedAt": {
             "type": "string"
+          },
+          "requiredAcr": {
+            "type": "string"
+          },
+          "maxAuthAge": {
+            "type": "integer"
           }
         },
         "required": [
@@ -3868,6 +7466,21 @@
               "jkt"
             ]
           },
+          "acr": {
+            "type": "string",
+            "description": "RFC 9470: authentication context class reference of the login"
+          },
+          "amr": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "RFC 8176 authentication methods of the login"
+          },
+          "auth_time": {
+            "type": "integer",
+            "description": "RFC 9470: epoch seconds of the user's authentication event"
+          },
           "act": {
             "description": "RFC 8693 actor claim: sub and client_id of the actor, with act nested for earlier hops"
           },
@@ -3917,6 +7530,47 @@
         "required": [
           "active"
         ]
+      },
+      "AgentIntrospection": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "token_type": {
+            "type": "string",
+            "enum": [
+              "Bearer",
+              "DPoP"
+            ]
+          },
+          "sub": {
+            "type": "string",
+            "description": "The user who owns the agent"
+          },
+          "agent_id": {
+            "type": "string"
+          },
+          "agent_type": {
+            "type": "string"
+          },
+          "exp": {
+            "type": "integer"
+          },
+          "iat": {
+            "type": "integer"
+          },
+          "cnf": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "RFC 7800 confirmation claim: jkt for DPoP, x5t#S256 for mutual TLS"
+          }
+        },
+        "required": [
+          "active"
+        ]
       }
     },
     "securitySchemes": {
@@ -3929,6 +7583,11 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "TheAuth Agent Token (ta_...)"
+      },
+      "DeviceCredential": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A device pre shared key (tdk_...) or a device assertion JWT (typ device-assertion+jwt). A client certificate checked by your proxy also works when devices.clientCertThumbprint is set."
       },
       "ClientBasic": {
         "type": "http",

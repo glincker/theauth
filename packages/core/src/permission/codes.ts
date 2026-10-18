@@ -21,12 +21,23 @@ export const DECISION_CODES = {
 	APPROVAL_ALREADY_USED: "approval_already_used",
 	APPROVAL_MISMATCH: "approval_mismatch",
 	APPROVAL_ARGUMENTS_MISMATCH: "approval_arguments_mismatch",
+	/** The approval was granted under a weaker step-up rule than the policy demands now. */
+	APPROVAL_STEP_UP_INSUFFICIENT: "approval_step_up_insufficient",
 	/** Lifecycle only: a human approved a request. Never returned by authorize. */
 	APPROVAL_GRANTED: "approval_granted",
 	AGENT_NOT_FOUND: "agent_not_found",
 	AGENT_REVOKED: "agent_revoked",
 	AGENT_EXPIRED: "agent_expired",
 	INVALID_TOKEN: "invalid_token",
+	/** The agent token is sender constrained (DPoP or mTLS, RFC 7800) and the request carried no proof of the key. */
+	CONFIRMATION_REQUIRED: "confirmation_required",
+	/** The proof of possession does not match the key or certificate the token is bound to. */
+	CONFIRMATION_FAILED: "confirmation_failed",
+	/** IoT device codes (theauth.device). Not found means no row; the others are device level states. */
+	DEVICE_NOT_FOUND: "device_not_found",
+	DEVICE_SUSPENDED: "device_suspended",
+	DEVICE_REVOKED: "device_revoked",
+	DEVICE_EXPIRED: "device_expired",
 	OWNER_MISMATCH: "owner_mismatch",
 	HOOK_DENIED: "hook_denied",
 	HOOK_TIMEOUT: "hook_timeout",
@@ -81,6 +92,7 @@ export function violationTypeOf(code: DecisionCode): ViolationType {
 		case "approval_already_used":
 		case "approval_mismatch":
 		case "approval_arguments_mismatch":
+		case "approval_step_up_insufficient":
 			return "approval_required";
 		default:
 			return "permission_denied";

@@ -8,6 +8,9 @@ import { auditEvent } from "./0005-audit-event.js";
 import { mcpStores } from "./0006-mcp-stores.js";
 import { mcpRevocation } from "./0007-mcp-revocation.js";
 import { cimd } from "./0008-cimd.js";
+import { stepUpAndConfirmation } from "./0009-step-up-and-confirmation.js";
+import { devicesMigration } from "./0010-devices.js";
+import { oauthAuthEvidence } from "./0011-oauth-auth-evidence.js";
 
 /**
  * Every migration, in order. Ids are append only and never reused.
@@ -23,6 +26,9 @@ export const MIGRATIONS: readonly Migration[] = [
 	mcpStores,
 	mcpRevocation,
 	cimd,
+	stepUpAndConfirmation,
+	devicesMigration,
+	oauthAuthEvidence,
 ];
 
 export const BASELINE_ID = baseline.id;

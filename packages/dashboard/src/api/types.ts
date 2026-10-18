@@ -44,6 +44,15 @@ export interface CreateAgentResponse {
 
 export type AuditResult = "allowed" | "denied" | "rate_limited";
 
+export type InputSourceKind = "user_message" | "tool_output" | "retrieved_document" | "agent";
+
+/** One recorded input of a call: its kind, an optional source id and the content hash. Never the content. */
+export interface AuditInputRef {
+	kind: InputSourceKind;
+	id?: string;
+	hash: string;
+}
+
 export interface AuditLogEntry {
 	id: string;
 	timestamp: string;
@@ -58,9 +67,13 @@ export interface AuditLogEntry {
 	code?: string;
 	/** Audit event name, for example `authorize` or `policy.evaluate`. */
 	event?: string;
+	/** Inputs the caller recorded for this call (provenance). */
+	inputs?: AuditInputRef[];
 }
 
 export interface AuditLogFilters {
+	/** Only calls that recorded an input of this kind. */
+	provenanceKind?: InputSourceKind;
 	/** Decision codes to keep. Sent as `codes` and applied again on the loaded page. */
 	codes?: string[];
 	agentId?: string;
@@ -198,6 +211,10 @@ export interface PendingApproval {
 	/** JSON text, secrets redacted server side, cut at 2 KB. */
 	arguments: string;
 	argumentsTruncated: boolean;
+	/** Approving needs a sign-in that reached this acr (RFC 9470). Absent when there is no step-up rule. */
+	requiredAcr?: string;
+	/** Approving needs a sign-in event at most this many seconds old. */
+	maxAuthAge?: number;
 }
 
 export interface ApprovalDecision {

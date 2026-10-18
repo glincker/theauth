@@ -212,7 +212,9 @@ export function createPhoneAuthModule(
 		});
 		if (decision.action !== "allow") throw new SignInGateError(decision);
 
-		const { token, session } = await sessionManager.create(user.id);
+		const { token, session } = await sessionManager.create(user.id, undefined, {
+			authMethods: ["otp"],
+		});
 
 		return {
 			user,

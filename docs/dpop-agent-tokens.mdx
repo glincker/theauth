@@ -1,0 +1,194 @@
+---
+title: Sender constrained agent tokens
+description: Bind a ta_ agent token to a DPoP key (RFC 9449) or a client certificate (RFC 8705) so a leaked token is useless on its own.
+icon: lock-key
+---
+
+An agent token (`ta_...`) is a bearer credential. Whoever holds the string can use it. Binding it to a key fixes that: the token stores the thumbprint of a key the agent holds, and every request must carry a short-lived proof signed with that key. A token copied out of a log file stops working.
+
+This page covers the REST authorize route and `requireAgent`. For tokens issued by the MCP OAuth server, see [DPoP and requireMcpAuth](/dpop). Both use the same proof format and the same `cnf` claim ([RFC 7800](https://www.rfc-editor.org/rfc/rfc7800)).
+
+Binding is opt-in per agent. A token without a binding behaves exactly as before.
+
+## Turn it on
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
+  agents: {
+    enabled: true,
+    confirmation: {
+      dpop: {
+        // requireNonce: true,   // server nonces (RFC 9449 section 8 and 9)
+        // resourceUrl: (req) => `https://api.example.com${new URL(req.url).pathname}`,
+      },
+      // required: true,         // refuse agent tokens that are not bound
+    },
+  },
+  secondaryStorage: "database", // shared replay cache and nonces across instances
+});
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `dpop.algs` | ES256, ES384, EdDSA, PS256 | Accepted proof algorithms. |
+| `dpop.proofMaxAgeSeconds` | 300 | Oldest accepted proof `iat`. |
+| `dpop.clockSkewSeconds` | 30 | Skew allowed in either direction. |
+| `dpop.requireNonce` | false | Proofs must carry a server nonce. |
+| `dpop.nonceTtlSeconds` | 300 | Nonce lifetime. |
+| `dpop.storage` | the `nonces` secondary storage | Replay cache and nonces. |
+| `dpop.resourceUrl` | `request.url` | The URL clients sign as `htu`. Set it behind a proxy. |
+| `methods` | none | Extra proofs of possession, such as a certificate thumbprint. See below. |
+| `required` | false | Refuse agent tokens that carry no binding. |
+
+With more than one instance, point `secondaryStorage` at the database or Redis. Otherwise the replay cache lives in each process and a proof could be replayed against another instance.
+
+## Bind a token to a key
+
+Pass `cnf` when you create the agent. The value is the RFC 7638 thumbprint of the agent's public key:
+
+```ts
+import { createDPoPClient } from "@glinr/theauth-client";
+
+const dpop = await createDPoPClient(); // P-256 key pair in WebCrypto
+const jkt = await dpop.thumbprint();
+
+const agent = await theauth.agent.create({
+  ownerId: user.id,
+  name: "invoice-bot",
+  type: "autonomous",
+  permissions: [{ resource: "invoices", actions: ["read"] }],
+  cnf: { jkt },
+});
+// agent.token is bound to that key.
+```
+
+Over HTTP, send the same member in the body of `POST /agents`:
+
+```json
+{ "ownerId": "user_1", "name": "invoice-bot", "type": "autonomous",
+  "permissions": [{ "resource": "invoices", "actions": ["read"] }],
+  "cnf": { "jkt": "NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs" } }
+```
+
+The agent identity returned by `agent.get` and `agent.list` shows `cnf`. It is part of the public identity, not a secret.
+
+Rotating a token keeps its binding by default, so a leaked token is replaced by one the thief cannot use either. To move the agent to a new key, or drop the binding:
+
+```ts
+await theauth.agent.rotate(agent.id);                      // same key
+await theauth.agent.rotate(agent.id, { cnf: { jkt: next } }); // new key
+await theauth.agent.rotate(agent.id, { cnf: null });          // plain bearer token again
+```
+
+`POST /agents/:id/rotate` takes the same `cnf` in an optional JSON body. `PATCH /agents/:id` does not change a binding.
+
+## Call with a proof
+
+The agent sends `Authorization: DPoP <token>` and a `DPoP` header. The client helper does both and retries once when the server asks for a nonce:
+
+```ts
+const res = await dpop.fetch(
+  "https://api.example.com/api/theauth/authorize/token",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "read", resource: "invoices" }),
+  },
+  { accessToken: agent.token },
+);
+```
+
+In your own routes, `requireAgent` does the same checks:
+
+```ts
+import { requireAgent } from "@glinr/theauth/http";
+
+export async function handler(request: Request): Promise<Response> {
+  const result = await requireAgent(theauth, request, { action: "read", resource: "invoices" });
+  if (!result.ok) return result.response;
+  return Response.json({ agent: result.agent.id });
+}
+```
+
+### What gets checked
+
+- The proof: `typ` is `dpop+jwt`, the algorithm is on the allow list, the header holds a public `jwk`, the signature verifies, `htm` and `htu` match the request (query and fragment ignored), `iat` is inside the window, `ath` is the SHA-256 of the token, and the `jti` has not been seen before.
+- The binding: the thumbprint of the proof key equals `cnf.jkt` on the agent.
+- A bound token sent as `Bearer` with no proof is refused. A bound token is never usable as a plain bearer token.
+- A token with no binding ignores any proof header and works as before (unless `required` is set).
+
+The binding check also sits inside `authorizeByToken`, not only in the HTTP layer. A caller who skips the HTTP handler and calls `theauth.authorizeByToken(token, request)` on a bound token gets `confirmation_required`. Pass the proofs your own transport verified through the context:
+
+```ts
+await theauth.authorizeByToken(token, { action: "read", resource: "invoices" }, {
+  confirmation: { jkt: verifiedThumbprint },
+});
+```
+
+Only set `confirmation` from data you verified yourself.
+
+### Errors
+
+| Situation | Status | Where |
+| --- | --- | --- |
+| Bound token, no proof | 401, code `confirmation_required` | `WWW-Authenticate: DPoP error="invalid_token", algs="..."` |
+| Proof is valid but for another key | 401, code `confirmation_failed` | same challenge |
+| Proof is malformed, stale, replayed, wrong `htm`, `htu` or `ath` | 401, `error: "invalid_dpop_proof"` | `WWW-Authenticate: DPoP error="invalid_dpop_proof"` |
+| `DPoP` scheme without a proof header | 401, `invalid_dpop_proof` | same |
+| Nonce missing or stale | 401, `use_dpop_nonce` | `DPoP-Nonce` header carries the new value |
+| `required` is on and the token is not bound | 401, code `confirmation_required` | |
+
+Refused bound tokens are written to the audit log with the decision code, so a pattern of stolen-token attempts is visible.
+
+## Introspection
+
+`POST /agents/introspect` with `{ "token": "ta_..." }` answers in the shape of RFC 7662 and includes `cnf`, so a resource server that checks tokens itself can verify the proof:
+
+```json
+{ "data": { "active": true, "token_type": "DPoP", "sub": "user_1",
+  "agent_id": "ag_123", "agent_type": "autonomous", "exp": 1800086400, "iat": 1800000000,
+  "cnf": { "jkt": "NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs" } } }
+```
+
+The route needs a signed-in caller and only reveals agents inside that caller's scope. A token that is unknown, revoked, expired or out of scope answers `{ "active": false }`. In code: `await theauth.agent.introspect(token)`. Introspection does not see your request, so the resource server still has to verify the proof itself.
+
+## Client certificates and other proofs
+
+The binding is a map. `jkt` is the DPoP member. `x5t#S256` is the member for mutual TLS (RFC 8705): the thumbprint of the client certificate. theAuth does not terminate TLS, so you tell it how to read the proof from a request. Typically your proxy forwards the verified certificate thumbprint in a header:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  agents: {
+    enabled: true,
+    confirmation: {
+      methods: {
+        // Your reverse proxy sets this header after it verified the client certificate.
+        // Strip it from incoming requests at the edge, or anyone can forge it.
+        "x5t#S256": (request) => request.headers.get("x-client-cert-sha256"),
+      },
+    },
+  },
+});
+
+await theauth.agent.create({
+  // ...
+  cnf: { "x5t#S256": certificateThumbprint },
+});
+```
+
+- When a token is bound to several members, every one must match. A token with `jkt` and `x5t#S256` needs both a DPoP proof and the certificate.
+- A token bound to a member that has no extractor is always refused.
+- An extractor that throws counts as proof of nothing.
+- A damaged `cnf` value in the database is treated as a binding nobody can satisfy. It never turns into an unbound token.
+
+This is also the hook the device features use for IoT clients: a device that holds a certificate or a key can be bound the same way.
+
+## Limits
+
+- DPoP protects against a copied token. It does not help if the attacker can run code inside the agent process and use the key through it (RFC 9449 section 11).
+- Without nonces, a stolen key can pre-sign proofs with future `iat` values inside the skew window. Use `requireNonce` and short token lifetimes if that is in your threat model.
+- FAPI 2.0 asks authorization servers to issue only sender constrained tokens and offers DPoP or mutual TLS for it. `required: true` plus either method gives you that property for agent tokens. It does not by itself make a deployment FAPI conformant.

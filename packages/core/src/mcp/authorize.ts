@@ -1,3 +1,4 @@
+import { resolveAuthEvidence } from "./authorize-step-up.js";
 import { looksLikeCimdClientId } from "./cimd-url.js";
 import { checkClientAgentOwner } from "./client-agent-owner.js";
 import { resolveClient } from "./client-metadata.js";
@@ -62,6 +63,8 @@ export async function handleAuthorize(
 		code_challenge: codeChallenge,
 		code_challenge_method: codeChallengeMethod,
 		resource: requestedResource,
+		acr_values: acrValues,
+		max_age: maxAge,
 	} = parsed.data;
 
 	// An anonymous request never makes the server fetch or store a client document: that would
@@ -150,6 +153,15 @@ export async function handleAuthorize(
 	);
 	if (!owner.success) return owner;
 
+	// Step-up (RFC 9470): acr_values and max_age are checked against how the user signed in.
+	const evidence = await resolveAuthEvidence(
+		ctx,
+		request,
+		{ acr_values: acrValues, max_age: maxAge },
+		request.url,
+	);
+	if (!evidence.success) return evidence;
+
 	// Consent page redirect
 	// When a consent page is configured, redirect the user to it instead
 	// of issuing an authorization code immediately.  The consent page
@@ -188,6 +200,7 @@ export async function handleAuthorize(
 		codeChallenge,
 		codeChallengeMethod: "S256",
 		resource,
+		...(evidence.data ? { auth: evidence.data } : {}),
 		expiresAt,
 		createdAt: now,
 	};

@@ -185,6 +185,7 @@ export async function handleRefreshTokenGrant(
 		scopes,
 		resource,
 		dpopJkt,
+		existingToken.auth ? { auth: existingToken.auth } : {},
 	);
 
 	// Revoke the old access token
@@ -200,6 +201,7 @@ export async function handleRefreshTokenGrant(
 		...(rotated.familyId ? { familyId: rotated.familyId } : {}),
 		tokenType: dpopJkt ? "DPoP" : "Bearer",
 		...(dpopJkt ? { dpopJkt } : {}),
+		...(existingToken.auth ? { auth: existingToken.auth } : {}),
 		expiresIn: ttlSeconds,
 		scope: scopes,
 		clientId: data.client_id,

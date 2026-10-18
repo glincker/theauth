@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { AgentConfirmationSchema } from "../agent/confirmation.js";
+import { InputSourcesSchema } from "../audit/provenance-wire.js";
 
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
@@ -21,7 +23,20 @@ export const CreateAgentSchema = z.object({
 	permissions: z.array(PermissionSchema).min(1),
 	expiresAt: z.coerce.date().optional(),
 	metadata: z.record(z.unknown()).optional(),
+	cnf: AgentConfirmationSchema.optional().describe(
+		"Bind the agent token to a key or certificate (RFC 7800), for example { jkt: <DPoP key thumbprint> }",
+	),
 });
+
+export const RotateAgentSchema = z.object({
+	cnf: AgentConfirmationSchema.nullable()
+		.optional()
+		.describe(
+			"New binding for the rotated token. null makes it a plain bearer token. Omit to keep the current one.",
+		),
+});
+
+export const IntrospectAgentTokenSchema = z.object({ token: z.string().min(1) });
 
 export const UpdateAgentSchema = z.object({
 	name: z.string().min(1).optional(),
@@ -36,6 +51,8 @@ export const AuthorizeSchema = z.object({
 	resource: z.string().min(1),
 	arguments: z.record(z.unknown()).optional(),
 	approvalId: z.string().min(1).optional(),
+	/** Where the inputs of the call came from. Hashed and recorded in the audit row, content is never stored. */
+	inputs: InputSourcesSchema.optional(),
 });
 
 export const AuthorizeByTokenSchema = z.object({
@@ -43,6 +60,8 @@ export const AuthorizeByTokenSchema = z.object({
 	resource: z.string().min(1),
 	arguments: z.record(z.unknown()).optional(),
 	approvalId: z.string().min(1).optional(),
+	/** Where the inputs of the call came from. Hashed and recorded in the audit row, content is never stored. */
+	inputs: InputSourcesSchema.optional(),
 });
 
 export const DelegateSchema = z.object({

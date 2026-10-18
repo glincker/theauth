@@ -6,6 +6,13 @@ import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { approvalRequests } from "../db/schema.js";
 import type { Observability } from "../observability/index.js";
+import type { AuthAssertion, AuthRequirement } from "../session/auth-context.js";
+import {
+	ACR_ORDER,
+	acrList,
+	evaluateAuthRequirement,
+	StepUpRequiredError,
+} from "../session/auth-context.js";
 import { hashApprovalAction } from "./consume.js";
 import { emitApprovalEvent } from "./events.js";
 
@@ -20,7 +27,23 @@ export interface ApprovalRequest {
 	expiresAt: Date;
 	respondedAt?: Date;
 	respondedBy?: string;
+	/** The approver must have reached this `acr` before approving (RFC 9470). Unset: no requirement. */
+	requiredAcr?: string;
+	/** The approver's proving event must be at most this many seconds old. Unset: no requirement. */
+	maxAuthAge?: number;
 	createdAt: Date;
+}
+
+/** What an approver must prove to approve a request. Same shape as `AuthRequirement`. */
+export type ApprovalStepUp = AuthRequirement;
+
+/** What the policy knows about a request when it asks for a step-up rule. */
+export interface ApprovalStepUpInput {
+	agentId: string;
+	userId: string;
+	action: string;
+	resource: string;
+	arguments?: Record<string, unknown>;
 }
 
 export interface ApprovalConfig {
@@ -30,6 +53,12 @@ export interface ApprovalConfig {
 	webhookUrl?: string;
 	/** Custom notification handler */
 	onApprovalNeeded?: (request: ApprovalRequest) => Promise<void>;
+	/** Step-up rule for every request: the approver must reach this class (for example `ACR.phishingResistant`) and, with `maxAuthAge`, have proven it recently. Overridden by `stepUp` and by the `stepUp` input of `request()`. */
+	requireAcr?: string;
+	/** Maximum age in seconds of the approver's proving event. */
+	maxAuthAge?: number;
+	/** Choose the step-up rule per request, for example only for high risk actions. Return null or undefined to fall back to `requireAcr` and `maxAuthAge`. */
+	stepUp?: (request: ApprovalStepUpInput) => ApprovalStepUp | null | undefined;
 }
 
 export interface ApprovalDeps {
@@ -43,6 +72,8 @@ export interface DecideInput {
 	decision: "approve" | "deny";
 	/** Who decided. Written to the request and to the audit row. */
 	decidedBy: string;
+	/** The approver's session assertion (`session.auth`). Required to approve a request that has a step-up rule. Denying never needs it. */
+	authContext?: AuthAssertion;
 }
 
 function rowToApproval(row: typeof approvalRequests.$inferSelect): ApprovalRequest {
@@ -57,7 +88,43 @@ function rowToApproval(row: typeof approvalRequests.$inferSelect): ApprovalReque
 		expiresAt: row.expiresAt,
 		respondedAt: row.respondedAt ?? undefined,
 		respondedBy: row.respondedBy ?? undefined,
+		requiredAcr: row.requiredAcr ?? undefined,
+		maxAuthAge: row.maxAuthAge ?? undefined,
 		createdAt: row.createdAt,
+	};
+}
+
+/** Check a rule at request time. A typo in an acr would otherwise make the request impossible to approve. */
+function assertValidStepUp(rule: ApprovalStepUp): void {
+	const list = acrList(rule.acr);
+	for (const value of list) {
+		if (!(ACR_ORDER as readonly string[]).includes(value)) {
+			throw new Error(`Unknown acr "${value}" in approval step-up rule`);
+		}
+	}
+	if (rule.maxAge !== undefined && (!Number.isInteger(rule.maxAge) || rule.maxAge < 0)) {
+		throw new Error("Approval step-up maxAge must be a non-negative integer");
+	}
+}
+
+/** What the audit row records about how the approver proved themselves. */
+export function approverEvidence(auth: AuthAssertion): Record<string, unknown> {
+	return {
+		...(auth.acr !== undefined && { approverAcr: auth.acr }),
+		...(auth.amr !== undefined && { approverAmr: [...auth.amr] }),
+		...(auth.authTime !== undefined && { approverAuthTime: auth.authTime }),
+	};
+}
+
+/** The rule stored on a row, as an `AuthRequirement`. Null when the row has none. */
+function requirementOf(row: {
+	requiredAcr: string | null;
+	maxAuthAge: number | null;
+}): AuthRequirement | null {
+	if (row.requiredAcr === null && row.maxAuthAge === null) return null;
+	return {
+		...(row.requiredAcr !== null && { acr: row.requiredAcr }),
+		...(row.maxAuthAge !== null && { maxAge: row.maxAuthAge }),
 	};
 }
 
@@ -125,10 +192,27 @@ export function createApprovalModule(
 		action: string;
 		resource: string;
 		arguments?: Record<string, unknown>;
+		/** Step-up rule for this request. Wins over `config.stepUp`, `requireAcr` and `maxAuthAge`. */
+		stepUp?: ApprovalStepUp;
 	}): Promise<ApprovalRequest> {
 		const now = new Date();
 		const id = `apr_${generateId()}`;
 		const expiresAt = new Date(now.getTime() + ttlSeconds * 1000);
+		const rule: ApprovalStepUp | undefined =
+			input.stepUp ??
+			config.stepUp?.({
+				agentId: input.agentId,
+				userId: input.userId,
+				action: input.action,
+				resource: input.resource,
+				arguments: input.arguments,
+			}) ??
+			(config.requireAcr !== undefined || config.maxAuthAge !== undefined
+				? { acr: config.requireAcr, maxAge: config.maxAuthAge }
+				: undefined);
+		if (rule) assertValidStepUp(rule);
+		const requiredAcr = rule ? acrList(rule.acr).join(" ") || null : null;
+		const maxAuthAge = rule?.maxAge ?? null;
 
 		await db.insert(approvalRequests).values({
 			id,
@@ -141,6 +225,8 @@ export function createApprovalModule(
 			expiresAt,
 			respondedAt: null,
 			respondedBy: null,
+			requiredAcr,
+			maxAuthAge,
 			createdAt: now,
 		});
 
@@ -162,6 +248,8 @@ export function createApprovalModule(
 			arguments: input.arguments,
 			status: "pending",
 			expiresAt,
+			...(requiredAcr !== null && { requiredAcr }),
+			...(maxAuthAge !== null && { maxAuthAge }),
 			createdAt: now,
 		};
 
@@ -183,6 +271,7 @@ export function createApprovalModule(
 		requestId: string,
 		newStatus: "approved" | "denied",
 		respondedBy?: string,
+		authContext?: AuthAssertion,
 	): Promise<ApprovalRequest> {
 		const rows = await db
 			.select()
@@ -205,10 +294,36 @@ export function createApprovalModule(
 			await markExpired([row]);
 			throw new Error(`Approval request "${requestId}" has expired and cannot be updated`);
 		}
-		await db
-			.update(approvalRequests)
-			.set({ status: newStatus, respondedAt: now, respondedBy: respondedBy ?? null })
-			.where(eq(approvalRequests.id, requestId));
+
+		// Step-up (RFC 9470): approving needs proof the approver is who they say, recently enough
+		// and strongly enough. A denial is always safe, so it never asks. A missing assertion fails.
+		const requirement = newStatus === "approved" ? requirementOf(row) : null;
+		if (requirement) {
+			const verdict = evaluateAuthRequirement(
+				authContext,
+				requirement,
+				Math.floor(Date.now() / 1000),
+			);
+			if (!verdict.ok) throw new StepUpRequiredError(verdict);
+		}
+
+		// One conditional UPDATE decides the race: only a row still pending and unexpired changes.
+		const changed = await claimCount(
+			db
+				.update(approvalRequests)
+				.set({ status: newStatus, respondedAt: now, respondedBy: respondedBy ?? null })
+				.where(
+					and(
+						eq(approvalRequests.id, requestId),
+						eq(approvalRequests.status, "pending"),
+						gt(approvalRequests.expiresAt, now),
+					),
+				),
+			{ id: approvalRequests.id },
+		);
+		if (changed === 0) {
+			throw new Error(`Approval request "${requestId}" is no longer pending and cannot be updated`);
+		}
 
 		await recordAuditEvent(db, {
 			agentId: row.agentId,
@@ -217,7 +332,12 @@ export function createApprovalModule(
 			resource: `approval:${row.id}`,
 			result: newStatus === "approved" ? "allowed" : "denied",
 			approverId: respondedBy,
-			parameters: { approvalId: row.id, action: row.action, resource: row.resource },
+			parameters: {
+				approvalId: row.id,
+				action: row.action,
+				resource: row.resource,
+				...(requirement && authContext && approverEvidence(authContext)),
+			},
 		});
 
 		const resolved = rowToApproval({
@@ -266,11 +386,17 @@ export function createApprovalModule(
 			requestId,
 			input.decision === "approve" ? "approved" : "denied",
 			input.decidedBy,
+			input.authContext,
 		);
 	}
 
-	async function approve(requestId: string, respondedBy?: string): Promise<ApprovalRequest> {
-		return resolve(requestId, "approved", respondedBy);
+	/** Approve a request. A request with a step-up rule needs `authContext`, the approver's `session.auth`, or this throws `StepUpRequiredError`. */
+	async function approve(
+		requestId: string,
+		respondedBy?: string,
+		authContext?: AuthAssertion,
+	): Promise<ApprovalRequest> {
+		return resolve(requestId, "approved", respondedBy, authContext);
 	}
 
 	async function deny(requestId: string, respondedBy?: string): Promise<ApprovalRequest> {

@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import * as jose from "jose";
 import { generateId, sha256Raw } from "../crypto/web-crypto.js";
+import { claimCount } from "../db/claim.js";
 import { oidcAuthCodes, oidcClients, oidcRefreshTokens } from "../db/schema.js";
 import type { Result } from "../mcp/types.js";
 import type { createOidcDiscovery } from "./oidc-provider-discovery.js";
@@ -193,8 +194,21 @@ export function createOidcTokens(
 			};
 		}
 
-		// Mark as used immediately to prevent replay
-		await db.update(oidcAuthCodes).set({ used: true }).where(eq(oidcAuthCodes.id, authCode.id));
+		// Claim the code with one conditional UPDATE so two concurrent exchanges cannot both mint
+		// tokens (RFC 6749 section 4.1.2: a code is used once). The loser sees zero changed rows.
+		const claimed = await claimCount(
+			db
+				.update(oidcAuthCodes)
+				.set({ used: true })
+				.where(and(eq(oidcAuthCodes.id, authCode.id), eq(oidcAuthCodes.used, false))),
+			{ id: oidcAuthCodes.id },
+		);
+		if (claimed === 0) {
+			return {
+				success: false,
+				error: makeError("CODE_ALREADY_USED", "Authorization code has already been used"),
+			};
+		}
 
 		if (authCode.clientId !== clientId) {
 			return {
@@ -284,10 +298,20 @@ export function createOidcTokens(
 			};
 		}
 
-		await db
-			.update(oidcRefreshTokens)
-			.set({ revoked: true })
-			.where(eq(oidcRefreshTokens.id, record.id));
+		// Rotate with one conditional UPDATE: of two concurrent refreshes only one flips revoked.
+		const rotated = await claimCount(
+			db
+				.update(oidcRefreshTokens)
+				.set({ revoked: true })
+				.where(and(eq(oidcRefreshTokens.id, record.id), eq(oidcRefreshTokens.revoked, false))),
+			{ id: oidcRefreshTokens.id },
+		);
+		if (rotated === 0) {
+			return {
+				success: false,
+				error: makeError("REFRESH_TOKEN_REVOKED", "Refresh token has been revoked"),
+			};
+		}
 
 		const scopes = record.scopes.split(" ").filter(Boolean);
 		const sid = sidIndex ? await sidIndex.latest(record.userId, clientId) : null;

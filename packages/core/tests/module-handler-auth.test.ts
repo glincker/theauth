@@ -168,7 +168,7 @@ describe("org handleRequest", () => {
 		// Invitations: inviter and acceptor come from the session
 		const inv = await alice.handleRequest(
 			post(`/auth/org/${org.id}/invite`, {
-				email: "c@example.com",
+				email: "carol@example.com",
 				role: "member",
 				invitedBy: "bob",
 			}),

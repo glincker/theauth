@@ -5,7 +5,13 @@ import { bindingStoreOf, earliest, resolveAgentBinding } from "./binding.js";
 import { getAsymmetricSigner } from "./keys.js";
 import type { McpDelegationBinding } from "./revocation-types.js";
 import { MCP_DELEGATION_CLAIM, MCP_PARENT_JTI_CLAIM } from "./revocation-types.js";
-import type { McpAccessToken, McpActorClaim, McpAuthContext, McpTokenResponse } from "./types.js";
+import type {
+	McpAccessToken,
+	McpActorClaim,
+	McpAuthContext,
+	McpAuthEvidence,
+	McpTokenResponse,
+} from "./types.js";
 import { generateSecureToken, hashToken } from "./utils.js";
 
 /** Derive the HMAC signing key from the config's signing secret. */
@@ -49,6 +55,8 @@ export interface IssueAccessTokenOptions {
 	inheritClientAgent?: boolean;
 	/** Ancestor jtis (subject token lineage, root first), signed as `theauth_pjti`. Token exchange only. */
 	parentJtis?: string[];
+	/** How the user authenticated, signed as `acr`, `amr` and `auth_time` (RFC 9068 section 2.2.1). */
+	auth?: McpAuthEvidence;
 }
 
 /** Thrown when a token cannot be minted because its agent authority is gone or its lifetime would be under one second. */
@@ -138,6 +146,9 @@ export async function issueAccessTokenJwt(
 		scope: scopes.join(" "),
 		jti,
 		...(dpopJkt ? { cnf: { jkt: dpopJkt } } : {}),
+		...(options.auth
+			? { acr: options.auth.acr, amr: options.auth.amr, auth_time: options.auth.authTime }
+			: {}),
 		...(options.act ? { act: options.act } : {}),
 		...(binding ? { [MCP_DELEGATION_CLAIM]: binding } : {}),
 		...(options.parentJtis?.length ? { [MCP_PARENT_JTI_CLAIM]: options.parentJtis } : {}),

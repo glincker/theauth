@@ -24,6 +24,11 @@ const UNAUTHENTICATED: DecisionCode[] = [
 	"agent_not_found",
 	"agent_revoked",
 	"agent_expired",
+	"confirmation_required",
+	"confirmation_failed",
+	"device_not_found",
+	"device_revoked",
+	"device_expired",
 ];
 
 describe("requireAgent decision code to status", () => {

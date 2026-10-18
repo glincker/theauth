@@ -2,6 +2,8 @@ import { desc, eq, or } from "drizzle-orm";
 import type { ApprovalConfig } from "../approval/approval.js";
 import { createApprovalModule } from "../approval/approval.js";
 import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
+import { captureInputProvenance } from "../audit/provenance.js";
+import { parseInputSources } from "../audit/provenance-wire.js";
 import { recordAuditEvent } from "../audit/record.js";
 import { createAdminModule } from "../auth/admin.js";
 import { createRateLimiter } from "../auth/rate-limiter.js";
@@ -12,6 +14,9 @@ import { createDelegationModule } from "../delegation/delegation.js";
 import { json } from "../plugin/helpers.js";
 import type { EndpointContext, PluginEndpoint, TheAuthPlugin } from "../plugin/types.js";
 import { decideApproval, listPendingApprovals } from "./approval-decisions.js";
+import type { ResolveApproverAuth } from "./approver-auth.js";
+import { approverAssertion, decisionFailure } from "./approver-auth.js";
+import { fail, pathId, readObject } from "./request-helpers.js";
 import { registerRevocationRoutes } from "./revocations.js";
 import {
 	AUDIT_MODES,
@@ -45,6 +50,8 @@ export interface AdminApiConfig {
 	allowDisablingAdmins?: boolean;
 	/** Let an admin approve or deny a request it opened itself (default false: four-eyes). */
 	allowSelfApproval?: boolean;
+	/** Reads how the approver signed in, for step-up approvals. Default: the Bearer token's session. */
+	resolveApproverAuth?: ResolveApproverAuth;
 }
 
 type Principal = ResolvedUser;
@@ -55,34 +62,6 @@ type RouteHandler = (
 ) => Promise<Response>;
 
 const MAX_LIST = 500;
-
-function fail(status: number, code: string, message: string): Response {
-	return json({ error: { code, message } }, status);
-}
-
-function lastSegments(request: Request): string[] {
-	return new URL(request.url).pathname.split("/").filter(Boolean);
-}
-
-function pathId(request: Request, fromEnd: number): string | undefined {
-	const seg = lastSegments(request);
-	const raw = seg[seg.length - 1 - fromEnd];
-	if (raw === undefined) return undefined;
-	try {
-		return asId(decodeURIComponent(raw));
-	} catch {
-		return undefined;
-	}
-}
-
-async function readObject(request: Request): Promise<Record<string, unknown> | undefined> {
-	try {
-		const body: unknown = await request.json();
-		return isRecord(body) ? body : undefined;
-	} catch {
-		return undefined;
-	}
-}
 
 /**
  * Opt-in admin HTTP routes used by the admin MCP server (@glinr/theauth-mcp):
@@ -227,7 +206,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 			});
 
 			function decision(verb: "approve" | "deny"): RouteHandler {
-				return async (p, req) => {
+				return async (p, req, endpointCtx) => {
 					const id = pathId(req, 1);
 					if (!id) return fail(400, "INVALID_ID", "Invalid approval id");
 					const result = await decideApproval(db, {
@@ -236,8 +215,9 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						approverId: p.id,
 						systemAgentId,
 						allowSelfApproval: config.allowSelfApproval === true,
+						authContext: await approverAssertion(req, endpointCtx, config.resolveApproverAuth),
 					});
-					if (!result.ok) return fail(result.status, result.code, result.message);
+					if (!result.ok) return decisionFailure(result);
 					return json({ id: result.id, status: result.status, respondedAt: result.respondedAt });
 				};
 			}
@@ -269,6 +249,8 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						resource: found.resource,
 						expiresAt: found.expiresAt.toISOString(),
 						respondedAt: found.respondedAt?.toISOString(),
+						requiredAcr: found.requiredAcr,
+						maxAuthAge: found.maxAuthAge,
 					});
 				},
 			);
@@ -341,6 +323,8 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						return fail(400, "INVALID_BODY", "approvalId is invalid");
 					}
 					const allowed = ["ok", "requested", "pending", "executed"].includes(result);
+					// Optional caller claim of what was in context for this admin call (see provenance-wire.ts).
+					const inputProvenance = await captureInputProvenance(db, parseInputSources(body.inputs));
 					const stored = await recordAuditEvent(db, {
 						agentId: systemAgentId,
 						userId: p.id,
@@ -350,6 +334,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						result: allowed ? "allowed" : "denied",
 						reason: allowed ? undefined : result,
 						parameters: { actor, source, mode, result, approvalId, params },
+						...(inputProvenance ? { inputProvenance: { ...inputProvenance } } : {}),
 					});
 					if (!stored) return fail(503, "AUDIT_UNAVAILABLE", "Audit event could not be stored");
 					return json({ recorded: true }, 201);

@@ -98,11 +98,26 @@ async function apiFetch<T>(
 		});
 
 		if (!response.ok) {
-			let errorBody: { code?: string; message?: string } = {};
+			let errorBody: {
+				code?: string;
+				message?: string;
+				error?: { code?: string; message?: string };
+			} = {};
 			try {
-				errorBody = (await response.json()) as { code?: string; message?: string };
+				errorBody = (await response.json()) as typeof errorBody;
 			} catch {
 				// ignore parse error
+			}
+			// An approval that needs a fresher sign-in answers 401 STEP_UP_REQUIRED (RFC 9470).
+			// Keep that code so the page can say what to do. Every other error keeps its old shape.
+			if (response.status === 401 && errorBody.error?.code === "STEP_UP_REQUIRED") {
+				return {
+					success: false,
+					error: {
+						code: "STEP_UP_REQUIRED",
+						message: errorBody.error.message ?? "Step-up required",
+					},
+				};
 			}
 			return {
 				success: false,
@@ -168,6 +183,7 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 				if (filters.action) params.set("action", filters.action);
 				if (filters.result) params.set("result", filters.result);
 				if (filters.codes?.length) params.set("codes", filters.codes.join(","));
+				if (filters.provenanceKind) params.set("provenanceKind", filters.provenanceKind);
 				if (filters.from) params.set("from", filters.from);
 				if (filters.to) params.set("to", filters.to);
 				if (filters.limit !== undefined) params.set("limit", String(filters.limit));

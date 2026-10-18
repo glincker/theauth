@@ -1,6 +1,8 @@
 import type { ZodTypeAny } from "zod";
+import { DEVICE_OPERATIONS } from "./device/openapi-operations.js";
 import type { RouteSpec } from "./http/types.js";
 import {
+	AgentIntrospectionSchema,
 	AgentSchema,
 	ApprovalConsumedSchema,
 	ApprovalConsumeInputSchema,
@@ -62,6 +64,20 @@ const AUDIT_QUERY: QueryParam[] = [
 	{ name: "actions", description: "Comma separated list of actions" },
 	{ name: "events", description: "Comma separated list of audit events" },
 	{ name: "resource", description: "Only entries for this resource" },
+	{
+		name: "provenanceKind",
+		description: "Only entries that recorded an input of this kind",
+		enum: ["user_message", "tool_output", "retrieved_document", "agent"],
+	},
+	{
+		name: "provenanceHash",
+		description: "Only entries that recorded an input with this stored hash (64 lowercase hex)",
+	},
+	{
+		name: "provenanceContent",
+		description:
+			"Only entries that recorded an input with this content. The server hashes it with the audit key, so no key is needed on the client",
+	},
 	{
 		name: "result",
 		description: "Only entries with this result",
@@ -140,6 +156,13 @@ export const OPERATIONS: Record<string, OperationMeta> = {
 		status: 200,
 		response: AgentSchema,
 		errors: { 404: "Agent not found" },
+	},
+	"POST /agents/introspect": {
+		operationId: "introspectAgentToken",
+		tag: "Agents",
+		status: 200,
+		response: AgentIntrospectionSchema,
+		errors: { 400: "Invalid input" },
 	},
 	"POST /authorize": {
 		operationId: "authorize",
@@ -347,6 +370,7 @@ export const OPERATIONS: Record<string, OperationMeta> = {
 		status: 200,
 		response: ApprovalDecisionSchema,
 		errors: {
+			401: "Step-up authentication required (WWW-Authenticate: insufficient_user_authentication, RFC 9470)",
 			403: "Self approval is not allowed",
 			404: "Approval not found",
 			409: "No longer pending",
@@ -374,6 +398,7 @@ export const OPERATIONS: Record<string, OperationMeta> = {
 			409: "Cannot be spent",
 		},
 	},
+	...DEVICE_OPERATIONS,
 };
 
 /** Request bodies of the admin API routes, which carry no Zod schema in the route table. */

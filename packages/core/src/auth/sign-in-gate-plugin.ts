@@ -11,6 +11,8 @@ import {
 	parseRememberMe,
 } from "../plugin/helpers.js";
 import type { PluginContext, TheAuthPlugin } from "../plugin/types.js";
+import type { AuthMethod } from "../session/auth-context.js";
+import { authMethodsForSignIn } from "../session/auth-context.js";
 import { UserBannedError } from "../session/banned.js";
 import type { Session } from "../session/session.js";
 import type { SignInGate, SignInGateDecision, TrustedDeviceCookie } from "./sign-in-gate.js";
@@ -36,18 +38,17 @@ export function signInGatePlugin(): TheAuthPlugin {
 
 			async function issueSession(
 				userId: string,
-				extra: { twoFactor: boolean; rememberMe?: boolean },
+				extra: { twoFactor: boolean; rememberMe?: boolean; methods?: AuthMethod[] },
 				deviceCookie?: TrustedDeviceCookie,
 			): Promise<Response> {
 				if (!sessionManager) return json({ error: "Sessions are not configured" }, 500);
 				const metadata = extra.twoFactor ? { twoFactor: true } : undefined;
 				let created: { session: Session; token: string };
 				try {
-					created = await sessionManager.create(
-						userId,
-						metadata,
-						extra.rememberMe === undefined ? undefined : { rememberMe: extra.rememberMe },
-					);
+					created = await sessionManager.create(userId, metadata, {
+						...(extra.rememberMe !== undefined && { rememberMe: extra.rememberMe }),
+						...(extra.methods && { authMethods: extra.methods }),
+					});
 				} catch (err) {
 					if (err instanceof UserBannedError) return json({ error: err.message }, 403);
 					const message = err instanceof Error ? err.message : "Failed to create session";
@@ -106,7 +107,11 @@ export function signInGatePlugin(): TheAuthPlugin {
 					}
 					return issueSession(
 						result.userId,
-						{ twoFactor: true, ...rememberChoice(body.data.rememberMe) },
+						{
+							twoFactor: true,
+							methods: [...authMethodsForSignIn(result.method), "totp"],
+							...rememberChoice(body.data.rememberMe),
+						},
 						result.trustedDeviceCookie,
 					);
 				},
@@ -138,6 +143,7 @@ export function signInGatePlugin(): TheAuthPlugin {
 					if (result.next.action === "allow") {
 						return issueSession(result.userId, {
 							twoFactor: false,
+							methods: authMethodsForSignIn(result.method),
 							...rememberChoice(body.data.rememberMe),
 						});
 					}

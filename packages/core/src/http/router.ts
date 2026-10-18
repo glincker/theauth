@@ -11,6 +11,8 @@ import { agentRoutes } from "./routes/agents.js";
 import { auditRoutes } from "./routes/audit.js";
 import { authorizeRoutes } from "./routes/authorize.js";
 import { delegationRoutes } from "./routes/delegations.js";
+import { deviceSelfRoutes } from "./routes/device-self.js";
+import { deviceAdminRoutes } from "./routes/devices.js";
 import { explainRoutes } from "./routes/explain.js";
 import { mcpRoutes } from "./routes/mcp.js";
 import { isSecureRequest, securityHeaders } from "./security-headers.js";
@@ -29,6 +31,8 @@ const ALL_ROUTES: HttpRoute[] = [
 	...auditRoutes,
 	...mcpRoutes,
 	...explainRoutes,
+	...deviceAdminRoutes,
+	...deviceSelfRoutes,
 ];
 
 const DEFAULT_BASE_PATH = "/api/theauth";
@@ -55,6 +59,7 @@ function isServed(route: HttpRoute, options: TheAuthHandlerOptions | undefined):
 	const routes = options?.routes;
 	if (route.group === "management") return routes?.management !== false;
 	if (route.group === "explain") return routes?.explain !== false;
+	if (route.group === "devices") return routes?.devices !== false;
 	if (routes?.mcp === false) return false;
 	const mounted = resolveMountedMcpRoutes(options);
 	return route.mcpRoute === undefined || mounted[route.mcpRoute];

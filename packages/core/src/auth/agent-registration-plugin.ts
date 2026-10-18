@@ -6,7 +6,7 @@ import type {
 	AgentType,
 	RegistrationTokenStatus,
 } from "./agent-registration.js";
-import { createAgentRegistrationModule } from "./agent-registration.js";
+import { createAgentRegistrationModule, REGISTRABLE_AGENT_TYPES } from "./agent-registration.js";
 import type { ResolvedUser } from "./types.js";
 
 export interface AgentRegistrationPluginConfig {
@@ -130,6 +130,18 @@ export function agentRegistration(config: AgentRegistrationPluginConfig = {}): T
 						return json(
 							{ error: "forbidden", error_description: "Only admins can mint for other owners" },
 							403,
+						);
+					}
+					if (
+						body.agent_type !== undefined &&
+						!(REGISTRABLE_AGENT_TYPES as readonly unknown[]).includes(body.agent_type)
+					) {
+						return json(
+							{
+								error: "invalid_request",
+								error_description: `agent_type must be one of ${REGISTRABLE_AGENT_TYPES.join(", ")}`,
+							},
+							400,
 						);
 					}
 					if (!Array.isArray(body.permissions)) {

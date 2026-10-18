@@ -90,6 +90,11 @@
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js",
       "default": "./dist/testing/index.js"
+    },
+    "./robotics": {
+      "types": "./dist/robotics/index.d.ts",
+      "import": "./dist/robotics/index.js",
+      "default": "./dist/robotics/index.js"
     }
   },
   "files": [

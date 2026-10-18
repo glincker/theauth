@@ -164,11 +164,10 @@ export function createMagicLinkModule(
 		});
 		if (decision.action !== "allow") throw new SignInGateError(decision);
 
-		const { token: sessionToken, session } = await sessionManager.create(
-			user.id,
-			undefined,
-			context?.rememberMe === undefined ? undefined : { rememberMe: context.rememberMe },
-		);
+		const { token: sessionToken, session } = await sessionManager.create(user.id, undefined, {
+			authMethods: ["otp"],
+			...(context?.rememberMe !== undefined && { rememberMe: context.rememberMe }),
+		});
 
 		return {
 			user,

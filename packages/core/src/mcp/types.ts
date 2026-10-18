@@ -1,5 +1,6 @@
 import type { JWK } from "jose";
 import type { TheAuthLogger } from "../observability/types.js";
+import type { AuthAssertion } from "../session/auth-context.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import type { McpDpopConfig } from "./dpop-types.js";
 import type {
@@ -17,7 +18,9 @@ import type {
 	McpRevocationConfig,
 	McpSessionFreshness,
 } from "./revocation-types.js";
+import type { McpUserAuthRequirement } from "./step-up.js";
 import type {
+	McpAuthEvidence,
 	McpClientBindings,
 	McpRegistrationConfig,
 	RequireScopesResult,
@@ -34,6 +37,7 @@ export type { McpValidateOptions } from "./revocation-types.js";
 
 export type {
 	McpAuthErrorCode,
+	McpAuthEvidence,
 	McpClientBindings,
 	McpRegistrationConfig,
 	McpRejectedToken,
@@ -206,6 +210,8 @@ export interface McpServerMetadata {
 	client_id_metadata_document_supported?: boolean;
 	/** RFC 9449 section 5.1: JWS algorithms accepted for DPoP proofs. */
 	dpop_signing_alg_values_supported?: string[];
+	/** RFC 9470 section 7: the server honors `acr_values` and `max_age`. Present when `resolveAuthContext` is set. */
+	acr_values_supported?: string[];
 }
 
 // Protected Resource Metadata (RFC 9728)
@@ -307,6 +313,8 @@ export interface McpAuthorizationCode {
 	codeChallenge: string;
 	codeChallengeMethod: "S256";
 	resource: string | null;
+	/** How the user authenticated, when `resolveAuthContext` is configured. */
+	auth?: McpAuthEvidence;
 	expiresAt: Date;
 	createdAt: Date;
 }
@@ -320,6 +328,10 @@ export interface McpAuthorizeRequest {
 	code_challenge: string;
 	code_challenge_method: string;
 	resource: string;
+	/** RFC 9470 and OpenID Connect Core: acceptable authentication context classes, space separated. */
+	acr_values?: string;
+	/** OpenID Connect Core: the authentication event must be at most this many seconds old. */
+	max_age?: string;
 }
 
 export interface McpAuthorizeResult {
@@ -345,6 +357,8 @@ export interface McpAccessToken {
 	tokenType: "Bearer" | "DPoP";
 	/** RFC 7638 thumbprint of the DPoP key this grant is bound to. Persist it: the refresh grant refuses any other key. Absent for bearer grants. */
 	dpopJkt?: string;
+	/** How the user authenticated for this grant. Persist it: a refresh keeps the same `acr`, `amr` and `auth_time`. */
+	auth?: McpAuthEvidence;
 	expiresIn: number;
 	scope: string[];
 	clientId: string;
@@ -387,6 +401,12 @@ export interface McpTokenPayload {
 	client_id: string;
 	/** RFC 9449 confirmation claim: `jkt` is the bound key thumbprint. */
 	cnf?: { jkt?: string };
+	/** RFC 9470 and RFC 9068: authentication context class reference of the user's login. */
+	acr?: string;
+	/** RFC 8176 authentication methods of the user's login. */
+	amr?: string[];
+	/** Epoch seconds of the user's authentication event. */
+	auth_time?: number;
 	agent_id?: string;
 	agent_type?: string;
 	trust_tier?: string;
@@ -416,6 +436,8 @@ export interface McpSession {
 	expiresAt: Date;
 	tokenId: string;
 	dpopJkt?: string;
+	/** `acr`, `amr` and `auth_time` of the user's login, when the token carries them. */
+	auth?: Partial<McpAuthEvidence>;
 	agent?: { id: string; type?: string; trustTier?: string };
 	delegationChain?: McpDelegationHop[];
 	/** The verified `theauth_dlg` claim, when the token is bound. */
@@ -475,6 +497,8 @@ export interface McpAuthContext {
 	logger?: TheAuthLogger;
 	tokenFamilies?: McpTokenFamilyStore;
 	resolveUserId: (request: Request) => Promise<string | null>;
+	/** How the signed-in user authenticated (typically `session.auth`). Enables `acr_values` and `max_age` on authorize and puts `acr`, `amr` and `auth_time` in tokens. Return null when unknown. */
+	resolveAuthContext?: (request: Request) => Promise<AuthAssertion | null>;
 }
 
 export interface ApproveConsentParams {
@@ -486,6 +510,8 @@ export interface ApproveConsentParams {
 	codeChallenge: string;
 	codeChallengeMethod: "S256";
 	resource: string;
+	/** How the user authenticated, read server side from their session. Never pass a value taken from the request. */
+	auth?: McpAuthEvidence;
 }
 
 export interface McpAuthModule {
@@ -525,7 +551,11 @@ export interface McpAuthModule {
 		handler: McpProtectedHandler,
 		options?: RequireMcpAuthOptions,
 	) => (request: Request) => Promise<Response>;
-	requireScopes: (request: Request, requiredScopes: string[]) => Promise<RequireScopesResult>;
+	requireScopes: (
+		request: Request,
+		requiredScopes: string[],
+		userAuth?: McpUserAuthRequirement,
+	) => Promise<RequireScopesResult>;
 }
 
 // Zod Schemas

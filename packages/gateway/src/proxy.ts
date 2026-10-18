@@ -21,6 +21,8 @@ const CHAIN_HEADERS = [
 	"x-forwarded-port",
 	"x-real-ip",
 	"x-gateway",
+	// Provenance claims are for the gateway audit row only. The upstream never needs them.
+	"theauth-inputs",
 ];
 
 export const DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024;

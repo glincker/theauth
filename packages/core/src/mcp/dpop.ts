@@ -3,7 +3,7 @@ import { calculateJwkThumbprint, decodeProtectedHeader, importJWK, jwtVerify } f
 import { sha256Raw, toBase64Url } from "../crypto/web-crypto.js";
 import { memoryStorage } from "../storage/memory.js";
 import type { SecondaryStorage } from "../storage/types.js";
-import type { DpopAlg } from "./dpop-types.js";
+import type { DpopAlg, McpDpopConfig } from "./dpop-types.js";
 import type { McpAuthContext, Result } from "./types.js";
 import { generateSecureToken, timingSafeEqual } from "./utils.js";
 
@@ -18,6 +18,16 @@ const PRIVATE_JWK_MEMBERS = ["d", "p", "q", "dp", "dq", "qi", "oth", "k"] as con
 
 const fallbackStorage = new WeakMap<object, SecondaryStorage>();
 
+/**
+ * What a DPoP verifier needs: the settings, the replay and nonce store, and a key prefix so two
+ * verifiers (the MCP server and agent tokens) sharing one store never read each other's nonces.
+ */
+export interface DpopDeps {
+	config: McpDpopConfig;
+	storage: SecondaryStorage;
+	prefix?: string;
+}
+
 /** Storage for the replay cache and nonces: configured, else per-context memory. */
 export function getDpopStorage(ctx: McpAuthContext): SecondaryStorage {
 	const configured = ctx.config.dpop?.storage;
@@ -30,9 +40,19 @@ export function getDpopStorage(ctx: McpAuthContext): SecondaryStorage {
 	return store;
 }
 
+function depsOf(ctx: McpAuthContext): DpopDeps | null {
+	const config = ctx.config.dpop;
+	return config ? { config, storage: getDpopStorage(ctx) } : null;
+}
+
 /** Algorithms advertised in metadata and challenges. */
 export function getDpopAlgs(ctx: McpAuthContext): DpopAlg[] {
 	return ctx.config.dpop?.algs ?? DEFAULT_DPOP_ALGS;
+}
+
+/** The same for a verifier that is not tied to an MCP context. */
+export function dpopAlgsOf(config: McpDpopConfig): DpopAlg[] {
+	return config.algs ?? DEFAULT_DPOP_ALGS;
 }
 
 /** Base64url SHA-256 of an access token, the value of the `ath` claim. */
@@ -50,25 +70,29 @@ export function normalizeHtu(value: string): string | null {
 	}
 }
 
-const NONCE_CURRENT = "dpop:nonce:current";
-
 /** The nonce to hand out now. One nonce is current at a time and rotates when it expires; a retired nonce is still accepted for one more lifetime so a client mid-request is not bounced twice. */
-export async function getCurrentDpopNonce(ctx: McpAuthContext): Promise<string> {
-	const storage = getDpopStorage(ctx);
-	const ttl = ctx.config.dpop?.nonceTtlSeconds ?? DEFAULT_NONCE_TTL;
-	const current = await storage.get(NONCE_CURRENT);
+export async function currentDpopNonce(deps: DpopDeps): Promise<string> {
+	const { storage } = deps;
+	const p = deps.prefix ?? "";
+	const ttl = deps.config.nonceTtlSeconds ?? DEFAULT_NONCE_TTL;
+	const current = await storage.get(`${p}dpop:nonce:current`);
 	if (current) return current;
 	const nonce = generateSecureToken(24);
-	await storage.set(`dpop:nonce:v:${nonce}`, "1", ttl * 2);
-	await storage.set(NONCE_CURRENT, nonce, ttl);
+	await storage.set(`${p}dpop:nonce:v:${nonce}`, "1", ttl * 2);
+	await storage.set(`${p}dpop:nonce:current`, nonce, ttl);
 	return nonce;
 }
 
-async function isValidNonce(ctx: McpAuthContext, nonce: unknown): Promise<boolean> {
+export async function getCurrentDpopNonce(ctx: McpAuthContext): Promise<string> {
+	const deps = depsOf(ctx);
+	return currentDpopNonce(deps ?? { config: {}, storage: getDpopStorage(ctx) });
+}
+
+async function isValidNonce(deps: DpopDeps, nonce: unknown): Promise<boolean> {
 	if (typeof nonce !== "string" || nonce.length === 0 || nonce.length > MAX_NONCE_LENGTH) {
 		return false;
 	}
-	return (await getDpopStorage(ctx).get(`dpop:nonce:v:${nonce}`)) !== null;
+	return (await deps.storage.get(`${deps.prefix ?? ""}dpop:nonce:v:${nonce}`)) !== null;
 }
 
 export interface VerifyDpopProofInput {
@@ -106,8 +130,17 @@ export async function verifyDpopProof(
 	ctx: McpAuthContext,
 	input: VerifyDpopProofInput,
 ): Promise<Result<VerifiedDpopProof>> {
-	const dpop = ctx.config.dpop;
-	if (!dpop) return fail("DPoP is not enabled");
+	const deps = depsOf(ctx);
+	if (!deps) return fail("DPoP is not enabled");
+	return verifyDpopProofWith(deps, input);
+}
+
+/** Verify a proof against settings and a store given directly. {@link verifyDpopProof} is this for the MCP context. */
+export async function verifyDpopProofWith(
+	deps: DpopDeps,
+	input: VerifyDpopProofInput,
+): Promise<Result<VerifiedDpopProof>> {
+	const dpop = deps.config;
 
 	let header: ReturnType<typeof decodeProtectedHeader>;
 	try {
@@ -116,7 +149,7 @@ export async function verifyDpopProof(
 		return fail("DPoP proof is not a valid JWT");
 	}
 	if (header.typ !== "dpop+jwt") return fail('DPoP proof header typ must be "dpop+jwt"');
-	const allowed = getDpopAlgs(ctx);
+	const allowed = dpopAlgsOf(dpop);
 	if (typeof header.alg !== "string" || !(allowed as string[]).includes(header.alg)) {
 		return fail("DPoP proof algorithm is not supported", { algs: allowed });
 	}
@@ -167,8 +200,8 @@ export async function verifyDpopProof(
 	}
 
 	if (input.requireNonce ?? dpop.requireNonce === true) {
-		if (!(await isValidNonce(ctx, payload.nonce))) {
-			const nonce = await getCurrentDpopNonce(ctx);
+		if (!(await isValidNonce(deps, payload.nonce))) {
+			const nonce = await currentDpopNonce(deps);
 			return {
 				success: false,
 				error: {
@@ -186,7 +219,7 @@ export async function verifyDpopProof(
 	// concurrent submissions of one proof cannot both see count 1.
 	const ttl = maxAge + 2 * skew + 1;
 	const id = toBase64Url(await sha256Raw(`${jkt}\n${payload.jti}`));
-	const seen = await getDpopStorage(ctx).incr(`dpop:jti:${id}`, ttl);
+	const seen = await deps.storage.incr(`${deps.prefix ?? ""}dpop:jti:${id}`, ttl);
 	if (seen.count > 1) return fail("DPoP proof has already been used");
 
 	return { success: true, data: { jkt, jti: payload.jti, iat } };

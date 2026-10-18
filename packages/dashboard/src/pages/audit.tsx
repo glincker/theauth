@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, Filter, RefreshCw } from "lucide-react";
 import { useRef, useState } from "react";
 import type { TheAuthApiClient } from "../api/client.js";
-import type { AuditLogEntry, AuditLogFilters, AuditResult } from "../api/types.js";
+import type { AuditLogEntry, AuditLogFilters, AuditResult, InputSourceKind } from "../api/types.js";
 import { Button } from "../components/button.js";
 import { DECISION_CODE_OPTIONS } from "../components/decision-code.js";
 import { ExplainDrawer } from "../components/explain-drawer.js";
@@ -100,6 +100,25 @@ function FilterBar({ filters, agentOptions, onChange }: FilterBarProps) {
 				))}
 			</Select>
 
+			<Select
+				value={filters.provenanceKind ?? ""}
+				onChange={(e) =>
+					onChange({
+						...filters,
+						provenanceKind: (e.target.value as InputSourceKind) || undefined,
+						offset: 0,
+					})
+				}
+				aria-label="Input source"
+				className="flex-1 min-w-[140px] max-w-[180px] py-1.5 text-xs"
+			>
+				<option value="">Any input</option>
+				<option value="user_message">User message</option>
+				<option value="tool_output">Tool output</option>
+				<option value="retrieved_document">Retrieved document</option>
+				<option value="agent">Another agent</option>
+			</Select>
+
 			<input
 				type="date"
 				value={filters.from ? filters.from.slice(0, 10) : ""}
@@ -132,6 +151,7 @@ function FilterBar({ filters, agentOptions, onChange }: FilterBarProps) {
 				filters.action ??
 				filters.result ??
 				filters.codes ??
+				filters.provenanceKind ??
 				filters.from ??
 				filters.to) && (
 				<button
