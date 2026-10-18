@@ -40,6 +40,10 @@ type Client struct {
 	MCP *MCPResource
 	// Approvals opens, decides and spends human approval requests (admin API plugin).
 	Approvals *ApprovalsResource
+	// Devices is the device registry (admin routes, /devices).
+	Devices *DevicesResource
+	// Device holds the calls a device makes as itself (/device/*).
+	Device *DeviceAPIResource
 
 	tp *transport
 }
@@ -118,6 +122,8 @@ func NewClient(baseURL string, opts ...Option) *Client {
 		Delegation: &DelegationResource{tp: tp},
 		MCP:        &MCPResource{tp: tp},
 		Approvals:  &ApprovalsResource{tp: tp},
+		Devices:    &DevicesResource{tp: tp},
+		Device:     &DeviceAPIResource{tp: tp},
 		tp:         tp,
 	}
 }

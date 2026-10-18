@@ -13,9 +13,11 @@ from theauth.errors import (
     PermissionError,
     RateLimitError,
     ServerError,
+    StepUpRequiredError,
     TheAuthError,
     ValidationError,
 )
+from theauth.step_up import parse_step_up_challenge
 
 T = TypeVar("T")
 
@@ -68,6 +70,11 @@ def _parse_error(response: httpx.Response) -> TheAuthError:
             message, code=code, status_code=status, issues=issues, details=details
         )
     if status == 401:
+        challenge = parse_step_up_challenge(response.headers.get("WWW-Authenticate"))
+        if challenge is not None or code in ("STEP_UP_REQUIRED", "insufficient_user_authentication"):
+            return StepUpRequiredError(
+                message, code=code, challenge=challenge, details=details
+            )
         return AuthenticationError(message, code=code, details=details)
     if status == 403:
         return PermissionError(message, code=code, details=details)

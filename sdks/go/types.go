@@ -9,6 +9,9 @@ const (
 	AgentTypeAutonomous AgentType = "autonomous"
 	AgentTypeDelegated  AgentType = "delegated"
 	AgentTypeService    AgentType = "service"
+	// AgentTypeDevice is the backing agent of an IoT device. The agent routes
+	// never create it; the device routes do.
+	AgentTypeDevice AgentType = "device"
 )
 
 // AgentStatus represents the lifecycle state of an agent.
@@ -73,6 +76,9 @@ type Agent struct {
 	CreatedAt   string       `json:"createdAt"`
 	UpdatedAt   string       `json:"updatedAt"`
 	TenantID    *string      `json:"tenantId,omitempty"`
+	// Cnf is the sender constraint of the token (RFC 7800): "jkt" for a DPoP
+	// key, "x5t#S256" for a client certificate. Nil for a bearer token.
+	Cnf map[string]string `json:"cnf,omitempty"`
 }
 
 // CreateAgentInput is the input for creating a new agent identity.
@@ -83,6 +89,9 @@ type CreateAgentInput struct {
 	Permissions []Permission           `json:"permissions"`
 	ExpiresAt   *string                `json:"expiresAt,omitempty"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	// Cnf binds the token to a key or certificate (RFC 7800). Build it with
+	// DPoPConfirmation, JKTConfirmation, MTLSConfirmation or X5tConfirmation.
+	Cnf map[string]string `json:"cnf,omitempty"`
 }
 
 // UpdateAgentInput is the input for updating an existing agent. All fields are optional.
@@ -108,6 +117,9 @@ type AuthorizeRequest struct {
 	// ApprovalID is the id of an approved approval request. When the matched
 	// permission requires approval, the server spends it (single use) and allows the call.
 	ApprovalID string `json:"approvalId,omitempty"`
+	// Inputs lists what the model saw before it asked for this call, for the
+	// provenance record in the audit log.
+	Inputs []ProvenanceInput `json:"inputs,omitempty"`
 }
 
 // AuthorizeResult is the result of an authorization check. A denied call

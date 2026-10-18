@@ -142,12 +142,16 @@ func parseErrorResponse(resp *http.Response) error {
 		Code    string                 `json:"code"`
 		Message string                 `json:"message"`
 		Details map[string]interface{} `json:"details"`
-		Error   *struct {
-			Code    string                 `json:"code"`
-			Message string                 `json:"message"`
-			Details map[string]interface{} `json:"details"`
-			Issues  interface{}            `json:"issues"`
-		} `json:"error"`
+		// Error is an object ({ error: { code, message } }) or, on OAuth
+		// endpoints (RFC 6749 section 5.2), a plain string.
+		Error            json.RawMessage `json:"error"`
+		ErrorDescription string          `json:"error_description"`
+	}
+	type errorObject struct {
+		Code    string                 `json:"code"`
+		Message string                 `json:"message"`
+		Details map[string]interface{} `json:"details"`
+		Issues  interface{}            `json:"issues"`
 	}
 
 	body, _ := io.ReadAll(resp.Body)
@@ -158,18 +162,26 @@ func parseErrorResponse(resp *http.Response) error {
 	details := apiErr.Details
 	var issues interface{}
 
-	// Support { error: { code, message } } envelope
-	if apiErr.Error != nil {
-		if apiErr.Error.Code != "" {
-			code = apiErr.Error.Code
+	var oauthCode string
+	var obj errorObject
+	if len(apiErr.Error) > 0 {
+		if json.Unmarshal(apiErr.Error, &oauthCode) == nil {
+			code = oauthCode
+			if apiErr.ErrorDescription != "" {
+				message = apiErr.ErrorDescription
+			}
+		} else if json.Unmarshal(apiErr.Error, &obj) == nil {
+			if obj.Code != "" {
+				code = obj.Code
+			}
+			if obj.Message != "" {
+				message = obj.Message
+			}
+			if obj.Details != nil {
+				details = obj.Details
+			}
+			issues = obj.Issues
 		}
-		if apiErr.Error.Message != "" {
-			message = apiErr.Error.Message
-		}
-		if apiErr.Error.Details != nil {
-			details = apiErr.Error.Details
-		}
-		issues = apiErr.Error.Issues
 	}
 
 	if code == "" {
@@ -189,6 +201,10 @@ func parseErrorResponse(resp *http.Response) error {
 
 	switch resp.StatusCode {
 	case http.StatusUnauthorized:
+		challenge := ParseStepUpChallenge(resp.Header.Values("WWW-Authenticate")...)
+		if challenge != nil || code == "STEP_UP_REQUIRED" || code == InsufficientUserAuthentication {
+			return &ErrStepUpRequired{TheAuthError: base, Challenge: challenge}
+		}
 		return &ErrAuthentication{base}
 	case http.StatusForbidden:
 		return &ErrPermission{base}

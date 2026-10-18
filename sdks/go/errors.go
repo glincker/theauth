@@ -55,10 +55,13 @@ func IsNotFound(err error) bool {
 	return ok
 }
 
-// IsAuthentication reports whether err is an ErrAuthentication.
+// IsAuthentication reports whether err is an ErrAuthentication or an ErrStepUpRequired.
 func IsAuthentication(err error) bool {
-	_, ok := err.(*ErrAuthentication)
-	return ok
+	switch err.(type) {
+	case *ErrAuthentication, *ErrStepUpRequired:
+		return true
+	}
+	return false
 }
 
 // IsPermission reports whether err is an ErrPermission.

@@ -82,6 +82,8 @@ class IntrospectionResponse:
     token_type: Optional[str] = None
     #: DPoP key thumbprint (``cnf.jkt``).
     jkt: Optional[str] = None
+    #: Client certificate thumbprint (``cnf["x5t#S256"]``, RFC 8705).
+    x5t_s256: Optional[str] = None
     act: Optional[ActorClaim] = None
     agent_id: Optional[str] = None
     #: Set for tokens bound to a delegation chain.
@@ -107,6 +109,7 @@ class IntrospectionResponse:
             jti=data.get("jti"),
             token_type=data.get("token_type"),
             jkt=cnf.get("jkt") if isinstance(cnf, dict) else None,
+            x5t_s256=cnf.get("x5t#S256") if isinstance(cnf, dict) else None,
             act=ActorClaim.from_dict(act) if isinstance(act, dict) else None,
             agent_id=data.get("agent_id"),
             delegation=DelegationBinding.from_dict(dlg) if isinstance(dlg, dict) else None,

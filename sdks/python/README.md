@@ -211,6 +211,135 @@ await client.approvals.approve(opened.id)
 spent = await client.approvals.consume(opened.id, ConsumeApprovalInput("admin:rotate", "agent:a1"))
 ```
 
+### Step-up
+
+When an action needs a stronger or fresher sign-in, the server answers 401 with
+`WWW-Authenticate: Bearer error="insufficient_user_authentication", acr_values="...", max_age="..."`
+([RFC 9470](https://www.rfc-editor.org/rfc/rfc9470)). The client raises
+`StepUpRequiredError`, a subclass of `AuthenticationError`, and the parsed
+challenge is on `error.challenge`.
+
+```python
+from theauth import StepUpRequiredError
+
+try:
+    await client.approvals.approve(approval_id)
+except StepUpRequiredError as err:
+    params = err.challenge.authorize_params() if err.challenge else {}
+    # Send the user through authorization again with acr_values and max_age.
+    print(params)  # {"acr_values": "urn:theauth:acr:mfa", "max_age": "300"}
+```
+
+`parse_step_up_challenge(header)` reads a header you got some other way,
+`step_up_params(acr_values, max_age)` builds the query parameters, and
+`acr_satisfies(have, want)` and `auth_is_fresh(auth_time, max_age)` check a
+token's `acr` and `auth_time` before you call. The class order is a theAuth rule
+(`none`, `single-factor`, `mfa`, `phishing-resistant`); an unknown `acr` never
+satisfies another.
+
+### Sender constrained agent tokens
+
+Bind a token to a DPoP key ([RFC 9449](https://www.rfc-editor.org/rfc/rfc9449))
+or a client certificate ([RFC 8705](https://www.rfc-editor.org/rfc/rfc8705)) with
+the `cnf` claim ([RFC 7800](https://www.rfc-editor.org/rfc/rfc7800)). A stolen
+token is then useless without the key.
+
+```python
+from theauth import DPoPProver, dpop_confirmation
+from theauth.dpop import DPoPAuth
+from theauth.permissions import read
+from theauth.types import CreateAgentInput
+
+prover = DPoPProver()
+agent = await client.agents.create(
+    CreateAgentInput(
+        owner_id="user-123",
+        name="reader",
+        type="autonomous",
+        permissions=[read("mcp:github:*")],
+        cnf=dpop_confirmation(prover),
+    )
+)
+bound = TheAuthClient(base_url=BASE, token=agent.token, auth=DPoPAuth(prover))
+await client.agents.rotate(agent.id)            # keeps the binding
+await client.agents.rotate(agent.id, cnf=None)  # back to a plain bearer token
+```
+
+`mtls_confirmation(cert_der)` builds the certificate form. `Agent.cnf` and
+`IntrospectionResponse.jkt` or `.x5t_s256` read it back.
+
+### Input provenance
+
+Say what the model had in context when it asked for a call. The server hashes
+`content` with its audit key and never stores it.
+
+```python
+from theauth import ProvenanceInput
+from theauth.types import AuthorizeRequest
+
+await client.agents.authorize(
+    agent.id,
+    AuthorizeRequest(
+        action="execute",
+        resource="mcp:github:create_issue",
+        inputs=[
+            ProvenanceInput("user_message", id="msg_123", content=user_text),
+            ProvenanceInput("retrieved_document", id=page_url, content=page_text),
+        ],
+    ),
+)
+```
+
+For a proxy that cannot rewrite bodies, `inputs_headers(inputs)` returns the
+`TheAuth-Inputs` header (base64url JSON, at most 32 inputs and 8192 characters).
+
+## Devices
+
+`client.devices` is the registry (needs a user or admin token) and `client.device`
+is what a device calls as itself.
+
+```python
+from theauth import (
+    CredentialSpec, DeviceAssertionSigner, EnrollDeviceInput,
+    EnrollmentTokenInput, RegisterDeviceInput,
+)
+from theauth.types import AuthorizeRequest, Permission
+
+# Admin: register a device that signs its own assertions. The key comes first,
+# the id only exists after registering, so bind it afterwards.
+signer = DeviceAssertionSigner()
+reg = await client.devices.register(
+    RegisterDeviceInput(
+        owner_id="user-123",
+        name="Pump 4",
+        permissions=[Permission("mqtt:plant/a/pump4/#", ["publish"])],
+        credential=CredentialSpec.from_jwk(signer.public_jwk),
+    )
+)
+signer.bind(reg.device.id)
+
+# Admin: a bulk token for a factory run, then the device enrolls itself.
+token = await client.devices.create_enrollment_token(
+    EnrollmentTokenInput("user-123", "bulk", max_uses=50, ttl_seconds=86400)
+)
+enrolled = await client.device.enroll(
+    EnrollDeviceInput(token.token, "Pump 5", CredentialSpec.psk(), hardware_id="hw-77")
+)
+psk = enrolled.credential.secret  # shown once
+
+# Device: check an action with the PSK or a signed assertion.
+result = await client.device.authorize(psk, AuthorizeRequest("publish", "mqtt:plant/a/pump4/temp"))
+await client.devices.suspend(reg.device.id, "stolen")
+```
+
+`DeviceAssertionSigner` builds the `device-assertion+jwt` the server verifies
+(ES256, a fresh `jti` each time, `aud` `theauth`, lifetime up to 300 seconds).
+Pass it, a PSK string or a ready JWT as the credential of `device.authorize` and
+`device.bundle`. A signer signs a new assertion on every call, which the server's
+one time `jti` rule needs. `devices.issue_bundle` and `device.bundle` return the
+signed offline policy bundle for devices that cannot call home. A private JWK is
+refused by `CredentialSpec.from_jwk` before it leaves the process.
+
 ## Permissions helpers
 
 The `theauth.permissions` module provides shorthand constructors.

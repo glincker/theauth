@@ -65,7 +65,9 @@ type IntrospectionResponse struct {
 	Jti       string   `json:"jti,omitempty"`
 	TokenType string   `json:"token_type,omitempty"`
 	Cnf       *struct {
-		Jkt string `json:"jkt"`
+		Jkt string `json:"jkt,omitempty"`
+		// X5tS256 is the client certificate thumbprint (RFC 8705).
+		X5tS256 string `json:"x5t#S256,omitempty"`
 	} `json:"cnf,omitempty"`
 	Act     *ActorClaim `json:"act,omitempty"`
 	AgentID string      `json:"agent_id,omitempty"`

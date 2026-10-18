@@ -12,6 +12,12 @@ from theauth.approvals import AsyncApprovalsResource, SyncApprovalsResource
 from theauth.audit import AsyncAuditResource, SyncAuditResource
 from theauth.auth import AsyncAuthResource, SyncAuthResource
 from theauth.delegation import AsyncDelegationResource, SyncDelegationResource
+from theauth.devices.resource import (
+    AsyncDeviceApiResource,
+    AsyncDevicesResource,
+    SyncDeviceApiResource,
+    SyncDevicesResource,
+)
 from theauth.mcp import AsyncMcpResource, SyncMcpResource
 from theauth.types import AuthorizeRequest, AuthorizeResult
 
@@ -93,6 +99,10 @@ class TheAuthClient:
         self.delegation = AsyncDelegationResource(self._transport)
         self.mcp = AsyncMcpResource(self._transport)
         self.approvals = AsyncApprovalsResource(self._transport)
+        #: Device registry (admin routes, ``/devices``).
+        self.devices = AsyncDevicesResource(self._transport)
+        #: Calls a device makes as itself (``/device/*``).
+        self.device = AsyncDeviceApiResource(self._transport)
 
     async def authorize(
         self,
@@ -207,6 +217,10 @@ class TheAuthSyncClient:
         self.delegation = SyncDelegationResource(self._transport)
         self.mcp = SyncMcpResource(self._transport)
         self.approvals = SyncApprovalsResource(self._transport)
+        #: Device registry (admin routes, ``/devices``).
+        self.devices = SyncDevicesResource(self._transport)
+        #: Calls a device makes as itself (``/device/*``).
+        self.device = SyncDeviceApiResource(self._transport)
 
     def authorize(
         self,

@@ -69,6 +69,28 @@ from theauth.decisions import (
     ExplainRequest,
     ExplainResult,
 )
+from theauth.confirmation import (
+    dpop_confirmation,
+    jkt_confirmation,
+    mtls_confirmation,
+    x5t_confirmation,
+)
+from theauth.devices import (
+    AttestationNonce,
+    CredentialSpec,
+    Device,
+    DeviceAssertionSigner,
+    DeviceBundle,
+    DeviceCredential,
+    DeviceFilters,
+    DeviceRegistration,
+    DeviceStats,
+    EnrollDeviceInput,
+    EnrollmentToken,
+    EnrollmentTokenInput,
+    RegisterDeviceInput,
+    UpdateDeviceInput,
+)
 from theauth.dpop import DPoPAuth, DPoPProver, normalize_htu
 from theauth.errors import (
     AuthenticationError,
@@ -78,6 +100,7 @@ from theauth.errors import (
     PermissionError,
     RateLimitError,
     ServerError,
+    StepUpRequiredError,
     TheAuthError,
     ValidationError,
 )
@@ -86,6 +109,19 @@ from theauth.introspection import (
     DelegationBinding,
     IntrospectInput,
     IntrospectionResponse,
+)
+from theauth.provenance import encode_inputs_header, inputs_headers
+from theauth.step_up import (
+    ACR_MFA,
+    ACR_NONE,
+    ACR_ORDER,
+    ACR_PHISHING_RESISTANT,
+    ACR_SINGLE_FACTOR,
+    StepUpChallenge,
+    acr_satisfies,
+    auth_is_fresh,
+    parse_step_up_challenge,
+    step_up_params,
 )
 from theauth.types import (
     Agent,
@@ -102,6 +138,7 @@ from theauth.types import (
     McpServer,
     Permission,
     PermissionConstraints,
+    ProvenanceInput,
     RegisterMcpServerInput,
     Session,
     UpdateAgentInput,
@@ -130,6 +167,7 @@ __all__ = [
     "ServerError",
     "NetworkError",
     "ValidationError",
+    "StepUpRequiredError",
     # Decisions, approvals, introspection
     "DECISION_CODES",
     "DecisionCode",
@@ -148,6 +186,41 @@ __all__ = [
     "IntrospectionResponse",
     "ActorClaim",
     "DelegationBinding",
+    # Step-up (RFC 9470)
+    "StepUpChallenge",
+    "parse_step_up_challenge",
+    "step_up_params",
+    "acr_satisfies",
+    "auth_is_fresh",
+    "ACR_NONE",
+    "ACR_SINGLE_FACTOR",
+    "ACR_MFA",
+    "ACR_PHISHING_RESISTANT",
+    "ACR_ORDER",
+    # Sender constrained tokens (RFC 7800)
+    "dpop_confirmation",
+    "jkt_confirmation",
+    "mtls_confirmation",
+    "x5t_confirmation",
+    # Input provenance
+    "ProvenanceInput",
+    "encode_inputs_header",
+    "inputs_headers",
+    # Devices
+    "AttestationNonce",
+    "CredentialSpec",
+    "Device",
+    "DeviceAssertionSigner",
+    "DeviceBundle",
+    "DeviceCredential",
+    "DeviceFilters",
+    "DeviceRegistration",
+    "DeviceStats",
+    "EnrollDeviceInput",
+    "EnrollmentToken",
+    "EnrollmentTokenInput",
+    "RegisterDeviceInput",
+    "UpdateDeviceInput",
     # Types
     "Agent",
     "AgentFilters",

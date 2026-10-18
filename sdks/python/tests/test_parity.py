@@ -239,7 +239,15 @@ class TestAuthorizeDecisions:
         assert allowed.code == "allowed" and allowed.allowed
 
     def test_decision_codes_list_matches_the_literal(self) -> None:
-        assert len(DECISION_CODES) == len(set(DECISION_CODES)) == 20
+        from typing import get_args
+
+        from theauth.codes import DecisionCode
+
+        doc = json.loads(OPENAPI.read_text())
+        server_codes = doc["components"]["schemas"]["DecisionCode"]["enum"]
+        assert len(DECISION_CODES) == len(set(DECISION_CODES))
+        assert list(DECISION_CODES) == server_codes
+        assert list(get_args(DecisionCode)) == server_codes
         assert "approval_consumed" in DECISION_CODES
 
 

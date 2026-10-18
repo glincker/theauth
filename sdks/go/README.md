@@ -284,6 +284,101 @@ jkt := prover.Thumbprint() // cnf.jkt value
 
 Each request carries a `DPoP` proof (`htm`, `htu` without query or fragment, `iat`, `jti`, and `ath` when a token is sent). A Bearer token becomes `Authorization: DPoP <token>`. The server `DPoP-Nonce` is cached per origin and a `use_dpop_nonce` challenge is retried once. Reuse a key with `WithDPoPKey`.
 
+## Step-up (RFC 9470)
+
+A resource that needs a stronger or fresher sign-in answers 401 with
+`WWW-Authenticate: Bearer error="insufficient_user_authentication", acr_values="...", max_age="..."`.
+The client returns `*theauth.ErrStepUpRequired` (`IsAuthentication` is also true for it) with the parsed challenge.
+
+```go
+_, err := client.Approvals.Approve(ctx, approvalID)
+var su *theauth.ErrStepUpRequired
+if errors.As(err, &su) && su.Challenge != nil {
+    params := su.Challenge.AuthorizeParams() // acr_values and max_age
+    // Send the user through authorization again with these query parameters.
+    fmt.Println(params)
+}
+```
+
+`ParseStepUpChallenge(resp.Header.Values("WWW-Authenticate")...)` reads a header you got some other way. `StepUpParams`, `ACRSatisfies(have, want...)` and `AuthIsFresh(authTime, maxAge, now, skew)` cover the rest. The class order is a theAuth rule (`ACRNone`, `ACRSingleFactor`, `ACRMFA`, `ACRPhishingResistant`); an unknown acr never satisfies another.
+
+## Sender constrained agent tokens
+
+Bind a token to a DPoP key (RFC 9449) or a client certificate (RFC 8705) with the `cnf` claim (RFC 7800).
+
+```go
+prover, _ := theauth.NewDPoPProver()
+agent, err := client.Agents.Create(ctx, theauth.CreateAgentInput{
+    OwnerID: "user-123",
+    Name:    "reader",
+    Type:    theauth.AgentTypeAutonomous,
+    Permissions: []theauth.Permission{{Resource: "mcp:github:*", Actions: []string{"read"}}},
+    Cnf:     theauth.DPoPConfirmation(prover),
+})
+
+bound := theauth.NewClient(baseURL, theauth.WithToken(agent.Token))
+bound.UseDPoP(prover)
+
+client.Agents.Rotate(ctx, agent.ID)                                            // keeps the binding
+client.Agents.RotateWith(ctx, agent.ID, theauth.RotateOptions{Unbind: true})   // plain bearer again
+```
+
+`MTLSConfirmation(certDER)` builds the certificate form. `Agent.Cnf` and `IntrospectionResponse.Cnf` read it back.
+
+## Input provenance
+
+Say what the model had in context when it asked for a call. The server hashes `Content` with its audit key and never stores it.
+
+```go
+res, err := client.Agents.Authorize(ctx, agent.ID, theauth.AuthorizeRequest{
+    Action:   "execute",
+    Resource: "mcp:github:create_issue",
+    Inputs: []theauth.ProvenanceInput{
+        {Kind: theauth.ProvenanceUserMessage, ID: "msg_123", Content: userText},
+        {Kind: theauth.ProvenanceRetrievedDocument, ID: pageURL, Content: pageText},
+    },
+})
+```
+
+For a proxy that cannot rewrite bodies, `EncodeInputsHeader(inputs)` returns the value for the `TheAuth-Inputs` header (base64url JSON, at most 32 inputs and 8192 characters).
+
+## Devices
+
+`client.Devices` is the registry (needs a user or admin token). `client.Device` is what a device calls as itself.
+
+```go
+// Admin: register a device that signs its own assertions. The key comes first,
+// the id only exists after registering, so bind it afterwards.
+signer, _ := theauth.NewDeviceAssertionSigner("")
+spec, _ := theauth.JWKCredential(signer.PublicJWK())
+reg, err := client.Devices.Register(ctx, theauth.RegisterDeviceInput{
+    OwnerID:     "user-123",
+    Name:        "Pump 4",
+    Permissions: []theauth.Permission{{Resource: "mqtt:plant/a/pump4/#", Actions: []string{"publish"}}},
+    Credential:  &spec,
+})
+_ = signer.Bind(reg.Device.ID)
+
+// Device: check an action. The signer makes a new assertion for every call.
+res, err := client.Device.Authorize(ctx, signer, theauth.AuthorizeRequest{
+    Action: "publish", Resource: "mqtt:plant/a/pump4/temp",
+})
+
+// Admin: a bulk token for a factory run. The device enrolls itself with it.
+maxUses, ttl := 50, 86400
+tok, _ := client.Devices.CreateEnrollmentToken(ctx, theauth.EnrollmentTokenInput{
+    OwnerID: "user-123", Kind: theauth.EnrollmentBulk, MaxUses: &maxUses, TTLSeconds: &ttl,
+})
+enrolled, _ := client.Device.Enroll(ctx, theauth.EnrollDeviceInput{
+    Token: tok.Token, Name: "Pump 5", Credential: theauth.PSKCredential(),
+})
+psk := theauth.DevicePSK(enrolled.Credential.Secret) // shown once
+
+_, _ = client.Devices.Suspend(ctx, reg.Device.ID, "stolen")
+```
+
+`DeviceAssertionSigner` builds the `device-assertion+jwt` the server verifies (ES256, a fresh `jti` each time, `aud` `theauth`, lifetime up to 300 seconds). Pass it, a `DevicePSK` or a `DeviceToken` as the credential of `Device.Authorize` and `Device.Bundle`. A signer signs a new assertion on every call, which the server's one time `jti` rule needs. `Devices.IssueBundle` and `Device.Bundle` return the signed offline policy bundle for devices that cannot call home. `JWKCredential` refuses a private JWK before it leaves the process.
+
 ## Error handling
 
 All API errors implement the `error` interface and can be type-checked:

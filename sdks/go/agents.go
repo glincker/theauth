@@ -3,6 +3,7 @@ package theauth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 )
@@ -79,6 +80,39 @@ func (r *AgentsResource) Revoke(ctx context.Context, agentID string) error {
 func (r *AgentsResource) Rotate(ctx context.Context, agentID string) (*Agent, error) {
 	var raw json.RawMessage
 	if err := r.tp.doJSON(ctx, "POST", "/agents/"+url.PathEscape(agentID)+"/rotate", nil, nil, &raw); err != nil {
+		return nil, err
+	}
+	var agent Agent
+	if err := json.Unmarshal(unwrapAPIData(raw), &agent); err != nil {
+		return nil, fmt.Errorf("theauth: decode agent: %w", err)
+	}
+	return &agent, nil
+}
+
+// RotateOptions controls the sender constraint of a rotated token.
+type RotateOptions struct {
+	// Confirmation binds the new token to another key or certificate. Build it
+	// with DPoPConfirmation, JKTConfirmation, MTLSConfirmation or X5tConfirmation.
+	Confirmation map[string]string
+	// Unbind turns the new token into a plain bearer token again.
+	Unbind bool
+}
+
+// RotateWith rotates the agent token and sets its sender constraint. With zero
+// options it behaves like Rotate: the new token keeps the old cnf binding, so a
+// stolen token is replaced by one the thief cannot use either.
+func (r *AgentsResource) RotateWith(ctx context.Context, agentID string, opts RotateOptions) (*Agent, error) {
+	var body interface{}
+	switch {
+	case opts.Unbind && opts.Confirmation != nil:
+		return nil, errors.New("theauth: RotateOptions.Confirmation and Unbind are mutually exclusive")
+	case opts.Unbind:
+		body = map[string]interface{}{"cnf": nil}
+	case opts.Confirmation != nil:
+		body = map[string]interface{}{"cnf": opts.Confirmation}
+	}
+	var raw json.RawMessage
+	if err := r.tp.doJSON(ctx, "POST", "/agents/"+url.PathEscape(agentID)+"/rotate", body, nil, &raw); err != nil {
 		return nil, err
 	}
 	var agent Agent

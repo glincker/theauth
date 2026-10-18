@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
 from theauth._http import AsyncTransport, SyncTransport
@@ -16,6 +16,21 @@ from theauth.types import (
     Permission,
     UpdateAgentInput,
 )
+
+
+class _Unset:
+    """Marks "leave the binding alone" for ``rotate(cnf=...)``, since ``None`` means "unbind"."""
+
+    def __repr__(self) -> str:
+        return "UNSET"
+
+
+UNSET = _Unset()
+CnfArg = Union[Dict[str, str], None, _Unset]
+
+
+def _rotate_body(cnf: CnfArg) -> Optional[Dict[str, Any]]:
+    return None if isinstance(cnf, _Unset) else {"cnf": cnf}
 
 
 class AsyncAgentsResource:
@@ -88,18 +103,25 @@ class AsyncAgentsResource:
         """
         await self._http.request("DELETE", f"/agents/{quote(agent_id)}")
 
-    async def rotate(self, agent_id: str) -> Agent:
+    async def rotate(self, agent_id: str, cnf: CnfArg = UNSET) -> Agent:
         """Rotate an agent's bearer token.
 
-        Issues a new cryptographic token and invalidates the previous one.
+        Issues a new cryptographic token and invalidates the previous one. The
+        new token keeps the old ``cnf`` binding, so a stolen token is replaced by
+        one the thief cannot use either.
 
         Args:
             agent_id: The agent's unique identifier.
+            cnf: Bind the new token to another key or certificate (see
+                :mod:`theauth.confirmation`), or pass ``None`` to make it a plain
+                bearer token again. Leave out to keep the current binding.
 
         Returns:
             The updated :class:`~theauth.types.Agent` with a fresh token.
         """
-        data = await self._http.request("POST", f"/agents/{quote(agent_id)}/rotate")
+        data = await self._http.request(
+            "POST", f"/agents/{quote(agent_id)}/rotate", json=_rotate_body(cnf)
+        )
         return Agent.from_dict(data)
 
     async def authorize(self, agent_id: str, request: AuthorizeRequest) -> AuthorizeResult:
@@ -184,9 +206,11 @@ class SyncAgentsResource:
         """Revoke (delete) an agent identity."""
         self._http.request("DELETE", f"/agents/{quote(agent_id)}")
 
-    def rotate(self, agent_id: str) -> Agent:
-        """Rotate an agent's bearer token."""
-        data = self._http.request("POST", f"/agents/{quote(agent_id)}/rotate")
+    def rotate(self, agent_id: str, cnf: CnfArg = UNSET) -> Agent:
+        """Rotate an agent's bearer token. See the async version for ``cnf``."""
+        data = self._http.request(
+            "POST", f"/agents/{quote(agent_id)}/rotate", json=_rotate_body(cnf)
+        )
         return Agent.from_dict(data)
 
     def authorize(self, agent_id: str, request: AuthorizeRequest) -> AuthorizeResult:
