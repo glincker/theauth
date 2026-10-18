@@ -9,7 +9,7 @@ const IN_AN_HOUR = new Date(Date.now() + 3_600_000);
 async function store() {
 	const { db, exec } = await memoryDb();
 	await runMigrations(db, "sqlite");
-	return { s: createDbRevocationStore(db), exec };
+	return { s: createDbRevocationStore(db, { skewAllowanceMs: 0 }), exec };
 }
 
 const query = (over: Partial<McpRevocationQuery> = {}): McpRevocationQuery => ({

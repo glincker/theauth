@@ -1,7 +1,8 @@
-import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { mcpRevocations } from "../db/schema.js";
 import { isUniqueViolation } from "../db/unique-violation.js";
+import { getEnvNumber } from "../runtime/env.js";
 import type {
 	McpRevocationEntry,
 	McpRevocationHit,
@@ -12,6 +13,24 @@ import type {
 import { MCP_REVOCATION_DEFAULTS } from "./revocation-types.js";
 
 const t = mcpRevocations;
+
+/** Rows this close below the newest one are counted by the fingerprint, whatever the skew setting. */
+const FINGERPRINT_MIN_WINDOW_MS = 60_000;
+
+/** Default clock skew allowance between instances for watermark rows. Env THEAUTH_MCP_REVOCATION_SKEW_MS. */
+export const DEFAULT_REVOCATION_SKEW_MS = 0;
+
+export interface DbRevocationStoreOptions {
+	/**
+	 * Skew bound between the clock of the instance that wrote a `sub` or `client` watermark
+	 * (`revoked_at_ms`, that instance's clock) and the clock of the instance that minted the token
+	 * (`iat`). A token is dead when `iat * 1000 <= revoked_at_ms + skew`, so a revoker whose clock
+	 * lags by up to `skewAllowanceMs` still kills tokens minted just before the revoke. The cost is
+	 * that a token minted within `skewAllowanceMs` after a revoke is also refused (fails closed).
+	 * Default 0 (instances are assumed NTP synced; raise it, for example to 2000, when they are not).
+	 */
+	skewAllowanceMs?: number;
+}
 
 /** Epoch seconds, rounded up so a row never expires before the thing it denies. */
 function toSeconds(d: Date): number {
@@ -28,7 +47,16 @@ function uniq(ids: readonly string[]): string[] {
  * statements, never wrapped in a transaction: a duplicate key on Postgres would otherwise abort
  * the whole transaction. Only ids are stored, never token values.
  */
-export function createDbRevocationStore(db: Database): McpRevocationStore {
+export function createDbRevocationStore(
+	db: Database,
+	options: DbRevocationStoreOptions = {},
+): McpRevocationStore {
+	const rawSkew =
+		options.skewAllowanceMs ??
+		getEnvNumber("THEAUTH_MCP_REVOCATION_SKEW_MS") ??
+		DEFAULT_REVOCATION_SKEW_MS;
+	const skewMs =
+		Number.isFinite(rawSkew) && rawSkew >= 0 ? Math.floor(rawSkew) : DEFAULT_REVOCATION_SKEW_MS;
 	async function upsert(entry: McpRevocationEntry, revokedAtMs: number): Promise<void> {
 		const expiresAt = toSeconds(entry.expiresAt);
 		const sourceId = entry.sourceId ?? null;
@@ -103,9 +131,13 @@ export function createDbRevocationStore(db: Database): McpRevocationStore {
 			const hits = new Map<McpRevocationKind, McpRevocationHit>();
 			for (const row of rows) {
 				if (hits.has(row.kind)) continue;
-				// Watermarks: a token minted in the same millisecond window or earlier is dead (fail closed).
+				// Watermarks: a token minted before the revoke, or within the skew allowance after it, is dead
+				// (fail closed). revoked_at_ms is the pushing instance's clock, never ours.
 				// Number() because BIGINT arrives as a string on some Postgres drivers.
-				if ((row.kind === "sub" || row.kind === "client") && !(iatMs <= Number(row.revokedAtMs))) {
+				if (
+					(row.kind === "sub" || row.kind === "client") &&
+					!(iatMs <= Number(row.revokedAtMs) + skewMs)
+				) {
 					continue;
 				}
 				hits.set(row.kind, { kind: row.kind, id: row.id });
@@ -117,14 +149,23 @@ export function createDbRevocationStore(db: Database): McpRevocationStore {
 			return null;
 		},
 
+		/**
+		 * Cheap change marker, two index range reads instead of COUNT(*) over the whole table:
+		 * the newest `revoked_at_ms` and the number of rows within the skew window below it. A row
+		 * pushed by an instance whose clock lags by less than the window still changes the count;
+		 * pruning old rows does not touch it.
+		 */
 		async fingerprint() {
-			const [row] = await db
-				.select({
-					n: sql<string | number>`count(*)`,
-					m: sql<string | number | null>`max(${t.revokedAtMs})`,
-				})
+			const [top] = await db
+				.select({ m: sql<string | number | null>`max(${t.revokedAtMs})` })
 				.from(t);
-			return `${Number(row?.n ?? 0)}:${Number(row?.m ?? 0)}`;
+			const max = Number(top?.m ?? 0);
+			if (max === 0) return "0:0";
+			const [near] = await db
+				.select({ n: sql<string | number>`count(*)` })
+				.from(t)
+				.where(gte(t.revokedAtMs, Math.max(0, max - Math.max(skewMs, FINGERPRINT_MIN_WINDOW_MS))));
+			return `${Number(near?.n ?? 0)}:${max}`;
 		},
 
 		async prune(now, limit = MCP_REVOCATION_DEFAULTS.pruneLimit) {

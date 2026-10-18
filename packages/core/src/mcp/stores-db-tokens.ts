@@ -2,7 +2,7 @@ import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { oauthAccessTokens, oauthAuthorizationCodes } from "../db/schema.js";
-import type { McpAccessToken, McpAuthorizationCode } from "./types.js";
+import type { McpAccessToken, McpAuthorizationCode, McpFamilyAccessTokenRef } from "./types.js";
 
 /** Rows deleted by a statement, across drivers (better-sqlite3, sql.js, node-postgres, mysql2). */
 function affectedRows(result: unknown): number {
@@ -21,7 +21,7 @@ export interface McpTokenStore {
 	storeToken: (token: McpAccessToken) => Promise<void>;
 	findTokenByRefreshToken: (refreshToken: string) => Promise<McpAccessToken | null>;
 	revokeToken: (accessToken: string) => Promise<void>;
-	revokeTokenFamily: (familyId: string) => Promise<void>;
+	revokeTokenFamily: (familyId: string) => Promise<McpFamilyAccessTokenRef[]>;
 }
 
 export interface McpTokenStoreOptions {
@@ -164,7 +164,13 @@ export function createDbTokenStore(
 		},
 
 		async revokeTokenFamily(familyId) {
+			// Read first: the caller denylists these jtis so a thief's access token dies with the family.
+			const rows = await db
+				.select({ jti: oauthAccessTokens.jti, expiresAt: oauthAccessTokens.accessTokenExpiresAt })
+				.from(oauthAccessTokens)
+				.where(eq(oauthAccessTokens.familyId, familyId));
 			await db.delete(oauthAccessTokens).where(eq(oauthAccessTokens.familyId, familyId));
+			return rows.flatMap((r) => (r.jti ? [{ jti: r.jti, expiresAt: r.expiresAt }] : []));
 		},
 	};
 }

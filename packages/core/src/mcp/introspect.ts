@@ -1,3 +1,4 @@
+import { getEnvNumber } from "../runtime/env.js";
 import { authenticateEndpointClient, checkEndpointRateLimit } from "./endpoint-client-auth.js";
 import { verifyAccessJwt } from "./keys.js";
 import type {
@@ -31,9 +32,8 @@ export interface McpIntrospectionHooks {
 }
 
 function envInt(name: string): number | undefined {
-	const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
-	const n = Number(proc?.env?.[name]);
-	return Number.isFinite(n) && n >= 1 ? Math.floor(n) : undefined;
+	const n = getEnvNumber(name);
+	return n !== undefined && n >= 1 ? Math.floor(n) : undefined;
 }
 
 function audiencesOf(aud: unknown): string[] {

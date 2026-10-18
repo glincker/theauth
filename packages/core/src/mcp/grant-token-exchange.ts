@@ -3,7 +3,9 @@ import {
 	bindingActorMapper,
 	bindingStoreOf,
 	earliest,
+	MCP_BINDING_NOT_ENTITLED,
 	readBindingClaim,
+	readParentJtis,
 	requireBoundChain,
 	resolveExchangeBinding,
 } from "./binding.js";
@@ -16,7 +18,12 @@ import {
 } from "./grant-types.js";
 import { canonicalizeResource, configuredResources } from "./lenient.js";
 import type { McpDelegationBinding, McpMintBinding } from "./revocation-types.js";
-import { MCP_DELEGATION_CLAIM } from "./revocation-types.js";
+import {
+	MCP_DELEGATION_CLAIM,
+	MCP_PARENT_JTI_CLAIM,
+	MCP_PARENT_JTI_MAX,
+} from "./revocation-types.js";
+import type { McpAgentClaims } from "./token-issue.js";
 import { issueGrantToken, MCP_BINDING_REFUSED } from "./token-issue.js";
 import type {
 	McpActorClaim,
@@ -40,6 +47,10 @@ import { validateAccessToken } from "./validate.js";
  *   exact delegation rows and agents its authority rests on (refused when a link is missing, revoked
  *   or expired, an agent is dead, or the actor mapper throws). With no agent on the path the token is
  *   unbound (only jti, subject and client revocation apply) unless `revocation.requireBoundChain`;
+ * - the subject token's user must own, or be delegated through the chain to, every agent the child
+ *   names (an `invalid_grant` plus an audit row under the refused agent otherwise);
+ * - the child's `agent_id` is the acting agent, the last entry of `theauth_dlg.agt`;
+ * - the child carries its subject lineage in `theauth_pjti`, so revoking any ancestor token denies it;
  * - exchanged tokens never carry a refresh token.
  */
 
@@ -49,6 +60,8 @@ interface VerifiedToken {
 	agent: { agentId?: string; agentType?: string; trustTier?: string } | undefined;
 	/** The verified `theauth_dlg`, when the token is bound. */
 	binding: McpDelegationBinding | undefined;
+	/** The verified `theauth_pjti` (ancestor jtis, root first), empty for a token minted by a grant. */
+	parents: string[];
 }
 
 function grantError(message: string): Result<never> {
@@ -88,6 +101,8 @@ async function verifyOwnToken(
 	// Read only now that the signature verified: the claim is never trusted from anywhere else.
 	const binding = result.data.binding ?? readBindingClaim(claims[MCP_DELEGATION_CLAIM]);
 	if (binding === null) return grantError(`${label} has a malformed delegation binding`);
+	const parents = readParentJtis(claims[MCP_PARENT_JTI_CLAIM]);
+	if (parents === null) return grantError(`${label} has a malformed parent token list`);
 
 	const act = claims.act as McpActorClaim | undefined;
 	const agentId = typeof claims.agent_id === "string" ? claims.agent_id : undefined;
@@ -107,6 +122,7 @@ async function verifyOwnToken(
 					}
 				: undefined,
 			binding,
+			parents: parents ?? [],
 		},
 	};
 }
@@ -241,10 +257,16 @@ export async function handleTokenExchangeGrant(
 	}
 
 	const now = new Date();
+	const parentJtis = [...subject.data.parents, subjectSession.tokenId];
+	if (parentJtis.length > MCP_PARENT_JTI_MAX) {
+		return grantError("subject_token has too many ancestors to exchange again");
+	}
+
 	const minted = await mintBinding(ctx, {
 		subject: subject.data,
 		actor: { sub: actorSub, clientId: actorClientId },
 		actorBinding,
+		clientId: client.clientId,
 		now,
 	});
 	if (!minted.success) return minted;
@@ -293,7 +315,9 @@ export async function handleTokenExchangeGrant(
 				expiresNotAfter: notAfter,
 				act,
 				binding: binding ?? null,
-				...(subject.data.agent ? { agent: subject.data.agent } : {}),
+				agent: childAgent(binding, subject.data.agent),
+				inheritClientAgent: false,
+				parentJtis,
 			},
 			issuedTokenType: TOKEN_TYPE_ACCESS_TOKEN,
 		});
@@ -307,6 +331,21 @@ export async function handleTokenExchangeGrant(
 }
 
 /**
+ * Agent claims of the child. Bound: the acting agent, the last entry of `agt` (the principal that
+ * acts; the root and every hop stay in `theauth_dlg`), with the subject's type and trust tier only
+ * when it is the same agent. Unbound: the subject's own agent claims, if any.
+ */
+function childAgent(
+	binding: McpDelegationBinding | undefined,
+	subjectAgent: VerifiedToken["agent"],
+): McpAgentClaims {
+	const acting = binding?.agt[binding.agt.length - 1];
+	if (acting === undefined) return { ...(subjectAgent ?? {}) };
+	if (subjectAgent?.agentId !== acting) return { agentId: acting };
+	return { ...subjectAgent, agentId: acting };
+}
+
+/**
  * Resolve the child's delegation binding. Without an attached binding store nothing changes from
  * before bindings existed (unbound, no mapper calls), except that `requireBoundChain` refuses.
  * An actor token that is itself bound must be live too; its authority is not merged into the child.
@@ -317,6 +356,7 @@ async function mintBinding(
 		subject: VerifiedToken;
 		actor: { sub: string; clientId: string };
 		actorBinding: McpDelegationBinding | undefined;
+		clientId: string;
 		now: Date;
 	},
 ): Promise<Result<McpMintBinding>> {
@@ -338,7 +378,7 @@ async function mintBinding(
 			return grantError(`actor_token delegation is no longer live (${verdict.reason})`);
 	}
 	const { session, act, agent, binding } = input.subject;
-	return resolveExchangeBinding(store, bindingActorMapper(ctx), {
+	const resolved = await resolveExchangeBinding(store, bindingActorMapper(ctx), {
 		...(binding ? { parent: binding } : {}),
 		subject: session.userId,
 		...(act ? { act } : {}),
@@ -347,4 +387,18 @@ async function mintBinding(
 		requireBoundChain: required,
 		now: input.now,
 	});
+	const foreign = resolved.success ? undefined : resolved.error.details?.[MCP_BINDING_NOT_ENTITLED];
+	if (!resolved.success && typeof foreign === "string" && store.auditDenial) {
+		const agt = resolved.error.details?.agt;
+		await store
+			.auditDenial({
+				agentId: foreign,
+				subject: session.userId,
+				clientId: input.clientId,
+				agt: Array.isArray(agt) ? agt.filter((x): x is string => typeof x === "string") : [],
+				reason: "token exchange refused: subject not entitled to agent",
+			})
+			.catch(() => undefined);
+	}
+	return resolved;
 }

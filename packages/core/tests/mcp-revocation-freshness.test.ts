@@ -589,9 +589,11 @@ describe("cached mode", () => {
 		publish();
 		release();
 		expect((await pending).success).toBe(true);
+		// The caller recomputed after the clear (2 reads), and nothing stale was cached.
+		expect(revocations.checkCalls).toHaveLength(2);
 		revocations.gate = undefined;
 		await validate(ctx, token);
-		expect(revocations.checkCalls).toHaveLength(2);
+		expect(revocations.checkCalls).toHaveLength(3);
 	});
 
 	it("concurrent validations of the same token coalesce into one read", async () => {

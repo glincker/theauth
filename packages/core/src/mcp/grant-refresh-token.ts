@@ -1,5 +1,6 @@
 import type { GrantClientAuth } from "./grant-common.js";
 import { resolveAuthenticatedClient } from "./grant-common.js";
+import { checkGrantLive } from "./grant-liveness.js";
 import { canonicalizeResource, supportedScopes } from "./lenient.js";
 import { revokeFamilyAndTokens, revokeStoredAccessToken } from "./revocation.js";
 import { issueAccessTokenJwt, issueRefreshToken } from "./token-issue.js";
@@ -52,6 +53,30 @@ export async function handleRefreshTokenGrant(
 		};
 	}
 	const dpopJkt = existingToken?.dpopJkt ?? presentedJkt;
+
+	// Revocation check, always LIVE: the token endpoint is the choke point, whatever freshness mode
+	// resource servers run. Fails closed on a store error. Runs before rotation so a revoked grant
+	// is never rotated, and the family is killed so it cannot be retried.
+	if (existingToken) {
+		const live = await checkGrantLive(ctx, {
+			jti: existingToken.jti ?? existingToken.accessToken,
+			sub: existingToken.userId,
+			clientId: data.client_id,
+			// A refresh token minted before a sub or client watermark is dead; one minted after is fine.
+			grantedAt: existingToken.createdAt,
+			agentId: resolved.data.agentId ?? undefined,
+		});
+		if (!live.success) return live;
+		if (live.data.revoked) {
+			if (existingToken.familyId) {
+				await revokeFamilyAndTokens(ctx, existingToken.familyId, null).catch(() => undefined);
+			}
+			return {
+				success: false,
+				error: { code: "INVALID_GRANT", message: "The grant has been revoked" },
+			};
+		}
+	}
 
 	// Rotation and reuse detection (RFC 9700 section 4.14)
 	const families = ctx.tokenFamilies;

@@ -2,6 +2,7 @@ import { authenticateEndpointClient } from "./endpoint-client-auth.js";
 import { invalidateFreshnessCache } from "./freshness.js";
 import { verifyAccessJwt } from "./keys.js";
 import { revocationRowExpiry } from "./revocation-bus.js";
+import { pruneIfDue } from "./revocation-prune.js";
 import type { McpRevocationStore } from "./revocation-types.js";
 import type { McpAccessToken, McpAuthContext, Result } from "./types.js";
 import { hashToken, parseRequestBody } from "./utils.js";
@@ -22,24 +23,35 @@ export async function revokeStoredAccessToken(
 	record: Pick<McpAccessToken, "accessToken" | "jti" | "expiresAt">,
 ): Promise<void> {
 	await ctx.revokeToken(record.accessToken);
+	if (record.jti) await denylistJti(ctx, record.jti, record.expiresAt);
+}
+
+/** Deny one jti until `expiresAt` (the token's own `exp`, so the row can be pruned). No-op without a denylist. */
+async function denylistJti(ctx: McpAuthContext, jti: string, expiresAt: Date): Promise<void> {
 	const denylist = ctx.config.jtiDenylist;
-	if (denylist && record.jti) {
-		if (isRevocationStore(denylist)) {
-			// Shared denylist: every instance sharing the database refuses this jti on its next check.
-			await denylist.revokeMany([
-				{
-					kind: "jti",
-					id: record.jti,
-					expiresAt: revocationRowExpiry(record.expiresAt, new Date()),
-					reason: "oauth.revoke",
-				},
-			]);
-		} else {
-			await denylist.revoke(record.jti, record.expiresAt);
+	if (!denylist) return;
+	if (isRevocationStore(denylist)) {
+		// Expired more than a minute ago (clock skew margin): dead without a row, so skip the write.
+		if (expiresAt.getTime() <= Date.now() - 60_000) {
+			invalidateFreshnessCache(ctx);
+			return;
 		}
-		// Cached mode on this instance must not keep serving a positive verdict.
-		invalidateFreshnessCache(ctx);
+		// Shared denylist: every instance sharing the database refuses this jti on its next check.
+		await denylist.revokeMany([
+			{
+				kind: "jti",
+				id: jti,
+				expiresAt: revocationRowExpiry(expiresAt, new Date()),
+				reason: "oauth.revoke",
+			},
+		]);
+		// Rows die with their token; pruning rides on the write, throttled per instance.
+		void pruneIfDue(denylist, { intervalMs: ctx.config.revocation?.pruneIntervalMs });
+	} else {
+		await denylist.revoke(jti, expiresAt);
 	}
+	// Cached mode on this instance must not keep serving a positive verdict.
+	invalidateFreshnessCache(ctx);
 }
 
 /** Revoke a whole refresh token family and the access token tied to `record`, if known. */
@@ -49,7 +61,12 @@ export async function revokeFamilyAndTokens(
 	record: McpAccessToken | null,
 ): Promise<void> {
 	await ctx.tokenFamilies?.revokeFamily(familyId);
-	await ctx.revokeTokenFamily?.(familyId);
+	// The family's live access tokens (a thief's included) are denylisted, not just deleted:
+	// validation never reads the token rows.
+	const live = await ctx.revokeTokenFamily?.(familyId);
+	if (Array.isArray(live)) {
+		for (const token of live) await denylistJti(ctx, token.jti, token.expiresAt);
+	}
 	if (record) await revokeStoredAccessToken(ctx, record);
 }
 

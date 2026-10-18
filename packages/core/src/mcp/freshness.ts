@@ -7,6 +7,7 @@
 //   offline claims until exp, plus the in memory jtiDenylist when one is configured
 // Any store error rejects the token (fail closed). Tokens and their claims are never logged.
 
+import { getEnv } from "../runtime/env.js";
 import type {
 	McpBindingStore,
 	McpDelegationBinding,
@@ -49,6 +50,8 @@ export interface McpFreshnessSubject {
 	binding?: McpDelegationBinding;
 	/** Legacy tokens: `agent_id` without a binding. */
 	agentId?: string;
+	/** `theauth_pjti`: ancestor jtis of an exchanged token. A revoked ancestor denies this token. */
+	parents?: string[];
 }
 
 export type McpFreshnessOutcome =
@@ -93,11 +96,7 @@ function revocationsOf(ctx: McpAuthContext): McpRevocationStore | undefined {
 	return isRevocationStore(denylist) ? denylist : undefined;
 }
 
-function envOf(name: string): string | undefined {
-	const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
-	const value = proc?.env?.[name];
-	return value === undefined || value === "" ? undefined : value;
-}
+const envOf = getEnv;
 
 function positiveInt(configured: number | undefined, envName: string, fallback: number): number {
 	const fromEnv = envOf(envName);
@@ -201,9 +200,15 @@ export function freshnessError(
 
 type Entry = McpFreshnessCacheEntry & { computedAt: number; tag: string; id: string };
 
+/** A shared read, tagged with the generation it started in so joiners can tell it predates a clear. */
+interface Flight {
+	promise: Promise<Verdict>;
+	generation: number;
+}
+
 interface State {
 	entries: Map<string, Entry>;
-	inflight: Map<string, Promise<Verdict>>;
+	inflight: Map<string, Flight>;
 	generation: number;
 	lastFingerprint?: string;
 	lastPollAt?: number;
@@ -227,6 +232,8 @@ function stateOf(ctx: McpAuthContext): State {
 /** Drop positive verdicts (negative ones are terminal: a revoked token never comes back). */
 function clearPositive(state: State): void {
 	state.generation++;
+	// A read started before this clear may carry a verdict that predates the revoke: nobody new joins it.
+	state.inflight.clear();
 	for (const [key, entry] of state.entries) {
 		if (entry.verdict === "live") state.entries.delete(key);
 	}
@@ -279,7 +286,16 @@ async function computeVerdict(
 		throw new Error("binding store is not configured");
 	}
 
-	const [hit, extraDeny, bound] = await Promise.all([
+	// Ancestors of an exchanged token: revoking a parent (RFC 7009 or its refresh family) reaches here.
+	const parentDenied = async (): Promise<string | undefined> => {
+		for (const p of subject.parents ?? []) {
+			if (revocations && (await revocations.isRevoked(p))) return p;
+			if (denylist && denylist !== revocations && (await denylist.isRevoked(p))) return p;
+		}
+		return undefined;
+	};
+
+	const [hit, extraDeny, bound, parent] = await Promise.all([
 		revocations
 			? revocations.check({
 					jti: subject.jti,
@@ -292,10 +308,12 @@ async function computeVerdict(
 			: Promise.resolve(null),
 		denylist && denylist !== revocations ? denylist.isRevoked(subject.jti) : Promise.resolve(false),
 		toCheck && bindings ? bindings.check(toCheck, new Date(now)) : Promise.resolve(undefined),
+		parentDenied(),
 	]);
 
 	if (hit) return { verdict: HIT_REASON[hit.kind], id: hit.id };
 	if (extraDeny) return { verdict: "revoked", id: subject.jti };
+	if (parent !== undefined) return { verdict: "revoked", id: parent };
 	if (bound && !bound.live) return { verdict: bound.reason, id: bound.id };
 	return {
 		verdict: "live",
@@ -403,14 +421,20 @@ async function checkCached(
 			}
 			return v;
 		});
-		flight = created;
-		state.inflight.set(tag, created);
+		flight = { promise: created, generation };
+		const mine = flight;
+		state.inflight.set(tag, mine);
 		const cleanup = () => {
-			if (state.inflight.get(tag) === created) state.inflight.delete(tag);
+			if (state.inflight.get(tag) === mine) state.inflight.delete(tag);
 		};
 		created.then(cleanup, cleanup);
 	}
-	const v = await flight;
+	let v = await flight.promise;
+	if (v.verdict === "live" && flight.generation !== state.generation) {
+		// A revoke landed while this read was in flight (including callers that joined it): the
+		// "live" may predate the revoke, so this caller recomputes against the store.
+		v = await computeVerdict(ctx, subject, Date.now());
+	}
 	return outcomeOf(v.verdict, v.id, "cached", Date.now());
 }
 

@@ -1,3 +1,4 @@
+import { readParentJtis } from "./binding.js";
 import { checkLiveDelegation } from "./delegation-check.js";
 import type { McpFreshnessSubject } from "./freshness.js";
 import {
@@ -8,6 +9,7 @@ import {
 } from "./freshness.js";
 import { verifyAccessJwt } from "./keys.js";
 import type { McpFreshnessMode, McpValidateOptions } from "./revocation-types.js";
+import { MCP_PARENT_JTI_CLAIM } from "./revocation-types.js";
 import type {
 	McpActorClaim,
 	McpAuthContext,
@@ -247,6 +249,28 @@ export async function validateAccessToken(
 			},
 		};
 	}
+	// A bound token's agent must be one the binding names (the acting agent), so revoking it always
+	// reaches the token. Minting never signs anything else; refuse rather than trust a stray claim.
+	const claimedAgent = typeof payload.agent_id === "string" ? payload.agent_id : undefined;
+	const parents = readParentJtis(
+		(payload as unknown as Record<string, unknown>)[MCP_PARENT_JTI_CLAIM],
+	);
+	if (
+		(binding && claimedAgent !== undefined && !binding.agt.includes(claimedAgent)) ||
+		parents === null
+	) {
+		return {
+			success: false,
+			error: {
+				code: "INVALID_TOKEN",
+				message: "Token delegation binding is malformed",
+				details: {
+					revocation: { reason: "invalid", id: payload.jti },
+					...rejectedDetail(rejected),
+				},
+			},
+		};
+	}
 	const delegationChain = readDelegationChain(payload.act);
 	const subject: McpFreshnessSubject = {
 		jti: payload.jti,
@@ -258,6 +282,7 @@ export async function validateAccessToken(
 		...(!binding && typeof payload.agent_id === "string" && payload.agent_id
 			? { agentId: payload.agent_id }
 			: {}),
+		...(parents ? { parents } : {}),
 	};
 	const mode = options.freshness ?? resolveFreshnessSettings(ctx).mode;
 	const fresh = await runFreshness(ctx, subject, delegationChain, mode, rejected);

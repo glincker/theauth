@@ -328,6 +328,12 @@ export interface McpAuthorizeResult {
 	state: string | null;
 }
 
+/** An access token minted inside a refresh token family. */
+export interface McpFamilyAccessTokenRef {
+	jti: string;
+	expiresAt: Date;
+}
+
 export interface McpAccessToken {
 	/** SHA-256 hex digest of the access token JWT. The raw token is never handed to storage. Rows written by older versions hold the raw JWT. */
 	accessToken: string;
@@ -443,7 +449,8 @@ export interface McpAuthContext {
 	revokeToken: (accessToken: string) => Promise<void>;
 	/** Optional: persist a hashed client secret in place of a legacy plaintext one after a successful check. Without it, legacy rows keep working but are not upgraded. */
 	updateClientSecret?: (clientId: string, hashedSecret: string) => Promise<void>;
-	revokeTokenFamily?: (familyId: string) => Promise<void>;
+	/** Optional: delete the family's token rows. Return the live access tokens it held (jti and expiry) so they can be denylisted; a store that returns nothing leaves them valid until `exp`. */
+	revokeTokenFamily?: (familyId: string) => Promise<void | McpFamilyAccessTokenRef[]>;
 	/** Optional: bind a client to an agent (or clear the binding with `null`). Required for `clients.bindAgent` and `clients.unbindAgent`; the database stores provide it. */
 	setClientAgent?: (clientId: string, agentId: string | null) => Promise<void>;
 	/** Admin disable or enable of a stored client. */

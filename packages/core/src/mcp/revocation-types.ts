@@ -11,6 +11,16 @@ export const MCP_DELEGATION_CLAIM = "theauth_dlg";
 /** Current version of the `theauth_dlg` claim. Validators refuse any other value. */
 export const MCP_DELEGATION_BINDING_VERSION = 1;
 
+/**
+ * Private claim on exchanged tokens: the jtis of the subject token lineage, root first (the direct
+ * parent last). A revoked ancestor denies the child. A sibling of `theauth_dlg` so unbound exchanged
+ * tokens carry it too; validators that predate it ignore it.
+ */
+export const MCP_PARENT_JTI_CLAIM = "theauth_pjti";
+
+/** Most ancestor jtis a token may carry. Longer or malformed lists make the token invalid. */
+export const MCP_PARENT_JTI_MAX = 32;
+
 /** Private claim `theauth_dlg`: what this token's authority rests on. Signed, so never trusted from anywhere else. */
 export interface McpDelegationBinding {
 	/** Claim version. Always 1; a token with another version is invalid. */
@@ -60,6 +70,10 @@ export interface McpRevocationConfig {
 	requireBoundChain?: boolean;
 	/** `session.revokeAll(userId)` also revokes that user's MCP tokens. Default true. */
 	revokeOnSignOutEverywhere?: boolean;
+	/** Clock skew allowance (ms) for `sub` and `client` watermarks written by other instances. Default 0. Env THEAUTH_MCP_REVOCATION_SKEW_MS. */
+	clockSkewMs?: number;
+	/** Minimum gap (ms) between opportunistic prunes of expired denylist rows, per instance. Default 60000. Env THEAUTH_MCP_REVOCATION_PRUNE_INTERVAL_MS. */
+	pruneIntervalMs?: number;
 	/** Called after every revocation is recorded (wire `sharedSignals().bridge.onMcpRevocation`). Errors swallowed. */
 	onRevoked?: (event: McpRevocationEvent) => void | Promise<void>;
 }
@@ -109,6 +123,28 @@ export interface McpBindingAgent {
 	ownerId: string;
 }
 
+/** A live inbound delegation link, for walking an agent's authority path up to its root. */
+export interface McpInboundLink {
+	/** `theauth_delegation_chains.id`. */
+	id: string;
+	/** The delegating agent. */
+	from: string;
+	expiresAt: Date;
+}
+
+/** A token exchange refused because the subject is not entitled to an agent. Ids only, never a token. */
+export interface McpBindingDenial {
+	/** The agent the subject is not entitled to (the acting agent of the refused child). */
+	agentId: string;
+	/** The token `sub` that asked for it. */
+	subject: string;
+	/** The client that presented the exchange. */
+	clientId: string;
+	/** The refused authority path, root first. */
+	agt: string[];
+	reason: string;
+}
+
 /** Reads the delegation and agent rows a binding names. Source of truth for live checks. */
 export interface McpBindingStore {
 	/** At most 3 indexed queries: chains by id IN, agents by id IN, liveness of agt[0] upstream. */
@@ -117,6 +153,14 @@ export interface McpBindingStore {
 	findLiveLink(from: string, to: string, now: Date): Promise<McpLiveLink | null>;
 	/** Agent rows that exist among `ids`, with status and expiry (for mint time resolution and caps). */
 	agents(ids: string[]): Promise<Map<string, McpBindingAgent>>;
+	/**
+	 * Live inbound links to `to` (active, unexpired, delegator live), earliest created first. Used to
+	 * name an agent's authority path up to its root at mint time. Optional: without it a token names
+	 * only the agents it resolved, and the root's upstream is checked by `check` alone.
+	 */
+	liveInbound?(to: string, now: Date): Promise<McpInboundLink[]>;
+	/** Record a refused exchange in the audit log. Optional, best effort: errors are swallowed. */
+	auditDenial?(denial: McpBindingDenial): Promise<void>;
 }
 
 /** Result of resolving a binding at mint time (token exchange and agent bound grants). */
@@ -228,7 +272,7 @@ export interface McpRevocationStore extends McpJtiDenylist {
 	revokeMany(entries: McpRevocationEntry[], revokedAt?: Date): Promise<void>;
 	/** One query. Returns the first hit by precedence jti, sub, client, dlg, agent; or null. */
 	check(q: McpRevocationQuery): Promise<McpRevocationHit | null>;
-	/** COUNT(*) and MAX(revoked_at_ms), for cached mode. Compared to the last seen value, never to a clock. */
+	/** Newest `revoked_at_ms` plus a count of the rows near it (no COUNT(*) over the table), for cached mode. Compared to the last seen value, never to a clock. */
 	fingerprint(): Promise<string>;
 	/** Delete rows past `expiresAt`, at most `limit` (default 500). Returns rows deleted. */
 	prune(now: Date, limit?: number): Promise<number>;
@@ -252,8 +296,10 @@ export interface McpRevocationEvent {
 export interface McpRevocationBus {
 	/** Records rows (when a store is set), notifies local listeners, then calls onRevoked. */
 	publish(event: McpRevocationEvent, entries: McpRevocationEntry[]): Promise<void>;
-	/** Returns an unsubscribe function. */
+	/** Notified once per publish, after the push. Returns an unsubscribe function. */
 	subscribe(listener: (event: McpRevocationEvent) => void): () => void;
+	/** Local cache invalidation: notified BEFORE the push (so a failed push still clears this instance) and again after it (for reads that raced the write). Idempotent listeners only. */
+	subscribeClear?(listener: (event: McpRevocationEvent) => void): () => void;
 }
 
 export interface McpRevocationBusOptions {

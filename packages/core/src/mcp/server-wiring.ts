@@ -8,7 +8,7 @@ export interface McpRevocationWiring {
 	revocations?: McpRevocationStore;
 	bindings?: McpBindingStore;
 	/** The instance's revocation bus (`auth.revocations`). */
-	bus?: Pick<McpRevocationBus, "subscribe">;
+	bus?: Pick<McpRevocationBus, "subscribe"> & Partial<Pick<McpRevocationBus, "subscribeClear">>;
 }
 
 /**
@@ -21,7 +21,7 @@ export function wireRevocation(ctx: McpAuthContext, wiring: McpRevocationWiring)
 	attachFreshnessDeps(ctx, {
 		...(wiring.revocations ? { revocations: wiring.revocations } : {}),
 		...(wiring.bindings ? { bindings: wiring.bindings } : {}),
-		...(bus ? { subscribe: (listener) => bus.subscribe(listener) } : {}),
+		...(bus ? { subscribe: (listener) => (bus.subscribeClear ?? bus.subscribe)(listener) } : {}),
 	});
 	if (wiring.bindings) attachBindingStore(ctx, wiring.bindings);
 }

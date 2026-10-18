@@ -5,6 +5,7 @@ import { handleClientCredentialsGrant } from "./grant-client-credentials.js";
 import type { GrantClientAuth } from "./grant-common.js";
 import { resolveAuthenticatedClient } from "./grant-common.js";
 import { handleJwtBearerGrant } from "./grant-jwt-bearer.js";
+import { checkGrantLive } from "./grant-liveness.js";
 import { handleRefreshTokenGrant } from "./grant-refresh-token.js";
 import { handleTokenExchangeGrant } from "./grant-token-exchange.js";
 import { resolveResource } from "./lenient.js";
@@ -276,6 +277,22 @@ async function handleAuthorizationCodeGrant(
 	}
 
 	const resource = authCode.resource;
+
+	// A code issued before a sign out everywhere, ban or client block must not mint after it.
+	const live = await checkGrantLive(ctx, {
+		jti: authCode.code,
+		sub: authCode.userId,
+		clientId: data.client_id,
+		grantedAt: authCode.createdAt,
+		agentId: resolved.data.agentId ?? undefined,
+	});
+	if (!live.success) return live;
+	if (live.data.revoked) {
+		return {
+			success: false,
+			error: { code: "INVALID_GRANT", message: "The grant has been revoked" },
+		};
+	}
 
 	const { jwt, jti, expiresAt, ttlSeconds } = await issueAccessTokenJwt(
 		ctx,

@@ -15,16 +15,21 @@ A token minted by [token exchange](/mcp-grants) keeps the RFC 8693 `act` claim, 
 ```json
 {
   "act": { "sub": "agent-b", "act": { "sub": "agent-a" } },
-  "theauth_dlg": { "v": 1, "agt": ["agent-a", "agent-b"], "lnk": ["chain_01H..."] }
+  "agent_id": "agent-b",
+  "theauth_dlg": { "v": 1, "agt": ["agent-a", "agent-b"], "lnk": ["chain_01H..."] },
+  "theauth_pjti": ["jti-of-the-subject-token"]
 }
 ```
 
 - `agt` lists the agent ids on the authority path, root first. Every one must stay `active` and unexpired.
 - `lnk` lists the delegation link id for each consecutive pair in `agt`.
+- `agent_id` (and `principal.agent`) is the acting agent, the last entry of `agt`. A bound token whose `agent_id` is not in `agt` is invalid.
+- `theauth_pjti` (exchanged tokens only) lists the jtis of the subject token lineage, root first. Revoking any of those tokens, or the refresh family behind one, revokes this token too: on the next live call, within the poll window in cached mode, and on the next `revalidate()` in offline mode.
+- Exchange refuses (`invalid_grant`) a child naming an agent the subject user neither owns nor reaches over live delegation links from an agent they own.
 
 The claim is signed, so a resource server can trust it only after verifying the signature. It holds ids and nothing else: no permissions, no names.
 
-Tokens are bound when their authority resolves to agent rows: token exchange, and authorization code, refresh, client credentials and jwt-bearer tokens that carry `agent_id` (these get `agt: [agentId]` and an empty `lnk`). A token with no agent behind it, such as a plain user to service token, is unbound. Only token, subject and client revocation apply to it, because there is no delegation record to revoke.
+Tokens are bound when their authority resolves to agent rows: token exchange, and authorization code, refresh, client credentials and jwt-bearer tokens that carry `agent_id` (these get the agent's live inbound path up to its root, `agt: [root, ..., agentId]` with one `lnk` per hop, or `agt: [agentId]` and an empty `lnk` when nobody delegated to it). A token with no agent behind it, such as a plain user to service token, is unbound. Only token, subject and client revocation apply to it, because there is no delegation record to revoke.
 
 A token also never outlives its sources. At mint time `exp` is the earliest of the configured lifetime, the parent token's expiry, every link's expiry and every agent's expiry. This holds in all three modes.
 
@@ -52,7 +57,7 @@ const mcp = createMcpModule({
 
 The default is `live` when you pass `auth` to `createMcpModule` (a shared database), and `offline` when you pass your own stores, because there is nothing shared to read. The environment variable `THEAUTH_MCP_REVOCATION_MODE` sets the mode when the config does not.
 
-Three things hold in every mode. The token endpoint (exchange and refresh) always checks live. Introspection always checks live. Expiry is always honored at mint time.
+Three things hold in every mode. The token endpoint (exchange, refresh and authorization code redemption) always checks live: a refresh token or code whose `jti`, subject, client or bound agent was revoked is refused with `invalid_grant`, and a store error fails closed with `server_error`. Introspection always checks live. Expiry is always honored at mint time.
 
 Live mode costs one to four primary key or indexed lookups on requests that are usually tool calls, so most deployments should leave it on. Move to `cached` above roughly a thousand validations per second per instance:
 
@@ -104,7 +109,7 @@ With `auth`, `config.jtiDenylist` defaults to this shared store, so a token revo
 | `auth.delegation.revoke(id)`, including every link in the cascade | `dlg` for each revoked link |
 | `auth.agent.revoke(id)` | `agent` for the agent, `dlg` for the links it cut |
 | `session.revokeAll(userId)` (sign out everywhere, ban) | `sub`, unless `revokeOnSignOutEverywhere: false` |
-| `POST /mcp/revoke` (RFC 7009) and refresh token reuse | `jti` |
+| `POST /mcp/revoke` (RFC 7009) and refresh token reuse | `jti` (one row for the token, and one for each live access token of the refresh token family) |
 
 Revoking a single session does not touch MCP tokens, because they are not tied to a session. If a `dlg` or `agent` row fails to write, the failure is logged and the revoke continues: the link or agent row is already revoked, so live mode still sees it and cached mode falls back to its staleness bound. If the row for an explicit token revoke fails to write, the revoke call fails (the HTTP route answers 500 `server_error`) instead of reporting success, because that row is the only record.
 

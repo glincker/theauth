@@ -4,7 +4,7 @@ import { AGENTIC_JWT_CLAIMS } from "../standards/claims.js";
 import { bindingStoreOf, earliest, resolveAgentBinding } from "./binding.js";
 import { getAsymmetricSigner } from "./keys.js";
 import type { McpDelegationBinding } from "./revocation-types.js";
-import { MCP_DELEGATION_CLAIM } from "./revocation-types.js";
+import { MCP_DELEGATION_CLAIM, MCP_PARENT_JTI_CLAIM } from "./revocation-types.js";
 import type { McpAccessToken, McpActorClaim, McpAuthContext, McpTokenResponse } from "./types.js";
 import { generateSecureToken, hashToken } from "./utils.js";
 
@@ -42,6 +42,13 @@ export interface IssueAccessTokenOptions {
 	binding?: McpDelegationBinding | null;
 	/** Hard upper bound on `exp` (parent token, links, agents). The issued `exp` is never later. */
 	expiresNotAfter?: Date;
+	/**
+	 * Fill a missing `agent_id` from the client's bound agent. Default true. Token exchange passes
+	 * false: its agent is the acting agent of the binding, never the presenting client's by default.
+	 */
+	inheritClientAgent?: boolean;
+	/** Ancestor jtis (subject token lineage, root first), signed as `theauth_pjti`. Token exchange only. */
+	parentJtis?: string[];
 }
 
 /** Thrown when a token cannot be minted because its agent authority is gone or its lifetime would be under one second. */
@@ -83,7 +90,7 @@ export async function issueAccessTokenJwt(
 	}
 	// A client bound to an agent carries that agent without any integrator code. Explicit claims and
 	// `getAgenticContext` win; the binding fills the gap.
-	if (agentic.agentId === undefined) {
+	if (agentic.agentId === undefined && options.inheritClientAgent !== false) {
 		const bound = (await ctx.findClient(clientId))?.agentId;
 		if (bound) agentic.agentId = bound;
 	}
@@ -107,6 +114,10 @@ export async function issueAccessTokenJwt(
 		binding = resolved.data.binding;
 		bindingCap = resolved.data.capAt;
 	}
+	// A bound token names its agent inside the binding, so revoking that agent always reaches it.
+	if (binding && agentic.agentId !== undefined && !binding.agt.includes(agentic.agentId)) {
+		throw bindingRefused(`Agent ${agentic.agentId} is not covered by the delegation binding`);
+	}
 
 	const now = Math.floor(Date.now() / 1000);
 	const requested =
@@ -129,6 +140,7 @@ export async function issueAccessTokenJwt(
 		...(dpopJkt ? { cnf: { jkt: dpopJkt } } : {}),
 		...(options.act ? { act: options.act } : {}),
 		...(binding ? { [MCP_DELEGATION_CLAIM]: binding } : {}),
+		...(options.parentJtis?.length ? { [MCP_PARENT_JTI_CLAIM]: options.parentJtis } : {}),
 		...agenticClaims,
 	})
 		.setProtectedHeader(

@@ -1,0 +1,5 @@
+---
+"@glinr/theauth": patch
+---
+
+MCP revocation reliability. The revocation bus no longer reads a bare `process.env`, which threw on Cloudflare Workers and Deno and silently dropped every `sub` and no-expiry `agent` push (new `getEnv` helper). A push now clears the local freshness cache before it writes (and again after), a retried push logs a warning, and `auth.revocations.stats()` gains `attemptFailures` and `pruned`. The denylist is pruned opportunistically after writes (at most once per `revocation.pruneIntervalMs`, default 60 s, in LIMITed batches) and by `auth.revocations.prune()` for cron. The cached mode poll no longer runs `COUNT(*)` over the table. A cached read that was in flight when a revoke landed, including callers that joined it, now recomputes instead of returning the stale "live". New `revocation.clockSkewMs` (default 0) widens the `sub` and `client` watermark so a revoker with a lagging clock still kills tokens minted just before it. Access tokens already expired by more than a minute no longer get a denylist row.

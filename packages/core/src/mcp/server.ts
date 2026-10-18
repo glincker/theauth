@@ -1,5 +1,6 @@
 import type { Database } from "../db/database.js";
 import type { TheAuthLogger } from "../observability/types.js";
+import { bannedAwareResolveUserId } from "../session/banned.js";
 import { handleAuthorize } from "./authorize.js";
 import { createCimdAdmin } from "./cimd-admin.js";
 import { builtInActorAgent, createClientBindings } from "./client-bindings.js";
@@ -219,7 +220,9 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 		...(logger ? { logger } : {}),
 		tokenFamilies:
 			config.tokenFamilies ?? pick("tokenFamilies") ?? createInMemoryTokenFamilyStore(),
-		resolveUserId: params.resolveUserId,
+		resolveUserId: params.auth
+			? bannedAwareResolveUserId(params.auth.db, params.resolveUserId)
+			: params.resolveUserId,
 	};
 	ctxRef.current = ctx;
 	wireRevocation(ctx, { revocations, bindings, bus: params.auth?.revocations });

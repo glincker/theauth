@@ -15,8 +15,12 @@ export function createCoreRevocationBus(
 	config: TheAuthConfig,
 	logger: TheAuthLogger,
 ): RevocationBus {
+	const revocation = config.mcp?.revocation;
 	return createRevocationBus({
-		store: config.mcp ? createDbRevocationStore(db) : undefined,
+		store: config.mcp
+			? createDbRevocationStore(db, { skewAllowanceMs: revocation?.clockSkewMs })
+			: undefined,
+		prune: { intervalMs: revocation?.pruneIntervalMs },
 		onRevoked: config.mcp?.revocation?.onRevoked,
 		logger,
 	});

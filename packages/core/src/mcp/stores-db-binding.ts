@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
+import { recordAuditEvent } from "../audit/record.js";
 import type { Database } from "../db/database.js";
 import { agents, delegationChains } from "../db/schema.js";
 import { createDelegatorLiveness } from "../delegation/liveness.js";
@@ -8,6 +9,7 @@ import type {
 	McpBindingStore,
 	McpBindingVerdict,
 	McpDelegationBinding,
+	McpInboundLink,
 	McpLiveLink,
 } from "./revocation-types.js";
 import { MCP_DELEGATION_BINDING_VERSION } from "./revocation-types.js";
@@ -76,6 +78,27 @@ export function createDbBindingStore(db: Database): McpBindingStore {
 				}
 			}
 			return null;
+		},
+
+		async liveInbound(to, now): Promise<McpInboundLink[]> {
+			const rows = await createDelegatorLiveness(db, now).liveInboundRows(to);
+			return rows
+				.sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime() || (x.id < y.id ? -1 : 1))
+				.map((r) => ({ id: r.id, from: r.fromAgentId, expiresAt: r.expiresAt }));
+		},
+
+		async auditDenial(denial): Promise<void> {
+			// The row lands under the agent that was asked for, so its owner sees the attempt.
+			await recordAuditEvent(db, {
+				agentId: denial.agentId,
+				action: "mcp.token_exchange",
+				resource: `agent:${denial.agentId}`,
+				result: "denied",
+				reason: denial.reason,
+				subjectId: denial.subject,
+				actorId: denial.clientId,
+				delegationChain: denial.agt,
+			});
 		},
 
 		async check(binding, now): Promise<McpBindingVerdict> {

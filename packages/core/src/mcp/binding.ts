@@ -10,7 +10,7 @@ import type {
 	McpMintBinding,
 	McpMintBindingInput,
 } from "./revocation-types.js";
-import { MCP_DELEGATION_BINDING_VERSION } from "./revocation-types.js";
+import { MCP_DELEGATION_BINDING_VERSION, MCP_PARENT_JTI_MAX } from "./revocation-types.js";
 import type { McpActorClaim, McpActorRef, McpAuthContext, Result } from "./types.js";
 
 /** `validUntil` when nothing on the path expires (the latest Date JavaScript can hold). */
@@ -72,14 +72,37 @@ export function readBindingClaim(raw: unknown): McpDelegationBinding | null | un
 	return { v: MCP_DELEGATION_BINDING_VERSION, agt: [...agt], lnk: [...lnk] };
 }
 
+/**
+ * Shape check for a `theauth_pjti` value read from a verified token: undefined when absent, null
+ * when malformed (the token is then invalid), else the ancestor jtis root first.
+ */
+export function readParentJtis(raw: unknown): string[] | null | undefined {
+	if (raw === undefined) return undefined;
+	if (!Array.isArray(raw) || raw.length < 1 || raw.length > MCP_PARENT_JTI_MAX) return null;
+	const ok = (x: unknown): x is string => typeof x === "string" && x.length > 0 && x.length <= 256;
+	return raw.every(ok) ? [...raw] : null;
+}
+
 /** Exchange specific input on top of the contract's `McpMintBindingInput`. */
 export interface McpExchangeBindingInput extends McpMintBindingInput {
 	/** The subject token's `agent_id` (legacy tokens minted before bindings), placed right after `sub`. */
 	subjectAgentId?: string;
 }
 
-function refuse(message: string): Result<never> {
-	return { success: false, error: { code: "INVALID_GRANT", message } };
+/** Most upstream hops prepended to an agent's path. The root's own upstream is still checked live by `check`. */
+export const MCP_BINDING_MAX_UPSTREAM = 8;
+
+/** Longest `agt` a token may carry (validators refuse longer). */
+const MAX_AGT = 32;
+
+/** `error.details.notEntitled` on a refusal: the agent the subject is not entitled to. */
+export const MCP_BINDING_NOT_ENTITLED = "notEntitled";
+
+function refuse(message: string, details?: Record<string, unknown>): Result<never> {
+	return {
+		success: false,
+		error: { code: "INVALID_GRANT", message, ...(details ? { details } : {}) },
+	};
 }
 
 function unavailable(error: unknown): Result<never> {
@@ -122,6 +145,68 @@ async function finish(
 	const capAt =
 		verdict.validUntil.getTime() >= MCP_BINDING_NO_EXPIRY.getTime() ? null : verdict.validUntil;
 	return { success: true, data: { binding, capAt } };
+}
+
+/**
+ * The live inbound path above `agentId`, root first, excluding `agentId` itself: at each hop the
+ * earliest created live inbound link. One path is named even when several exist; if that path dies
+ * the token dies with it (fail closed) and the client mints again over a path that is still live.
+ * Bounded by {@link MCP_BINDING_MAX_UPSTREAM} and `room`; stops at a loop.
+ */
+async function upstreamOf(
+	store: McpBindingStore,
+	agentId: string,
+	now: Date,
+	room: number,
+	seen: Set<string>,
+): Promise<{ agt: string[]; lnk: string[] }> {
+	const agt: string[] = [];
+	const lnk: string[] = [];
+	if (!store.liveInbound) return { agt, lnk };
+	let current = agentId;
+	const visited = new Set(seen).add(agentId);
+	while (agt.length < Math.min(MCP_BINDING_MAX_UPSTREAM, room)) {
+		const first = (await store.liveInbound(current, now))[0];
+		if (!first || visited.has(first.from)) break;
+		agt.unshift(first.from);
+		lnk.unshift(first.id);
+		visited.add(first.from);
+		current = first.from;
+	}
+	return { agt, lnk };
+}
+
+/** Prepend the live upstream path of `agt[0]`, so revoking a delegation above it is seen in every mode. */
+async function withUpstream(
+	store: McpBindingStore,
+	agt: string[],
+	lnk: string[],
+	now: Date,
+): Promise<{ agt: string[]; lnk: string[] }> {
+	const root = agt[0];
+	if (root === undefined) return { agt, lnk };
+	const up = await upstreamOf(store, root, now, MAX_AGT - agt.length, new Set(agt));
+	return { agt: [...up.agt, ...agt], lnk: [...up.lnk, ...lnk] };
+}
+
+/**
+ * Entitlement of the token subject to the agents of an exchange child (review finding M5). Some
+ * entry `agt[k]` must be the subject itself, the agent the subject maps to, or an agent the subject
+ * user owns. Every entry after `k` is then reached over live delegation links (delegated to the
+ * chain); entries before `k` are upstream lenders that delegated to the subject's agent. A chain
+ * with no such entry belongs to someone else: refused, naming the acting (last) agent.
+ */
+async function entitlementFailure(
+	store: McpBindingStore,
+	agt: string[],
+	subject: string,
+	subjectAgent: string,
+): Promise<string | null> {
+	const rows = await store.agents(agt);
+	const entitled = agt.some(
+		(id) => id === subject || id === subjectAgent || rows.get(id)?.ownerId === subject,
+	);
+	return entitled ? null : (agt[agt.length - 1] as string);
 }
 
 /** Link `from` to `to` with a live delegation row, or refuse. */
@@ -217,16 +302,34 @@ export async function resolveExchangeBinding(
 			}
 			return { success: true, data: { capAt: null } };
 		}
-		return await finish(store, { v: MCP_DELEGATION_BINDING_VERSION, agt, lnk }, now, "Delegation");
+		const full = await withUpstream(store, agt, lnk, now);
+		if (full.agt.length > MAX_AGT) return refuse("Delegation chain is too long to bind");
+		const subjectAgent = await map({ sub: input.subject });
+		if (!subjectAgent.success) return subjectAgent;
+		const foreign = await entitlementFailure(store, full.agt, input.subject, subjectAgent.data);
+		if (foreign !== null) {
+			return refuse("Subject is not entitled to the agents of this delegation", {
+				[MCP_BINDING_NOT_ENTITLED]: foreign,
+				agt: full.agt,
+			});
+		}
+		return await finish(
+			store,
+			{ v: MCP_DELEGATION_BINDING_VERSION, agt: full.agt, lnk: full.lnk },
+			now,
+			"Delegation",
+		);
 	} catch (error) {
 		return unavailable(error);
 	}
 }
 
 /**
- * Binding for an ordinary (non exchange) token whose principal is the agent `agentId`
- * (`agt: [agentId], lnk: []`). An id that is not an agent row stays unbound; an agent that is
- * revoked, expired or no longer backed upstream refuses the mint.
+ * Binding for an ordinary (non exchange) token whose principal is the agent `agentId`: the agent's
+ * live inbound path up to its root, then the agent (`agt: [root, ..., agentId]`, one `lnk` per hop;
+ * `agt: [agentId], lnk: []` for an agent nobody delegated to). Revoking a delegation above the agent
+ * then denies the token through `lnk` in every mode. An id that is not an agent row stays unbound;
+ * an agent that is revoked, expired or no longer backed upstream refuses the mint.
  */
 export async function resolveAgentBinding(
 	store: McpBindingStore,
@@ -237,9 +340,10 @@ export async function resolveAgentBinding(
 		if (!(await store.agents([agentId])).has(agentId)) {
 			return { success: true, data: { capAt: null } };
 		}
+		const path = await withUpstream(store, [agentId], [], now);
 		return await finish(
 			store,
-			{ v: MCP_DELEGATION_BINDING_VERSION, agt: [agentId], lnk: [] },
+			{ v: MCP_DELEGATION_BINDING_VERSION, agt: path.agt, lnk: path.lnk },
 			now,
 			`Agent ${agentId}`,
 		);
