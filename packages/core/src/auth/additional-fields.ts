@@ -146,7 +146,7 @@ export function createAdditionalFieldsModule(
 		const result = validate(fields, "user");
 		if (!result.valid) {
 			throw new Error(
-				`AdditionalFieldsModule: validation failed — ${(result.errors ?? []).join(", ")}`,
+				`AdditionalFieldsModule: validation failed: ${(result.errors ?? []).join(", ")}`,
 			);
 		}
 
@@ -208,7 +208,7 @@ export function createAdditionalFieldsModule(
 		const result = validate(fields, "session");
 		if (!result.valid) {
 			throw new Error(
-				`AdditionalFieldsModule: validation failed — ${(result.errors ?? []).join(", ")}`,
+				`AdditionalFieldsModule: validation failed: ${(result.errors ?? []).join(", ")}`,
 			);
 		}
 

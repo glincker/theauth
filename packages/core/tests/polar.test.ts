@@ -445,7 +445,7 @@ describe("handleWebhook event dispatch", () => {
 
 // Plugin: unauthenticated requests and validation
 
-describe("polar plugin — endpoint access", () => {
+describe("polar plugin: endpoint access", () => {
 	let db: Database;
 	let plugin: TheAuthPlugin;
 

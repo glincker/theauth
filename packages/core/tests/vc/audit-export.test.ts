@@ -50,7 +50,7 @@ async function makeConfig(): Promise<{ config: VCIssuerConfig; did: string }> {
 	return { config, did: keyPair.did };
 }
 
-describe("exportAuditAsVC – ldp_vc individual", () => {
+describe("exportAuditAsVC: ldp_vc individual", () => {
 	it("returns 20 credentials with correct shape", async () => {
 		const { config, did } = await makeConfig();
 		const records = makeRecords();
@@ -101,7 +101,7 @@ describe("exportAuditAsVC – ldp_vc individual", () => {
 	});
 });
 
-describe("exportAuditAsVC – jwt_vc individual", () => {
+describe("exportAuditAsVC: jwt_vc individual", () => {
 	it("returns 20 JWT strings", async () => {
 		const { config, did } = await makeConfig();
 		const records = makeRecords();
@@ -149,7 +149,7 @@ describe("exportAuditAsVC – jwt_vc individual", () => {
 	});
 });
 
-describe("exportAuditAsVC – ldp_vc presentation", () => {
+describe("exportAuditAsVC: ldp_vc presentation", () => {
 	it("wraps 20 credentials in a single VP", async () => {
 		const { config, did } = await makeConfig();
 		const records = makeRecords();
@@ -181,7 +181,7 @@ describe("exportAuditAsVC – ldp_vc presentation", () => {
 	});
 });
 
-describe("exportAuditAsVC – tamper test", () => {
+describe("exportAuditAsVC: tamper test", () => {
 	it("fails verification after credential content is modified", async () => {
 		const { config, did } = await makeConfig();
 		const records = [makeRecord(0, 0)];
@@ -217,7 +217,7 @@ describe("exportAuditAsVC – tamper test", () => {
 	});
 });
 
-describe("exportAuditAsVC – filter test", () => {
+describe("exportAuditAsVC: filter test", () => {
 	it("returns only deny records when filter is applied", async () => {
 		const { config, did } = await makeConfig();
 		const records = makeRecords();
@@ -243,7 +243,7 @@ describe("exportAuditAsVC – filter test", () => {
 	});
 });
 
-describe("exportAuditAsVC – empty range test", () => {
+describe("exportAuditAsVC: empty range test", () => {
 	it("returns empty result when no records fall in the range", async () => {
 		const { config, did } = await makeConfig();
 		const records = makeRecords();

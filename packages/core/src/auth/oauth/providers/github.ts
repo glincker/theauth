@@ -118,7 +118,7 @@ export function createGithubProvider(config: OAuthProviderConfig): OAuthProvider
 
 		if (data.error) {
 			throw new Error(
-				`GitHub token exchange error: ${data.error} — ${data.error_description ?? ""}`,
+				`GitHub token exchange error: ${data.error}: ${data.error_description ?? ""}`,
 			);
 		}
 

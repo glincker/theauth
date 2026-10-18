@@ -166,7 +166,7 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 	const parsed = configSchema.safeParse(config);
 	if (!parsed.success) {
 		throw new Error(
-			`JwtSessionModule: invalid config — ${parsed.error.errors[0]?.message ?? "unknown"}`,
+			`JwtSessionModule: invalid config: ${parsed.error.errors[0]?.message ?? "unknown"}`,
 		);
 	}
 

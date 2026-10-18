@@ -86,10 +86,10 @@ function exampleTemplate(answers: InitAnswers): string {
 	};
 
 	const frameworkComment: Record<Framework, string> = {
-		hono: "// Hono example — mount theauth middleware on your app",
-		express: "// Express example — mount theauth middleware on your app",
-		nextjs: "// Next.js example — use in API routes or middleware",
-		fastify: "// Fastify example — register theauth as a plugin",
+		hono: "// Hono example: mount theauth middleware on your app",
+		express: "// Express example: mount theauth middleware on your app",
+		nextjs: "// Next.js example: use in API routes or middleware",
+		fastify: "// Fastify example: register theauth as a plugin",
 	};
 
 	const dbSetup =
@@ -134,7 +134,7 @@ const result = await theauth.authorize(agent.id, {
 });
 
 if (result.allowed) {
-  console.log("Authorized — audit ID:", result.auditId);
+  console.log("Authorized, audit ID:", result.auditId);
 } else {
   console.log("Denied:", result.reason);
 }
@@ -146,7 +146,7 @@ console.log("New token:", rotated.token);
 }
 
 export async function runInit(): Promise<InitResult | InitError> {
-	stdout.write("\nTheAuth — project setup\n");
+	stdout.write("\nTheAuth: project setup\n");
 	stdout.write("─────────────────────────────────────\n");
 
 	const rl = createInterface({ input: stdin, output: stdout });
@@ -211,8 +211,8 @@ export async function runInit(): Promise<InitResult | InitError> {
 		rl.close();
 
 		stdout.write("\n  Files written\n");
-		stdout.write(`  theauth.config.ts   — your TheAuth configuration\n`);
-		stdout.write(`  theauth.example.ts  — minimal agent + authorization example\n`);
+		stdout.write(`  theauth.config.ts   - your TheAuth configuration\n`);
+		stdout.write(`  theauth.example.ts  - minimal agent + authorization example\n`);
 
 		stdout.write("\nNext steps\n");
 		stdout.write("──────────\n");
@@ -232,7 +232,7 @@ export async function runInit(): Promise<InitResult | InitError> {
 			stdout.write("       npm install pg\n");
 		}
 		stdout.write("  2. Set DATABASE_URL in your environment (if using Postgres).\n");
-		stdout.write("  3. Run your app — TheAuth creates tables automatically on first start.\n");
+		stdout.write("  3. Run your app. TheAuth creates tables automatically on first start.\n");
 		stdout.write(
 			"  4. Open theauth.example.ts to see how to create agents and authorize requests.\n",
 		);

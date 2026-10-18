@@ -159,7 +159,7 @@ describe("CustomSessionModule.updateSessionFields", () => {
 
 // customSession plugin, onSessionCreate hook (defaultFields + callback)
 
-describe("customSession plugin — onSessionCreate hook", () => {
+describe("customSession plugin: onSessionCreate hook", () => {
 	it("stores defaultFields in metadata.custom when a session is created via the hook", async () => {
 		const { createTheAuth } = await import("../src/theauth.js");
 
@@ -427,7 +427,7 @@ describe("customSession plugin endpoints", () => {
 
 // createSessionManager integration, custom fields round-trip
 
-describe("customSession — round-trip via SessionManager", () => {
+describe("customSession: round-trip via SessionManager", () => {
 	it("can write and read back custom fields on a real session token", async () => {
 		const db = await createTestDb();
 		const sessionManager = createSessionManager({ secret: SESSION_SECRET }, db);

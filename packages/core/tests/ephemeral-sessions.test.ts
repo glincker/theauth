@@ -377,7 +377,7 @@ describe("revokeSession", () => {
 		expect(validated.success).toBe(false);
 	});
 
-	it("is idempotent — revoking twice does not error", async () => {
+	it("is idempotent: revoking twice does not error", async () => {
 		const created = await mod.createSession({ ownerId: "user-1", permissions: BASE_PERMS });
 		expect(created.success).toBe(true);
 		if (!created.success) return;

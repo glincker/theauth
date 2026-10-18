@@ -35,7 +35,7 @@ git push --tags
 
 ## v0.2 wishlist (when revisiting)
 
-- HMAC-SHA256 sign the cookie cache (currently plain JSON — readable by anyone with the cookie, but cannot be forged)
+- HMAC-SHA256 sign the cookie cache (currently plain JSON, readable by anyone with the cookie, but cannot be forged)
 - Tests for `withAuth()` middleware (currently only lower-level helpers have tests)
 - Plugin slot for 2FA / org-context / multi-session
 - better-auth-style `auth.api` namespacing for more ergonomic imports

@@ -171,7 +171,7 @@ export function twoFactor(config?: TwoFactorConfig): TheAuthPlugin {
 				path: "/auth/2fa/disable",
 				metadata: {
 					requireAuth: true,
-					description: "Disable 2FA — requires a valid TOTP or backup code",
+					description: "Disable 2FA, requires a valid TOTP or backup code",
 				},
 				async handler(request, endpointCtx) {
 					const user = await endpointCtx.getUser(request);
@@ -222,7 +222,7 @@ export function twoFactor(config?: TwoFactorConfig): TheAuthPlugin {
 				path: "/auth/2fa/backup-codes",
 				metadata: {
 					requireAuth: true,
-					description: "Regenerate backup codes — requires a valid TOTP code",
+					description: "Regenerate backup codes, requires a valid TOTP code",
 				},
 				async handler(request, endpointCtx) {
 					const user = await endpointCtx.getUser(request);

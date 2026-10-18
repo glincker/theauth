@@ -41,7 +41,7 @@ async function seedAgent(db: Database, id: string, ownerId: string): Promise<voi
 	});
 }
 
-describe("template 04 — budget-gated agent", () => {
+describe("template 04: budget-gated agent", () => {
 	let db: Database;
 
 	beforeEach(async () => {

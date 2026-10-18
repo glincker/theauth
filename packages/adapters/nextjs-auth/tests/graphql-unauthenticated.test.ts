@@ -33,7 +33,7 @@ function makeJwt(payload: Record<string, unknown>): string {
 	return `${header}.${body}.sig`;
 }
 
-describe("graphqlWithRefresh — UNAUTHENTICATED error code", () => {
+describe("graphqlWithRefresh: UNAUTHENTICATED error code", () => {
 	let fetchMock: MockInstance;
 
 	beforeEach(() => {

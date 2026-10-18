@@ -28,7 +28,7 @@ function localDateAt(hh: number, mm: number): Date {
 	return d;
 }
 
-describe("template 07 — business-hours-only", () => {
+describe("template 07: business-hours-only", () => {
 	let db: Database;
 
 	beforeEach(async () => {

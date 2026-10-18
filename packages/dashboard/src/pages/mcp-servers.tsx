@@ -286,7 +286,7 @@ export function McpServersPage({ client }: McpServersPageProps) {
 								</Td>
 								<Td>
 									{server.tools.length === 0 ? (
-										<span className="text-xs text-zinc-600">—</span>
+										<span className="text-xs text-zinc-600">-</span>
 									) : (
 										<div className="flex items-center gap-1.5">
 											<span className="text-sm text-zinc-700 dark:text-zinc-300 font-medium">
@@ -311,7 +311,7 @@ export function McpServersPage({ client }: McpServersPageProps) {
 											{server.rateLimit.rpm} rpm
 										</span>
 									) : (
-										<span className="text-xs text-zinc-600">—</span>
+										<span className="text-xs text-zinc-600">-</span>
 									)}
 								</Td>
 								<Td>

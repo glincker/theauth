@@ -74,7 +74,7 @@ describe("consoleProvider", () => {
 	});
 });
 
-describe("resend provider — config validation", () => {
+describe("resend provider: config validation", () => {
 	it("throws immediately when apiKey is empty string", () => {
 		expect(() => resend({ apiKey: "" })).toThrow(/apiKey is required/);
 	});
@@ -89,7 +89,7 @@ describe("resend provider — config validation", () => {
 	});
 });
 
-describe("resend provider — send", () => {
+describe("resend provider: send", () => {
 	let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
@@ -168,7 +168,7 @@ describe("resend provider — send", () => {
 	});
 });
 
-describe("sendgrid provider — config validation", () => {
+describe("sendgrid provider: config validation", () => {
 	it("throws immediately when apiKey is empty string", () => {
 		expect(() => sendgrid({ apiKey: "" })).toThrow(/apiKey is required/);
 	});
@@ -183,7 +183,7 @@ describe("sendgrid provider — config validation", () => {
 	});
 });
 
-describe("sendgrid provider — send", () => {
+describe("sendgrid provider: send", () => {
 	let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
@@ -256,7 +256,7 @@ describe("sendgrid provider — send", () => {
 	});
 });
 
-describe("smtp provider — config validation", () => {
+describe("smtp provider: config validation", () => {
 	it("throws immediately when host is empty string", () => {
 		expect(() => smtp({ host: "", auth: { user: "u@example.com", pass: "secret" } })).toThrow(
 			/host is required/,
@@ -289,7 +289,7 @@ describe("smtp provider — config validation", () => {
 	});
 });
 
-describe("smtp provider — nodemailer peer dep missing", () => {
+describe("smtp provider: nodemailer peer dep missing", () => {
 	it("throws a helpful error when nodemailer is not installed", async () => {
 		// We cannot easily mock a failed dynamic import in vitest without
 		// vm mocking. Instead we verify that the smtp() factory itself does

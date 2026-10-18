@@ -49,7 +49,7 @@ async function createTwoInstances() {
 	return { instanceA, instanceB };
 }
 
-describe("federation – token issuance", () => {
+describe("federation: token issuance", () => {
 	it("issues a federation token for an agent", async () => {
 		const { federation } = await createTestInstance();
 		const result = await federation.issueFederationToken({
@@ -170,7 +170,7 @@ describe("federation – token issuance", () => {
 	});
 });
 
-describe("federation – token verification", () => {
+describe("federation: token verification", () => {
 	it("verifies a valid token from a trusted instance", async () => {
 		const { instanceA, instanceB } = await createTwoInstances();
 
@@ -295,7 +295,7 @@ describe("federation – token verification", () => {
 	});
 });
 
-describe("federation – trust levels", () => {
+describe("federation: trust levels", () => {
 	it("full trust preserves all permissions and trust score", async () => {
 		const { instanceA, instanceB } = await createTwoInstances();
 
@@ -417,7 +417,7 @@ describe("federation – trust levels", () => {
 	});
 });
 
-describe("federation – trust management", () => {
+describe("federation: trust management", () => {
 	it("adds a trusted instance", async () => {
 		const { federation } = await createTestInstance();
 
@@ -530,7 +530,7 @@ describe("federation – trust management", () => {
 	});
 });
 
-describe("federation – instance identity", () => {
+describe("federation: instance identity", () => {
 	it("returns correct instance identity", async () => {
 		const { federation } = await createTestInstance({
 			instanceId: "my-instance",
@@ -555,7 +555,7 @@ describe("federation – instance identity", () => {
 	});
 });
 
-describe("federation – instance discovery", () => {
+describe("federation: instance discovery", () => {
 	it("discovers an instance via well-known URL", async () => {
 		const remoteIdentity = await createTestInstance({
 			instanceId: "remote",
@@ -654,7 +654,7 @@ describe("federation – instance discovery", () => {
 	});
 });
 
-describe("federation – auto trust mode", () => {
+describe("federation: auto trust mode", () => {
 	it("auto-trust still requires a public key", async () => {
 		const instanceA = await createTestInstance({
 			instanceId: "instance-a",
@@ -713,7 +713,7 @@ describe("federation – auto trust mode", () => {
 	});
 });
 
-describe("federation – round trip", () => {
+describe("federation: round trip", () => {
 	it("issue at A, verify at B, preserves full agent data", async () => {
 		const { instanceA, instanceB } = await createTwoInstances();
 
@@ -757,7 +757,7 @@ describe("federation – round trip", () => {
 	});
 });
 
-describe("federation – with verifiable credentials", () => {
+describe("federation: with verifiable credentials", () => {
 	it("embeds a VC in the federation token", async () => {
 		const { instanceA, instanceB } = await createTwoInstances();
 
@@ -814,7 +814,7 @@ describe("federation – with verifiable credentials", () => {
 	});
 });
 
-describe("federation – config validation", () => {
+describe("federation: config validation", () => {
 	it("throws on invalid config (missing instanceId)", async () => {
 		const { privateKey } = await generateKeyPair("EdDSA", { extractable: true });
 
@@ -838,7 +838,7 @@ describe("federation – config validation", () => {
 	});
 });
 
-describe("federation – edge cases", () => {
+describe("federation: edge cases", () => {
 	it("handles token signed with wrong key", async () => {
 		const instanceA = await createTestInstance({
 			instanceId: "instance-a",

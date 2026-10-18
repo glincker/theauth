@@ -233,7 +233,7 @@ describe("UsernameAuthModule.handleRequest", () => {
 	});
 });
 
-describe("UsernameAuthModule.signIn — forcePasswordReset", () => {
+describe("UsernameAuthModule.signIn: forcePasswordReset", () => {
 	let db: Database;
 	let mod: UsernameAuthModule;
 	let userId: string;

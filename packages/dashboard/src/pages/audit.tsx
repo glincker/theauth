@@ -376,7 +376,7 @@ export function AuditPage({ client }: AuditPageProps) {
 					{/* Pagination */}
 					<div className="flex items-center justify-between mt-4 text-xs text-zinc-500">
 						<span>
-							{offset + 1}–{Math.min(offset + limit, total)} of {total} entries
+							{offset + 1} to {Math.min(offset + limit, total)} of {total} entries
 						</span>
 						<div className="flex items-center gap-2">
 							<Button

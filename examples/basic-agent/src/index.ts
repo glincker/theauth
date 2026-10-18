@@ -38,7 +38,7 @@ async function main(): Promise<void> {
 	// Step 1: Create a TheAuth instance
 	// Pass provider "sqlite" with url ":memory:" for a fast, disposable database.
 	// In production use a file path (SQLite) or a Postgres/MySQL connection URL.
-	header("Step 1 — Initialize TheAuth");
+	header("Step 1: Initialize TheAuth");
 
 	const auth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
@@ -56,14 +56,14 @@ async function main(): Promise<void> {
 	// Step 2: Tables are auto-created
 	// createTheAuth() automatically runs CREATE TABLE IF NOT EXISTS for all
 	// 10 tables on startup. No manual migration needed for development.
-	header("Step 2 — Create database tables");
+	header("Step 2: Create database tables");
 	ok("tables auto-created", "10 tables (handled by createTheAuth)");
 
 	// Step 3: Create a user
 	// TheAuth is agent-first, but agents are always owned by a human user.
 	// In production you would sync users from your auth provider (better-auth,
 	// Clerk, Auth.js, etc.) via the adapter layer.
-	header("Step 3 — Create a user");
+	header("Step 3: Create a user");
 
 	auth.db
 		.insert(users)
@@ -85,7 +85,7 @@ async function main(): Promise<void> {
 	// Resources follow a colon-separated hierarchy. Wildcards are supported:
 	//   "mcp:github:*"  matches any sub-resource under mcp:github
 	//   "*"             matches everything (use sparingly)
-	header("Step 4 — Create agents");
+	header("Step 4: Create agents");
 
 	// A read-only agent for the GitHub MCP server
 	const githubAgent = await auth.agent.create({
@@ -142,7 +142,7 @@ async function main(): Promise<void> {
 	//   3. Does the permission grant the requested action?
 	//   4. Are all constraints satisfied?
 	// Every call is recorded in the audit log regardless of outcome.
-	header("Step 5 — Authorize actions");
+	header("Step 5: Authorize actions");
 
 	// Should be ALLOWED: github-reader has read on mcp:github:*
 	const r1 = await auth.authorize(githubAgent.id, {
@@ -202,7 +202,7 @@ async function main(): Promise<void> {
 	// Every authorize() call is written to theauth_audit_logs.
 	// You can filter by agent, user, action, result, or time window.
 	// Logs can be exported as JSON or CSV for compliance tooling.
-	header("Step 6 — Query the audit trail");
+	header("Step 6: Query the audit trail");
 
 	const allLogs = await auth.audit.query({ agentId: githubAgent.id });
 	info(`${allLogs.length} audit entries for github-reader`);
@@ -224,7 +224,7 @@ async function main(): Promise<void> {
 	// DB lookup. No JWTs, no network round-trips.
 	// Use auth.authorizeByToken() when the caller only has the raw token
 	// (e.g., incoming HTTP request with Authorization: Bearer <token>).
-	header("Step 7 — Token-based authorization");
+	header("Step 7: Token-based authorization");
 
 	const tokenResult = await auth.authorizeByToken(githubAgent.token, {
 		action: "read",
@@ -252,7 +252,7 @@ async function main(): Promise<void> {
 
 	info(`token rotated: ${rotated.token.slice(0, 12)}… (old token now invalid)`);
 	if (!oldTokenResult.allowed) {
-		deny("old token after rotation", "rejected — token no longer valid");
+		deny("old token after rotation", "rejected, token no longer valid");
 	}
 
 	// Step 8: Delegation chains
@@ -263,7 +263,7 @@ async function main(): Promise<void> {
 	//   - Chains carry an expiry; they can also be revoked explicitly.
 	// Use case: a top-level orchestrator agent spins up a short-lived sub-agent
 	// and passes it exactly the permissions it needs for the current task.
-	header("Step 8 — Delegation chains");
+	header("Step 8: Delegation chains");
 
 	// Re-create github-reader (the original was rotated so its token changed,
 	// but the agent object is still active).

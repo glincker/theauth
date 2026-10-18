@@ -127,7 +127,7 @@ describe("TOTP internals", () => {
 
 // Module integration tests (with DB)
 
-describe("createTotpModule — setup", () => {
+describe("createTotpModule: setup", () => {
 	let db: Database;
 	let totp: TotpModule;
 
@@ -186,7 +186,7 @@ describe("createTotpModule — setup", () => {
 	});
 });
 
-describe("createTotpModule — enable", () => {
+describe("createTotpModule: enable", () => {
 	let db: Database;
 	let totp: TotpModule;
 
@@ -218,7 +218,7 @@ describe("createTotpModule — enable", () => {
 	});
 });
 
-describe("createTotpModule — verify", () => {
+describe("createTotpModule: verify", () => {
 	let db: Database;
 	let totp: TotpModule;
 	let secret: string;
@@ -269,7 +269,7 @@ describe("createTotpModule — verify", () => {
 	});
 });
 
-describe("createTotpModule — backup codes", () => {
+describe("createTotpModule: backup codes", () => {
 	let db: Database;
 	let totp: TotpModule;
 	let backupCodes: string[];
@@ -323,7 +323,7 @@ describe("createTotpModule — backup codes", () => {
 	});
 });
 
-describe("createTotpModule — disable", () => {
+describe("createTotpModule: disable", () => {
 	let db: Database;
 	let totp: TotpModule;
 	let secret: string;
@@ -362,7 +362,7 @@ describe("createTotpModule — disable", () => {
 	});
 });
 
-describe("createTotpModule — isEnabled", () => {
+describe("createTotpModule: isEnabled", () => {
 	let db: Database;
 	let totp: TotpModule;
 
@@ -388,7 +388,7 @@ describe("createTotpModule — isEnabled", () => {
 	});
 });
 
-describe("createTotpModule — handleRequest", () => {
+describe("createTotpModule: handleRequest", () => {
 	let db: Database;
 	let totp: TotpModule;
 

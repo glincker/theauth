@@ -170,7 +170,7 @@ describe("LastLoginModule.recordLogin", () => {
 	});
 });
 
-describe("LastLoginModule — history pruning", () => {
+describe("LastLoginModule: history pruning", () => {
 	it("keeps only the N most recent logins by default (default N = 10)", async () => {
 		const db = await createTestDb();
 		await seedUser(db, "usr_prune");
@@ -441,7 +441,7 @@ describe("LastLoginModule.getLoginHistory", () => {
 	});
 });
 
-describe("LastLoginModule — user isolation", () => {
+describe("LastLoginModule: user isolation", () => {
 	it("histories for different users do not interfere", async () => {
 		const db = await createTestDb();
 		await seedUser(db, "alice");

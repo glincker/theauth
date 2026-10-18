@@ -28,7 +28,7 @@ async function runHook(
 
 // rateLimit() plugin, basic allow / deny
 
-describe("rateLimit() plugin — allow and deny", () => {
+describe("rateLimit() plugin: allow and deny", () => {
 	it("returns undefined (pass-through) for paths outside /auth/", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 2 } });
 		const result = await runHook(plugin, makeRequest("/api/data", "1.1.1.1"));
@@ -106,7 +106,7 @@ describe("rateLimit() plugin — allow and deny", () => {
 
 // rateLimit() plugin, per-endpoint config
 
-describe("rateLimit() plugin — per-endpoint config", () => {
+describe("rateLimit() plugin: per-endpoint config", () => {
 	it("uses signIn limit for /auth/sign-in", async () => {
 		const plugin = rateLimit({
 			signIn: { window: "15m", max: 2 },
@@ -188,7 +188,7 @@ describe("rateLimit() plugin — per-endpoint config", () => {
 
 // rateLimit() plugin, key extraction
 
-describe("rateLimit() plugin — key extraction", () => {
+describe("rateLimit() plugin: key extraction", () => {
 	it("isolates counters per IP", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 1 } });
 
@@ -236,7 +236,7 @@ describe("rateLimit() plugin — key extraction", () => {
 
 // rateLimit() plugin, custom onLimit
 
-describe("rateLimit() plugin — custom onLimit", () => {
+describe("rateLimit() plugin: custom onLimit", () => {
 	it("calls custom onLimit with retryAfter when limit exceeded", async () => {
 		const onLimit = vi.fn(
 			(_req: Request, retryAfter: number) =>
@@ -258,7 +258,7 @@ describe("rateLimit() plugin — custom onLimit", () => {
 
 // rateLimit() plugin, window parsing
 
-describe("rateLimit() plugin — window string parsing", () => {
+describe("rateLimit() plugin: window string parsing", () => {
 	it.each([
 		["30s", 30_000],
 		["1m", 60_000],
@@ -293,7 +293,7 @@ describe("rateLimit() plugin — window string parsing", () => {
 
 // rateLimit() plugin, store option
 
-describe("rateLimit() plugin — pluggable store", () => {
+describe("rateLimit() plugin: pluggable store", () => {
 	it("accepts 'memory' string to use MemoryStore", async () => {
 		const plugin = rateLimit({ default: { window: "1m", max: 1 }, store: "memory" });
 

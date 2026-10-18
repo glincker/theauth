@@ -167,7 +167,7 @@ function homepageHtml(): string {
 <body>
   <div class="container">
     <h1>TheAuth</h1>
-    <p class="subtitle">Auth OS for AI agents — agent identity, permissions, delegation, audit</p>
+    <p class="subtitle">Auth OS for AI agents: agent identity, permissions, delegation, audit</p>
 
     <div class="status">
       <span class="dot"></span>

@@ -34,7 +34,7 @@ async function seedAgent(db: Database, id: string, ownerId: string): Promise<voi
 	});
 }
 
-describe("template 01 — tool allowlist", () => {
+describe("template 01: tool allowlist", () => {
 	let db: Database;
 
 	beforeEach(async () => {

@@ -51,7 +51,7 @@ describe("createSlackProvider", () => {
 	});
 });
 
-describe("createSlackProvider — getAuthorizationUrl", () => {
+describe("createSlackProvider: getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and openid scopes", async () => {
 		const provider = createSlackProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
 		const url = await provider.getAuthorizationUrl("state-abc", CODE_VERIFIER, REDIRECT_URI);

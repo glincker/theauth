@@ -108,8 +108,8 @@ describe("TokenFamilyStore.issueToken / consumeToken", () => {
 		const family = await store.createFamily(TEST_USER_ID, new Date(Date.now() + 86_400_000));
 		const { rawToken } = await store.issueToken(family.id, 30 * 86_400_000);
 
-		await store.consumeToken(rawToken); // first use — ok
-		await store.consumeToken(rawToken); // second use — reuse, revokes family
+		await store.consumeToken(rawToken); // first use, ok
+		await store.consumeToken(rawToken); // second use: reuse, revokes family
 
 		// Any subsequent consumption of another token in the same family fails.
 		const { rawToken: token2 } = await store.issueToken(family.id, 30 * 86_400_000);
@@ -183,7 +183,7 @@ describe("TokenFamilyStore.revokeFamily / revokeFamiliesForUser", () => {
 	});
 });
 
-describe("createSessionRefresher — constructor guards", () => {
+describe("createSessionRefresher: constructor guards", () => {
 	it("throws when secret is shorter than 32 characters", () => {
 		expect(() =>
 			createSessionRefresher({
@@ -243,7 +243,7 @@ describe("SessionRefresher.issueInitial", () => {
 	});
 });
 
-describe("SessionRefresher.refresh — happy path", () => {
+describe("SessionRefresher.refresh: happy path", () => {
 	let db: Database;
 	let refresher: SessionRefresher;
 
@@ -270,7 +270,7 @@ describe("SessionRefresher.refresh — happy path", () => {
 	});
 });
 
-describe("SessionRefresher.refresh — old token invalidated", () => {
+describe("SessionRefresher.refresh: old token invalidated", () => {
 	let db: Database;
 	let refresher: SessionRefresher;
 
@@ -300,7 +300,7 @@ describe("SessionRefresher.refresh — old token invalidated", () => {
 	});
 });
 
-describe("SessionRefresher.refresh — reuse detection revokes entire family", () => {
+describe("SessionRefresher.refresh: reuse detection revokes entire family", () => {
 	let db: Database;
 	let refresher: SessionRefresher;
 
@@ -331,7 +331,7 @@ describe("SessionRefresher.refresh — reuse detection revokes entire family", (
 	});
 });
 
-describe("SessionRefresher.refresh — expired token", () => {
+describe("SessionRefresher.refresh: expired token", () => {
 	it("rejects an expired refresh token", async () => {
 		const db = await createTestDb();
 		// Ultra-short refresh TTL so the token expires before we use it.
@@ -356,7 +356,7 @@ describe("SessionRefresher.refresh — expired token", () => {
 	});
 });
 
-describe("SessionRefresher.refresh — absolute timeout", () => {
+describe("SessionRefresher.refresh: absolute timeout", () => {
 	it("rejects refresh when absolute timeout has been reached", async () => {
 		const db = await createTestDb();
 		// Absolute timeout in the past.
@@ -381,7 +381,7 @@ describe("SessionRefresher.refresh — absolute timeout", () => {
 	});
 });
 
-describe("SessionRefresher.refresh — concurrent requests", () => {
+describe("SessionRefresher.refresh: concurrent requests", () => {
 	it("only one concurrent refresh succeeds; the second gets reuse error", async () => {
 		const db = await createTestDb();
 		const refresher = createSessionRefresher({ secret: TEST_SECRET, db });
@@ -442,7 +442,7 @@ describe("SessionRefresher.revokeAll", () => {
 
 // SessionRefresher.handleRequest, HTTP layer
 
-describe("SessionRefresher.handleRequest — success", () => {
+describe("SessionRefresher.handleRequest: success", () => {
 	let db: Database;
 	let refresher: SessionRefresher;
 
@@ -489,7 +489,7 @@ describe("SessionRefresher.handleRequest — success", () => {
 	});
 });
 
-describe("SessionRefresher.handleRequest — failure paths", () => {
+describe("SessionRefresher.handleRequest: failure paths", () => {
 	let db: Database;
 	let refresher: SessionRefresher;
 

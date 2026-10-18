@@ -256,7 +256,7 @@ export async function startDashboardServer(options: DashboardServerOptions): Pro
 	const dashboardSecret = resolveDashboardSecret();
 
 	if (dashboardSecret === null) {
-		stdout.write("  [warn] THEAUTH_DASHBOARD_SECRET is not set — dashboard auth is disabled.\n");
+		stdout.write("  [warn] THEAUTH_DASHBOARD_SECRET is not set, so dashboard auth is disabled.\n");
 	}
 
 	const distDir = resolveDashboardDistDir();

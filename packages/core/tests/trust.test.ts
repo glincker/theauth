@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { TheAuth } from "../src/theauth.js";
 import { createTestTheAuth } from "./helpers.js";
 
-describe("trust – graduated autonomy scoring", () => {
+describe("trust: graduated autonomy scoring", () => {
 	let theauth: TheAuth;
 	let agentId: string;
 

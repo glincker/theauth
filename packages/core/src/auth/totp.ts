@@ -331,7 +331,7 @@ export function createTotpModule(config: TotpConfig, db: Database): TotpModule {
 	): Promise<{ backupCodes: string[] }> {
 		const result = await verify(userId, code);
 		if (!result.valid) {
-			throw new Error("Invalid TOTP code — cannot regenerate backup codes");
+			throw new Error("Invalid TOTP code, cannot regenerate backup codes");
 		}
 
 		const { plain, hashed } = await generateBackupCodes(backupCodeCount);

@@ -43,7 +43,7 @@ async function seedAgent(db: Database, id: string, ownerId: string): Promise<voi
 	});
 }
 
-describe("template 02 — principal and delegated agent", () => {
+describe("template 02: principal and delegated agent", () => {
 	let db: Database;
 
 	beforeEach(async () => {

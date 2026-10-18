@@ -69,7 +69,7 @@ export interface A2AArtifact {
 export interface A2ATaskStatus {
 	code: A2ATaskState;
 	message?: string;
-	progress?: number; // 0–100
+	progress?: number; // 0 to 100
 }
 
 export interface A2ATask {

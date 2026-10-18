@@ -86,7 +86,7 @@ const createTokenInputSchema = z.object({
 });
 
 const DEFAULT_TTL_SECONDS = 3600; // 1 hour
-const TOKEN_BYTE_LENGTH = 32; // 256-bit token — 64 hex chars when encoded
+const TOKEN_BYTE_LENGTH = 32; // 256-bit token, 64 hex chars when encoded
 
 async function hashToken(raw: string): Promise<string> {
 	return sha256(raw);

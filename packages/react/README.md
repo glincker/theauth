@@ -98,7 +98,7 @@ Failures are `AuthQueryError` with a stable `code` (for example `rate_limited`, 
 When theAuth sits behind another auth API (Java/Go/Python), you can run the
 provider in **external mode**. Pass an `external` config object instead of
 relying on the local managed flow. Set `refreshPath` to opt into the rotation
-loop — proactive refresh, exponential-backoff retries, online/offline
+loop: proactive refresh, exponential-backoff retries, online/offline
 recovery, and reuse-detection callbacks all come along for the ride.
 
 ```tsx
@@ -135,7 +135,7 @@ function App() {
 
         onSessionRotated: () => {
           // Refetch authenticated queries with whatever client you use.
-          // Apollo example (framework-agnostic — adapt for TanStack Query, urql, etc.):
+          // Apollo example (framework-agnostic, adapt for TanStack Query, urql, etc.):
           //   apolloClient.refetchQueries({ include: "active" });
         },
       }}
@@ -165,7 +165,7 @@ function RotateButton() {
   `rotate()` calls still work).
 - **Retry policy.** Network failures and `5xx` responses are retried with
   exponential backoff (defaults: 1s → 2s → 4s, capped at 10s, 15s timeout
-  per attempt). `401` responses are **not** retried — they fire `onAuthError`.
+  per attempt). `401` responses are **not** retried, they fire `onAuthError`.
 - **Offline-aware.** While `navigator.onLine` is false, rotations short-circuit
   and the next `online` event triggers one rotation if anything was queued.
   Otherwise the existing schedule resumes against the known expiry.

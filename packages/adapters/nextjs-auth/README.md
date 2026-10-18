@@ -4,7 +4,7 @@
 
 [npm](https://www.npmjs.com/package/@glinr/theauth-nextjs-auth) · [Source](https://github.com/glincker/theauth/tree/main/packages/adapters/nextjs-auth) · [All packages](https://github.com/glincker/theauth#packages)
 
-Next.js 14/15/16 adapter for projects with an **external auth backend**. Handles cookies, proactive token refresh, CSRF double-submit, `getServerSession`, and middleware — all typed end-to-end.
+Next.js 14/15/16 adapter for projects with an **external auth backend**. Handles cookies, proactive token refresh, CSRF double-submit, `getServerSession`, and middleware, all typed end-to-end.
 
 Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
 
@@ -14,12 +14,12 @@ Part of [theAuth](https://theauth.dev), open-source auth for AI agents and human
 |---|---|---|
 | **Use case** | You have an external auth backend (Spring, Rails, Hono, Express, etc.) and need session management on the Next.js FE | You're using the theAuth agent-management runtime with its built-in auth |
 | **Auth source** | External REST API (`/api/auth/*`) | In-process theAuth SDK |
-| **Zero deps on** | `@glinr/theauth` core, `@glinr/theauth-nextjs` | — |
+| **Zero deps on** | `@glinr/theauth` core, `@glinr/theauth-nextjs` | none |
 | **Key exports** | `getServerSession`, `withAuth`, `refreshSession`, `fetchWithRefresh` | `theAuthNextjs()` handler |
 
 vs **next-auth**: next-auth requires a database adapter and runs auth in-process. Use `@glinr/theauth-nextjs-auth` when your backend already handles session state and you just want the FE plumbing.
 
-vs **better-auth**: better-auth also runs in-process (or via a hosted service). Use this adapter when you cannot or do not want to run auth logic inside the Next.js process — only a REST call over the wire.
+vs **better-auth**: better-auth also runs in-process (or via a hosted service). Use this adapter when you cannot or do not want to run auth logic inside the Next.js process, only a REST call over the wire.
 
 ## Quickstart
 
@@ -86,7 +86,7 @@ export const config = {
 
 ### 4. Sign out
 
-The adapter returns a plain async function — you add `"use server"` in **your own** file so Next.js can statically analyse it:
+The adapter returns a plain async function: you add `"use server"` in **your own** file so Next.js can statically analyse it:
 
 ```ts
 // src/app/auth/actions.ts   ← your file, your directive
@@ -105,7 +105,7 @@ import { signOut } from "@/app/auth/actions";
 
 #### Why no inline `"use server"`?
 
-The adapter is imported by both server and client module graphs (e.g. a client component that imports a shared config file). Next.js forbids inline `"use server"` directives in any module reachable from a client component — the compiler errors out. By keeping the directive out of the adapter, the compiled output is a plain async function that is safe to import anywhere. The `"use server"` annotation belongs in **consumer code** (a dedicated `actions.ts` file), where Next.js can statically verify it belongs to a server-action boundary.
+The adapter is imported by both server and client module graphs (e.g. a client component that imports a shared config file). Next.js forbids inline `"use server"` directives in any module reachable from a client component. The compiler errors out. By keeping the directive out of the adapter, the compiled output is a plain async function that is safe to import anywhere. The `"use server"` annotation belongs in **consumer code** (a dedicated `actions.ts` file), where Next.js can statically verify it belongs to a server-action boundary.
 
 ## API Reference
 
@@ -136,8 +136,8 @@ Performance: memoized per render via `React.cache()` + cookie cache (5 min TTL b
 
 ```ts
 const session = await getServerSession(authConfig);
-// session.user — your TUser shape
-// session.expiresAt — Date | null (from JWT exp claim)
+// session.user: your TUser shape
+// session.expiresAt: Date | null (from JWT exp claim)
 ```
 
 ### `refreshSession(config)` → `Promise<RefreshResult | null>`
@@ -158,7 +158,7 @@ const data = await graphqlWithRefresh<MyQuery>(authConfig, MY_QUERY, { id: "123"
 
 ### `createSignOutHandler(config)` → `() => Promise<{ success: boolean }>`
 
-Server-only. Returns an async function that calls the backend logout endpoint (best-effort) and clears all auth cookies. Does **not** include an inline `"use server"` directive — wrap it in your own `"use server"` file (see [Sign out](#4-sign-out)).
+Server-only. Returns an async function that calls the backend logout endpoint (best-effort) and clears all auth cookies. Does **not** include an inline `"use server"` directive; wrap it in your own `"use server"` file (see [Sign out](#4-sign-out)).
 
 > `createSignOutAction` is a deprecated alias for `createSignOutHandler` and will be removed in v0.2.
 
@@ -175,11 +175,11 @@ Client-safe. Returns minimal headers for browser → backend fetches (no auth he
 Edge-runtime safe. Returns a Next.js middleware function.
 
 Options:
-- `protectedPaths: string[]` — paths requiring auth; redirects to `signInPath?next=<path>` when unauthenticated
-- `signInPath: string` — default `"/signin"`
-- `refreshTimeoutMs: number` — default `4000`
+- `protectedPaths: string[]`: paths requiring auth; redirects to `signInPath?next=<path>` when unauthenticated
+- `signInPath: string`: default `"/signin"`
+- `refreshTimeoutMs: number`: default `4000`
 
-## TypeScript — custom User shape
+## TypeScript: custom User shape
 
 ```ts
 interface MyUser {
@@ -207,11 +207,11 @@ session?.user.role; // typed as "admin" | "member"
 
 The session cache stores `{ user, expiresAt, stampedAt }` in a short-lived httpOnly cookie. On cache hit (within `cookieCacheMaxAgeMs`), `getServerSession` returns immediately without calling the backend.
 
-**Benefits**: reduces backend load; avoids 50–200ms network hop per RSC render.
+**Benefits**: reduces backend load; avoids 50 to 200ms network hop per RSC render.
 
 **Tradeoffs**:
 - Stale user data for up to `cookieCacheMaxAgeMs`. Acceptable for display data (name, email); not suitable for permission checks that need real-time accuracy.
-- v0.1 stores plain JSON (no HMAC signing). The cookie is httpOnly+sameSite=lax — an attacker needs TLS access to read or forge it. v0.2 will add HMAC-SHA256 signing for defence-in-depth.
+- v0.1 stores plain JSON (no HMAC signing). The cookie is httpOnly+sameSite=lax, so an attacker needs TLS access to read or forge it. v0.2 will add HMAC-SHA256 signing for defence-in-depth.
 - Set `cookieCacheMaxAgeMs: 0` to disable caching entirely (every RSC render hits the backend).
 
 Better-auth uses the same approach: a `session_data` cookie with configurable `maxAge` avoiding DB round-trips. Their v1 uses compact base64url+HMAC, JWT, or JWE encoding. We start with plain JSON for simplicity.
@@ -229,7 +229,7 @@ Uses the double-submit cookie pattern:
 ## Cookie prefix policy
 
 - **Production (HTTPS)**: `__Host-{prefix}-token`, `__Host-{prefix}-csrf`
-  - `__Host-` requires `Secure`, no `Domain`, `Path=/` — maximally restrictive
+  - `__Host-` requires `Secure`, no `Domain`, `Path=/`, maximally restrictive
 - **Development (HTTP)**: `{prefix}-token`, `{prefix}-csrf`
   - Browsers reject `__Host-` without `Secure`; plain names are used instead
 - **Refresh token**: never `__Host-` prefixed (longer-lived, `sameSite=lax`)

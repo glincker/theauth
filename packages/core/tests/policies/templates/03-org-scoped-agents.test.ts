@@ -37,7 +37,7 @@ async function seedAgent(db: Database, id: string, ownerId: string): Promise<voi
 	});
 }
 
-describe("template 03 — org-scoped agents", () => {
+describe("template 03: org-scoped agents", () => {
 	let db: Database;
 
 	beforeEach(async () => {

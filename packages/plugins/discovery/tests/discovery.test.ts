@@ -30,7 +30,7 @@ async function createTestTheAuth(): Promise<TheAuth> {
 	return theauth;
 }
 
-describe("discovery – agent capability cards", () => {
+describe("discovery: agent capability cards", () => {
 	let theauth: TheAuth;
 	let discovery: DiscoveryModule;
 	let agentId: string;

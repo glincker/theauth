@@ -960,7 +960,7 @@ function apiKeysPaths(base: string): Record<string, OpenApiPathItem> {
 		type: "object",
 		properties: {
 			...apiKeySchema.properties,
-			key: { type: "string", description: "Full API key — shown once, store securely" },
+			key: { type: "string", description: "Full API key (shown once, store securely)" },
 		},
 		required: [...(apiKeySchema.required ?? []), "key"],
 	};
@@ -1013,7 +1013,7 @@ function apiKeysPaths(base: string): Record<string, OpenApiPathItem> {
 		[`${base}/api-keys/{id}/rotate`]: {
 			post: {
 				operationId: "rotateApiKey",
-				summary: "Rotate an API key — returns a new key value",
+				summary: "Rotate an API key, returns a new key value",
 				tags: ["API Keys"],
 				security: BEARER_SECURITY,
 				parameters: [pathParam("id", "API Key ID")],

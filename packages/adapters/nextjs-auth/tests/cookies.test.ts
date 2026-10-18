@@ -3,7 +3,7 @@ import { createAuthConfig } from "../src/config.js";
 
 // Tests cookie name derivation and config resolution. next/headers and NextResponse are mocked out.
 
-describe("createAuthConfig — cookie name resolution", () => {
+describe("createAuthConfig: cookie name resolution", () => {
 	it("uses __Host- prefix when isProd=true", () => {
 		const config = createAuthConfig({
 			backendUrl: "https://api.example.com",

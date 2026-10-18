@@ -55,7 +55,7 @@ describe("AGENTIC_JWT_CLAIMS", () => {
 
 // JwtSessionModule, flag off
 
-describe("JwtSessionModule — emitAgenticJwtClaims off (default)", () => {
+describe("JwtSessionModule: emitAgenticJwtClaims off (default)", () => {
 	let db: Database;
 
 	beforeEach(async () => {
@@ -105,7 +105,7 @@ describe("JwtSessionModule — emitAgenticJwtClaims off (default)", () => {
 
 // JwtSessionModule, flag on
 
-describe("JwtSessionModule — emitAgenticJwtClaims on", () => {
+describe("JwtSessionModule: emitAgenticJwtClaims on", () => {
 	let db: Database;
 
 	beforeEach(async () => {

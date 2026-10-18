@@ -52,7 +52,7 @@ describe("createZoomProvider", () => {
 	});
 });
 
-describe("createZoomProvider — getAuthorizationUrl", () => {
+describe("createZoomProvider: getAuthorizationUrl", () => {
 	it("builds a URL with response_type=code and PKCE S256", async () => {
 		const provider = createZoomProvider({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET });
 		const url = await provider.getAuthorizationUrl("state-abc", CODE_VERIFIER, REDIRECT_URI);

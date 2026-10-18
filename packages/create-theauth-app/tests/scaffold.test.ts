@@ -34,7 +34,7 @@ function randomDir(): string {
 	return join(tmpdir(), `theauth-test-${randomBytes(6).toString("hex")}`);
 }
 
-describe("scaffold – next-saas", () => {
+describe("scaffold: next-saas", () => {
 	const dirs: string[] = [];
 
 	afterEach(async () => {
@@ -168,7 +168,7 @@ describe("scaffold – next-saas", () => {
 	});
 });
 
-describe("scaffold – error handling", () => {
+describe("scaffold: error handling", () => {
 	it("throws for unknown template", async () => {
 		const targetDir = randomDir();
 		await expect(
@@ -268,7 +268,7 @@ describe("scaffold: dependency versions", () => {
 	});
 });
 
-describe("scaffold – cloudflare-workers", () => {
+describe("scaffold: cloudflare-workers", () => {
 	const dirs: string[] = [];
 
 	afterEach(async () => {

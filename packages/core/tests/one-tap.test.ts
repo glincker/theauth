@@ -194,7 +194,7 @@ describe("OneTapModule.verify", () => {
 
 // Suite: handleRequest(), routing + CSRF
 
-describe("OneTapModule.handleRequest — routing and CSRF", () => {
+describe("OneTapModule.handleRequest: routing and CSRF", () => {
 	let db: Database;
 	let mod: OneTapModule;
 
@@ -271,7 +271,7 @@ describe("OneTapModule.handleRequest — routing and CSRF", () => {
 
 // Suite: handleRequest(), user flows
 
-describe("OneTapModule.handleRequest — user flows", () => {
+describe("OneTapModule.handleRequest: user flows", () => {
 	let db: Database;
 	let mod: OneTapModule;
 
