@@ -1,6 +1,7 @@
 /** Tests for the custom session fields plugin. */
 
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CustomSessionModule } from "../src/auth/custom-session.js";
 import { createCustomSessionModule, customSession } from "../src/auth/custom-session.js";
@@ -146,14 +147,13 @@ describe("CustomSessionModule.updateSessionFields", () => {
 		const [row] = await db
 			.select({ metadata: sessions.metadata })
 			.from(sessions)
-			.where((t) => t.id === sessionId);
+			.where(eq(sessions.id, sessionId));
 
 		// getSessionFields only returns custom sub-key
 		const fields = await mod.getSessionFields(sessionId);
 		expect(fields?.theme).toBe("dark");
-		// Ensure the 'anonymous' key is still present if we had direct access.
-		// We test via raw metadata query.
-		void row; // row is undefined here since we're not using the filter correctly; covered by other tests
+		// The sibling 'anonymous' key must survive the custom-field update.
+		expect(row?.metadata).toMatchObject({ anonymous: false, custom: { theme: "dark" } });
 	});
 });
 

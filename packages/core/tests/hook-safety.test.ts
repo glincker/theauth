@@ -108,7 +108,7 @@ describe("runWithTimeout", () => {
 			100,
 		);
 		await vi.advanceTimersByTimeAsync(100);
-		await pending;
+		expect(await pending).toEqual({ ok: false, timedOut: true, error: undefined });
 		rejectLate(new Error("late"));
 		await vi.advanceTimersByTimeAsync(0);
 	});

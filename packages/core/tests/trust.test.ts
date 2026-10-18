@@ -86,14 +86,14 @@ describe("trust: graduated autonomy scoring", () => {
 
 		const all = await theauth.trust.getScores();
 		const agentScore = all.find((s) => s.agentId === agentId);
-		expect(agentScore).toBeDefined();
+		if (!agentScore) throw new Error("expected a trust score row for the test agent");
 
 		// Filter at exactly the computed score should include it
-		const filtered = await theauth.trust.getScores({ minScore: agentScore?.score });
+		const filtered = await theauth.trust.getScores({ minScore: agentScore.score });
 		expect(filtered.find((s) => s.agentId === agentId)).toBeDefined();
 
 		// Filter above the computed score should exclude it
-		const tooHigh = await theauth.trust.getScores({ minScore: agentScore?.score + 1 });
+		const tooHigh = await theauth.trust.getScores({ minScore: agentScore.score + 1 });
 		expect(tooHigh.find((s) => s.agentId === agentId)).toBeUndefined();
 	});
 

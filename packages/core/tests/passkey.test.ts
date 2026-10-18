@@ -40,7 +40,7 @@ function encodeClientData(data: Record<string, unknown>): string {
 	return toBase64Url(new TextEncoder().encode(JSON.stringify(data)));
 }
 
-async function seedUser(db: ReturnType<typeof makeDb>, userId: string): Promise<void> {
+async function seedUser(db: Awaited<ReturnType<typeof makeDb>>, userId: string): Promise<void> {
 	const now = new Date();
 	await db.insert(schema.users).values({
 		id: userId,

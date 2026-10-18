@@ -45,7 +45,7 @@ describe("initializePlugins", () => {
 	});
 
 	it("returns an empty registry when no plugins are provided", async () => {
-		const registry = await initializePlugins([], db, baseConfig);
+		const registry = await initializePlugins([], db, baseConfig, null);
 
 		expect(registry.endpoints).toHaveLength(0);
 		expect(registry.migrations).toHaveLength(0);
@@ -64,7 +64,7 @@ describe("initializePlugins", () => {
 			},
 		};
 
-		const registry = await initializePlugins([plugin], db, baseConfig);
+		const registry = await initializePlugins([plugin], db, baseConfig, null);
 
 		expect(registry.pluginContext).toEqual({ greeting: "hello", count: 42 });
 	});
@@ -85,14 +85,14 @@ describe("initializePlugins", () => {
 			},
 		];
 
-		const registry = await initializePlugins(plugins, db, baseConfig);
+		const registry = await initializePlugins(plugins, db, baseConfig, null);
 
 		expect(registry.pluginContext).toEqual({ fromA: true, fromB: "yes" });
 	});
 
 	it("plugin with no init() is accepted without error", async () => {
 		const plugin: TheAuthPlugin = { id: "no-init" };
-		const registry = await initializePlugins([plugin], db, baseConfig);
+		const registry = await initializePlugins([plugin], db, baseConfig, null);
 		expect(registry.pluginContext).toEqual({});
 	});
 
@@ -117,7 +117,7 @@ describe("initializePlugins", () => {
 			},
 		};
 
-		const registry = await initializePlugins([plugin], db, baseConfig);
+		const registry = await initializePlugins([plugin], db, baseConfig, null);
 
 		expect(registry.endpoints).toHaveLength(2);
 		expect(registry.endpoints[0]?.method).toBe("GET");
@@ -136,7 +136,7 @@ describe("initializePlugins", () => {
 			},
 		};
 
-		const registry = await initializePlugins([plugin], db, baseConfig);
+		const registry = await initializePlugins([plugin], db, baseConfig, null);
 
 		expect(registry.migrations).toHaveLength(1);
 		expect(registry.migrations[0]).toContain("plugin_test_table");
@@ -162,7 +162,7 @@ describe("initializePlugins", () => {
 			hooks: { onRequest, onAuthenticate, onSessionCreate, onSessionRevoke },
 		};
 
-		const registry = await initializePlugins([plugin], db, baseConfig);
+		const registry = await initializePlugins([plugin], db, baseConfig, null);
 
 		expect(registry.hooks.onRequest).toHaveLength(1);
 		expect(registry.hooks.onRequest[0]).toBe(onRequest);
@@ -183,7 +183,7 @@ describe("initializePlugins", () => {
 			{ id: "b", hooks: { onRequest: handlerB } },
 		];
 
-		const registry = await initializePlugins(plugins, db, baseConfig);
+		const registry = await initializePlugins(plugins, db, baseConfig, null);
 
 		expect(registry.hooks.onRequest).toHaveLength(2);
 		expect(registry.hooks.onRequest[0]).toBe(handlerA);

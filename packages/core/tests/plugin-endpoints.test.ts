@@ -167,7 +167,7 @@ describe("plugin endpoint wiring via theauth.plugins", () => {
 	});
 
 	it("endpoint receives the EndpointContext with getUser and getSession", async () => {
-		let receivedCtx: { hasGetUser: boolean; hasGetSession: boolean } | null = null;
+		const seen: { ctx: { hasGetUser: boolean; hasGetSession: boolean } | null } = { ctx: null };
 
 		const plugin: TheAuthPlugin = {
 			id: "ctx-check-plugin",
@@ -176,7 +176,7 @@ describe("plugin endpoint wiring via theauth.plugins", () => {
 					method: "GET",
 					path: "/ctx-check",
 					async handler(_req, endpointCtx) {
-						receivedCtx = {
+						seen.ctx = {
 							hasGetUser: typeof endpointCtx.getUser === "function",
 							hasGetSession: typeof endpointCtx.getSession === "function",
 						};
@@ -190,8 +190,8 @@ describe("plugin endpoint wiring via theauth.plugins", () => {
 
 		await theauth.plugins.handleRequest(makeRequest("GET", "http://localhost/ctx-check"));
 
-		expect(receivedCtx).not.toBeNull();
-		expect(receivedCtx?.hasGetUser).toBe(true);
-		expect(receivedCtx?.hasGetSession).toBe(true);
+		expect(seen.ctx).not.toBeNull();
+		expect(seen.ctx?.hasGetUser).toBe(true);
+		expect(seen.ctx?.hasGetSession).toBe(true);
 	});
 });

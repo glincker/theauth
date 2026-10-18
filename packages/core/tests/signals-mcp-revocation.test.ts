@@ -23,7 +23,7 @@ type Sent = { type: string; payload?: Record<string, unknown>; subject: unknown 
 
 describe("signals: MCP revocation", () => {
 	it("emits one session-revoked per revoked id with a complex subject", async () => {
-		const emit = vi.fn(async () => undefined);
+		const emit = vi.fn(async (_event: unknown) => undefined);
 		const bridge = createEmissionBridge({ emit, issuer: ISS });
 		await bridge.onMcpRevocation(event());
 		const sent = emit.mock.calls.map((c) => c[0] as unknown as Sent);
@@ -45,7 +45,7 @@ describe("signals: MCP revocation", () => {
 	});
 
 	it("covers agent and sub kinds", async () => {
-		const emit = vi.fn(async () => undefined);
+		const emit = vi.fn(async (_event: unknown) => undefined);
 		const bridge = createEmissionBridge({ emit, issuer: ISS });
 		await bridge.onMcpRevocation(event({ kind: "agent", ids: ["ag1"], reason: "agent.revoke" }));
 		await bridge.onMcpRevocation(event({ kind: "sub", ids: ["u1"], reason: "session.revokeAll" }));
@@ -56,7 +56,7 @@ describe("signals: MCP revocation", () => {
 	});
 
 	it("emits nothing for jti or client revocations, or when the user is unknown", async () => {
-		const emit = vi.fn(async () => undefined);
+		const emit = vi.fn(async (_event: unknown) => undefined);
 		const bridge = createEmissionBridge({ emit, issuer: ISS });
 		await bridge.onMcpRevocation(event({ kind: "jti", ids: ["j"] }));
 		await bridge.onMcpRevocation(event({ kind: "client", ids: ["c"] }));
@@ -65,7 +65,7 @@ describe("signals: MCP revocation", () => {
 	});
 
 	it("carries no token material or secrets", async () => {
-		const emit = vi.fn(async () => undefined);
+		const emit = vi.fn(async (_event: unknown) => undefined);
 		const bridge = createEmissionBridge({ emit, issuer: ISS });
 		await bridge.onMcpRevocation(event());
 		const text = JSON.stringify(emit.mock.calls);
@@ -98,7 +98,7 @@ describe("signals: MCP revocation", () => {
 	});
 
 	it("no event is sent when no bridge is configured", async () => {
-		const emit = vi.fn(async () => undefined);
+		const emit = vi.fn(async (_event: unknown) => undefined);
 		const bus = createRevocationBus({});
 		await bus.publish(event(), []);
 		await Promise.resolve();

@@ -256,3 +256,7 @@ Questions and help in the `#theauth` forum on the [GLINR Discord](https://discor
 - [All packages](https://github.com/glincker/theauth#packages)
 - [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
 - [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)
+
+## Type-checking tests
+
+`pnpm typecheck:tests` checks `tests/` with `tsconfig.test.json`, which the normal `typecheck` skips. Run `node ../../scripts/check-test-types.mjs` to fail only on errors above the per-file counts in `tests-typecheck-baseline.json`, and add `--update` after fixing errors to ratchet the baseline down.

@@ -528,7 +528,9 @@ describe("CookieSessionManager: listSessions", () => {
 		expect(result).toHaveLength(2);
 		expect(result.every((s) => s.userId === TEST_USER_ID)).toBe(true);
 		// Verify descending order.
-		expect(result[0]?.createdAt.getTime()).toBeGreaterThanOrEqual(result[1]?.createdAt.getTime());
+		expect(result[0]?.createdAt.getTime()).toBeGreaterThanOrEqual(
+			result[1]?.createdAt.getTime() ?? Number.POSITIVE_INFINITY,
+		);
 	});
 
 	it("excludes revoked sessions", async () => {
