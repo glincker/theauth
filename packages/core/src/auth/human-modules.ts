@@ -1,4 +1,5 @@
 import type { Database } from "../db/database.js";
+import { createObservability } from "../observability/index.js";
 import type { SessionManager } from "../session/session.js";
 import { createSecondaryStorageResolver } from "../storage/resolve.js";
 import type { TheAuthConfig } from "../types.js";
@@ -84,7 +85,10 @@ export function createHumanAuthModules(
 
 	const usernameModule: UsernameAuthModule | null =
 		config.username && sessionManager
-			? createUsernameAuthModule(config.username, db, sessionManager, signInGate)
+			? createUsernameAuthModule(config.username, db, sessionManager, signInGate, {
+					storage: createSecondaryStorageResolver(config.secondaryStorage, db).for("rateLimit"),
+					logger: createObservability(config.observability, config.logger).logger,
+				})
 			: null;
 
 	const oneTimeTokenModule = createOneTimeTokenModule({}, db);

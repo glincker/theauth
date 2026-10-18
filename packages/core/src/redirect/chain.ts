@@ -1,7 +1,9 @@
 import { generateId } from "../crypto/web-crypto.js";
 import { serializeCookie } from "../session/cookie.js";
+import type { RedirectAllowlistOptions } from "./allowlist.js";
+import { normalizeAllowedOrigins, resolveRedirectTarget } from "./allowlist.js";
 
-export interface RedirectConfig {
+export interface RedirectConfig extends RedirectAllowlistOptions {
 	/** Cookie name for storing the redirect chain (default: "theauth_redirect") */
 	cookieName?: string;
 	/** Max age in seconds for the redirect cookie (default: 600 = 10 min) */
@@ -64,7 +66,11 @@ export interface RedirectChainManager {
 	/** Parse the chain state from a request's cookies. Returns null if no chain exists or if it's expired. */
 	parse(request: Request): RedirectChainState | null;
 
+	/** Builds the URL for an entry. A path that fails the allow list (`//host`, backslashes, encoded variants) comes back as `defaultPath`. */
 	buildUrl(entry: RedirectEntry): string;
+
+	/** Returns `target` when it is a same-origin path or an exact `allowedOrigins` match, else `defaultPath`. Use it on any `redirectTo`, `returnTo` or `callbackURL` value before redirecting after sign-in, sign-out or verification. */
+	sanitize(target: unknown): string;
 
 	createEntry(url: string | Request, label?: string): RedirectEntry;
 }
@@ -174,6 +180,7 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 	const preserveQuery = config?.preserveQuery ?? true;
 	const preserveHash = config?.preserveHash ?? true;
 	const maxDepth = config?.maxDepth ?? DEFAULT_MAX_DEPTH;
+	const allowedOrigins = normalizeAllowedOrigins(config?.allowedOrigins);
 	const cookieOpts = {
 		httpOnly: config?.cookie?.httpOnly ?? true,
 		secure: config?.cookie?.secure ?? true,
@@ -225,8 +232,11 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		let parsed: URL;
 		if (typeof url === "string") {
 			if (url.startsWith("/")) {
-				parsed = new URL(url, "http://localhost");
+				// A relative target must pass the allow list; `//host` and friends become the default path.
+				const safe = resolveRedirectTarget(url, allowedOrigins) ?? defaultPath;
+				parsed = new URL(safe, "http://localhost");
 			} else {
+				// Only the path, query and hash of an absolute URL are kept, never its origin.
 				parsed = new URL(url);
 			}
 		} else {
@@ -263,7 +273,8 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 		if (entry.hash) {
 			url += `#${entry.hash}`;
 		}
-		return url;
+		// The cookie is client-held and unsigned, and request paths can start with `//`, so check on the way out.
+		return resolveRedirectTarget(url, allowedOrigins) ?? defaultPath;
 	}
 
 	const manager: RedirectChainManager = {
@@ -392,6 +403,10 @@ export function createRedirectChain(config?: RedirectConfig): RedirectChainManag
 
 		buildUrl(entry: RedirectEntry): string {
 			return buildUrlFromEntry(entry);
+		},
+
+		sanitize(target: unknown): string {
+			return resolveRedirectTarget(target, allowedOrigins) ?? defaultPath;
 		},
 
 		createEntry(url: string | Request, label?: string): RedirectEntry {

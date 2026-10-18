@@ -28,6 +28,11 @@ import {
 import type { Database } from "../db/database.js";
 import { usernameAccounts, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
+import type { SecondaryStorage } from "../storage/types.js";
+import type { TrustedProxyConfig } from "./client-ip.js";
+import { resolveClientIp } from "./client-ip.js";
+import type { LockoutLogger, LoginLockout, LoginLockoutConfig } from "./login-lockout.js";
+import { createLoginLockout, LoginLockedError, lockoutDisabledByEnv } from "./login-lockout.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
@@ -48,6 +53,20 @@ export interface UsernameAuthConfig {
 		/** Maximum password length (default: 128) */
 		maxLength?: number;
 	};
+	/**
+	 * Failed sign-in lockout (per account plus per client IP, progressive, with a cap). On by default: 10 failures per 15 minutes lock the account for 15 minutes, doubling per repeat up to 1 hour. `false` (or `THEAUTH_LOGIN_LOCKOUT_DISABLED=true`) turns it off. See `LoginLockoutConfig` for every threshold and its env override.
+	 */
+	lockout?: false | LoginLockoutConfig;
+	/** How to find the client IP for the per-IP backoff. Without it the IP is unknown and only the per-account lockout applies. */
+	trustedProxy?: TrustedProxyConfig;
+}
+
+/** Collaborators the lockout needs, supplied by `createTheAuth`. */
+export interface UsernameAuthDeps {
+	/** Counter store for lockout state, usually the `rateLimit` secondary storage. */
+	storage?: SecondaryStorage;
+	/** Receives the startup warning when lockout fails open. */
+	logger?: LockoutLogger;
 }
 
 export interface UsernameAuthModule {
@@ -69,6 +88,8 @@ export interface UsernameAuthModule {
 		newPassword: string,
 	) => Promise<{ success: boolean }>;
 	changeUsername: (userId: string, newUsername: string) => Promise<{ success: boolean }>;
+	/** Admin override: lift the lockout and clear failure counters for a username. */
+	unlockAccount: (username: string) => Promise<void>;
 	handleRequest: (request: Request) => Promise<Response | null>;
 }
 
@@ -100,7 +121,18 @@ export function createUsernameAuthModule(
 	db: Database,
 	sessionManager: SessionManager,
 	signInGate?: SignInGate,
+	deps?: UsernameAuthDeps,
 ): UsernameAuthModule {
+	const lockout: LoginLockout | null =
+		config.lockout === false || lockoutDisabledByEnv()
+			? null
+			: createLoginLockout(
+					{
+						...config.lockout,
+						...(deps?.storage && !config.lockout?.storage && { storage: deps.storage }),
+					},
+					deps?.logger,
+				);
 	const gate = signInGate ?? createSignInGate({ db });
 	const minUsernameLen = config.minUsernameLength ?? DEFAULT_MIN_USERNAME;
 	const maxUsernameLen = config.maxUsernameLength ?? DEFAULT_MAX_USERNAME;
@@ -198,6 +230,14 @@ export function createUsernameAuthModule(
 		session: { token: string; expiresAt: Date };
 	}> {
 		const normalisedUsername = normalise(input.username.trim());
+		const ip = context?.request ? resolveClientIp(context.request, config.trustedProxy) : null;
+
+		// The lockout is keyed by the submitted name, never by whether the account exists.
+		if (lockout) {
+			const state = await lockout.check(normalisedUsername, ip);
+			if (state.locked)
+				throw new LoginLockedError(state.retryAfterSeconds, state.reason ?? "account");
+		}
 
 		const rows = await db
 			.select()
@@ -208,11 +248,16 @@ export function createUsernameAuthModule(
 		if (!account) {
 			// Spend the same hashing time so response time does not reveal which usernames exist.
 			await verifyPassword(await dummyHash(), input.password);
+			await lockout?.recordFailure(normalisedUsername, ip);
 			throw new Error("Invalid username or password");
 		}
 
 		const valid = await verifyPassword(account.passwordHash, input.password);
-		if (!valid) throw new Error("Invalid username or password");
+		if (!valid) {
+			await lockout?.recordFailure(normalisedUsername, ip);
+			throw new Error("Invalid username or password");
+		}
+		await lockout?.recordSuccess(normalisedUsername, ip);
 
 		if (pbkdf2NeedsRehash(account.passwordHash, iterationTarget)) {
 			try {
@@ -376,6 +421,22 @@ export function createUsernameAuthModule(
 				if (err instanceof SignInGateError) {
 					return signInGateResponse(err);
 				}
+				if (err instanceof LoginLockedError) {
+					return new Response(
+						JSON.stringify({
+							error: err.message,
+							code: "SIGN_IN_LOCKED",
+							retryAfter: err.retryAfterSeconds,
+						}),
+						{
+							status: 429,
+							headers: {
+								"Content-Type": "application/json",
+								"Retry-After": String(err.retryAfterSeconds),
+							},
+						},
+					);
+				}
 				return jsonResponse({ error: "Invalid username or password" }, 401);
 			}
 		}
@@ -420,5 +481,9 @@ export function createUsernameAuthModule(
 		return null;
 	}
 
-	return { signUp, signIn, changePassword, changeUsername, handleRequest };
+	async function unlockAccount(username: string): Promise<void> {
+		await lockout?.unlock(normalise(username.trim()));
+	}
+
+	return { signUp, signIn, changePassword, changeUsername, unlockAccount, handleRequest };
 }

@@ -114,7 +114,7 @@ export function createAdapterGuard(
 	// Counts live in the `rateLimit` secondary storage, so a shared store
 	// (database, Redis) enforces the limit across instances.
 	const admission = createAdapterAdmission(
-		options,
+		{ logger: theauth.observability?.logger, ...options },
 		trustedProxy,
 		theauth.secondaryStorage?.for("rateLimit"),
 	);

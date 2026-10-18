@@ -22,6 +22,7 @@
  * ```
  */
 
+import type { TheAuthLogger } from "../observability/types.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import { isSecondaryStorage, rateLimitStoreFromStorage } from "../storage/rate-limit-store.js";
 import type { SecondaryStorage } from "../storage/types.js";
@@ -64,6 +65,10 @@ export interface RateLimitConfig extends TrustedProxyConfig {
 	store?: "memory" | RateLimitStore | SecondaryStorage;
 	/** Extracts the client part of the rate-limit key from the request. Defaults to the IP from `trustedProxy`. */
 	keyExtractor?: (request: Request) => string;
+	/** What to do when the counter store errors. `false` (default) lets the request through, so a store outage never takes sign-in down. `true` refuses it with a 503. */
+	failClosed?: boolean;
+	/** Receives store errors and the startup warning that the limiter fails open. */
+	logger?: Pick<TheAuthLogger, "warn">;
 	/** Custom response when a limit is exceeded. Defaults to a JSON 429 response. */
 	onLimit?: (request: Request, retryAfter: number) => Response;
 }
@@ -246,6 +251,13 @@ export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 		config.keyExtractor ??
 		((request: Request): string => resolveClientIp(request, config) ?? "unknown");
 	const onLimitFn = config.onLimit ?? defaultOnLimit;
+	const failClosed = config.failClosed === true;
+	if (!failClosed) {
+		config.logger?.warn(
+			"rateLimit plugin fails open: when the counter store errors, requests (sign-in and sign-up included) are let through unthrottled. Set failClosed: true to refuse them instead.",
+			{ failClosed: false },
+		);
+	}
 
 	async function buildKey(request: Request): Promise<string> {
 		const ip = extractIp(request);
@@ -284,7 +296,23 @@ export function rateLimit(config: RateLimitConfig = {}): TheAuthPlugin {
 				const windowMs = windowMsFor(limit.window);
 				const key = `rate-limit:${pathname}:${await buildKey(request)}`;
 
-				const { count, resetAt } = await getStore().increment(key, windowMs);
+				let hit: { count: number; resetAt: number };
+				try {
+					hit = await getStore().increment(key, windowMs);
+				} catch (err) {
+					config.logger?.warn("rateLimit store error", {
+						failClosed,
+						error: err instanceof Error ? err.message : String(err),
+					});
+					if (!failClosed) return undefined;
+					return new Response(
+						JSON.stringify({
+							error: { code: "RATE_LIMIT_UNAVAILABLE", message: "Rate limiting is unavailable" },
+						}),
+						{ status: 503, headers: { "Content-Type": "application/json", "Retry-After": "5" } },
+					);
+				}
+				const { count, resetAt } = hit;
 
 				if (count > limit.max) {
 					const retryAfterMs = Math.max(resetAt - Date.now(), 0);

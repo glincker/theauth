@@ -176,6 +176,14 @@ export type {
 	RecordLoginInput,
 } from "./last-login.js";
 export { createLastLoginModule } from "./last-login.js";
+// Username + password authentication
+export type {
+	LockoutEvent,
+	LockoutScope,
+	LoginLockout,
+	LoginLockoutConfig,
+} from "./login-lockout.js";
+export { createLoginLockout, LoginLockedError } from "./login-lockout.js";
 export type { MagicLinkConfig, MagicLinkModule } from "./magic-link.js";
 export { createMagicLinkModule } from "./magic-link.js";
 // Magic link plugin (TheAuthPlugin wrapper)
@@ -395,8 +403,7 @@ export {
 	deviceLabelFromRequest,
 } from "./trusted-device.js";
 export type { AuthAdapter, ResolvedUser } from "./types.js";
-// Username + password authentication
-export type { UsernameAuthConfig, UsernameAuthModule } from "./username.js";
+export type { UsernameAuthConfig, UsernameAuthDeps, UsernameAuthModule } from "./username.js";
 export { createUsernameAuthModule } from "./username.js";
 export type { WebhookConfig, WebhookEvent, WebhookModule } from "./webhooks.js";
 export { createWebhookModule } from "./webhooks.js";

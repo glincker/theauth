@@ -4,6 +4,7 @@ import type { TrustedProxyConfig } from "./auth/client-ip.js";
 import type { RateLimitConfig, RateLimiter } from "./auth/rate-limiter.js";
 import { createRateLimiter } from "./auth/rate-limiter.js";
 import { resolveRequestIp } from "./http/node.js";
+import type { TheAuthLogger } from "./observability/types.js";
 import type { SecondaryStorage } from "./storage/types.js";
 
 /** Per-tier limits for the adapter routes. Each is requests per window (seconds). */
@@ -16,6 +17,8 @@ export interface AdapterRateLimitOptions {
 	read?: RateLimitConfig;
 	/** Return true to leave a request out of rate limiting, e.g. a health check or traffic from your own network. The cross-site check still applies. */
 	skip?: (request: Request, relativePath: string) => boolean;
+	/** What to do when the shared counter store errors. `false` (default) lets the request through so a store outage never takes sign-in and sign-up down. `true` refuses it with a 503, so an attacker cannot disable throttling by breaking the store. Only applies when a secondary store is in use; the in-process limiter cannot fail. */
+	failClosed?: boolean;
 	/** Replace the default client key (the client IP, or a credential digest when the IP is unknown). Return null to fall back to the default for a request. */
 	key?: (request: Request) => string | null;
 }
@@ -27,6 +30,8 @@ export interface AdapterAdmitOptions {
 	trustedOrigins?: string[];
 	/** `false` turns the cross-site check off. */
 	csrf?: boolean;
+	/** Receives the startup warning that rate limiting fails open (sign-in and sign-up included) when the counter store errors. */
+	logger?: Pick<TheAuthLogger, "warn">;
 }
 
 export interface AdapterAdmission {
@@ -112,7 +117,7 @@ const DEFAULT_LIMITS: Record<Tier, RateLimitConfig> = {
 
 type Tier = "strict" | "mutation" | "read";
 
-/** are then enforced across instances. Without it each process counts alone. A store failure lets the request through, so an outage there never takes authentication down with it. */
+/** are then enforced across instances. Without it each process counts alone. A store failure lets the request through by default, so an outage there never takes authentication down with it. Set `rateLimit.failClosed` to refuse with a 503 instead. */
 export function createAdapterAdmission(
 	options: AdapterAdmitOptions | undefined,
 	proxy: TrustedProxyConfig | undefined,
@@ -133,6 +138,14 @@ export function createAdapterAdmission(
 				}
 			: null;
 
+	const failClosed = limits?.failClosed === true;
+	if (limits && store && !failClosed) {
+		options?.logger?.warn(
+			"adapter rate limiting fails open: when the counter store errors, requests (sign-in and sign-up included) are admitted unthrottled. Set rateLimit.failClosed to refuse them instead.",
+			{ failClosed: false },
+		);
+	}
+
 	const customKey = limits?.key;
 	const skip = limits?.skip;
 
@@ -149,7 +162,11 @@ export function createAdapterAdmission(
 				const hit = await store.incr(`adapter:${tier}:${key}`, window);
 				return hit.count > max ? tooMany((hit.expiresAt - Date.now()) / 1000) : null;
 			} catch {
-				return null;
+				return failClosed
+					? json(503, "RATE_LIMIT_UNAVAILABLE", "Rate limiting is unavailable", {
+							"Retry-After": "5",
+						})
+					: null;
 			}
 		}
 		const result = limiters?.[tier].check(key);
