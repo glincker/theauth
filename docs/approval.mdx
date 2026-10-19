@@ -321,6 +321,34 @@ The rules for a request that needs more than one approver:
 
 Over the admin API, `POST /approvals` takes `requiredApprovals`. `POST /approvals/:id/approve` answers `{ status: "pending", approvalsReceived: 1, requiredApprovals: 2 }` until the last approver, then `status: "approved"`. A repeat approver gets 409 `DUPLICATE_APPROVER` and the requester gets 403 `SELF_APPROVAL`. The dashboard inbox shows "1 of 2 approvals" and who has approved. See [Robotics and ROS 2](/robotics-ros2) for a dangerous robot command example.
 
+Other storage and clients follow the same rules. The Prisma adapter has `castApprovalVote` (see [Prisma](/prisma)), and the Python and Go clients take the quorum when they open a request:
+
+```python
+opened = await client.approvals.open(OpenApprovalInput("admin:rotate", "agent:a1", required_approvals=2))
+step = await client.approvals.approve(opened.id)  # step.status == "pending", step.approvals_received == 1
+```
+
+```go
+opened, _ := client.Approvals.Open(ctx, theauth.OpenApprovalInput{Action: "admin:rotate", Resource: "agent:a1", RequiredApprovals: 2})
+decision, _ := client.Approvals.Approve(ctx, opened.ID) // decision.Status == theauth.ApprovalPending
+```
+
+`POST /approvals` only opens requests whose action looks like `admin:<name>`, owned by the signed in admin and the configured system agent. It does not open a request for another agent's `execute` call, so an agent action is still opened with `theauth.approval.request()` in your server code.
+
+### From the command line
+
+`theauth approvals` talks to the admin API over HTTP, so it works against any server that mounts `adminApi`. It uses the token from `theauth login`, or `--token` / `THEAUTH_ADMIN_TOKEN`, and the server from `--server` or `THEAUTH_URL`.
+
+```bash
+theauth approvals request --action admin:rotate --resource agent:a1 --required-approvals 2
+theauth approvals list
+theauth approvals show <id>
+theauth approvals approve <id>   # prints "counted, 1 of 2 approvals" until the last approver
+theauth approvals deny <id>
+```
+
+Add `--json` for machine output. `--args '{"key":"value"}'` attaches arguments to a request, and `--limit` caps the list (1 to 100). A 401 step-up challenge tells you to sign in again.
+
 This feature adds migration `0013` (a nullable `required_approvals` column and the `theauth_approval_votes` table). Run `theauth migrate` before you use it.
 
 ## Requiring a fresh passkey or TOTP code

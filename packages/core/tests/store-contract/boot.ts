@@ -2,6 +2,7 @@ import type {
 	ContractMailbox,
 	StoreContractTarget,
 } from "../../../test-utils/src/store-contract/index.js";
+import { decideApproval } from "../../src/admin-api/approval-decisions.js";
 import { oauth } from "../../src/auth/oauth/plugin.js";
 import type { Database, DatabaseConfig } from "../../src/db/database.js";
 import { users } from "../../src/db/schema.js";
@@ -20,6 +21,29 @@ export async function closeDatabase(db: Database): Promise<void> {
 	const client = (db as unknown as Closable).$client;
 	if (client?.end) await client.end();
 	else client?.close?.();
+}
+
+const systemAgents = new WeakMap<object, Promise<string>>();
+
+/** An agent the admin decision path writes its audit rows under, made once per instance. */
+function systemAgent(auth: Awaited<ReturnType<typeof createTheAuth>>): Promise<string> {
+	let id = systemAgents.get(auth);
+	if (!id) {
+		id = (async () => {
+			const owner = await auth.user.create({
+				email: `sys-${Math.random().toString(36).slice(2)}@contract.test`,
+			});
+			const a = await auth.agent.create({
+				ownerId: owner.id,
+				name: "contract-admin-system",
+				type: "autonomous",
+				permissions: [],
+			});
+			return a.id;
+		})();
+		systemAgents.set(auth, id);
+	}
+	return id;
 }
 
 /**
@@ -86,6 +110,18 @@ export async function bootTarget(
 					ok: results.filter((r) => r.status === "ok").length,
 					others: results.filter((r) => r.status !== "ok").map((r) => r.status),
 				};
+			},
+		},
+		adminDecisions: {
+			decide: async (approvalId, approverId, decision) => {
+				const result = await decideApproval(auth.db, {
+					id: approvalId,
+					decision,
+					approverId,
+					systemAgentId: await systemAgent(auth),
+					allowSelfApproval: false,
+				});
+				return result.ok;
 			},
 		},
 		close: () => closeDatabase(auth.db),

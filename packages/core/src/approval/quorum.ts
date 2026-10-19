@@ -1,7 +1,7 @@
-import { and, asc, eq, gt } from "drizzle-orm";
-import { claimCount } from "../db/claim.js";
+import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { approvalRequests, approvalVotes } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import { toStoreConflict } from "../db/store-conflict.js";
 
 /** Upper bound on `requiredApprovals`. A larger quorum is almost always a typo. */
@@ -105,20 +105,14 @@ export async function castApproval(
 		return { kind: "pending", approvers };
 	}
 
-	const changed = await claimCount(
-		db
-			.update(approvalRequests)
-			.set({ status: "approved", respondedAt: now, respondedBy: approverId })
-			.where(
-				and(
-					eq(approvalRequests.id, row.id),
-					eq(approvalRequests.status, "pending"),
-					gt(approvalRequests.expiresAt, now),
-				),
-			),
-		{ id: approvalRequests.id },
+	// Concurrent votes can push the count past the quorum. Only the first `required` count.
+	const quorum = approvers.slice(0, required);
+	const flipped = await singleUseFor(db).approvals.decide(
+		row.id,
+		{ status: "approved", respondedAt: now, respondedBy: quorum.at(-1) ?? approverId },
+		now,
 	);
-	if (changed === 1) return { kind: "approved", approvers };
+	if (flipped) return { kind: "approved", approvers: quorum };
 
 	// Someone else completed or denied it first. The vote is real only if the request is approved
 	// and this approver is among the first `required` counted.
@@ -127,8 +121,8 @@ export async function castApproval(
 		.from(approvalRequests)
 		.where(eq(approvalRequests.id, row.id))
 		.limit(1);
-	if (after?.status === "approved" && approvers.slice(0, required).includes(approverId)) {
-		return { kind: "approved", approvers: approvers.slice(0, required) };
+	if (after?.status === "approved" && quorum.includes(approverId)) {
+		return { kind: "approved", approvers: quorum };
 	}
 	await withdraw(db, row.id, approverId);
 	return { kind: "lost" };

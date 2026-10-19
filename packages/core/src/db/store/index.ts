@@ -1,14 +1,14 @@
 export { createDrizzleKernel, detectDialect } from "./drizzle-kernel.js";
+export { singleUseFor } from "./for-database.js";
+export { createSingleUseStores } from "./single-use.js";
 export type {
-	EmailOtpRepo,
 	FindManyQuery,
-	MagicLinkRepo,
 	ModelName,
 	ModelRow,
 	OrderBy,
-	RefreshTokenRepo,
 	Row,
 	Scalar,
+	SingleUseStores,
 	StoreCapabilities,
 	StoreKernel,
 	Stores,

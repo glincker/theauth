@@ -1,9 +1,9 @@
 import { and, eq, gt, lt } from "drizzle-orm";
 import { recordAuditEvent } from "../audit/record.js";
 import { generateId } from "../crypto/web-crypto.js";
-import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { approvalRequests } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import type { AuthAssertion, AuthRequirement } from "../session/auth-context.js";
 import { acrList, evaluateAuthRequirement, StepUpRequiredError } from "../session/auth-context.js";
 import { hashApprovalAction } from "./consume.js";
@@ -230,20 +230,12 @@ export function createApprovalModule(
 		}
 
 		// One conditional UPDATE decides the race: only a row still pending and unexpired changes.
-		const changed = await claimCount(
-			db
-				.update(approvalRequests)
-				.set({ status: newStatus, respondedAt: now, respondedBy: respondedBy ?? null })
-				.where(
-					and(
-						eq(approvalRequests.id, requestId),
-						eq(approvalRequests.status, "pending"),
-						gt(approvalRequests.expiresAt, now),
-					),
-				),
-			{ id: approvalRequests.id },
+		const decided = await singleUseFor(db).approvals.decide(
+			requestId,
+			{ status: newStatus, respondedAt: now, respondedBy: respondedBy ?? null },
+			now,
 		);
-		if (changed === 0) {
+		if (!decided) {
 			throw new Error(`Approval request "${requestId}" is no longer pending and cannot be updated`);
 		}
 
@@ -336,14 +328,7 @@ export function createApprovalModule(
 	async function markExpired(rows: Array<typeof approvalRequests.$inferSelect>): Promise<number> {
 		let count = 0;
 		for (const row of rows) {
-			const flipped = await claimCount(
-				db
-					.update(approvalRequests)
-					.set({ status: "expired" })
-					.where(and(eq(approvalRequests.id, row.id), eq(approvalRequests.status, "pending"))),
-				{ id: approvalRequests.id },
-			);
-			if (flipped === 0) continue;
+			if (!(await singleUseFor(db).approvals.expire(row.id))) continue;
 			count += 1;
 			await recordAuditEvent(db, {
 				agentId: row.agentId,

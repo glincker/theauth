@@ -1,9 +1,9 @@
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { sha256 } from "../crypto/web-crypto.js";
-import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { approvalRequests } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import type { DenialCode } from "../permission/codes.js";
 import { DECISION_CODES } from "../permission/codes.js";
 import type { AuthRequirement } from "../session/auth-context.js";
@@ -175,25 +175,17 @@ export async function consumeApproval(
 	const early = await classify(row, input, now);
 	if (early) return { ok: false, code: early };
 
-	const updated = await claimCount(
-		db
-			.update(approvalRequests)
-			.set({ consumedAt: now })
-			.where(
-				and(
-					eq(approvalRequests.id, input.approvalId),
-					eq(approvalRequests.status, "approved"),
-					eq(approvalRequests.agentId, input.agentId),
-					eq(approvalRequests.action, input.action),
-					eq(approvalRequests.resource, input.resource),
-					gt(approvalRequests.expiresAt, now),
-					isNull(approvalRequests.consumedAt),
-				),
-			),
-		{ id: approvalRequests.id },
+	const spent = await singleUseFor(db).approvals.consume(
+		{
+			id: input.approvalId,
+			agentId: input.agentId,
+			action: input.action,
+			resource: input.resource,
+		},
+		now,
 	);
 
-	if (updated === 0) {
+	if (!spent) {
 		// Lost a race or the row changed under us. Report why, never allow.
 		const code = await classify(await load(db, input.approvalId), input, new Date());
 		return { ok: false, code: code ?? APPROVAL_CODES.ALREADY_USED };

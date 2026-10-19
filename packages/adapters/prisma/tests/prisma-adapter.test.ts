@@ -12,6 +12,7 @@ function makeModelMock() {
 		upsert: vi.fn(),
 		delete: vi.fn(),
 		deleteMany: vi.fn(),
+		updateMany: vi.fn(),
 		count: vi.fn(),
 	};
 }
@@ -36,6 +37,7 @@ function createMockPrisma() {
 		theAuthJwtRefreshToken: makeModelMock(),
 		theAuthTrustScore: makeModelMock(),
 		theAuthApprovalRequest: makeModelMock(),
+		theAuthApprovalVote: makeModelMock(),
 		$transaction: vi.fn(),
 	};
 	return mocks;
@@ -522,6 +524,70 @@ describe("createPrismaAdapter", () => {
 				respondedBy: "user-1",
 			});
 			expect(result.status).toBe("approved");
+		});
+	});
+
+	describe("approval quorum votes", () => {
+		const row = {
+			id: "approval-1",
+			agentId: "agent-1",
+			userId: "requester",
+			status: "pending",
+			expiresAt: new Date(Date.now() + 3600000),
+			requiredApprovals: 2,
+		};
+		const vote = (approverId: string) => ({ approvalId: "approval-1", approverId });
+
+		it("returns pending until the quorum is complete", async () => {
+			prisma.theAuthApprovalRequest.findUnique.mockResolvedValue(row);
+			prisma.theAuthApprovalVote.findMany
+				.mockResolvedValueOnce([])
+				.mockResolvedValueOnce([vote("alice")]);
+			const r = await db.castApprovalVote({
+				approvalId: "approval-1",
+				approverId: "alice",
+				now: new Date(),
+			});
+			expect(r).toEqual({ kind: "pending", approvers: ["alice"] });
+			expect(prisma.theAuthApprovalRequest.updateMany).not.toHaveBeenCalled();
+		});
+
+		it("completes the quorum with one conditional updateMany", async () => {
+			prisma.theAuthApprovalRequest.findUnique.mockResolvedValue(row);
+			prisma.theAuthApprovalVote.findMany
+				.mockResolvedValueOnce([vote("alice")])
+				.mockResolvedValueOnce([vote("alice"), vote("bob")]);
+			prisma.theAuthApprovalRequest.updateMany.mockResolvedValue({ count: 1 });
+			const r = await db.castApprovalVote({
+				approvalId: "approval-1",
+				approverId: "bob",
+				now: new Date(),
+			});
+			expect(r).toEqual({ kind: "approved", approvers: ["alice", "bob"] });
+			expect(prisma.theAuthApprovalRequest.updateMany).toHaveBeenCalledWith(
+				expect.objectContaining({
+					where: expect.objectContaining({ id: "approval-1", status: "pending" }),
+				}),
+			);
+		});
+
+		it("maps a unique violation to DUPLICATE_APPROVER", async () => {
+			prisma.theAuthApprovalRequest.findUnique.mockResolvedValue(row);
+			prisma.theAuthApprovalVote.findMany.mockResolvedValue([]);
+			prisma.theAuthApprovalVote.create.mockRejectedValue(
+				Object.assign(new Error("dup"), { code: "P2002" }),
+			);
+			await expect(
+				db.castApprovalVote({ approvalId: "approval-1", approverId: "alice", now: new Date() }),
+			).rejects.toMatchObject({ code: "DUPLICATE_APPROVER" });
+		});
+
+		it("refuses the requester", async () => {
+			prisma.theAuthApprovalRequest.findUnique.mockResolvedValue(row);
+			await expect(
+				db.castApprovalVote({ approvalId: "approval-1", approverId: "requester", now: new Date() }),
+			).rejects.toMatchObject({ code: "SELF_APPROVAL" });
+			expect(prisma.theAuthApprovalVote.create).not.toHaveBeenCalled();
 		});
 	});
 

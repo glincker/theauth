@@ -17,8 +17,11 @@
 
 import { compareBytes, goJsonString } from "../audit/go-chain-verify.js";
 
+const HAS_SURROGATE = /[\ud800-\udfff]/;
+
 /** What a UTF-8 transport does to a lone surrogate: it becomes U+FFFD, which Go then reads as such. */
 function wellFormed(s: string): string {
+	if (!HAS_SURROGATE.test(s)) return s;
 	return s.replace(/[\ud800-\udbff][\udc00-\udfff]|[\ud800-\udfff]/g, (m) =>
 		m.length === 2 ? m : "\ufffd",
 	);

@@ -1,9 +1,9 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { canonicalJson } from "../audit/chain.js";
 import { recordAuditEvent } from "../audit/record.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
-import { delegationChains, permissions } from "../db/schema.js";
+import { auditLogs, delegationChains, permissions } from "../db/schema.js";
 import { revocationRowExpiry } from "../mcp/revocation-bus.js";
 import type { McpRevocationBus } from "../mcp/revocation-types.js";
 import type { ResourceMatching } from "../policy/resource-match.js";
@@ -287,6 +287,20 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 		}
 	}
 
+	async function revokeAuditExists(chainId: string): Promise<boolean> {
+		const found = await db
+			.select({ id: auditLogs.id })
+			.from(auditLogs)
+			.where(
+				and(
+					eq(auditLogs.resource, `delegation:${chainId}`),
+					eq(auditLogs.event, "delegation.revoke"),
+				),
+			)
+			.limit(1);
+		return found.length > 0;
+	}
+
 	async function revokeLink(
 		chainId: string,
 		revokedBy: string | null,
@@ -309,12 +323,9 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			if (parentChainId === null) sink.rootToAgent = chain[0].toAgentId;
 		}
 
-		await db
-			.update(delegationChains)
-			.set({ status: "revoked" })
-			.where(eq(delegationChains.id, chainId));
-
-		if (wasActive) {
+		// The audit row goes in before the status flips: a crash between the two leaves the link
+		// active, so a retry revokes it, and the lookup keeps that retry from writing a second row.
+		if (wasActive && !(await revokeAuditExists(chainId))) {
 			await recordAuditEvent(db, {
 				agentId: chain[0].toAgentId,
 				action: "delegate",
@@ -333,6 +344,11 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 				},
 			});
 		}
+
+		await db
+			.update(delegationChains)
+			.set({ status: "revoked" })
+			.where(eq(delegationChains.id, chainId));
 
 		// Cascade: revoke all chains where the to-agent of this chain is the from-agent
 		const childChains = await db
@@ -361,19 +377,21 @@ export function createDelegationModule(config: DelegationModuleConfig) {
 			.from(delegationChains)
 			.where(
 				and(
-					eq(delegationChains.status, "active"),
+					// Revoked links are walked too: a crash after a link flipped and before its
+					// children did must be finishable by calling this again. Expired links stay as they are.
+					inArray(delegationChains.status, ["active", "revoked"]),
 					or(eq(delegationChains.fromAgentId, agentId), eq(delegationChains.toAgentId, agentId)),
 				),
 			);
 		const revoked: string[] = [];
 		for (const row of rows) {
-			// An earlier cascade in this loop may already have revoked it.
+			// An earlier cascade in this loop may already have revoked it, and then has nothing left to do.
 			const [current] = await db
 				.select()
 				.from(delegationChains)
 				.where(eq(delegationChains.id, row.id))
 				.limit(1);
-			if (current?.status !== "active") continue;
+			if (current?.status === "expired") continue;
 			revoked.push(...(await revokeDelegation(row.id, options)));
 		}
 		return revoked;

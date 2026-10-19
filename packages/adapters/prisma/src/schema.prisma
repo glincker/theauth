@@ -277,8 +277,24 @@ model TheAuthApprovalRequest {
   respondedAt DateTime? @map("responded_at")
   respondedBy String?   @map("responded_by")
   createdAt   DateTime  @map("created_at")
+  // Distinct approvers needed before the request flips to approved. Null (rows written before
+  // quorum approvals) means one.
+  requiredApprovals Int? @map("required_approvals")
 
   @@map("theauth_approval_requests")
+}
+
+// One row per approver who approved a request. No foreign key, same as the core migration 0013.
+// The composite primary key is what stops one
+// approver from being counted twice under concurrent decisions.
+model TheAuthApprovalVote {
+  approvalId  String    @map("approval_id")
+  approverId  String    @map("approver_id")
+  decidedAt   BigInt    @map("decided_at")
+  approverAcr String?   @map("approver_acr")
+
+  @@id([approvalId, approverId])
+  @@map("theauth_approval_votes")
 }
 
 // ─── Trust Scores ─────────────────────────────────────────────────────────────

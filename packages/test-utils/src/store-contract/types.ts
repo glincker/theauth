@@ -38,8 +38,10 @@ export interface ContractAuth {
 			userId: string;
 			action: string;
 			resource: string;
+			/** Distinct approvers needed. Above 1 the request is a quorum request. */
+			requiredApprovals?: number;
 		}): Promise<{ id: string }>;
-		approve(id: string, decidedBy: string): Promise<unknown>;
+		approve(id: string, decidedBy: string): Promise<{ status: string }>;
 		deny(id: string, decidedBy: string): Promise<unknown>;
 		get(id: string): Promise<{ status: string } | null>;
 	};
@@ -75,6 +77,12 @@ export interface ContractTokenFamilies {
 	rotateOnce(userId: string, parallel: number): Promise<{ ok: number; others: string[] }>;
 }
 
+/** The admin API decision path, which has its own conditional UPDATE. Optional because it is a plugin. */
+export interface ContractAdminDecisions {
+	/** Decides as `approverId` (never the requester). True when the decision was accepted, false on any refusal. */
+	decide(approvalId: string, approverId: string, decision: "approved" | "denied"): Promise<boolean>;
+}
+
 /** What an adapter must hand the suite. */
 export interface StoreContractTarget {
 	auth: ContractAuth;
@@ -88,6 +96,7 @@ export interface StoreContractTarget {
 	 */
 	duplicateInsert?: () => Promise<"typed" | "untyped" | "none">;
 	tokenFamilies?: ContractTokenFamilies;
+	adminDecisions?: ContractAdminDecisions;
 	close(): Promise<void>;
 }
 

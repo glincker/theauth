@@ -148,6 +148,8 @@ why, err := client.Agents.Explain(ctx, theauth.ExplainRequest{
 // Approvals (admin API plugin, admin user token)
 opened, err := client.Approvals.Open(ctx, theauth.OpenApprovalInput{Action: "admin:rotate", Resource: "agent:a1"})
 decision, err := client.Approvals.Approve(ctx, opened.ID)
+// A quorum: two distinct approvers. decision.Status stays ApprovalPending until the second one.
+two, err := client.Approvals.Open(ctx, theauth.OpenApprovalInput{Action: "admin:rotate", Resource: "agent:a1", RequiredApprovals: 2})
 spent, err := client.Approvals.Consume(ctx, opened.ID, theauth.ConsumeApprovalInput{Action: "admin:rotate", Resource: "agent:a1"})
 
 // Token introspection (RFC 7662), authenticated as an OAuth client

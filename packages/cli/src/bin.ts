@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { ADD_HELP, formatAdd, listItems, parseAddArgs, runAdd } from "./add-command.js";
 import { INIT_AGENT_HELP, parseInitAgentArgs, runInitAgent } from "./agent/init-agent.js";
 import { serveStdio } from "./agent/mcp-server.js";
+import { APPROVALS_HELP, parseApprovalsArgs, runApprovals } from "./approvals-commands.js";
 import { AUDIT_HELP, openAuditModule, parseAuditArgs, runAudit } from "./audit-commands.js";
 import { runVerifyGo } from "./audit-verify-go.js";
 import { AUTH_HELP, parseAuthArgs, runLogin, runLogout, runWhoami } from "./auth-commands.js";
@@ -63,6 +64,7 @@ Commands:
   login         Sign in with the device flow (RFC 8628)
   logout        Revoke and forget the saved login
   whoami        Show the signed-in user
+  approvals     Review approval requests: list, show, approve, deny, request
   audit         Verify the audit hash chain, replay an agent, query rows (verify, replay, query)
   db            Schema migrations ledger (status, up, sql)
   policy        Test policy suites against explain(): theauth policy test <suite>
@@ -241,6 +243,21 @@ async function handleAuthCommand(command: "login" | "logout" | "whoami"): Promis
 	if (code !== 0) exit(code);
 }
 
+async function handleApprovals(): Promise<void> {
+	const parsed = parseApprovalsArgs(argv.slice(3));
+	if (parsed.help) {
+		stdout.write(APPROVALS_HELP);
+		return;
+	}
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${APPROVALS_HELP}`);
+		exit(1);
+		return;
+	}
+	const code = await runApprovals(parsed);
+	if (code !== 0) exit(code);
+}
+
 async function handleAdd(): Promise<void> {
 	const parsed = parseAddArgs(argv.slice(3));
 	if (parsed.help) {
@@ -415,6 +432,9 @@ async function main(): Promise<void> {
 			break;
 		case "completions":
 			handleCompletions();
+			break;
+		case "approvals":
+			await handleApprovals();
 			break;
 		case "audit":
 			await handleAudit();

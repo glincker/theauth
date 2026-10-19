@@ -34,9 +34,9 @@ import type { JWTPayload, JWTVerifyOptions } from "jose";
 import { importJWK, jwtVerify, SignJWT } from "jose";
 import { z } from "zod";
 import { generateId, randomBytesHex, sha256 } from "../crypto/web-crypto.js";
-import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { jwtRefreshTokens } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import { refuseBannedUser } from "../session/banned.js";
 import type { AgentType, TrustTier } from "../standards/claims.js";
@@ -391,14 +391,7 @@ export function createJwtSessionModule(config: JwtSessionConfig, db: Database): 
 
 			// The conditional UPDATE is the claim. Of two concurrent refreshes only one changes the row,
 			// the other must not mint a second session from the same token.
-			const claimed = await claimCount(
-				db
-					.update(jwtRefreshTokens)
-					.set({ used: true })
-					.where(and(eq(jwtRefreshTokens.id, record.id), eq(jwtRefreshTokens.used, false))),
-				{ id: jwtRefreshTokens.id },
-			);
-			if (claimed === 0) {
+			if (!(await singleUseFor(db).jwtRefreshTokens.markUsed(record.id))) {
 				return {
 					success: false,
 					error: makeError("REFRESH_TOKEN_USED", "Refresh token has already been used"),

@@ -7,9 +7,9 @@ import {
 	requiredApprovalsOf,
 } from "../approval/quorum.js";
 import { recordAuditEvent } from "../audit/record.js";
-import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { approvalRequests } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import type { AuthAssertion, AuthRequirementResult } from "../session/auth-context.js";
 import { evaluateAuthRequirement } from "../session/auth-context.js";
 import { scrub } from "./validate.js";
@@ -160,20 +160,12 @@ export async function decideApproval(db: Database, input: DecisionInput): Promis
 	}
 	const now = new Date();
 	if (input.decision === "approved" && required > 1) return approveQuorum(db, input, row, now);
-	const updated = await claimCount(
-		db
-			.update(approvalRequests)
-			.set({ status: input.decision, respondedAt: now, respondedBy: input.approverId })
-			.where(
-				and(
-					eq(approvalRequests.id, input.id),
-					eq(approvalRequests.status, "pending"),
-					gt(approvalRequests.expiresAt, now),
-				),
-			),
-		{ id: approvalRequests.id },
+	const decided = await singleUseFor(db).approvals.decide(
+		input.id,
+		{ status: input.decision, respondedAt: now, respondedBy: input.approverId },
+		now,
 	);
-	if (updated === 0) {
+	if (!decided) {
 		return {
 			ok: false,
 			status: 409,

@@ -151,6 +151,8 @@ function build(
 				return isNull(col);
 			case "notNull":
 				return isNotNull(col);
+			case "ltField":
+				return lt(col, column(model, w.other));
 			case "prefix":
 				// `!` as the escape character reads the same on every dialect, a backslash does not.
 				return sql`${col} LIKE ${`${escapeLike(w.value)}%`} ESCAPE '!'`;

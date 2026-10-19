@@ -209,6 +209,12 @@ opened = await client.approvals.open(OpenApprovalInput("admin:rotate", "agent:a1
 pending = await client.approvals.list_pending(limit=20)
 await client.approvals.approve(opened.id)
 spent = await client.approvals.consume(opened.id, ConsumeApprovalInput("admin:rotate", "agent:a1"))
+
+# A quorum: two distinct approvers, neither of them the requester.
+two = await client.approvals.open(
+    OpenApprovalInput("admin:rotate", "agent:a1", required_approvals=2)
+)
+step = await client.approvals.approve(two.id)  # step.status is "pending" until the second approver
 ```
 
 ### Step-up

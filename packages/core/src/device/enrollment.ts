@@ -1,8 +1,8 @@
-import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { generateId, sha256 } from "../crypto/web-crypto.js";
-import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { deviceEnrollments } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import { normalizeDeviceJwk, normalizeX509Thumbprint } from "./credentials.js";
 import type { DeviceRegistry } from "./registry.js";
@@ -119,13 +119,7 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 	}
 
 	async function revokeToken(id: string): Promise<boolean> {
-		const n = await claimCount(
-			db
-				.update(deviceEnrollments)
-				.set({ revokedAt: nowSec() })
-				.where(and(eq(deviceEnrollments.id, id), isNull(deviceEnrollments.revokedAt))),
-		);
-		return n > 0;
+		return singleUseFor(db).deviceEnrollments.revoke(id, nowSec());
 	}
 
 	/** Token rows for an operator view. The plaintext and the hash are never returned, only ids, usage and state. */
@@ -258,20 +252,7 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 		const keyThumbprint = await precheckCredential(input);
 		const attestation = await checkAttestation(input, row.id, keyThumbprint);
 
-		const won = await claimCount(
-			db
-				.update(deviceEnrollments)
-				.set({ uses: sql`${deviceEnrollments.uses} + 1` })
-				.where(
-					and(
-						eq(deviceEnrollments.id, row.id),
-						lt(deviceEnrollments.uses, deviceEnrollments.maxUses),
-						isNull(deviceEnrollments.revokedAt),
-						gt(deviceEnrollments.expiresAt, now),
-					),
-				),
-		);
-		if (won === 0) throw invalid();
+		if (!(await singleUseFor(db).deviceEnrollments.spendUse(row.id, now))) throw invalid();
 
 		const ttl = row.template.deviceTtlSeconds;
 		const created = await registry.insert({

@@ -31,9 +31,9 @@
  */
 
 import { and, eq } from "drizzle-orm";
-import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { sessions as sessionsTable } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
 import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { CookieOptions } from "./cookie.js";
@@ -258,11 +258,7 @@ export function createCookieSessionManager(
 			row.metadata ?? undefined,
 			{ replacing: sessionId },
 		);
-		const removed = await claimCount(
-			db.delete(sessionsTable).where(eq(sessionsTable.id, sessionId)),
-			{ id: sessionsTable.id },
-		);
-		if (removed === 0) {
+		if (!(await singleUseFor(db).sessions.deleteOnce(sessionId))) {
 			await db.delete(sessionsTable).where(eq(sessionsTable.id, newSession.id));
 			return null;
 		}

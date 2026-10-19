@@ -299,6 +299,40 @@ await theAuthDb.updateApprovalRequest(requestId, {
 });
 ```
 
+A request can need several distinct approvers. Create it with `requiredApprovals` (null or 1 means a single approver) and count each approver with `castApprovalVote`, which keeps the same single vote guarantee as the core library:
+
+```typescript
+import { ApprovalVoteError } from '@glinr/theauth-prisma';
+
+await theAuthDb.createApprovalRequest({
+  id: requestId,
+  agentId: 'agent-123',
+  userId: 'owner-1',
+  action: 'execute',
+  resource: 'mcp:payments:wire',
+  arguments: null,
+  status: 'pending',
+  expiresAt: new Date(Date.now() + 3600_000),
+  respondedAt: null,
+  respondedBy: null,
+  createdAt: new Date(),
+  requiredApprovals: 2,
+});
+
+try {
+  const result = await theAuthDb.castApprovalVote({
+    approvalId: requestId,
+    approverId: 'alice',
+    now: new Date(),
+  });
+  // result.kind is "pending", "approved" or "lost" (decided or expired first, vote withdrawn)
+} catch (err) {
+  if (err instanceof ApprovalVoteError) console.log(err.code); // SELF_APPROVAL, DUPLICATE_APPROVER, NOT_FOUND
+}
+```
+
+The composite primary key on `TheAuthApprovalVote` stops one approver being counted twice when two calls race. The request flips to `approved` with one `updateMany` on `status = pending` and an unexpired `expiresAt`, so only one caller completes the quorum, and the first `requiredApprovals` votes are the ones reported. `listApprovalVotes(approvalId)` returns who has approved. A denial is a plain `updateApprovalRequest` with `status: 'denied'`. If you already have a database from the core migrations, the new model maps onto migration `0013` (`required_approvals` column and `theauth_approval_votes` table), so no extra migration is needed. The concurrency tests run against a real SQLite Prisma 7 client with the better-sqlite3 driver adapter.
+
 ## Migration from Drizzle
 
 If you started with the built-in Drizzle backend and want to switch to Prisma:

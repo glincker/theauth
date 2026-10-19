@@ -1,10 +1,12 @@
 import { describe } from "vitest";
+import { defineApprovalRaces } from "./approval-races.js";
 import { defineAuditOrder } from "./audit-order.js";
 import { defineClaimRaces } from "./claim-races.js";
 import type { StoreContractOptions, StoreContractTarget } from "./types.js";
 import { defineUniqueConflict } from "./unique-conflict.js";
 
 export type {
+	ContractAdminDecisions,
 	ContractAuth,
 	ContractMailbox,
 	ContractTokenFamilies,
@@ -33,6 +35,7 @@ export function runStoreContract(
 	const run = options.skip ? describe.skip : describe;
 	run(`store contract: ${name}`, { timeout }, () => {
 		defineClaimRaces(make, parallel);
+		defineApprovalRaces(make, parallel);
 		defineUniqueConflict(make, parallel);
 		defineAuditOrder(make, parallel);
 	});

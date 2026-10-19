@@ -1,7 +1,7 @@
 /**
  * The store kernel: the small set of primitives a database backend implements so core can keep
  * its single-use guarantees on any storage engine. Design: docs-local/design/db-adapter-abstraction.md
- * section 2. Internal for now, nothing in core calls it yet.
+ * section 2. Internal. The single-use repositories in `single-use.ts` are built on it.
  */
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type * as schema from "../schema.js";
@@ -9,15 +9,20 @@ import type * as schema from "../schema.js";
 type SchemaModule = typeof schema;
 
 /** Names of the tables in the core schema, spelled as the schema exports them (`magicLinks`, `emailOtps`). */
-export type ModelName = {
+export type CoreModelName = {
 	[K in keyof SchemaModule]: SchemaModule[K] extends SQLiteTable ? K : never;
 }[keyof SchemaModule];
+
+/** Plugin tables the kernel reaches through `extraTables`: the OAuth client module's state table. */
+export type PluginModelName = "oauthStates";
+
+export type ModelName = CoreModelName | PluginModelName;
 
 /** A row as a plain object keyed by the schema's property names. */
 export type Row = Record<string, unknown>;
 
 /** The row type the schema infers for a model. */
-export type ModelRow<M extends ModelName> = SchemaModule[M] extends SQLiteTable
+export type ModelRow<M extends CoreModelName> = SchemaModule[M] extends SQLiteTable
 	? SchemaModule[M]["$inferSelect"]
 	: never;
 
@@ -28,6 +33,8 @@ export type Where =
 	| { field: string; op: "eq" | "ne" | "lt" | "lte" | "gt" | "gte"; value: Scalar }
 	| { field: string; op: "in"; value: readonly Scalar[] }
 	| { field: string; op: "isNull" | "notNull" }
+	/** `field < other`, where `other` names another column of the same row (a use count under its cap). */
+	| { field: string; op: "ltField"; other: string }
 	/** Starts with `value`. The backend escapes LIKE wildcards itself. */
 	| { field: string; op: "prefix"; value: string };
 
@@ -91,36 +98,81 @@ export interface StoreKernel {
 	transaction?<T>(fn: (kernel: Omit<StoreKernel, "transaction">) => Promise<T>): Promise<T>;
 }
 
-/** Single-use state for magic links. */
-export interface MagicLinkRepo {
-	create(link: ModelRow<"magicLinks">): Promise<void>;
-	/** Exactly one concurrent caller gets the row. Expired or used returns null. */
-	consume(token: string, now: Date): Promise<ModelRow<"magicLinks"> | null>;
-}
-
-export interface EmailOtpRepo {
-	create(otp: ModelRow<"emailOtps">): Promise<void>;
-	findLive(email: string, now: Date): Promise<ModelRow<"emailOtps"> | null>;
-	/** Reserve one guess. False when attempts already reached `max`. */
-	reserveAttempt(id: string, max: number): Promise<boolean>;
-	consume(id: string): Promise<boolean>;
-}
-
-export interface RefreshTokenRepo {
-	insert(row: ModelRow<"refreshTokens">): Promise<void>;
-	find(tokenHash: string): Promise<ModelRow<"refreshTokens"> | null>;
-	/** Flip `used` from 0 to the given epoch second. True for the one winner. */
-	claim(tokenHash: string, usedAt: number): Promise<boolean>;
-	revokeFamily(familyId: string): Promise<number>;
-}
-
 /**
- * The repositories core will call. Slice 2 declares the first three, later slices add the rest and a
- * `storesFromKernel` factory.
+ * The single-use repositories: every state change that must succeed for exactly one concurrent
+ * caller. Each method is one conditional statement and answers with its row count, never with a
+ * read. The caller does the reads that pick an error message, the repo only decides the winner.
+ * A method that returns a boolean says true for the one winner. MySQL counts changed rows, so each
+ * statement changes a column value.
  */
+export interface SingleUseStores {
+	readonly magicLinks: {
+		/** Flip `used` for a link that is unused and unexpired at `now`. */
+		markUsed(token: string, now: Date): Promise<boolean>;
+	};
+	readonly emailOtps: {
+		/** Spend one guess: `attempts + 1` only while `attempts < max`. False once the guesses are gone. */
+		reserveAttempt(id: string, max: number): Promise<boolean>;
+		/** Delete the record. True for the one caller that removed it. */
+		consume(id: string): Promise<boolean>;
+	};
+	readonly oneTimeTokens: {
+		markUsed(id: string): Promise<boolean>;
+	};
+	readonly passkeyChallenges: {
+		/** Delete the challenge. True for the one caller that removed it. */
+		consume(id: string): Promise<boolean>;
+	};
+	readonly jwtRefreshTokens: {
+		markUsed(id: string): Promise<boolean>;
+	};
+	readonly oauthStates: {
+		consume(state: string): Promise<boolean>;
+	};
+	readonly oidcAuthCodes: {
+		markUsed(id: string): Promise<boolean>;
+	};
+	readonly oidcRefreshTokens: {
+		/** Flip `revoked` on a token that was still live. A loser presented a rotated token. */
+		rotate(id: string): Promise<boolean>;
+	};
+	readonly orgInvitations: {
+		/** Move `pending` to `accepted`. */
+		accept(id: string): Promise<boolean>;
+	};
+	readonly deviceEnrollments: {
+		/** Stamp `revokedAt` on a token that is not revoked yet. */
+		revoke(id: string, atSeconds: number): Promise<boolean>;
+		/** Spend one use: only while uses are under the cap, the token is not revoked and not expired. */
+		spendUse(id: string, nowSeconds: number): Promise<boolean>;
+	};
+	readonly approvals: {
+		/** Decide a request that is still pending and unexpired at `now`. */
+		decide(
+			id: string,
+			decision: { status: string; respondedAt: Date; respondedBy: string | null },
+			now: Date,
+		): Promise<boolean>;
+		/** Flip a pending request to `expired`. */
+		expire(id: string): Promise<boolean>;
+		/** Spend an approved request: every condition in one statement, plus `consumedAt IS NULL`. */
+		consume(
+			spend: { id: string; agentId: string; action: string; resource: string },
+			now: Date,
+		): Promise<boolean>;
+	};
+	readonly sessions: {
+		/** Delete a session. True for the one caller that removed it. */
+		deleteOnce(id: string): Promise<boolean>;
+	};
+	readonly refreshTokens: {
+		/** Flip `used` from 0 to `usedAt` (epoch seconds, at least 1). The loser triggers reuse handling. */
+		claim(tokenHash: string, usedAt: number): Promise<boolean>;
+	};
+}
+
+/** The repositories core will call. Later slices add the rest and a `storesFromKernel` factory. */
 export interface Stores {
 	readonly kernel: StoreKernel;
-	readonly magicLinks: MagicLinkRepo;
-	readonly emailOtps: EmailOtpRepo;
-	readonly refreshTokens: RefreshTokenRepo;
+	readonly singleUse: SingleUseStores;
 }

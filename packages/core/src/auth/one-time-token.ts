@@ -26,9 +26,9 @@
 import { and, eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import { randomBytesHex, sha256 } from "../crypto/web-crypto.js";
-import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { oneTimeTokens } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 
 export type { AuthError, Result, TheAuthError };
@@ -203,14 +203,7 @@ export function createOneTimeTokenModule(
 		// Claim the token with a conditional UPDATE. Only the caller that flips
 		// used=false wins, so concurrent redemptions cannot both succeed.
 		try {
-			const claimed = await claimCount(
-				db
-					.update(oneTimeTokens)
-					.set({ used: true })
-					.where(and(eq(oneTimeTokens.id, record.id), eq(oneTimeTokens.used, false))),
-				{ id: oneTimeTokens.id },
-			);
-			if (claimed === 0) {
+			if (!(await singleUseFor(db).oneTimeTokens.markUsed(record.id))) {
 				return {
 					success: false,
 					error: makeError("TOKEN_ALREADY_USED", "Token has already been used"),

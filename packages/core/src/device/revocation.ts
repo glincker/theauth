@@ -1,6 +1,7 @@
 import type { JWK, JWTVerifyGetKey } from "jose";
-import { createLocalJWKSet, importJWK, jwtVerify, SignJWT } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 import { fromBase64Url, generateId, sha256Raw, toBase64Url } from "../crypto/web-crypto.js";
+import { importSigningKey, localJwkSet } from "./key-cache.js";
 import type { DeviceConfig } from "./types.js";
 
 /** `typ` header of a signed revocation snapshot. */
@@ -89,7 +90,7 @@ export async function signRevocationSnapshot(
 		h: REVOCATION_DIGEST,
 		ids: toBase64Url(joined),
 	};
-	const key = await importJWK(input.signing.privateKey, input.signing.alg);
+	const key = await importSigningKey(input.signing.privateKey, input.signing.alg);
 	const token = await new SignJWT({ ...claims })
 		.setProtectedHeader({
 			alg: input.signing.alg,
@@ -130,8 +131,7 @@ export async function verifyRevocationSnapshot(
 	token: string,
 	options: VerifyRevocationOptions,
 ): Promise<VerifyRevocationResult> {
-	const getKey =
-		typeof options.keys === "function" ? options.keys : createLocalJWKSet(options.keys);
+	const getKey = typeof options.keys === "function" ? options.keys : localJwkSet(options.keys);
 	const now = options.now ?? new Date();
 	const invalid = (message: string): VerifyRevocationResult => ({
 		ok: false,

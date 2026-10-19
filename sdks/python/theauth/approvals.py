@@ -12,16 +12,20 @@ from theauth.errors import NotFoundError
 
 @dataclass
 class OpenApprovalInput:
-    """Open an approval request. ``action`` must look like ``admin:<name>``."""
+    """Open an approval request. ``action`` must look like ``admin:<name>``. Set ``required_approvals`` for a quorum."""
 
     action: str
     resource: str
     arguments: Optional[Dict[str, Any]] = None
+    #: Distinct approvers needed, 1 to 10, none of them the requester. ``None`` means the server default of 1.
+    required_approvals: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
         out: Dict[str, Any] = {"action": self.action, "resource": self.resource}
         if self.arguments is not None:
             out["arguments"] = self.arguments
+        if self.required_approvals is not None:
+            out["requiredApprovals"] = self.required_approvals
         return out
 
 
@@ -34,6 +38,7 @@ class ApprovalOpened:
     action: str
     resource: str
     expires_at: str
+    required_approvals: int = 1
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ApprovalOpened":
@@ -43,6 +48,7 @@ class ApprovalOpened:
             action=data["action"],
             resource=data["resource"],
             expires_at=data["expiresAt"],
+            required_approvals=data.get("requiredApprovals", 1),
         )
 
 
@@ -58,6 +64,9 @@ class PendingApproval:
     expires_at: str
     arguments: str
     arguments_truncated: bool
+    required_approvals: int = 1
+    approvals_received: int = 0
+    approvers: Optional[List[str]] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "PendingApproval":
@@ -70,6 +79,9 @@ class PendingApproval:
             expires_at=data["expiresAt"],
             arguments=data["arguments"],
             arguments_truncated=data["argumentsTruncated"],
+            required_approvals=data.get("requiredApprovals", 1),
+            approvals_received=data.get("approvalsReceived", 0),
+            approvers=data.get("approvers"),
         )
 
 
@@ -83,6 +95,9 @@ class ApprovalState:
     resource: str
     expires_at: str
     responded_at: Optional[str] = None
+    required_approvals: int = 1
+    approvals_received: int = 0
+    approvers: Optional[List[str]] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ApprovalState":
@@ -93,20 +108,31 @@ class ApprovalState:
             resource=data["resource"],
             expires_at=data["expiresAt"],
             responded_at=data.get("respondedAt"),
+            required_approvals=data.get("requiredApprovals", 1),
+            approvals_received=data.get("approvalsReceived", 0),
+            approvers=data.get("approvers"),
         )
 
 
 @dataclass
 class ApprovalDecision:
-    """Returned by approve and deny."""
+    """Returned by approve and deny. ``status`` is ``pending`` while a quorum is incomplete."""
 
     id: str
     status: str
     responded_at: str
+    required_approvals: int = 1
+    approvals_received: int = 1
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ApprovalDecision":
-        return cls(id=data["id"], status=data["status"], responded_at=data["respondedAt"])
+        return cls(
+            id=data["id"],
+            status=data["status"],
+            responded_at=data["respondedAt"],
+            required_approvals=data.get("requiredApprovals", 1),
+            approvals_received=data.get("approvalsReceived", 1),
+        )
 
 
 @dataclass

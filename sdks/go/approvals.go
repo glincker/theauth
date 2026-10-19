@@ -23,6 +23,9 @@ type OpenApprovalInput struct {
 	Action    string                 `json:"action"`
 	Resource  string                 `json:"resource"`
 	Arguments map[string]interface{} `json:"arguments,omitempty"`
+	// RequiredApprovals is the number of distinct approvers needed, 1 to 10,
+	// none of them the requester. Zero leaves the server default of 1.
+	RequiredApprovals int `json:"requiredApprovals,omitempty"`
 }
 
 // ApprovalOpened is returned when a request is opened.
@@ -32,6 +35,8 @@ type ApprovalOpened struct {
 	Action    string         `json:"action"`
 	Resource  string         `json:"resource"`
 	ExpiresAt string         `json:"expiresAt"`
+	// RequiredApprovals is the quorum size. 1 is a single approver.
+	RequiredApprovals int `json:"requiredApprovals"`
 }
 
 // PendingApproval is one entry of the pending list. Arguments is JSON text with
@@ -45,23 +50,33 @@ type PendingApproval struct {
 	ExpiresAt          string `json:"expiresAt"`
 	Arguments          string `json:"arguments"`
 	ArgumentsTruncated bool   `json:"argumentsTruncated"`
+	RequiredApprovals  int    `json:"requiredApprovals"`
+	ApprovalsReceived  int    `json:"approvalsReceived"`
+	// Approvers lists who approved so far. Only set for a quorum request.
+	Approvers []string `json:"approvers,omitempty"`
 }
 
 // ApprovalState is the current state of one request.
 type ApprovalState struct {
-	ID          string         `json:"id"`
-	Status      ApprovalStatus `json:"status"`
-	Action      string         `json:"action"`
-	Resource    string         `json:"resource"`
-	ExpiresAt   string         `json:"expiresAt"`
-	RespondedAt *string        `json:"respondedAt,omitempty"`
+	ID                string         `json:"id"`
+	Status            ApprovalStatus `json:"status"`
+	Action            string         `json:"action"`
+	Resource          string         `json:"resource"`
+	ExpiresAt         string         `json:"expiresAt"`
+	RespondedAt       *string        `json:"respondedAt,omitempty"`
+	RequiredApprovals int            `json:"requiredApprovals"`
+	ApprovalsReceived int            `json:"approvalsReceived"`
+	Approvers         []string       `json:"approvers,omitempty"`
 }
 
-// ApprovalDecision is returned by Approve and Deny.
+// ApprovalDecision is returned by Approve and Deny. Status is ApprovalPending
+// while a quorum request has not collected enough approvals.
 type ApprovalDecision struct {
-	ID          string         `json:"id"`
-	Status      ApprovalStatus `json:"status"`
-	RespondedAt string         `json:"respondedAt"`
+	ID                string         `json:"id"`
+	Status            ApprovalStatus `json:"status"`
+	RespondedAt       string         `json:"respondedAt"`
+	RequiredApprovals int            `json:"requiredApprovals"`
+	ApprovalsReceived int            `json:"approvalsReceived"`
 }
 
 // ConsumeApprovalInput names the call an approved request is spent on.

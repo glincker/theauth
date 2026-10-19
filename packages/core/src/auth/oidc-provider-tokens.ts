@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import * as jose from "jose";
 import { generateId, sha256Raw } from "../crypto/web-crypto.js";
-import { claimCount } from "../db/claim.js";
 import { oidcAuthCodes, oidcClients, oidcRefreshTokens } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import type { Result } from "../mcp/types.js";
 import type { createOidcDiscovery } from "./oidc-provider-discovery.js";
 import {
@@ -196,14 +196,7 @@ export function createOidcTokens(
 
 		// Claim the code with one conditional UPDATE so two concurrent exchanges cannot both mint
 		// tokens (RFC 6749 section 4.1.2: a code is used once). The loser sees zero changed rows.
-		const claimed = await claimCount(
-			db
-				.update(oidcAuthCodes)
-				.set({ used: true })
-				.where(and(eq(oidcAuthCodes.id, authCode.id), eq(oidcAuthCodes.used, false))),
-			{ id: oidcAuthCodes.id },
-		);
-		if (claimed === 0) {
+		if (!(await singleUseFor(db).oidcAuthCodes.markUsed(authCode.id))) {
 			return {
 				success: false,
 				error: makeError("CODE_ALREADY_USED", "Authorization code has already been used"),
@@ -301,14 +294,7 @@ export function createOidcTokens(
 		}
 
 		// Rotate with one conditional UPDATE: of two concurrent refreshes only one flips revoked.
-		const rotated = await claimCount(
-			db
-				.update(oidcRefreshTokens)
-				.set({ revoked: true })
-				.where(and(eq(oidcRefreshTokens.id, record.id), eq(oidcRefreshTokens.revoked, false))),
-			{ id: oidcRefreshTokens.id },
-		);
-		if (rotated === 0) {
+		if (!(await singleUseFor(db).oidcRefreshTokens.rotate(record.id))) {
 			// Lost the rotation race to another request with the same token, which is a reuse too.
 			await revokeFamily(record);
 			return {

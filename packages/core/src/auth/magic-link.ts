@@ -21,11 +21,11 @@
  * ```
  */
 
-import { and, eq, gt } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { generateId, randomBytesHex } from "../crypto/web-crypto.js";
-import { claimCount } from "../db/claim.js";
 import type { Database } from "../db/database.js";
 import { magicLinks, users } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
 import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import { parseRememberMe } from "../plugin/helpers.js";
@@ -160,20 +160,7 @@ export function createMagicLinkModule(
 			.from(magicLinks)
 			.where(eq(magicLinks.token, token));
 		if (!link) return null;
-		const claimed = await claimCount(
-			db
-				.update(magicLinks)
-				.set({ used: true })
-				.where(
-					and(
-						eq(magicLinks.token, token),
-						eq(magicLinks.used, false),
-						gt(magicLinks.expiresAt, now),
-					),
-				),
-			{ email: magicLinks.email },
-		);
-		if (claimed === 0) return null;
+		if (!(await singleUseFor(db).magicLinks.markUsed(token, now))) return null;
 
 		const user = await findOrCreateUser(link.email);
 		const decision = await gate.evaluate({

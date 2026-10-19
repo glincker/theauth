@@ -1,5 +1,5 @@
 import type { JWK, JWTVerifyGetKey } from "jose";
-import { createLocalJWKSet, importJWK, jwtVerify, SignJWT } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 import { generateId } from "../crypto/web-crypto.js";
 import type { DecisionCode } from "../permission/codes.js";
 import { DECISION_CODES } from "../permission/codes.js";
@@ -7,6 +7,7 @@ import { findMatchingPermission, inspectConstraints } from "../policy/abac.js";
 import type { ResourceMatching } from "../policy/resource-match.js";
 import { resolveResourceMatching } from "../policy/resource-match.js";
 import type { Permission } from "../types.js";
+import { importSigningKey, localJwkSet } from "./key-cache.js";
 import type { RevocationSnapshotClaims } from "./revocation.js";
 import { verifyRevocationSnapshot } from "./revocation.js";
 import type { DeviceBundleClaims, DeviceConfig, IssuedDeviceBundle } from "./types.js";
@@ -78,7 +79,7 @@ export async function signDeviceBundle(input: SignBundleInput): Promise<IssuedDe
 		perms: input.permissions.map(stripRelation),
 		...(input.resourceMatching === "path" && { rm: "path" as const }),
 	};
-	const key = await importJWK(input.signing.privateKey, input.signing.alg);
+	const key = await importSigningKey(input.signing.privateKey, input.signing.alg);
 	const token = await new SignJWT({ ...claims })
 		.setProtectedHeader({ alg: input.signing.alg, typ: DEVICE_BUNDLE_TYP, kid: input.signing.kid })
 		.sign(key);
@@ -121,8 +122,7 @@ export async function verifyDeviceBundle(
 	token: string,
 	options: VerifyBundleOptions,
 ): Promise<VerifyBundleResult> {
-	const getKey =
-		typeof options.keys === "function" ? options.keys : createLocalJWKSet(options.keys);
+	const getKey = typeof options.keys === "function" ? options.keys : localJwkSet(options.keys);
 	let payload: Record<string, unknown>;
 	try {
 		const verified = await jwtVerify(token, getKey, {

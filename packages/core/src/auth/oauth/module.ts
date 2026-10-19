@@ -5,8 +5,9 @@
 
 import { and, eq, lt } from "drizzle-orm";
 import { generateId } from "../../crypto/web-crypto.js";
-import { claimCount } from "../../db/claim.js";
 import type { Database } from "../../db/database.js";
+import { createDrizzleKernel } from "../../db/store/drizzle-kernel.js";
+import { createSingleUseStores } from "../../db/store/single-use.js";
 import { createDatabaseHookRunner } from "../../hooks/database-hooks.js";
 import { resolveRedirectTarget } from "../../redirect/allowlist.js";
 import { generateCodeVerifier } from "./pkce.js";
@@ -55,6 +56,9 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 	// Throws now (not on first login) when encryption is enabled without keys.
 	const nowMs = config.now ?? Date.now;
 	const sealer = createTokenSealer(config.tokenEncryption);
+	const stateStore = createSingleUseStores(
+		createDrizzleKernel(db, { extraTables: { oauthStates } }),
+	);
 	const tokenApi = createTokenApi(db, config, sealer);
 	const databaseHooks = config.databaseHooks ?? createDatabaseHookRunner(undefined);
 
@@ -183,10 +187,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 
 		// Consume the state, delete before network calls to prevent replay attacks.
 		// The delete is the claim: a concurrent callback with the same state gets no row back.
-		const consumed = await claimCount(db.delete(oauthStates).where(eq(oauthStates.state, state)), {
-			state: oauthStates.state,
-		});
-		if (consumed === 0) {
+		if (!(await stateStore.oauthStates.consume(state))) {
 			throw new Error("OAuth callback: unknown or already-used state value.");
 		}
 

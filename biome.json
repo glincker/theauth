@@ -108,6 +108,7 @@
       "!**/coverage",
       "!**/build",
       "!**/.turbo",
+      "!**/.bench",
       "!**/.cache",
       "!**/docs-local",
       "!docs",
