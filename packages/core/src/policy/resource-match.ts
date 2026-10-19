@@ -25,20 +25,31 @@ export function resolveResourceMatching(value: unknown): ResourceMatching {
 	return value === "path" ? "path" : "colon";
 }
 
-/** Legacy matcher. Do not change: it is the default for every authorization decision. */
+/**
+ * Legacy matcher, the default for every authorization decision. Same answers as the original split based code (pinned by tests/perf-equivalence.test.ts), without splitting either string: it walks both with `indexOf`, so a miss on the first segment costs no allocation. The permission scan calls this once per permission, so allocations here multiply.
+ */
 export function matchColonResource(pattern: string, resource: string): boolean {
 	if (pattern === "*") return true;
 
-	const patternParts = pattern.split(":");
-	const resourceParts = resource.split(":");
-
-	for (let i = 0; i < patternParts.length; i++) {
-		const part = patternParts[i];
-		if (part === "*") return true;
-		if (part !== resourceParts[i]) return false;
+	let pi = 0;
+	let ri = 0;
+	for (;;) {
+		const pe = pattern.indexOf(":", pi);
+		const pEnd = pe === -1 ? pattern.length : pe;
+		// A pattern segment that is exactly `*` matches this segment and everything after it.
+		if (pEnd - pi === 1 && pattern.charCodeAt(pi) === 42) return true;
+		// The resource has fewer segments than the pattern.
+		if (ri > resource.length) return false;
+		const re = resource.indexOf(":", ri);
+		const rEnd = re === -1 ? resource.length : re;
+		if (pEnd - pi !== rEnd - ri) return false;
+		for (let k = 0; k < pEnd - pi; k++) {
+			if (pattern.charCodeAt(pi + k) !== resource.charCodeAt(ri + k)) return false;
+		}
+		if (pe === -1) return re === -1;
+		pi = pe + 1;
+		ri = re === -1 ? resource.length + 1 : re + 1;
 	}
-
-	return patternParts.length === resourceParts.length;
 }
 
 /** A segment a wildcard may stand for. */
@@ -50,6 +61,20 @@ function isPlainSegment(segment: string): boolean {
 function matchPathParts(pattern: readonly string[], resource: readonly string[]): boolean {
 	const m = pattern.length;
 	const n = resource.length;
+	// Without `**` every pattern part stands for exactly one resource part, so no table is needed.
+	if (m === n && !pattern.includes("**")) {
+		for (let i = 0; i < m; i++) {
+			const p = pattern[i] as string;
+			const r = resource[i] as string;
+			if (p === "*") {
+				if (r === "**" || !isPlainSegment(r)) return false;
+			} else if (p !== r) {
+				return false;
+			}
+		}
+		return true;
+	}
+	if (!pattern.includes("**") && m !== n) return false;
 	// ok[i][j]: pattern[i..] matches resource[j..]
 	const ok: boolean[][] = Array.from({ length: m + 1 }, () =>
 		new Array<boolean>(n + 1).fill(false),

@@ -3,7 +3,7 @@ import { approverEvidence } from "../approval/approval.js";
 import {
 	ApprovalQuorumError,
 	castApproval,
-	listApprovers,
+	listApproversMany,
 	requiredApprovalsOf,
 } from "../approval/quorum.js";
 import { recordAuditEvent } from "../audit/record.js";
@@ -59,28 +59,29 @@ export async function listPendingApprovals(
 		.where(and(eq(approvalRequests.status, "pending"), gt(approvalRequests.expiresAt, new Date())))
 		.orderBy(desc(approvalRequests.createdAt))
 		.limit(max);
-	return Promise.all(
-		rows.map(async (r) => {
-			const summary = summarize(r.arguments);
-			const required = requiredApprovalsOf(r);
-			const approvers = required > 1 ? await listApprovers(db, r.id) : undefined;
-			return {
-				id: r.id,
-				action: r.action,
-				resource: r.resource,
-				requestedBy: r.userId,
-				createdAt: r.createdAt.toISOString(),
-				expiresAt: r.expiresAt.toISOString(),
-				arguments: summary.text,
-				argumentsTruncated: summary.truncated,
-				...(r.requiredAcr !== null && { requiredAcr: r.requiredAcr }),
-				...(r.maxAuthAge !== null && { maxAuthAge: r.maxAuthAge }),
-				requiredApprovals: required,
-				approvalsReceived: approvers?.length ?? 0,
-				...(approvers && { approvers }),
-			};
-		}),
-	);
+	// One read for every quorum request in the page, not one per row.
+	const quorumIds = rows.filter((r) => requiredApprovalsOf(r) > 1).map((r) => r.id);
+	const votes = await listApproversMany(db, quorumIds);
+	return rows.map((r) => {
+		const summary = summarize(r.arguments);
+		const required = requiredApprovalsOf(r);
+		const approvers = required > 1 ? (votes.get(r.id) ?? []) : undefined;
+		return {
+			id: r.id,
+			action: r.action,
+			resource: r.resource,
+			requestedBy: r.userId,
+			createdAt: r.createdAt.toISOString(),
+			expiresAt: r.expiresAt.toISOString(),
+			arguments: summary.text,
+			argumentsTruncated: summary.truncated,
+			...(r.requiredAcr !== null && { requiredAcr: r.requiredAcr }),
+			...(r.maxAuthAge !== null && { maxAuthAge: r.maxAuthAge }),
+			requiredApprovals: required,
+			approvalsReceived: approvers?.length ?? 0,
+			...(approvers && { approvers }),
+		};
+	});
 }
 
 export type DecisionResult =

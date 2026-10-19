@@ -89,14 +89,18 @@ export async function delegationImpact(db: Database): Promise<DelegationImpactVi
 		.orderBy(desc(delegationChains.createdAt))
 		.limit(MAX_ROWS);
 	const live = active.filter((r) => r.expiresAt.getTime() > Date.now());
+	const roots = live.slice(0, MAX_LINKS);
 	const denied = new Set(
 		(await db.select().from(mcpRevocations).where(eq(mcpRevocations.kind, "dlg"))).map((r) => r.id),
 	);
 	const byFrom = new Map<string, typeof live>();
-	for (const row of live)
-		byFrom.set(row.fromAgentId, [...(byFrom.get(row.fromAgentId) ?? []), row]);
+	for (const row of live) {
+		const siblings = byFrom.get(row.fromAgentId);
+		if (siblings) siblings.push(row);
+		else byFrom.set(row.fromAgentId, [row]);
+	}
 
-	return live.slice(0, MAX_LINKS).map((root) => {
+	return roots.map((root) => {
 		const cascade: string[] = [];
 		const agents = new Set<string>();
 		const seen = new Set<string>();

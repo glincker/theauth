@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { approvalRequests, approvalVotes } from "../db/schema.js";
 import { singleUseFor } from "../db/store/for-database.js";
@@ -42,6 +42,22 @@ export async function listApprovers(db: Database, approvalId: string): Promise<s
 		.where(eq(approvalVotes.approvalId, approvalId))
 		.orderBy(asc(approvalVotes.decidedAt), asc(approvalVotes.approverId));
 	return rows.map((r) => r.approverId);
+}
+
+/** {@link listApprovers} for many requests in one query. Every id gets an entry (empty when nobody approved yet), each list in the same order as the single lookup. */
+export async function listApproversMany(
+	db: Database,
+	approvalIds: readonly string[],
+): Promise<Map<string, string[]>> {
+	const out = new Map<string, string[]>(approvalIds.map((id) => [id, []]));
+	if (approvalIds.length === 0) return out;
+	const rows = await db
+		.select({ approvalId: approvalVotes.approvalId, approverId: approvalVotes.approverId })
+		.from(approvalVotes)
+		.where(inArray(approvalVotes.approvalId, [...approvalIds]))
+		.orderBy(asc(approvalVotes.decidedAt), asc(approvalVotes.approverId));
+	for (const r of rows) out.get(r.approvalId)?.push(r.approverId);
+	return out;
 }
 
 export type CastResult =

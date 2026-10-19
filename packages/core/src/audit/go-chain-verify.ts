@@ -106,8 +106,14 @@ function hex(bytes: ArrayBuffer): string {
 	return out;
 }
 
+/** Matches a string that needs escaping in Go JSON: a control char, quote, backslash, `<`, `>`, `&`, U+2028, U+2029 or surrogate. Anything else encodes as itself. */
+const NEEDS_ESCAPE = /["\\<>&\u2028\u2029\ud800-\udfff]|[^\u0020-\uffff]/;
+const NON_ASCII = /[\u0080-\uffff]/;
+
 /** Go `encoding/json` string encoding with HTML escaping on (the `json.Marshal` default). */
 export function goJsonString(s: string): string {
+	// Fast path: nothing to escape (the common case for keys and plain values), so the output is the input in quotes.
+	if (!NEEDS_ESCAPE.test(s)) return `"${s}"`;
 	let out = '"';
 	for (let i = 0; i < s.length; i++) {
 		const c = s.charCodeAt(i);
@@ -160,6 +166,15 @@ export function goJsonString(s: string): string {
 }
 
 export function compareBytes(a: string, b: string): number {
+	// ASCII strings: a UTF-8 byte is the code unit, so compare without allocating two encoded copies.
+	if (!NON_ASCII.test(a) && !NON_ASCII.test(b)) {
+		const len = Math.min(a.length, b.length);
+		for (let i = 0; i < len; i++) {
+			const d = a.charCodeAt(i) - b.charCodeAt(i);
+			if (d !== 0) return d;
+		}
+		return a.length - b.length;
+	}
 	const x = encoder.encode(a);
 	const y = encoder.encode(b);
 	const n = Math.min(x.length, y.length);

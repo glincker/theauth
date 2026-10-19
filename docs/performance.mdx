@@ -1,0 +1,128 @@
+---
+title: Performance
+description: Measured costs of the hot paths (authorize, token and session verify, device bundles, approval hashing, admin lists), what was changed to lower them, and how to reproduce the numbers.
+icon: gauge-high
+---
+
+These numbers come from one laptop, taken while other work was running on it. They show what changed between two builds of the same code. They are not a throughput claim for your deployment, and nothing here compares TheAuth with anything else. The general benchmark harness is described on [Benchmarks](/benchmarks); this page covers the micro benchmarks and the profile driven fixes.
+
+## Where the numbers come from
+
+| | |
+| --- | --- |
+| Machine | Apple M4 Max, 14 cores, 36 GB, macOS (Darwin 27.2) |
+| Node | 22.22.2 |
+| Database | SQLite through better-sqlite3 (file and in memory) |
+| Load | The load average was about 14 during the runs, so wall clock timings were noisy |
+| Before | The source tree as it was before the changes, rebuilt from a copy |
+| After | The same entry points built from the current source |
+
+Both sides are bundled with esbuild from source, not from `dist`, so a stale build cannot skew a run. `benchmarks/micro-build.mjs` builds either tree.
+
+### How medians and noise are stated
+
+Each micro benchmark is timed in batches. One run is the median over 9 batches. A result on this page is the median of several runs, with the lowest and highest run in brackets, and the run order alternated between before and after.
+
+Wall clock was too noisy on a busy laptop (the same case moved by 30 to 50 percent between rounds, and some crypto cases swung by more than the change being measured). The micro benchmark tables below therefore use `--clock cpu`, which counts process CPU time (user plus system, all threads). With it the spread between runs was under 10 percent for most cases, and the brackets show it. The database timings are wall clock per operation; their brackets are wider and are shown too.
+
+## What the profiles showed
+
+`node --cpu-prof` on the existing authorize scenario put roughly half of the self time in drizzle query building and the SQLite driver, so the first lever was the number and cost of queries, not the matcher. `EXPLAIN QUERY PLAN` then showed full table scans on lookups that every authorize and token check makes. In the micro benchmarks, the top self costs were `TextEncoder.encode` (inside the key sort of the approval hash), a fresh `importKey` per call for HMAC secrets, and a fresh JWKS import per device bundle verify.
+
+## Results
+
+### Database paths
+
+SQLite file, 50,000 agents with 4 permissions each, one delegation link each (a third revoked), 7 runs per setting, 3 rounds. Milliseconds per operation, median with the lowest and highest round.
+
+| Operation | Before | After | Change |
+| --- | --- | --- | --- |
+| `authorize`, direct permission | 4.10 (4.07 to 4.16) | 0.077 (0.075 to 0.077) | 53x |
+| `authorize`, three hop delegation chain | 9.88 (9.80 to 9.90) | 0.36 (0.36 to 0.38) | 27x |
+| `agent.validateToken` style lookup by token hash | 5.33 (5.30 to 5.35) | 0.12 (0.115 to 0.117) | 46x |
+| Admin pending approvals list, 100 quorum requests | 2.29 (2.29 to 2.34) | 0.51 (0.50 to 0.53) | 4.5x |
+
+The wall clock spread inside a round reached 20 to 60 percent for some of these on the loaded machine, but the before and after ranges do not overlap. The cause is the new migration `0014-hot-path-indexes`. Without indexes, SQLite and Postgres scan `theauth_agents` (by `token_hash`), `theauth_permissions` (by `agent_id`), `theauth_delegation_chains` and `theauth_rate_limits` on every call, so the cost grows with table size. MySQL already indexes foreign key columns, so it only gets the composite and `token_hash` indexes. Databases with the MCP module enabled already had the two delegation chain indexes from migration 0007; on a 5,000 row table with MCP on, a direct `authorize` went from 0.52 to 0.076 ms and a three hop chain from 0.86 to 0.36 ms (single round, noisy).
+
+Reproduce with:
+
+```bash
+node benchmarks/micro-build.mjs packages/core/.bench/after.mjs
+node benchmarks/scale.mjs --entry packages/core/.bench/after.mjs --rows 50000 --runs 7
+node benchmarks/scale.mjs --entry packages/core/.bench/after.mjs --rows 50000 --runs 7 --drop-indexes
+```
+
+The last command removes the new indexes after boot, which shows what they are worth on the current code.
+
+### The standard harness, small tables
+
+`benchmarks/run.mjs` (profile `smoke`, better-sqlite3 in memory, 3,000 iterations, p50, median of 5 runs). Tables here are small, so the index effect is mostly absent and the gains come from fewer queries.
+
+| Scenario | Before (ms) | After (ms) | Change |
+| --- | --- | --- | --- |
+| `agent.validateToken` (database lookup and last active write) | 0.448 | 0.097 | 4.6x |
+| `agent.rotate` | 0.265 | 0.110 | 2.4x |
+| `agent.create`, fresh owner | 0.215 | 0.110 | 2.0x |
+| `agent.create`, one owner with a growing agent count | 1.85 | 1.84 | unchanged |
+| `authorize`, delegation depth 1, 2, 3 (audit off) | 0.205, 0.282, 0.358 | 0.170, 0.244, 0.315 | 1.14x to 1.21x |
+| `authorize`, delegation depth 1, 2, 3 (audit row per call) | 0.252, 0.334, 0.411 | 0.214, 0.290, 0.361 | 1.14x to 1.18x |
+| `authorize`, direct permission | 0.067 to 0.115 | 0.067 to 0.114 | unchanged |
+| `simulate`, depth 1, 2, 3 | 0.205 to 0.407 | 0.175 to 0.364 | 1.12x to 1.17x |
+| JWT `verifySession` (stateless) | 0.022 | 0.022 | unchanged |
+
+The delegation gain comes from reading each agent's inbound links once (the liveness walk used to run one query for the live links and a second one for every link ever received) and from reading an agent and its permissions together.
+
+### CPU hot paths, no database
+
+Nanoseconds per operation (CPU time), median of 3 rounds of 9 batches, lowest and highest round in brackets.
+
+| Case | Before | After | Change |
+| --- | --- | --- | --- |
+| Colon match, 50 permissions, hit on the last one | 4,350 (4,290 to 4,762) | 1,842 (1,621 to 1,857) | 2.4x |
+| Colon match, 50 permissions, no match | 4,330 (4,268 to 4,683) | 1,847 (1,603 to 1,869) | 2.3x |
+| Path match, one `*` glob hit | 512 (512 to 515) | 136 (134 to 146) | 3.8x |
+| Path match, deep `**` hit | 1,077 (1,074 to 1,079) | 669 (656 to 680) | 1.6x |
+| Path match, glob miss | 1,374 (1,372 to 1,386) | 695 (682 to 697) | 2.0x |
+| Approval hash canonical JSON, 20 row payload | 38,556 (35,038 to 39,820) | 10,884 (10,740 to 12,374) | 3.5x |
+| Device bundle verify (JWKS object) | 92,650 (91,955 to 92,675) | 63,530 (63,205 to 64,405) | 1.5x |
+| Device bundle sign | 73,530 (71,510 to 78,040) | 42,560 (40,760 to 43,260) | 1.7x |
+| MCP `validateAccessToken`, HS256, offline mode | 24,250 (23,680 to 27,815) | 18,995 (18,455 to 20,300) | 1.3x |
+| MCP `validateAccessToken`, HS256, cached mode | 26,155 (24,670 to 27,160) | 20,965 (18,670 to 21,220) | 1.25x |
+| MCP `validateAccessToken`, HS256, live mode, 5,000 entry denylist | 26,770 (24,165 to 33,920) | 18,935 (18,240 to 20,130) | 1.4x |
+| Stateless session `getSession` | 20,012 (19,992 to 23,261) | 14,145 (13,866 to 15,036) | 1.4x |
+| DPoP proof verify (ES256) | 123,155 (119,765 to 126,445) | 120,880 (119,815 to 123,025) | no change |
+| Device bundle offline decision | 120 (119 to 122) | 128 (126 to 131) | about 7 percent slower |
+
+Two honest notes. The DPoP proof carries a new public key every time, so there is no key to cache and nothing changed. The offline bundle decision with two permissions got a few nanoseconds slower, because the new colon matcher pays a little more than `split` on very short inputs; it wins as soon as a list has more than a handful of entries.
+
+The MCP validation figures use the HMAC secret path with a fake revocation store holding 5,000 denylist entries. The revocation lookup itself is a set or indexed read and was not the cost in any mode; the key import and JWT parsing were.
+
+## What changed
+
+All of these keep decisions identical. Each fast path has a test that compares it with the code it replaced over a seeded random corpus (`tests/perf-equivalence.test.ts`, `tests/delegation-liveness-queries.test.ts`, `tests/admin-api-list-queries.test.ts`, `tests/migrate-hot-path-0014.test.ts`). No check was removed or reordered.
+
+- **Indexes** (migration `0014-hot-path-indexes`): `theauth_agents(token_hash)`, `theauth_agents(owner_id, status)`, `theauth_permissions(agent_id)`, `theauth_delegation_chains(to_agent_id, status)` and `(from_agent_id, status)`, `theauth_rate_limits(agent_id, resource, window_start)`, `theauth_approval_requests(status, created_at)`. The query plans before and after are asserted in the migration test.
+- **HMAC keys**: a string secret is imported once and the non extractable `CryptoKey` is reused (at most 32 secrets, oldest dropped). Used by session cookies, the stateless session ring and MCP HS256 verification.
+- **Device bundles**: the JWKS resolver and the signing key are reused while the same JWKS or JWK object keeps the same content. A fingerprint of the content is compared on every call, so a key rotated in place is picked up at once.
+- **Resource matching**: the default colon matcher walks both strings with `indexOf` instead of splitting them, and the path matcher skips its table when the pattern has no `**`.
+- **Approval hash**: strings that need no escaping skip the character loop, and keys are ordered by byte without encoding two copies per comparison when both are ASCII.
+- **Delegation liveness**: one read per agent for inbound links, filtered in memory for the live ones, instead of two reads.
+- **Admin API**: the pending approvals list reads quorum approvers for the whole page in one query instead of one per request, and the delegation list without a status filter reads only `limit` rows instead of the 500 row ceiling.
+
+One attempt was dropped. Restricting the delegation impact view's denylist read to the links shown cost more than it saved when the denylist is small, so it is unchanged.
+
+## Not changed on purpose
+
+- DPoP proof keys are not cached: they come from the request.
+- Nothing is cached across `authorize` calls. A cached delegation or agent row would delay a revocation, and revocations must take effect on the next call.
+- The rate limit counter still does a read then a write per allowed call. Making it atomic is a separate change.
+
+## Run the micro benchmarks yourself
+
+```bash
+pnpm --filter @glinr/theauth build   # only needed for benchmarks/run.mjs
+node benchmarks/micro-build.mjs packages/core/.bench/micro.mjs
+node benchmarks/micro.mjs --entry packages/core/.bench/micro.mjs --runs 9 --clock cpu --out /tmp/micro.json
+```
+
+The output file lists, for every case, the median and the lowest and highest run, so you can judge the noise on your own machine before trusting a difference.

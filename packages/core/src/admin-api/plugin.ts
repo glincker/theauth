@@ -395,7 +395,9 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 					: base
 				)
 					.orderBy(desc(delegationChains.createdAt))
-					.limit(MAX_LIST);
+					// Without a status filter only the first `max` rows are ever returned, so only read those.
+					// With one, the filter runs over the newest MAX_LIST rows as before.
+					.limit(status ? MAX_LIST : max);
 				const now = Date.now();
 				const effective = (r: (typeof rows)[number]): "active" | "revoked" | "expired" =>
 					r.status === "active" && r.expiresAt.getTime() <= now ? "expired" : r.status;

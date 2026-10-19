@@ -104,10 +104,13 @@ export async function sha1(data: string | Uint8Array): Promise<string> {
 	return toHex(new Uint8Array(digest));
 }
 
-/** Import a secret key for HMAC operations. */
-export async function importHmacKey(
+/** Imported HMAC keys for string secrets, so a hot path (session cookie, token verify) imports each secret once. */
+const HMAC_KEY_CACHE_MAX = 32;
+const hmacKeyCache = new Map<string, Promise<CryptoKey>>();
+
+function importHmacKeyUncached(
 	key: string | Uint8Array,
-	hash: "SHA-256" | "SHA-1" = "SHA-256",
+	hash: "SHA-256" | "SHA-1",
 ): Promise<CryptoKey> {
 	const keyData = typeof key === "string" ? TEXT_ENCODER.encode(key) : key;
 	return globalThis.crypto.subtle.importKey(
@@ -120,6 +123,27 @@ export async function importHmacKey(
 		false,
 		["sign", "verify"],
 	);
+}
+
+/**
+ * Import a secret key for HMAC operations. A string secret is imported once and the non-extractable CryptoKey is reused (at most 32 secrets, oldest dropped first), because the import costs more than the HMAC itself. Byte array keys are imported every time.
+ */
+export function importHmacKey(
+	key: string | Uint8Array,
+	hash: "SHA-256" | "SHA-1" = "SHA-256",
+): Promise<CryptoKey> {
+	if (typeof key !== "string") return importHmacKeyUncached(key, hash);
+	const id = `${hash}:${key}`;
+	const hit = hmacKeyCache.get(id);
+	if (hit) return hit;
+	const pending = importHmacKeyUncached(key, hash);
+	hmacKeyCache.set(id, pending);
+	pending.catch(() => hmacKeyCache.delete(id));
+	if (hmacKeyCache.size > HMAC_KEY_CACHE_MAX) {
+		const oldest = hmacKeyCache.keys().next();
+		if (!oldest.done) hmacKeyCache.delete(oldest.value);
+	}
+	return pending;
 }
 
 /** HMAC-SHA256 sign, returns hex string. */

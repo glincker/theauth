@@ -436,6 +436,7 @@ export const COMMAND_NAMES = [
 	"login",
 	"logout",
 	"whoami",
+	"approvals",
 	"simulate",
 	"permissions",
 	"ros2",

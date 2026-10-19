@@ -146,11 +146,13 @@ export function createAgentModule(config: AgentModuleConfig) {
 	}
 
 	async function get(agentId: string): Promise<AgentIdentity | null> {
-		const rows = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1);
+		// Both reads are independent of each other, so they overlap on a driver with network latency.
+		const [rows, perms] = await Promise.all([
+			db.select().from(agents).where(eq(agents.id, agentId)).limit(1),
+			db.select().from(permissions).where(eq(permissions.agentId, agentId)),
+		]);
 		const agent = rows[0];
 		if (!agent) return null;
-
-		const perms = await db.select().from(permissions).where(eq(permissions.agentId, agentId));
 
 		return {
 			id: agent.id,

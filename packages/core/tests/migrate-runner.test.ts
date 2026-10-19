@@ -299,6 +299,7 @@ describe("feature scoped migrations", () => {
 			"0009",
 			"0010",
 			"0013",
+			"0014",
 		]);
 		await createTables(db, "sqlite", withAgents);
 		expect(await ledgerIds(exec)).toEqual(CORE_IDS);

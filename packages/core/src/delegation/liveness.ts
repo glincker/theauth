@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { agents, delegationChains, permissions } from "../db/schema.js";
 import type { ResourceMatching } from "../policy/resource-match.js";
@@ -21,7 +21,6 @@ export function createDelegatorLiveness(
 	matching: ResourceMatching = "colon",
 ) {
 	const agentCache = new Map<string, Promise<typeof agents.$inferSelect | undefined>>();
-	const inboundCache = new Map<string, Promise<ChainRow[]>>();
 	const ownCache = new Map<string, Promise<Permission[]>>();
 
 	const ownPermissions = (id: string) => {
@@ -51,29 +50,31 @@ export function createDelegatorLiveness(
 		return hit;
 	};
 
-	const inboundRows = (id: string) => {
-		let hit = inboundCache.get(id);
-		if (!hit) {
-			hit = db
-				.select()
-				.from(delegationChains)
-				.where(and(eq(delegationChains.toAgentId, id), eq(delegationChains.status, "active")))
-				.then((rows) => rows.filter((c) => c.expiresAt > now));
-			inboundCache.set(id, hit);
-		}
-		return hit;
-	};
-
-	const pastCache = new Map<string, Promise<ChainRow[]>>();
+	// One read per agent covers both questions: the active unexpired links (authority now) and every link ever
+	// received (was this agent fed by a chain that has since died). Two queries on the same rows would also let a
+	// concurrent revoke show up in one answer and not the other.
+	const allInboundCache = new Map<string, Promise<ChainRow[]>>();
 	const anyInboundRows = (id: string) => {
-		let hit = pastCache.get(id);
+		let hit = allInboundCache.get(id);
 		if (!hit) {
 			hit = db
 				.select()
 				.from(delegationChains)
 				.where(eq(delegationChains.toAgentId, id))
 				.then((rows) => rows);
-			pastCache.set(id, hit);
+			allInboundCache.set(id, hit);
+		}
+		return hit;
+	};
+
+	const inboundCache = new Map<string, Promise<ChainRow[]>>();
+	const inboundRows = (id: string) => {
+		let hit = inboundCache.get(id);
+		if (!hit) {
+			hit = anyInboundRows(id).then((rows) =>
+				rows.filter((c) => c.status === "active" && c.expiresAt > now),
+			);
+			inboundCache.set(id, hit);
 		}
 		return hit;
 	};
