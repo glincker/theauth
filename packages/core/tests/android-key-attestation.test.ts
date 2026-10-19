@@ -85,6 +85,16 @@ describe("android key attestation: real chains", () => {
 		});
 	});
 
+	it("refuses an empty nonce", async () => {
+		for (const challengeEncoding of ["utf8", "hex", "base64url"] as const) {
+			const verify = createAndroidKeyAttestationVerifier({ ...base, challengeEncoding });
+			expect(await verify(input(evidenceOf(TEE[0] as Name), ""))).toEqual({
+				ok: false,
+				reason: "Android key attestation needs the enrollment nonce",
+			});
+		}
+	});
+
 	it("requires the challenge to equal the nonce", async () => {
 		const verify = createAndroidKeyAttestationVerifier(base);
 		expect(await verify(input(evidenceOf(TEE[0] as Name), "abd"))).toMatchObject({

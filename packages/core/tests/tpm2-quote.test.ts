@@ -80,6 +80,13 @@ describe("tpm2 quote: real GCE vTPM quotes", () => {
 		});
 	});
 
+	it("refuses an empty nonce even for a quote taken with empty qualifying data", async () => {
+		expect(await verifier()(input(evidence("sha256", "withoutNonce"), ""))).toMatchObject({
+			ok: false,
+			reason: "TPM quote needs the enrollment nonce",
+		});
+	});
+
 	it("refuses the wrong nonce and a quote taken without one", async () => {
 		expect(await verifier()(input(evidence("sha256"), "9010"))).toMatchObject({
 			ok: false,

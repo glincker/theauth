@@ -180,7 +180,8 @@ export function createAppleAppAttestVerifier(options: AppleAppAttestOptions) {
 	const fail = (reason: string): DeviceAttestationResult => ({ ok: false, reason });
 
 	return async function verify(input: DeviceAttestationInput): Promise<DeviceAttestationResult> {
-		if (input.nonce === undefined) return fail("App Attest needs the enrollment nonce");
+		if (input.nonce === undefined || input.nonce === "")
+			return fail("App Attest needs the enrollment nonce");
 		if (options.appIds.length === 0) return fail("No App ID is allowed");
 		const bind = options.bind ?? "client-data";
 		if (

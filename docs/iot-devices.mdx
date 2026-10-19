@@ -182,6 +182,8 @@ devices: {
 }
 ```
 
+The built in Android, Apple and TPM verifiers refuse an empty nonce (`""`) as well as a missing one, with the reason "needs the enrollment nonce". Before this, an empty string passed the missing check, and a TPM quote taken with empty qualifying data would have matched it. The Go port (`iot/attest`) already behaved this way. If you write your own `verify`, do the same: evidence that cannot be shown fresh should never be accepted.
+
 A verifier that throws counts as a refusal. The claims you return are stored on the device as `attestation`.
 
 #### Android Key Attestation (built in)

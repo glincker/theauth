@@ -2,6 +2,7 @@ import { describe } from "vitest";
 import { defineApprovalRaces } from "./approval-races.js";
 import { defineAuditOrder } from "./audit-order.js";
 import { defineClaimRaces } from "./claim-races.js";
+import { defineRateLimitRaces } from "./rate-limit-races.js";
 import type { StoreContractOptions, StoreContractTarget } from "./types.js";
 import { defineUniqueConflict } from "./unique-conflict.js";
 
@@ -38,5 +39,6 @@ export function runStoreContract(
 		defineApprovalRaces(make, parallel);
 		defineUniqueConflict(make, parallel);
 		defineAuditOrder(make, parallel);
+		defineRateLimitRaces(make, parallel);
 	});
 }

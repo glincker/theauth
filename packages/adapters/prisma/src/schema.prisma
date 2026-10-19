@@ -77,6 +77,8 @@ model TheAuthAgent {
   createdAt    DateTime  @map("created_at")
   updatedAt    DateTime  @map("updated_at")
 
+  @@index([tokenHash], map: "theauth_agents_token_hash")
+  @@index([ownerId, status], map: "theauth_agents_owner_status")
   @@map("theauth_agents")
 }
 
@@ -90,6 +92,7 @@ model TheAuthPermission {
   constraints Json?
   createdAt   DateTime @map("created_at")
 
+  @@index([agentId], map: "theauth_permissions_agent")
   @@map("theauth_permissions")
 }
 
@@ -106,6 +109,8 @@ model TheAuthDelegationChain {
   expiresAt   DateTime @map("expires_at")
   createdAt   DateTime @map("created_at")
 
+  @@index([toAgentId, status], map: "theauth_delegation_chains_to")
+  @@index([fromAgentId, status], map: "theauth_delegation_chains_from")
   @@map("theauth_delegation_chains")
 }
 
@@ -141,6 +146,7 @@ model TheAuthRateLimit {
   windowStart DateTime @map("window_start")
   count       Int      @default(0)
 
+  @@index([agentId, resource, windowStart], map: "theauth_rate_limits_lookup")
   @@map("theauth_rate_limits")
 }
 
@@ -281,6 +287,7 @@ model TheAuthApprovalRequest {
   // quorum approvals) means one.
   requiredApprovals Int? @map("required_approvals")
 
+  @@index([status, createdAt], map: "theauth_approval_requests_status")
   @@map("theauth_approval_requests")
 }
 

@@ -165,6 +165,18 @@ export interface SingleUseStores {
 		/** Delete a session. True for the one caller that removed it. */
 		deleteOnce(id: string): Promise<boolean>;
 	};
+	readonly rateLimits: {
+		/**
+		 * Spend one call of an hourly budget. Bumps the bucket counter first (one guarded increment, or an insert on a deterministic id), then sums the buckets since `since`. Over `max` the bump is undone and the call is refused. Reserving before checking can refuse a call that would have fit, never admit one past `max`.
+		 */
+		reserve(spend: {
+			agentId: string;
+			resource: string;
+			bucket: Date;
+			since: Date;
+			max: number;
+		}): Promise<{ allowed: boolean; total: number }>;
+	};
 	readonly refreshTokens: {
 		/** Flip `used` from 0 to `usedAt` (epoch seconds, at least 1). The loser triggers reuse handling. */
 		claim(tokenHash: string, usedAt: number): Promise<boolean>;

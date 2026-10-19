@@ -116,7 +116,7 @@ export function createAndroidKeyAttestationVerifier(options: AndroidKeyAttestati
 	const fail = (reason: string): DeviceAttestationResult => ({ ok: false, reason });
 
 	return async function verify(input: DeviceAttestationInput): Promise<DeviceAttestationResult> {
-		if (input.nonce === undefined)
+		if (input.nonce === undefined || input.nonce === "")
 			return fail("Android key attestation needs the enrollment nonce");
 		let chain: X509Cert[];
 		try {

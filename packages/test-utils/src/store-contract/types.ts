@@ -20,7 +20,7 @@ export interface ContractAuth {
 			permissions: Array<{
 				resource: string;
 				actions: string[];
-				constraints?: { requireApproval?: boolean };
+				constraints?: { requireApproval?: boolean; maxCallsPerHour?: number };
 			}>;
 		}): Promise<{ id: string }>;
 	};

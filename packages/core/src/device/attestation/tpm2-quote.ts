@@ -197,7 +197,8 @@ export function createTpm2QuoteVerifier(options: Tpm2QuoteOptions) {
 	const fail = (reason: string): DeviceAttestationResult => ({ ok: false, reason });
 
 	return async function verify(input: DeviceAttestationInput): Promise<DeviceAttestationResult> {
-		if (input.nonce === undefined) return fail("TPM quote needs the enrollment nonce");
+		if (input.nonce === undefined || input.nonce === "")
+			return fail("TPM quote needs the enrollment nonce");
 		let ev: z.output<typeof EvidenceSchema>;
 		let pub: TpmPublic;
 		let quote: TpmQuote;

@@ -3,9 +3,9 @@
  */
 
 import { and, eq, gte } from "drizzle-orm";
-import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { rateLimits } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import type { DenialCode } from "../permission/codes.js";
 import { codeForConstraint } from "../permission/codes.js";
 import type { Permission, PermissionConstraints } from "../types.js";
@@ -152,45 +152,22 @@ export async function checkRateLimit(
 		return { allowed: true };
 	}
 
-	const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-	const rows = await db
-		.select()
-		.from(rateLimits)
-		.where(
-			and(
-				eq(rateLimits.agentId, agentId),
-				eq(rateLimits.resource, resource),
-				gte(rateLimits.windowStart, oneHourAgo),
-			),
-		);
-
-	const totalCalls = rows.reduce((sum, r) => sum + r.count, 0);
-
-	if (totalCalls >= maxCallsPerHour) {
+	const now = Date.now();
+	const bucket = new Date(Math.floor(now / (5 * 60 * 1000)) * (5 * 60 * 1000));
+	// One atomic reserve: bump the bucket, then sum. A read then write here let parallel calls all pass.
+	const { allowed, total } = await singleUseFor(db).rateLimits.reserve({
+		agentId,
+		resource,
+		bucket,
+		since: new Date(now - 60 * 60 * 1000),
+		max: maxCallsPerHour,
+	});
+	if (!allowed) {
 		return {
 			allowed: false,
-			reason: rateLimitReason(totalCalls, maxCallsPerHour, resource),
+			reason: rateLimitReason(total, maxCallsPerHour, resource),
 			code: "rate_limited",
 		};
-	}
-
-	const currentWindow = new Date(Math.floor(Date.now() / (5 * 60 * 1000)) * (5 * 60 * 1000));
-	const existing = rows.find((r) => r.windowStart.getTime() === currentWindow.getTime());
-
-	if (existing) {
-		await db
-			.update(rateLimits)
-			.set({ count: existing.count + 1 })
-			.where(eq(rateLimits.id, existing.id));
-	} else {
-		await db.insert(rateLimits).values({
-			id: generateId(),
-			agentId,
-			resource,
-			windowStart: currentWindow,
-			count: 1,
-		});
 	}
 
 	return { allowed: true };

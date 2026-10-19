@@ -117,6 +117,17 @@ describe("apple app attest: real attestation objects", () => {
 		});
 	});
 
+	it("refuses an empty nonce", async () => {
+		const n: Name = "veehaitch_ios_14_4";
+		for (const bind of ["client-data", "none"] as const) {
+			const verify = createAppleAppAttestVerifier({ ...optionsFor(n), bind });
+			expect(await verify(inputFor(n, { nonce: "" }))).toMatchObject({
+				ok: false,
+				reason: "App Attest needs the enrollment nonce",
+			});
+		}
+	});
+
 	it("refuses a different nonce, a missing nonce and the wrong hash mode", async () => {
 		const n: Name = "veehaitch_ios_14_4";
 		const verify = createAppleAppAttestVerifier(optionsFor(n));

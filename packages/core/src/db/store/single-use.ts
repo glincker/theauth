@@ -4,6 +4,7 @@
  * Drizzle kernel each one issues the same statement the call site used to build by hand, with
  * the same WHERE clause, so the move changes no behavior.
  */
+import { isStoreConflict } from "../store-conflict.js";
 import type { SingleUseStores, StoreKernel, Where } from "./types.js";
 
 const eqTo = (field: string, value: string | number | boolean): Where => ({
@@ -124,6 +125,38 @@ export function createSingleUseStores(kernel: StoreKernel): SingleUseStores {
 		},
 		sessions: {
 			deleteOnce: (id) => remove("sessions", [eqTo("id", id)]),
+		},
+		rateLimits: {
+			async reserve({ agentId, resource, bucket, since, max }) {
+				// One row per bucket on a deterministic id, so two first calls in a bucket collide on the key.
+				const id = `rl:${agentId}:${resource}:${Math.floor(bucket.getTime() / 1000)}`;
+				const where = [eqTo("id", id)];
+				if ((await kernel.increment("rateLimits", where, "count", 1)) === null) {
+					try {
+						await kernel.insert("rateLimits", {
+							id,
+							agentId,
+							resource,
+							windowStart: bucket,
+							count: 1,
+						});
+					} catch (err) {
+						if (!isStoreConflict(err)) throw err;
+						await kernel.increment("rateLimits", where, "count", 1);
+					}
+				}
+				const rows = await kernel.findMany("rateLimits", {
+					where: [
+						eqTo("agentId", agentId),
+						eqTo("resource", resource),
+						{ field: "windowStart", op: "gte", value: since },
+					],
+				});
+				const total = rows.reduce((sum, r) => sum + Number(r.count), 0);
+				if (total <= max) return { allowed: true, total };
+				await kernel.increment("rateLimits", where, "count", -1);
+				return { allowed: false, total: total - 1 };
+			},
 		},
 		refreshTokens: {
 			claim: (tokenHash, usedAt) =>

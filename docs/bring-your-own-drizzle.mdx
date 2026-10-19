@@ -40,6 +40,43 @@ Connection settings that `provider` applies for you become your job:
 
 `createTheAuth` returns your handle as `auth.db`, and plugins receive it as `ctx.db`, so it is the same object you passed in.
 
+## Hot path indexes
+
+Migration `0014` adds seven indexes that agent token lookup, the delegation walks, the hourly rate limit read and the pending approval list depend on. Without them each of those scans its whole table. If you own the schema and skip theAuth migrations, create them yourself. Keep the names, so a later run of the migration finds them and leaves them alone.
+
+| Index | Table | Columns |
+| --- | --- | --- |
+| `theauth_agents_token_hash` | `theauth_agents` | `token_hash` |
+| `theauth_agents_owner_status` | `theauth_agents` | `owner_id, status` |
+| `theauth_delegation_chains_to` | `theauth_delegation_chains` | `to_agent_id, status` |
+| `theauth_delegation_chains_from` | `theauth_delegation_chains` | `from_agent_id, status` |
+| `theauth_rate_limits_lookup` | `theauth_rate_limits` | `agent_id, resource, window_start` |
+| `theauth_approval_requests_status` | `theauth_approval_requests` | `status, created_at` |
+| `theauth_permissions_agent` | `theauth_permissions` | `agent_id` (SQLite and Postgres only) |
+
+The SQL for each dialect:
+
+```sql
+-- SQLite and Postgres
+CREATE INDEX IF NOT EXISTS theauth_agents_token_hash ON theauth_agents (token_hash);
+CREATE INDEX IF NOT EXISTS theauth_agents_owner_status ON theauth_agents (owner_id, status);
+CREATE INDEX IF NOT EXISTS theauth_delegation_chains_to ON theauth_delegation_chains (to_agent_id, status);
+CREATE INDEX IF NOT EXISTS theauth_delegation_chains_from ON theauth_delegation_chains (from_agent_id, status);
+CREATE INDEX IF NOT EXISTS theauth_rate_limits_lookup ON theauth_rate_limits (agent_id, resource, window_start);
+CREATE INDEX IF NOT EXISTS theauth_approval_requests_status ON theauth_approval_requests (status, created_at);
+CREATE INDEX IF NOT EXISTS theauth_permissions_agent ON theauth_permissions (agent_id);
+
+-- MySQL (TEXT columns need a prefix length; InnoDB already indexes the foreign key columns)
+CREATE INDEX theauth_agents_token_hash ON theauth_agents (token_hash(191));
+CREATE INDEX theauth_agents_owner_status ON theauth_agents (owner_id, status);
+CREATE INDEX theauth_delegation_chains_to ON theauth_delegation_chains (to_agent_id(191), status(16));
+CREATE INDEX theauth_delegation_chains_from ON theauth_delegation_chains (from_agent_id(191), status(16));
+CREATE INDEX theauth_rate_limits_lookup ON theauth_rate_limits (agent_id, resource(191), window_start);
+CREATE INDEX theauth_approval_requests_status ON theauth_approval_requests (status, created_at);
+```
+
+If you copy the table objects from `@glinr/theauth` into your own Drizzle schema, they already declare these indexes (SQLite dialect), so `drizzle-kit generate` emits them.
+
 ## Typed unique conflicts
 
 Several flows use a unique index as the tiebreaker: creating a user, appending to the audit chain, a second vote from the same approver, banning twice, MCP client and revocation inserts, erasure tombstones. They now map a driver error through `toStoreConflict`, which returns a `StoreConflictError` (exported from `@glinr/theauth`, with `code: "STORE_CONFLICT"`, `model` and the driver error as `cause`).
