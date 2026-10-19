@@ -223,6 +223,7 @@ describe("quorum approvals", () => {
 		await theauth.approval.approve(req.id, "alice");
 		await vi.waitFor(() => {
 			expect(bodies.some((b) => b.event === "approval.vote")).toBe(true);
+			expect(bodies.some((b) => b.event === "approval.pending")).toBe(true);
 		});
 		const pending = bodies.find((b) => b.event === "approval.pending");
 		expect(pending?.data).toMatchObject({

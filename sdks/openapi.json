@@ -3105,7 +3105,8 @@
                               "enum": [
                                 "psk",
                                 "jwk",
-                                "x509"
+                                "x509",
+                                "spiffe"
                               ]
                             },
                             "lookup": {
@@ -5043,7 +5044,8 @@
                           "enum": [
                             "psk",
                             "jwk",
-                            "x509"
+                            "x509",
+                            "spiffe"
                           ]
                         },
                         "lookup": {
@@ -5631,7 +5633,8 @@
                               "enum": [
                                 "psk",
                                 "jwk",
-                                "x509"
+                                "x509",
+                                "spiffe"
                               ]
                             },
                             "lookup": {

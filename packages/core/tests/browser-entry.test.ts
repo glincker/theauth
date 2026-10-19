@@ -21,7 +21,7 @@ const NODE_ONLY = [
 	"drizzle-orm/libsql",
 	"./db/database.js",
 ];
-const SPEC = /(?:from\s*|import\s*\(\s*|import\s+|require\(\s*)["']([^"']+)["']/g;
+const SPEC = /(?:\bfrom\s*|import\s*\(\s*|import\s+|require\(\s*)["']([^"']+)["']/g;
 
 function resolveLocal(from: string, spec: string): string {
 	return join(dirname(from), spec.replace(/\.js$/, ".ts"));
