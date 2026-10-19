@@ -1,5 +1,32 @@
 # theauth
 
+## 0.2.7
+
+### Patch Changes
+
+- Updated dependencies [746da30]
+- Updated dependencies [a561306]
+- Updated dependencies [a561306]
+- Updated dependencies [a561306]
+- Updated dependencies [a561306]
+- Updated dependencies [2fab7c3]
+- Updated dependencies [a561306]
+- Updated dependencies [fe7e6c6]
+- Updated dependencies [fe7e6c6]
+- Updated dependencies [3e3855c]
+- Updated dependencies [3953479]
+- Updated dependencies [f5616dc]
+- Updated dependencies [701a372]
+- Updated dependencies [a561306]
+- Updated dependencies [a8284dc]
+- Updated dependencies [7132cde]
+- Updated dependencies [372a4ec]
+- Updated dependencies [84ebfb8]
+- Updated dependencies [2d1bd9a]
+- Updated dependencies [6bdec47]
+- Updated dependencies [7a9dfac]
+  - @glinr/theauth-cli@1.3.0
+
 ## 0.2.6
 
 ### Patch Changes

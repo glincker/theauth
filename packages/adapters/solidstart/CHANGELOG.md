@@ -1,5 +1,21 @@
 # @glinr/theauth-solidstart
 
+## 6.0.0
+
+### Major Changes
+
+- a561306: Rebuild the SolidStart adapter as a thin wrapper around `createTheAuthHandler` from `@glinr/theauth/http`. The 833 line per-adapter dispatcher and router are gone, so the adapter serves every route core serves, including `POST /mcp/revoke`, `GET /mcp/jwks` and `POST /explain`.
+
+  Added: `requireScope(theauth, { action, resource, clientIp? }, handler)`, a SolidStart route wrapper that passes the agent as the second argument and sets `event.locals.agent`. It answers 401 (`invalid_token`, `agent_not_found`, `agent_revoked`, `agent_expired`) or 403 (any other denial) with body `{ error: { code, message } }` and passes the agent on.
+
+  Upgrade notes:
+
+  - Removed the deprecated aliases `authSolidStart`, `AuthSolidStartOptions` and `AuthSolidStartHandlers`. Use `theAuthSolidStart` and `TheAuthSolidStartOptions`.
+  - `TheAuthSolidStartOptions` is now the core handler options: `mcp`, `basePath`, `routes`, `maxBodyBytes` plus the shared security options (`authenticate`, `allowUnauthenticated`, `trustedProxy`, `rateLimit`, `trustedOrigins`, `csrf`). Existing option names keep working.
+  - `POST /authorize/token` now answers 401 (not 403) for a revoked, expired or unknown agent or a bad token, and 403 for every other denial. A known path with the wrong method answers 405. Unexpected errors answer a fixed 500 message.
+  - Request bodies above 1 MiB answer 413 (`maxBodyBytes`).
+  - Route handlers now accept either an `APIEvent` or a bare `Request`.
+
 ## 5.1.0
 
 ### Minor Changes

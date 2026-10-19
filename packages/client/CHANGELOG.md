@@ -1,5 +1,32 @@
 # @glinr/theauth-client
 
+## 1.2.0
+
+### Minor Changes
+
+- b7fbe38: Add `createSessionStore`, a framework-neutral session store (subscribe, sign in, sign up, sign out, injected storage), and `createSolidAuth`, which wraps it as Solid accessors without depending on solid-js.
+- b7fbe38: Session refetch, SSR hydration and real server calls in the client bindings.
+
+  Added: `refetch` options (window focus and tab visibility, reconnect, interval) and `hydrateSession(initial)` on `createSessionStore`, wired through the React provider (`managed` prop, `external.refetch`, `external.initialUser`), the Vue plugin, the Svelte client and the Solid helper. Triggers run only while something is subscribed, do nothing without a `window`, share one request across overlapping refreshes, are cancelable (`startAutoRefresh` returns `stop`, `destroy()` aborts), and never log or echo tokens.
+
+  Fixed: the Vue, Svelte and React managed bindings only read `localStorage` and never asked the server. They now confirm the session with `GET /auth/session`, and `signOut` calls `POST /auth/sign-out` after clearing local state, so the session is revoked server side. They also called `/auth/sign-in` and `/auth/sign-up`, which the core never served. The default routes are now `/auth/username/sign-in` and `/auth/username/sign-up` and the first argument is sent as `username`. Error bodies of the form `{ error: "text" }` are now read. External React mode keeps the current user when a refetch hits a network error.
+
+  Upgrade notes:
+
+  - `SessionStore.refresh()` now returns a promise and `SessionStore.signOut()` returns `Promise<StoreActionResult>`.
+  - If you served your own `/auth/sign-in` or `/auth/sign-up` routes for these bindings, set `signInPath`, `signUpPath` and `identifierField` (React: `managed`; Vue and Svelte: the plugin or client options).
+  - `@glinr/theauth-vue` and `@glinr/theauth-svelte` now depend on `@glinr/theauth-client`.
+
+- 6bdec47: Email and password in core. A new top-level `emailPassword` config key stores a real email in `users.email` and serves `POST /auth/email/sign-up`, `/sign-in`, `/verify`, `/resend-verification`, `/forgot-password`, `/reset-password` and `/change-password` from `createTheAuthHandler`. It reuses the username credential table, hashing, lockout and sign-in gate, and issues ordinary core sessions with the session cookie. Verification is on by default (it needs `emailVerification`): sign-up creates no session, sign-in answers `EMAIL_NOT_VERIFIED` only after the password checks out, and a sign-up for a taken address answers like a new one and never attaches a password to the existing user. A completed password reset marks the address verified.
+
+  Client bindings: `emailPassword: true` on the session store, React `managed`, the Vue plugin, the Svelte client, the Expo provider config and the Electron provider points them at the new routes. Sign-up now reports `verificationRequired`, failed results carry the server `code`, and the store, React (`useEmailPassword`), Vue and Svelte expose `verifyEmail`, `resendVerification`, `requestPasswordReset` and `resetPassword`. React `signUp` resolves to `data: { verificationRequired }` instead of `data: undefined`. `@glinr/theauth-react` also splits `context.tsx` into smaller files with no behavior change.
+
+  Fixes: `emailVerification` alone no longer fails with "no such table" (the one-time token table is now created for it). `@glinr/theauth-email` is deprecated: its sign-in token is not a core session (`GET /auth/session` answers 401, no cookie is set) and its sign-up returned a session token before verification. Use `emailPassword`.
+
+### Patch Changes
+
+- 6bdec47: The session store no longer needs `AbortController`: runtimes that have `fetch` but not `AbortController` (Lynx's PrimJS) can refresh the session, and a late answer is still dropped. New Lynx page with the runtime needs and a storage recipe, checked against the Lynx docs and a stripped runtime, not on a device.
+
 ## 1.1.1
 
 ### Patch Changes

@@ -1,5 +1,27 @@
 # @glinr/theauth-fastify
 
+## 6.0.0
+
+### Major Changes
+
+- a561306: Rebuilt on the core HTTP handler (`createTheAuthHandler` from `@glinr/theauth/http`) using `toWebRequest` and `sendWebResponse`. `theAuthFastify` is now thin glue and serves every route, including `POST /mcp/revoke`, `GET /mcp/jwks` and `POST /explain`. New `requireScope(auth, { action, resource })` preHandler and `getAgent(request)`.
+
+  Upgrade notes:
+
+  - `TheAuthFastifyOptions` is now the core `TheAuthHandlerOptions` (`mcp`, `basePath`, `routes`, `maxBodyBytes` and the existing security options). `basePath` defaults to the prefix the plugin is registered under.
+  - Inside the plugin the request body is no longer parsed by Fastify (the handler reads it itself). Your own routes outside the plugin are unaffected.
+  - Removed the deprecated `authFastify` and `AuthFastifyOptions`. Use `theAuthFastify` and `TheAuthFastifyOptions`.
+  - `POST /authorize/token` answers 401 for `invalid_token`, `agent_not_found`, `agent_revoked` and `agent_expired`, and 403 for every other denial.
+  - The client IP now comes from the socket peer address, or from forwarded headers when `trustedProxy` is set.
+
+### Patch Changes
+
+- a561306: Core: `toWebRequest` now records the socket remote address out of band, exposed as `peerAddressOf(request)`. Without `trustedProxy` the handler, rate limiter and `requireAgent` use that peer address as the client IP, so per-IP limits and `ipAllowlist` work on direct Express, Fastify and NestJS deployments. Forwarded headers are still only believed when `trustedProxy` is set. `requireAgent` accepts `trustedProxy`.
+
+  Breaking: `GET /audit/export?userId=<other user>` by a caller limited to their own resources is now `403` with `{ error: { code, message } }` instead of silently returning the caller's rows.
+
+  Fastify: the handler is built once at registration, so `allowUnauthenticated` warns once. `requireScope` matches `ipAllowlist` against the socket peer by default. The fail-closed check without an authenticator now surfaces when the plugin registers instead of at `theAuthFastify(...)`.
+
 ## 5.1.0
 
 ### Minor Changes

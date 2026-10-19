@@ -1,5 +1,16 @@
 # @glinr/theauth-prisma
 
+## 4.1.0
+
+### Minor Changes
+
+- 746da30: Quorum approvals follow-ups. The Prisma adapter gains `requiredApprovals` on `TheAuthApprovalRequest`, a `TheAuthApprovalVote` model and `castApprovalVote` / `listApprovalVotes`, with the same single vote guarantee as core (composite primary key plus one conditional `updateMany`). A new `theauth approvals` command (list, show, approve, deny, request with `--required-approvals`) drives the admin API. The Python and Go clients send `requiredApprovals` and read `requiredApprovals`, `approvalsReceived` and `approvers`. Fixed: when concurrent votes pushed the count past the quorum, the completing call reported every counted approver and recorded itself as the responder. It now reports the first `requiredApprovals` approvers.
+
+### Patch Changes
+
+- 96ae5ef: Widen the `@glinr/theauth` peer range from `<2.0.0` to `<3.0.0` so these packages install next to core 2.x without a peer warning.
+- 8bff5af: The reference `schema.prisma` declares the hot path indexes from core migration 0014 (agent token hash, agent owner and status, delegation chain lookups, rate limit lookup, pending approvals, permissions by agent), with the same names as the SQL migration.
+
 ## 4.0.0
 
 ### Minor Changes

@@ -96,7 +96,7 @@ Tokens from before the rename start with `kv_` and are still accepted. To serve 
 
 ## Status
 
-Maturity follows the package version: stable is 1.0 or later, beta is 0.2 to 0.9, experimental is 0.1. The core package is at 1.3.0. The 2.0 changes are queued as changesets, so read [Upgrading to 2.0](https://docs.theauth.dev/upgrading-to-2) if you run 1.x.
+Maturity follows the package version: stable is 1.0 or later, beta is 0.2 to 0.9, experimental is 0.1. The core package is at 2.0.0. If you run 1.x, read [Upgrading to 2.0](https://docs.theauth.dev/upgrading-to-2) if you run 1.x.
 
 What you should know before relying on it:
 
@@ -125,26 +125,26 @@ All packages live in this monorepo and publish under `@glinr/`. Versions come fr
 
 | Package | Version | Maturity | What it does |
 |---|---|---|---|
-| [`theauth`](packages/core) | 1.3.0 | Stable | Agent identity, delegation, MCP OAuth 2.1 server, DPoP, passkeys, audit |
-| [`theauth-email`](packages/auth/email) | 4.1.0 | Stable | Email and password sign in |
-| [`theauth-mcp`](packages/mcp) | 1.2.0 | Stable | Read-only MCP server to inspect agents, permissions and audit |
-| [`theauth-gateway`](packages/gateway) | 4.1.0 | Stable | Auth proxy in front of any API or MCP server |
-| [`theauth-cli`](packages/cli) | 1.2.0 | Stable | `init`, `doctor`, migrations, dashboard (also `npx theauth`) |
-| [`theauth-client`](packages/client) | 1.1.1 | Stable | TypeScript client for the REST API |
-| [`theauth-plugin-discovery`](packages/plugins/discovery) | 4.0.1 | Stable | A2A agent card discovery |
-| [`theauth-plugin-telemetry`](packages/plugins/telemetry) | 4.0.0 | Stable | OpenTelemetry spans from auth events |
-| [`theauth-react`](packages/react) | 0.7.1 | Beta | React hooks |
-| [`theauth-vue`](packages/vue) | 0.3.0 | Beta | Vue 3 composables |
-| [`theauth-svelte`](packages/svelte) | 0.3.0 | Beta | Svelte stores |
-| [`theauth-expo`](packages/expo) | 0.4.0 | Beta | React Native and Expo client |
-| [`theauth-electron`](packages/electron) | 0.3.0 | Beta | Electron client |
-| [`theauth-ui`](packages/ui) | 0.3.0 | Beta | Prebuilt auth components |
+| [`theauth`](packages/core) | 2.0.0 | Stable | Agent identity, delegation, MCP OAuth 2.1 server, DPoP, passkeys, audit |
+| [`theauth-email`](packages/auth/email) | 4.1.1 | Stable | Email and password sign in |
+| [`theauth-mcp`](packages/mcp) | 2.0.0 | Stable | Read-only MCP server to inspect agents, permissions and audit |
+| [`theauth-gateway`](packages/gateway) | 4.2.0 | Stable | Auth proxy in front of any API or MCP server |
+| [`theauth-cli`](packages/cli) | 1.3.0 | Stable | `init`, `doctor`, migrations, dashboard (also `npx theauth`) |
+| [`theauth-client`](packages/client) | 1.2.0 | Stable | TypeScript client for the REST API |
+| [`theauth-plugin-discovery`](packages/plugins/discovery) | 4.0.2 | Stable | A2A agent card discovery |
+| [`theauth-plugin-telemetry`](packages/plugins/telemetry) | 4.1.0 | Stable | OpenTelemetry spans from auth events |
+| [`theauth-react`](packages/react) | 0.8.0 | Beta | React hooks |
+| [`theauth-vue`](packages/vue) | 0.4.0 | Beta | Vue 3 composables |
+| [`theauth-svelte`](packages/svelte) | 0.4.0 | Beta | Svelte stores |
+| [`theauth-expo`](packages/expo) | 0.5.0 | Beta | React Native and Expo client |
+| [`theauth-electron`](packages/electron) | 0.4.0 | Beta | Electron client |
+| [`theauth-ui`](packages/ui) | 0.4.0 | Beta | Prebuilt auth components |
 | [`theauth-ui-headless`](packages/ui-headless) | 0.2.0 | Beta | Unstyled account components |
-| [`theauth-dashboard`](packages/dashboard) | 0.3.0 | Beta | Admin UI for agents, permissions and audit |
+| [`theauth-dashboard`](packages/dashboard) | 0.4.0 | Beta | Admin UI for agents, permissions and audit |
 | [`theauth-agent-frameworks`](packages/agent-frameworks) | 0.2.0 | Beta | Tool guard with human approval for LangChain.js, LangGraph and Mastra |
-| [`theauth-conformance`](packages/conformance) | 0.2.0 | Beta | Black-box conformance suite for OAuth 2.1 and MCP servers |
-| [`theauth-test-utils`](packages/test-utils) | 0.2.0 | Beta | Mock providers, factories and assertions |
-| [`create-theauth-app`](packages/create-theauth-app) | 0.5.0 | Beta | Scaffold an app |
+| [`theauth-conformance`](packages/conformance) | 0.3.0 | Beta | Black-box conformance suite for OAuth 2.1 and MCP servers |
+| [`theauth-test-utils`](packages/test-utils) | 0.3.0 | Beta | Mock providers, factories and assertions |
+| [`create-theauth-app`](packages/create-theauth-app) | 0.6.0 | Beta | Scaffold an app |
 | [`theauth-extension`](packages/extension) | 0.1.0 | Experimental | OAuth 2.1 for Manifest V3 browser extensions |
 
 Other languages: a [Go client](sdks/go) and a [Python client](https://pypi.org/project/theauth/) ([source](sdks/python)) for this REST API, both checked against the generated [`sdks/openapi.json`](sdks/openapi.json), and a [Terraform provider](https://registry.terraform.io/providers/glincker/theauth) ([source](sdks/terraform)). [theauth-go](https://github.com/glincker/theauth-go) is a different thing: the Go server library (v2), not a client for this API.
@@ -155,17 +155,17 @@ Every adapter wraps one core handler, so all of them serve the same routes with 
 
 | Adapter | Version | Docs |
 |---|---|---|
-| [`theauth-hono`](packages/adapters/hono) | 5.1.0 | [Hono](https://docs.theauth.dev/adapters/hono) |
-| [`theauth-nextjs`](packages/adapters/nextjs) | 5.1.0 | [Next.js](https://docs.theauth.dev/adapters/nextjs) |
-| [`theauth-express`](packages/adapters/express) | 5.1.0 | [Express](https://docs.theauth.dev/adapters/express) |
-| [`theauth-fastify`](packages/adapters/fastify) | 5.1.0 | [Fastify](https://docs.theauth.dev/adapters/fastify) |
-| [`theauth-nestjs`](packages/adapters/nestjs) | 5.1.0 | [NestJS](https://docs.theauth.dev/adapters/nestjs) |
-| [`theauth-nuxt`](packages/adapters/nuxt) | 5.1.0 | [Nuxt](https://docs.theauth.dev/adapters/nuxt) |
-| [`theauth-sveltekit`](packages/adapters/sveltekit) | 5.1.0 | [SvelteKit](https://docs.theauth.dev/adapters/sveltekit) |
-| [`theauth-astro`](packages/adapters/astro) | 5.1.0 | [Astro](https://docs.theauth.dev/adapters/astro) |
-| [`theauth-solidstart`](packages/adapters/solidstart) | 5.1.0 | [SolidStart](https://docs.theauth.dev/adapters/solidstart) |
-| [`theauth-tanstack`](packages/adapters/tanstack) | 5.1.0 | [TanStack Start](https://docs.theauth.dev/adapters/tanstack) |
-| [`theauth-prisma`](packages/adapters/prisma) | 4.0.0 | [Prisma](https://docs.theauth.dev/prisma) |
+| [`theauth-hono`](packages/adapters/hono) | 6.0.0 | [Hono](https://docs.theauth.dev/adapters/hono) |
+| [`theauth-nextjs`](packages/adapters/nextjs) | 6.0.0 | [Next.js](https://docs.theauth.dev/adapters/nextjs) |
+| [`theauth-express`](packages/adapters/express) | 6.0.0 | [Express](https://docs.theauth.dev/adapters/express) |
+| [`theauth-fastify`](packages/adapters/fastify) | 6.0.0 | [Fastify](https://docs.theauth.dev/adapters/fastify) |
+| [`theauth-nestjs`](packages/adapters/nestjs) | 6.0.0 | [NestJS](https://docs.theauth.dev/adapters/nestjs) |
+| [`theauth-nuxt`](packages/adapters/nuxt) | 6.0.0 | [Nuxt](https://docs.theauth.dev/adapters/nuxt) |
+| [`theauth-sveltekit`](packages/adapters/sveltekit) | 6.0.0 | [SvelteKit](https://docs.theauth.dev/adapters/sveltekit) |
+| [`theauth-astro`](packages/adapters/astro) | 6.0.0 | [Astro](https://docs.theauth.dev/adapters/astro) |
+| [`theauth-solidstart`](packages/adapters/solidstart) | 6.0.0 | [SolidStart](https://docs.theauth.dev/adapters/solidstart) |
+| [`theauth-tanstack`](packages/adapters/tanstack) | 6.0.0 | [TanStack Start](https://docs.theauth.dev/adapters/tanstack) |
+| [`theauth-prisma`](packages/adapters/prisma) | 4.1.0 | [Prisma](https://docs.theauth.dev/prisma) |
 | [`theauth-nextjs-auth`](packages/adapters/nextjs-auth) | 0.2.0 (beta) | Next.js client for external auth backends |
 
 Mounting Hono, for example:

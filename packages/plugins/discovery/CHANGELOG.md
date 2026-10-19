@@ -1,5 +1,11 @@
 # @glinr/theauth-plugin-discovery
 
+## 4.0.2
+
+### Patch Changes
+
+- 96ae5ef: Widen the `@glinr/theauth` peer range from `<2.0.0` to `<3.0.0` so these packages install next to core 2.x without a peer warning.
+
 ## 4.0.1
 
 ### Patch Changes
