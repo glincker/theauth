@@ -106,7 +106,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "NODE_OPTIONS=--max-old-space-size=6144 tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
