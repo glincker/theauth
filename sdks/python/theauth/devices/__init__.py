@@ -27,6 +27,9 @@ from theauth.devices.types import (
     EnrollmentToken,
     EnrollmentTokenInput,
     RegisterDeviceInput,
+    SpiffeIssuedToken,
+    SpiffePresentation,
+    SpiffeVerifyResult,
     UpdateDeviceInput,
 )
 
@@ -50,6 +53,9 @@ __all__ = [
     "EnrollmentTokenInput",
     "MAX_LIFETIME_SECONDS",
     "RegisterDeviceInput",
+    "SpiffeIssuedToken",
+    "SpiffePresentation",
+    "SpiffeVerifyResult",
     "SyncDeviceApiResource",
     "SyncDevicesResource",
     "UpdateDeviceInput",

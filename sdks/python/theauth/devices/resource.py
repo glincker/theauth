@@ -20,6 +20,9 @@ from theauth.devices.types import (
     EnrollmentToken,
     EnrollmentTokenInput,
     RegisterDeviceInput,
+    SpiffeIssuedToken,
+    SpiffePresentation,
+    SpiffeVerifyResult,
     UpdateDeviceInput,
 )
 from theauth.errors import NotFoundError
@@ -53,6 +56,16 @@ def _bundle_body(ttl_seconds: Optional[int]) -> Optional[Dict[str, Any]]:
 
 def _stats_params(owner_id: Optional[str]) -> Optional[Dict[str, str]]:
     return {"ownerId": owner_id} if owner_id else None
+
+
+def _link_body(
+    spiffe_id: Optional[str], presentation: Optional[SpiffePresentation]
+) -> Dict[str, Any]:
+    if (spiffe_id is None) == (presentation is None):
+        raise ValueError("pass exactly one of spiffe_id or presentation")
+    if presentation is not None:
+        return {"presentation": presentation.to_dict()}
+    return {"spiffeId": spiffe_id}
 
 
 class AsyncDevicesResource:
@@ -129,6 +142,31 @@ class AsyncDevicesResource:
     async def revoke_enrollment_token(self, token_id: str) -> None:
         await self._http.request("DELETE", f"/devices/enrollment-tokens/{quote(token_id, safe='')}")
 
+    async def spiffe_verify(self, presentation: SpiffePresentation) -> SpiffeVerifyResult:
+        """Check an SVID against the trust bundles. Mints nothing. A mapping owned by someone else reads as unmapped."""
+        data = await self._http.request(
+            "POST", "/devices/spiffe/verify", json=presentation.to_dict()
+        )
+        return SpiffeVerifyResult.from_dict(data)
+
+    async def spiffe_token(self, chain: str) -> SpiffeIssuedToken:
+        """Issue an agent token bound to an X.509-SVID (rotates the agent token). Agent workloads only."""
+        data = await self._http.request("POST", "/devices/spiffe/token", json={"chain": chain})
+        return SpiffeIssuedToken.from_dict(data)
+
+    async def link_spiffe(
+        self,
+        device_id: str,
+        *,
+        spiffe_id: Optional[str] = None,
+        presentation: Optional[SpiffePresentation] = None,
+    ) -> DeviceCredential:
+        """Link a SPIFFE ID to a device, by id in a configured trust domain or by a verified SVID."""
+        data = await self._http.request(
+            "POST", _id(device_id, "/spiffe"), json=_link_body(spiffe_id, presentation)
+        )
+        return DeviceCredential.from_dict(data)
+
 
 class AsyncDeviceApiResource:
     """Async calls a device makes as itself. Enroll, nonce and JWKS need no credential."""
@@ -165,6 +203,20 @@ class AsyncDeviceApiResource:
         """Public keys that verify offline policy bundles."""
         data = await self._http.request("GET", "/device/jwks")
         return data  # type: ignore[no-any-return]
+
+    async def spiffe_verify(self, jwt_svid: str) -> SpiffeVerifyResult:
+        """Verify the device's own JWT-SVID. A refused SVID raises ``AuthenticationError`` with the failure code.
+
+        An X.509-SVID cannot be sent here: the server reads it from the TLS handshake or a trusted proxy header.
+        """
+        if not jwt_svid:
+            raise ValueError("a JWT-SVID is required")
+        data = await self._http.request(
+            "POST",
+            "/device/spiffe/verify",
+            extra_headers={"Authorization": f"Bearer {jwt_svid}"},
+        )
+        return SpiffeVerifyResult.from_dict(data)
 
 
 class SyncDevicesResource:
@@ -233,6 +285,31 @@ class SyncDevicesResource:
     def revoke_enrollment_token(self, token_id: str) -> None:
         self._http.request("DELETE", f"/devices/enrollment-tokens/{quote(token_id, safe='')}")
 
+    def spiffe_verify(self, presentation: SpiffePresentation) -> SpiffeVerifyResult:
+        """Check an SVID against the trust bundles. Mints nothing. A mapping owned by someone else reads as unmapped."""
+        data = self._http.request(
+            "POST", "/devices/spiffe/verify", json=presentation.to_dict()
+        )
+        return SpiffeVerifyResult.from_dict(data)
+
+    def spiffe_token(self, chain: str) -> SpiffeIssuedToken:
+        """Issue an agent token bound to an X.509-SVID (rotates the agent token). Agent workloads only."""
+        data = self._http.request("POST", "/devices/spiffe/token", json={"chain": chain})
+        return SpiffeIssuedToken.from_dict(data)
+
+    def link_spiffe(
+        self,
+        device_id: str,
+        *,
+        spiffe_id: Optional[str] = None,
+        presentation: Optional[SpiffePresentation] = None,
+    ) -> DeviceCredential:
+        """Link a SPIFFE ID to a device, by id in a configured trust domain or by a verified SVID."""
+        data = self._http.request(
+            "POST", _id(device_id, "/spiffe"), json=_link_body(spiffe_id, presentation)
+        )
+        return DeviceCredential.from_dict(data)
+
 
 class SyncDeviceApiResource:
     """Sync calls a device makes as itself. Enroll, nonce and JWKS need no credential."""
@@ -269,3 +346,17 @@ class SyncDeviceApiResource:
         """Public keys that verify offline policy bundles."""
         data = self._http.request("GET", "/device/jwks")
         return data  # type: ignore[no-any-return]
+
+    def spiffe_verify(self, jwt_svid: str) -> SpiffeVerifyResult:
+        """Verify the device's own JWT-SVID. A refused SVID raises ``AuthenticationError`` with the failure code.
+
+        An X.509-SVID cannot be sent here: the server reads it from the TLS handshake or a trusted proxy header.
+        """
+        if not jwt_svid:
+            raise ValueError("a JWT-SVID is required")
+        data = self._http.request(
+            "POST",
+            "/device/spiffe/verify",
+            extra_headers={"Authorization": f"Bearer {jwt_svid}"},
+        )
+        return SpiffeVerifyResult.from_dict(data)

@@ -346,6 +346,25 @@ one time `jti` rule needs. `devices.issue_bundle` and `device.bundle` return the
 signed offline policy bundle for devices that cannot call home. A private JWK is
 refused by `CredentialSpec.from_jwk` before it leaves the process.
 
+### SPIFFE
+
+With `devices.spiffe` set on the server, the admin calls cover the four SPIFFE routes:
+
+```python
+from theauth import SpiffePresentation
+
+check = await client.devices.spiffe_verify(SpiffePresentation.x509(chain_pem))  # mints nothing
+cred = await client.devices.link_spiffe(device_id, spiffe_id="spiffe://example.org/ns/prod/sa/pump")
+issued = await client.devices.spiffe_token(chain_pem)  # token bound to the certificate (RFC 8705)
+
+# Device side, with a JWT-SVID. A refused SVID raises AuthenticationError, code is the failure code.
+me = await client.device.spiffe_verify(jwt_svid)
+```
+
+A failed admin check is a result (`check.ok` false, `check.code` says why), not an exception.
+A mapping owned by another user reads as `unknown_workload`. An X.509-SVID cannot go to
+`device.spiffe_verify`: the server takes it from the TLS handshake, never from the body.
+
 ## Framework guards
 
 `theauth.integrations` checks `authorize` before a tool runs and fails closed. It covers LangGraph (`guard_tool`, `guard_node`), CrewAI (`guard`, `guard_crewai_tool`), the OpenAI Agents SDK (`guard_function_tool`) and any function (`guard`). The frameworks are never imported by `theauth`.

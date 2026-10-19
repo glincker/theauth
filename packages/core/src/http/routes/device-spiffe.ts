@@ -14,6 +14,9 @@ function spiffeOf(ctx: RouteContext): DeviceSpiffeService | Response {
 	return ctx.auth.device.spiffe ?? notFound("The SPIFFE bridge is not configured (devices.spiffe)");
 }
 
+/** Same text the bridge uses for a truly unmapped id, so a hidden mapping is indistinguishable. */
+const UNMAPPED_REASON = "No device or agent is mapped to this SPIFFE ID";
+
 function rateLimited(): Response {
 	return errorResponse("RATE_LIMITED", "Too many SPIFFE requests, retry later", 429, {
 		"Retry-After": "60",
@@ -84,6 +87,18 @@ async function verifyAdmin(ctx: RouteContext): Promise<Response> {
 	if (!body.ok) return body.response;
 	try {
 		const result = await spiffe.authenticate(toPresentation(body.data));
+		// An inactive agent mapped to someone else reads as unmapped.
+		if (
+			!result.ok &&
+			result.code === "principal_inactive" &&
+			(!result.agentId || (await ctx.scope.checkAgent(result.agentId)))
+		) {
+			return ok({
+				ok: false,
+				code: "unknown_workload",
+				reason: UNMAPPED_REASON,
+			});
+		}
 		if (result.ok) {
 			const agentId =
 				result.principal.type === "device"
@@ -93,7 +108,7 @@ async function verifyAdmin(ctx: RouteContext): Promise<Response> {
 				return ok({
 					ok: false,
 					code: "unknown_workload",
-					reason: "No principal of yours is mapped",
+					reason: UNMAPPED_REASON,
 				});
 			}
 		}
@@ -141,11 +156,23 @@ async function issueToken(ctx: RouteContext): Promise<Response> {
 	if (!body.ok) return body.response;
 	try {
 		const result = await spiffe.authenticate({ kind: "x509", chain: body.data.chain });
-		if (!result.ok) return errorResponse(result.code.toUpperCase(), result.reason, 400);
+		if (!result.ok) {
+			if (
+				result.code === "principal_inactive" &&
+				(!result.agentId || (await ctx.scope.checkAgent(result.agentId)))
+			) {
+				return errorResponse("UNKNOWN_WORKLOAD", UNMAPPED_REASON, 400);
+			}
+			return errorResponse(result.code.toUpperCase(), result.reason, 400);
+		}
+		const ownerAgentId =
+			result.principal.type === "device"
+				? result.principal.device.agentId
+				: result.principal.agent.id;
+		if (await ctx.scope.checkAgent(ownerAgentId)) return notFound("Agent not found");
 		if (result.principal.type !== "agent") {
 			return errorResponse("INVALID_INPUT", "Only an agent workload gets a token", 400);
 		}
-		if (await ctx.scope.checkAgent(result.principal.agent.id)) return notFound("Agent not found");
 		const issued = await spiffe.issueAgentToken(result);
 		if (!issued) return errorResponse("INVALID_INPUT", "No token could be issued", 400);
 		return created({ agentId: issued.id, token: issued.token, cnf: issued.cnf ?? {} });

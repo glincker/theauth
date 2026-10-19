@@ -18,6 +18,8 @@ const (
 	DeviceCredentialPSK  DeviceCredentialKind = "psk"
 	DeviceCredentialJWK  DeviceCredentialKind = "jwk"
 	DeviceCredentialX509 DeviceCredentialKind = "x509"
+	// DeviceCredentialSPIFFE is a linked SPIFFE ID, added with LinkSPIFFEID.
+	DeviceCredentialSPIFFE DeviceCredentialKind = "spiffe"
 )
 
 // EnrollmentKind is a claim code (one device) or a bulk token (a fleet rollout).

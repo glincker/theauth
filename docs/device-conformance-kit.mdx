@@ -84,6 +84,10 @@ All 7 scenarios passed (about 12,000 checks). The process went from 62 MB to 66 
 
 These are single runs. Rerun the command on your hardware before you plan capacity from it.
 
+## Go
+
+The kit is TypeScript only. There is no Go twin of the fleet runner, and the Go client (`sdks/go`) does not include one. A Go service that verifies bundles can be checked against the kit by feeding it the tokens the kit stored, as described below, and comparing decisions.
+
 ## Using it with your own verifier
 
 Replace `verifyBundle` and `decideOffline` by your own code by reading what the fleet stored: `device.bundleToken`, `device.snapshotToken`, `fleet.jwks()` and `device.nowMs()`. A verifier written in another language can be fed the same tokens and must reach the same decisions.

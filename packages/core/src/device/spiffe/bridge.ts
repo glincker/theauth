@@ -84,7 +84,7 @@ export type SpiffeAuthResult =
 			/** RFC 8705 confirmation of an X.509-SVID: `x5t#S256` of the leaf. */
 			cnf?: AgentConfirmation;
 	  }
-	| { ok: false; code: SpiffeAuthFailure; reason: string };
+	| { ok: false; code: SpiffeAuthFailure; reason: string; agentId?: string };
 
 function chainOf(input: Uint8Array[] | string): Uint8Array[] | null {
 	if (typeof input !== "string") return input;
@@ -121,7 +121,9 @@ export function createSpiffeBridge(config: SpiffeBridgeConfig) {
 
 	async function principalFor(
 		spiffeId: string,
-	): Promise<SpiffePrincipal | { ok: false; code: SpiffeAuthFailure; reason: string }> {
+	): Promise<
+		SpiffePrincipal | { ok: false; code: SpiffeAuthFailure; reason: string; agentId?: string }
+	> {
 		const device = await config.devices?.findBySpiffeId(spiffeId);
 		if (device) return { type: "device", ...device };
 		const agent = await resolveAgent(spiffeId);
@@ -133,7 +135,12 @@ export function createSpiffeBridge(config: SpiffeBridgeConfig) {
 			};
 		}
 		if (agent.status !== "active" || (agent.expiresAt && agent.expiresAt.getTime() <= now())) {
-			return { ok: false, code: "principal_inactive", reason: "The mapped agent is not active" };
+			return {
+				ok: false,
+				code: "principal_inactive",
+				reason: "The mapped agent is not active",
+				agentId: agent.id,
+			};
 		}
 		return { type: "agent", agent };
 	}

@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Literal, Optional
 from theauth.types.permissions import Permission
 
 DeviceStatus = Literal["active", "suspended", "revoked"]
-DeviceCredentialKind = Literal["psk", "jwk", "x509"]
+DeviceCredentialKind = Literal["psk", "jwk", "x509", "spiffe"]
 EnrollmentKind = Literal["claim", "bulk"]
 
 
@@ -363,3 +363,87 @@ class DeviceBundle:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DeviceBundle":
         return cls(token=data["token"], claims=dict(data.get("claims", {})))
+
+
+@dataclass
+class SpiffePresentation:
+    """An SVID handed to an admin route: an X.509 chain (PEM, leaf first) or a compact JWT-SVID."""
+
+    kind: Literal["x509", "jwt"]
+    chain: Optional[str] = None
+    token: Optional[str] = None
+
+    @classmethod
+    def x509(cls, chain: str) -> "SpiffePresentation":
+        return cls(kind="x509", chain=chain)
+
+    @classmethod
+    def jwt(cls, token: str) -> "SpiffePresentation":
+        return cls(kind="jwt", token=token)
+
+    def to_dict(self) -> Dict[str, Any]:
+        if self.kind == "jwt":
+            return {"kind": "jwt", "token": self.token}
+        return {"kind": "x509", "chain": self.chain}
+
+
+@dataclass
+class SpiffeSvid:
+    kind: Literal["x509", "jwt"]
+    expires_at: str
+    thumbprint: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SpiffeSvid":
+        return cls(
+            kind=data["kind"], expires_at=data["expiresAt"], thumbprint=data.get("thumbprint")
+        )
+
+
+@dataclass
+class SpiffePrincipal:
+    type: Literal["device", "agent"]
+    id: str
+    name: str
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SpiffePrincipal":
+        return cls(type=data["type"], id=data["id"], name=data["name"])
+
+
+@dataclass
+class SpiffeVerifyResult:
+    """Answer of a SPIFFE verification. ``code`` is ``"ok"`` or a failure code such as ``expired``."""
+
+    ok: bool
+    code: str
+    reason: Optional[str] = None
+    spiffe_id: Optional[str] = None
+    svid: Optional[SpiffeSvid] = None
+    principal: Optional[SpiffePrincipal] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SpiffeVerifyResult":
+        svid = data.get("svid")
+        principal = data.get("principal")
+        return cls(
+            ok=data["ok"],
+            code=data["code"],
+            reason=data.get("reason"),
+            spiffe_id=data.get("spiffeId"),
+            svid=SpiffeSvid.from_dict(svid) if svid else None,
+            principal=SpiffePrincipal.from_dict(principal) if principal else None,
+        )
+
+
+@dataclass
+class SpiffeIssuedToken:
+    """An agent token bound to an X.509-SVID (RFC 8705). ``token`` is returned once."""
+
+    agent_id: str
+    token: str
+    cnf: Dict[str, str] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SpiffeIssuedToken":
+        return cls(agent_id=data["agentId"], token=data["token"], cnf=dict(data.get("cnf") or {}))

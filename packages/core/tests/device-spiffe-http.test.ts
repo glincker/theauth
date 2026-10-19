@@ -19,6 +19,8 @@ let auth: TheAuth;
 let handler: (r: Request) => Promise<Response>;
 let admin: string;
 let agentRowId: string;
+let revokedRowId = "";
+const REVOKED_ID = "spiffe://example.org/ns/prod/sa/revoked";
 
 function leafFor(id: string) {
 	return pki.leaf({
@@ -68,7 +70,8 @@ beforeAll(async () => {
 				},
 				audience: [AUD],
 				trustedProxyHeader: "x-forwarded-client-cert",
-				resolveAgent: (id) => (id === AGENT_ID ? agentRowId : null),
+				resolveAgent: (id) =>
+					id === AGENT_ID ? agentRowId : id === REVOKED_ID ? revokedRowId : null,
 				rateLimit: { max: 1000 },
 			},
 		},
@@ -193,6 +196,131 @@ describe("admin routes", () => {
 			},
 		);
 		expect(res.status).toBe(404);
+	});
+});
+
+describe("admin route ownership", () => {
+	let eve: string;
+	let deviceId: string;
+
+	beforeAll(async () => {
+		await seedUser(auth, "eve");
+		eve = await sessionToken(auth, "eve");
+		const res = await post("/devices", { ownerId: "alice", name: "owned-by-alice" }, asAdmin());
+		deviceId = ((await res.json()).data as { device: { id: string } }).device.id;
+		await post(
+			`/devices/${deviceId}/spiffe`,
+			{ spiffeId: "spiffe://example.org/ns/prod/sa/alice-dev" },
+			asAdmin(),
+		);
+		const gone = await auth.agent.create({
+			ownerId: "alice",
+			name: "revoked",
+			type: "autonomous",
+			permissions: [],
+		});
+		revokedRowId = gone.id;
+		await auth.agent.revoke(gone.id);
+	});
+
+	const asEve = () => ({ authorization: `Bearer ${eve}` });
+
+	it("answers not found when a non-owner links an id to another owner's device", async () => {
+		const byId = await post(
+			`/devices/${deviceId}/spiffe`,
+			{ spiffeId: "spiffe://example.org/ns/prod/sa/hijack" },
+			asEve(),
+		);
+		expect(byId.status).toBe(404);
+		const bySvid = await post(
+			`/devices/${deviceId}/spiffe`,
+			{ presentation: { kind: "x509", chain: leafFor("spiffe://example.org/ns/prod/sa/h2").pem } },
+			asEve(),
+		);
+		expect(bySvid.status).toBe(404);
+		const unknown = await post(
+			"/devices/no-such-device/spiffe",
+			{ spiffeId: "spiffe://example.org/ns/prod/sa/x" },
+			asEve(),
+		);
+		expect(unknown.status).toBe(404);
+		const got = await call(`/devices/${deviceId}`, { headers: asAdmin() });
+		const creds = (await got.json()).data.credentials as Array<{ lookup: string }>;
+		expect(creds.some((c) => c.lookup.endsWith("/hijack") || c.lookup.endsWith("/h2"))).toBe(false);
+	});
+
+	it("hides another owner's mappings in admin verify", async () => {
+		const mine = await post(
+			"/devices/spiffe/verify",
+			{ kind: "x509", chain: leafFor("spiffe://example.org/ns/prod/sa/alice-dev").pem },
+			asAdmin(),
+		);
+		expect((await mine.json()).data).toMatchObject({ ok: true, principal: { type: "device" } });
+		const unknown = await post(
+			"/devices/spiffe/verify",
+			{ kind: "x509", chain: leafFor("spiffe://example.org/ns/prod/sa/nobody").pem },
+			asEve(),
+		);
+		const expected = (await unknown.json()).data;
+		for (const chain of [
+			leafFor("spiffe://example.org/ns/prod/sa/alice-dev").pem,
+			leafFor(AGENT_ID).pem,
+			leafFor(REVOKED_ID).pem,
+		]) {
+			const res = await post("/devices/spiffe/verify", { kind: "x509", chain }, asEve());
+			const data = (await res.json()).data;
+			expect(data).toMatchObject({ ok: false, code: "unknown_workload" });
+			expect(data.principal).toBeUndefined();
+			expect(data.reason).toBe(expected.reason);
+		}
+		const jwt = await post(
+			"/devices/spiffe/verify",
+			{ kind: "jwt", token: await jwtSvid(es, { sub: ROBOT, aud: AUD }) },
+			asEve(),
+		);
+		expect((await jwt.json()).data).toMatchObject({ ok: false, code: "unknown_workload" });
+	});
+
+	it("does not mint for a non-owner, and answers alike for a device or revoked agent", async () => {
+		const agent = await post("/devices/spiffe/token", { chain: leafFor(AGENT_ID).pem }, asEve());
+		expect(agent.status).toBe(404);
+		const device = await post(
+			"/devices/spiffe/token",
+			{ chain: leafFor("spiffe://example.org/ns/prod/sa/alice-dev").pem },
+			asEve(),
+		);
+		expect(device.status).toBe(404);
+		const revoked = await post(
+			"/devices/spiffe/token",
+			{ chain: leafFor(REVOKED_ID).pem },
+			asEve(),
+		);
+		expect(revoked.status).toBe(400);
+		expect((await revoked.json()).error.code).toBe("UNKNOWN_WORKLOAD");
+		const owner = await post(
+			"/devices/spiffe/token",
+			{ chain: leafFor(REVOKED_ID).pem },
+			asAdmin(),
+		);
+		expect((await owner.json()).error.code).toBe("PRINCIPAL_INACTIVE");
+	});
+
+	it("never trusts a chain in the body of the device route", async () => {
+		const res = await post("/device/spiffe/verify", {
+			kind: "x509",
+			chain: leafFor(ROBOT).pem,
+			presentation: { kind: "x509", chain: leafFor(ROBOT).pem },
+		});
+		expect(res.status).toBe(401);
+		const withHeader = await post(
+			"/device/spiffe/verify",
+			{ chain: leafFor(AGENT_ID).pem },
+			{ "x-forwarded-client-cert": encodeURIComponent(leafFor(ROBOT).pem) },
+		);
+		expect((await withHeader.json()).data).toMatchObject({
+			spiffeId: ROBOT,
+			principal: { type: "device" },
+		});
 	});
 });
 

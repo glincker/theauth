@@ -89,6 +89,9 @@ from theauth.devices import (
     EnrollmentToken,
     EnrollmentTokenInput,
     RegisterDeviceInput,
+    SpiffeIssuedToken,
+    SpiffePresentation,
+    SpiffeVerifyResult,
     UpdateDeviceInput,
 )
 from theauth.dpop import DPoPAuth, DPoPProver, normalize_htu
@@ -220,6 +223,9 @@ __all__ = [
     "EnrollmentToken",
     "EnrollmentTokenInput",
     "RegisterDeviceInput",
+    "SpiffeIssuedToken",
+    "SpiffePresentation",
+    "SpiffeVerifyResult",
     "UpdateDeviceInput",
     # Types
     "Agent",

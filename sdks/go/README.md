@@ -381,6 +381,24 @@ _, _ = client.Devices.Suspend(ctx, reg.Device.ID, "stolen")
 
 `DeviceAssertionSigner` builds the `device-assertion+jwt` the server verifies (ES256, a fresh `jti` each time, `aud` `theauth`, lifetime up to 300 seconds). Pass it, a `DevicePSK` or a `DeviceToken` as the credential of `Device.Authorize` and `Device.Bundle`. A signer signs a new assertion on every call, which the server's one time `jti` rule needs. `Devices.IssueBundle` and `Device.Bundle` return the signed offline policy bundle for devices that cannot call home. `JWKCredential` refuses a private JWK before it leaves the process.
 
+### SPIFFE
+
+With `devices.spiffe` set on the server, the admin calls cover the four SPIFFE routes:
+
+```go
+check, _ := client.Devices.SPIFFEVerify(ctx, theauth.SPIFFEX509(chainPEM)) // mints nothing
+cred, _ := client.Devices.LinkSPIFFEID(ctx, deviceID, "spiffe://example.org/ns/prod/sa/pump")
+issued, _ := client.Devices.SPIFFEToken(ctx, chainPEM) // token bound to the certificate (RFC 8705)
+
+// Device side, with a JWT-SVID. A refused SVID is an *ErrAuthentication, Code is the failure code.
+me, err := client.Device.SPIFFEVerify(ctx, jwtSVID)
+```
+
+A failed admin check is a result (`check.OK` false, `check.Code` says why), not an error. A
+mapping owned by another user reads as `unknown_workload`. `LinkSPIFFEPresentation` links the
+id of a verified SVID instead. An X.509-SVID cannot go to `Device.SPIFFEVerify`: the server
+takes it from the TLS handshake, never from the body.
+
 ## Error handling
 
 All API errors implement the `error` interface and can be type-checked:

@@ -150,6 +150,10 @@ Where the SVID of `/device/spiffe/verify` comes from is a security decision, so 
 - `trustedProxyHeader` is off by default. Turn it on only when a reverse proxy verifies the handshake and overwrites that header on every request, and when the service cannot be reached around the proxy. nginx `$ssl_client_escaped_cert` (URL encoded PEM) and plain PEM both work. The header is capped at 32 KB.
 - The two admin routes that take a chain in the body are for operators. The token a chain produces is bound to the certificate (`cnf` `x5t#S256`), so a leaked chain alone cannot use it.
 
+The admin routes only act on principals you own. A device or agent that belongs to another user is answered as not found by `POST /devices/:id/spiffe` and `POST /devices/spiffe/token`, and `POST /devices/spiffe/verify` reports it as `unknown_workload` with the same text as an id nobody mapped, so the answer does not tell you whether the mapping exists. A mapped agent that is revoked or expired is hidden the same way from anyone but its owner.
+
+The Python and Go clients wrap all four routes: `client.devices.spiffe_verify`, `spiffe_token`, `link_spiffe` and `client.device.spiffe_verify` in Python, `Devices.SPIFFEVerify`, `SPIFFEToken`, `LinkSPIFFEID` and `Device.SPIFFEVerify` in Go. See the READMEs in `sdks/python` and `sdks/go`.
+
 Everything else fails closed: an unconfigured bridge answers 404, an unmapped or inactive principal is refused, and a storage error counts as over the rate limit. `POST /devices/spiffe/token` refuses a device (devices have no bearer token) and a JWT-SVID (no key to bind). Every SPIFFE route is limited per client IP (default 60 per 60 seconds, answer 429 with `Retry-After`). The `rateLimit()` plugin also knows these paths under the key `deviceSpiffe`.
 
 ## Audit
