@@ -34,9 +34,9 @@
     "@hono/node-server": "^1.19.15"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
-    "tsup": "^8.4.0",
-    "typescript": "^6.0.3"
+    "@types/node": "^26.6.5",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2"
   },
   "keywords": [
     "theauth",

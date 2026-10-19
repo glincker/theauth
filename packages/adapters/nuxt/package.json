@@ -44,8 +44,8 @@
     "@glinr/theauth": "workspace:*",
     "h3": "^1.15.11",
     "nuxt": "^3.21.10",
-    "tsup": "^8.4.0",
-    "typescript": "^6.0.3",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.11",
     "zod": "^3.24.0"
   },
