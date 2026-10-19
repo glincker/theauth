@@ -1,3 +1,4 @@
+import { databaseHooksFromConfig } from "../hooks/user-update-hooks.js";
 import { json, parseBody } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { PolarConfig } from "./polar.js";
@@ -10,7 +11,7 @@ export function polar(config: PolarConfig): TheAuthPlugin {
 		id: "theauth-polar",
 
 		async init(ctx): Promise<undefined> {
-			const module = createPolarModule(config, ctx.db);
+			const module = createPolarModule(config, ctx.db, databaseHooksFromConfig(ctx.config));
 
 			// POST /auth/polar/checkout
 			// Creates a Polar checkout session for the authenticated user.

@@ -12,6 +12,7 @@ import type { ResolvedUser } from "../auth/types.js";
 import { sha256 } from "../crypto/web-crypto.js";
 import { delegationChains, sessions } from "../db/schema.js";
 import { createDelegationModule } from "../delegation/delegation.js";
+import { databaseHooksFromConfig } from "../hooks/user-update-hooks.js";
 import { revokeDelegationResponse } from "../http/delegation-revoke.js";
 import { json } from "../plugin/helpers.js";
 import type { EndpointContext, PluginEndpoint, TheAuthPlugin } from "../plugin/types.js";
@@ -89,6 +90,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 				db,
 				ctx.sessionManager,
 				ctx.revocations,
+				databaseHooksFromConfig(ctx.config),
 			);
 			const approvals = createApprovalModule(config.approval ?? {}, db);
 			const delegations = createDelegationModule({ db, revocations: ctx.revocations });

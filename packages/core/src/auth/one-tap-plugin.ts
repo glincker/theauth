@@ -30,6 +30,7 @@ export function oneTap(config: OneTapConfig): TheAuthPlugin {
 				sessionManager,
 				ctx.signInGate,
 				databaseHooks,
+				databaseHooks,
 			);
 
 			// POST /auth/one-tap/callback

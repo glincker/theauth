@@ -10,7 +10,7 @@
  * });
  *
  * // Use via plugin
- * import { oneTap } from '@glinr/theauth/auth';
+import { oneTap } from '@glinr/theauth/auth';
  * // plugins: [oneTap({ clientId: process.env.GOOGLE_CLIENT_ID })]
  *
  * // Or use the module directly
@@ -25,6 +25,8 @@ import type { Database } from "../db/database.js";
 import type { IdSource } from "../db/id-generation.js";
 import { defaultIdSource } from "../db/id-generation.js";
 import { users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { SessionManager } from "../session/session.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
@@ -103,6 +105,7 @@ export function createOneTapModule(
 	sessionManager: SessionManager,
 	signInGate?: SignInGate,
 	ids: IdSource = defaultIdSource(),
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): OneTapModule {
 	const gate = signInGate ?? createSignInGate({ db });
 	const autoCreateUser = config.autoCreateUser ?? true;
@@ -164,17 +167,39 @@ export function createOneTapModule(
 		const id = ids.newId("user");
 		const now = new Date();
 
+		let storedEmail = googleUser.email;
+		let storedName: string | null = googleUser.name;
+		let storedMetadata: Record<string, unknown> | null = null;
+		if (databaseHooks.has("user", "create")) {
+			const hooked = await databaseHooks.before("user", "create", {
+				id,
+				email: storedEmail,
+				name: storedName,
+				metadata: null,
+			});
+			storedEmail = hooked.email;
+			storedName = hooked.name;
+			storedMetadata = hooked.metadata;
+		}
+
 		await db.insert(users).values({
 			id,
-			email: googleUser.email,
-			name: googleUser.name,
+			email: storedEmail,
+			name: storedName,
+			...(storedMetadata ? { metadata: storedMetadata } : {}),
 			externalId: googleUser.sub,
 			externalProvider: "google",
 			createdAt: now,
 			updatedAt: now,
 		});
+		await databaseHooks.after("user", "create", {
+			id,
+			email: storedEmail,
+			name: storedName,
+			metadata: storedMetadata,
+		});
 
-		return { id, email: googleUser.email };
+		return { id, email: storedEmail };
 	}
 
 	function getCsrfCookie(request: Request): string | null {

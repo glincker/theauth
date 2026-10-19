@@ -29,6 +29,8 @@ import type { Database } from "../db/database.js";
 import type { IdSource } from "../db/id-generation.js";
 import { defaultIdSource } from "../db/id-generation.js";
 import { usernameAccounts, users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { SessionManager } from "../session/session.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import type { TrustedProxyConfig } from "./client-ip.js";
@@ -72,6 +74,8 @@ export interface UsernameAuthDeps {
 	logger?: LockoutLogger;
 	/** Source for new user ids (`advanced.database.generateId`). Default: random UUIDs. */
 	ids?: IdSource;
+	/** Database hooks for user create. Default: none. */
+	databaseHooks?: DatabaseHookRunner;
 }
 
 export interface UsernameAuthModule {
@@ -125,6 +129,7 @@ export function createUsernameAuthModule(
 	deps?: UsernameAuthDeps,
 ): UsernameAuthModule {
 	const ids = deps?.ids ?? defaultIdSource();
+	const databaseHooks = deps?.databaseHooks ?? createDatabaseHookRunner(undefined);
 	const lockout: LoginLockout | null =
 		config.lockout === false || lockoutDisabledByEnv()
 			? null
@@ -199,12 +204,34 @@ export function createUsernameAuthModule(
 		const userId = ids.newId("user");
 		const passwordHash = await hashPassword(input.password, iterationTarget);
 
+		let storedEmail = `${normalisedUsername}@username.local`;
+		let storedName: string | null = input.name ?? null;
+		let storedMetadata: Record<string, unknown> | null = null;
+		if (databaseHooks.has("user", "create")) {
+			const hooked = await databaseHooks.before("user", "create", {
+				id: userId,
+				email: storedEmail,
+				name: storedName,
+				metadata: null,
+			});
+			storedEmail = hooked.email;
+			storedName = hooked.name;
+			storedMetadata = hooked.metadata;
+		}
+
 		await db.insert(users).values({
 			id: userId,
-			email: `${normalisedUsername}@username.local`,
-			name: input.name ?? null,
+			email: storedEmail,
+			name: storedName,
+			...(storedMetadata ? { metadata: storedMetadata } : {}),
 			createdAt: now,
 			updatedAt: now,
+		});
+		await databaseHooks.after("user", "create", {
+			id: userId,
+			email: storedEmail,
+			name: storedName,
+			metadata: storedMetadata,
 		});
 
 		await db.insert(usernameAccounts).values({

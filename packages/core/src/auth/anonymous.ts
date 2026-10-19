@@ -19,6 +19,9 @@ import type { Database } from "../db/database.js";
 import type { IdSource } from "../db/id-generation.js";
 import { defaultIdSource } from "../db/id-generation.js";
 import { sessions, users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
+import { withUserUpdate } from "../hooks/user-update-hooks.js";
 import type { SessionManager } from "../session/session.js";
 
 export interface AnonymousAuthConfig {
@@ -48,6 +51,7 @@ export function createAnonymousAuthModule(
 	db: Database,
 	sessionManager: SessionManager,
 	ids: IdSource = defaultIdSource(),
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): AnonymousAuthModule {
 	const sessionTtlSeconds = config.sessionTtlSeconds ?? DEFAULT_SESSION_TTL_SECONDS;
 
@@ -55,13 +59,35 @@ export function createAnonymousAuthModule(
 		const userId = ids.newId("user");
 		const now = new Date();
 
+		let storedEmail = `anon_${userId}@${ANONYMOUS_EMAIL_DOMAIN}`;
+		let storedName: string | null = null;
+		let storedMetadata: Record<string, unknown> = { anonymous: true };
+		if (databaseHooks.has("user", "create")) {
+			const hooked = await databaseHooks.before("user", "create", {
+				id: userId,
+				email: storedEmail,
+				name: null,
+				metadata: storedMetadata,
+			});
+			storedEmail = hooked.email;
+			storedName = hooked.name;
+			// The anonymous flag decides who may upgrade this user, a hook cannot drop it.
+			storedMetadata = { ...(hooked.metadata ?? {}), anonymous: true };
+		}
+
 		await db.insert(users).values({
 			id: userId,
-			email: `anon_${userId}@${ANONYMOUS_EMAIL_DOMAIN}`,
-			name: null,
-			metadata: { anonymous: true },
+			email: storedEmail,
+			name: storedName,
+			metadata: storedMetadata,
 			createdAt: now,
 			updatedAt: now,
+		});
+		await databaseHooks.after("user", "create", {
+			id: userId,
+			email: storedEmail,
+			name: storedName,
+			metadata: storedMetadata,
 		});
 
 		const { token } = await sessionManager.create(userId, {
@@ -100,15 +126,19 @@ export function createAnonymousAuthModule(
 		void _anon;
 		const updatedMetadata: Record<string, unknown> = rest;
 
-		await db
-			.update(users)
-			.set({
-				email: upgrade.email,
-				name: upgrade.name ?? null,
-				metadata: Object.keys(updatedMetadata).length > 0 ? updatedMetadata : null,
-				updatedAt: new Date(),
-			})
-			.where(eq(users.id, anonymousUserId));
+		const nextMetadata = Object.keys(updatedMetadata).length > 0 ? updatedMetadata : null;
+		await withUserUpdate(
+			databaseHooks,
+			db,
+			anonymousUserId,
+			{ email: upgrade.email, name: upgrade.name ?? null, metadata: nextMetadata },
+			async (hooked) => {
+				await db
+					.update(users)
+					.set({ updatedAt: new Date(), ...hooked })
+					.where(eq(users.id, anonymousUserId));
+			},
+		);
 	}
 
 	async function isAnonymous(userId: string): Promise<boolean> {

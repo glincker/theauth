@@ -1,3 +1,4 @@
+import { databaseHooksFromConfig } from "../hooks/user-update-hooks.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { ScimConfig } from "./scim.js";
 import { createScimModule } from "./scim.js";
@@ -31,7 +32,12 @@ export function scim(config: ScimConfig): TheAuthPlugin {
 		id: "theauth-scim",
 
 		async init(ctx): Promise<undefined> {
-			const module = createScimModule(config, ctx.db, ctx.revocations);
+			const module = createScimModule(
+				config,
+				ctx.db,
+				ctx.revocations,
+				databaseHooksFromConfig(ctx.config),
+			);
 
 			// We register a single catch-all GET handler per method and let the
 			// module's internal router do path matching. The plugin endpoint

@@ -16,6 +16,9 @@
 import { eq, sql } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { agents, sessions, users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
+import { withUserUpdate } from "../hooks/user-update-hooks.js";
 import type { RevocationBus } from "../mcp/revocation-bus.js";
 import type { SessionManager } from "../session/session.js";
 import { createGdprModule } from "./gdpr.js";
@@ -83,6 +86,7 @@ export function createAdminModule(
 	db: Database,
 	sessionManager: SessionManager | null,
 	revocations?: RevocationBus | null,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): AdminModule {
 	const adminUserIds = new Set(config.adminUserIds ?? []);
 	const allowImpersonation = config.allowImpersonation ?? true;
@@ -183,15 +187,18 @@ export function createAdminModule(
 	}
 
 	async function banUser(userId: string, reason?: string, expiresAt?: Date): Promise<void> {
-		await db
-			.update(users)
-			.set({
-				banned: 1,
-				banReason: reason ?? null,
-				banExpiresAt: expiresAt ?? null,
-				updatedAt: new Date(),
-			})
-			.where(eq(users.id, userId));
+		await withUserUpdate(databaseHooks, db, userId, {}, async (hooked) => {
+			await db
+				.update(users)
+				.set({
+					...hooked,
+					banned: 1,
+					banReason: reason ?? null,
+					banExpiresAt: expiresAt ?? null,
+					updatedAt: new Date(),
+				})
+				.where(eq(users.id, userId));
+		});
 
 		// Revoke all active sessions for the banned user
 		await db.delete(sessions).where(eq(sessions.userId, userId));
@@ -208,15 +215,18 @@ export function createAdminModule(
 	}
 
 	async function unbanUser(userId: string): Promise<void> {
-		await db
-			.update(users)
-			.set({
-				banned: 0,
-				banReason: null,
-				banExpiresAt: null,
-				updatedAt: new Date(),
-			})
-			.where(eq(users.id, userId));
+		await withUserUpdate(databaseHooks, db, userId, {}, async (hooked) => {
+			await db
+				.update(users)
+				.set({
+					...hooked,
+					banned: 0,
+					banReason: null,
+					banExpiresAt: null,
+					updatedAt: new Date(),
+				})
+				.where(eq(users.id, userId));
+		});
 
 		await logAdminAction("system", "unban_user", userId);
 	}
@@ -269,10 +279,12 @@ export function createAdminModule(
 	}
 
 	async function forcePasswordReset(userId: string): Promise<void> {
-		await db
-			.update(users)
-			.set({ forcePasswordReset: 1, updatedAt: new Date() })
-			.where(eq(users.id, userId));
+		await withUserUpdate(databaseHooks, db, userId, {}, async (hooked) => {
+			await db
+				.update(users)
+				.set({ ...hooked, forcePasswordReset: 1, updatedAt: new Date() })
+				.where(eq(users.id, userId));
+		});
 
 		await logAdminAction("system", "force_password_reset", userId);
 	}

@@ -94,6 +94,8 @@ export function createMagicLinkModule(
 		const id = databaseHooks.newId("user");
 		const now = new Date();
 		let storedEmail = email;
+		let storedName: string | null = null;
+		let storedMetadata: Record<string, unknown> | null = null;
 		if (databaseHooks.has("user", "create")) {
 			const hooked = await databaseHooks.before("user", "create", {
 				id,
@@ -102,18 +104,22 @@ export function createMagicLinkModule(
 				metadata: null,
 			});
 			storedEmail = hooked.email;
+			storedName = hooked.name;
+			storedMetadata = hooked.metadata;
 		}
 		await db.insert(users).values({
 			id,
 			email: storedEmail,
+			name: storedName,
+			...(storedMetadata ? { metadata: storedMetadata } : {}),
 			createdAt: now,
 			updatedAt: now,
 		});
 		await databaseHooks.after("user", "create", {
 			id,
 			email: storedEmail,
-			name: null,
-			metadata: null,
+			name: storedName,
+			metadata: storedMetadata,
 		});
 
 		return { id, email: storedEmail };

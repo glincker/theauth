@@ -124,6 +124,7 @@ export function createHumanAuthModules(
 					storage: createSecondaryStorageResolver(config.secondaryStorage, db).for("rateLimit"),
 					logger: createObservability(config.observability, config.logger).logger,
 					ids: databaseHooks,
+					databaseHooks,
 				})
 			: null;
 
@@ -140,7 +141,13 @@ export function createHumanAuthModules(
 			: null;
 
 	const emailVerificationModule: EmailVerificationModule | null = config.emailVerification
-		? createEmailVerificationModule(config.emailVerification, db, oneTimeTokenModule, moduleDeps)
+		? createEmailVerificationModule(
+				config.emailVerification,
+				db,
+				oneTimeTokenModule,
+				moduleDeps,
+				databaseHooks,
+			)
 		: null;
 
 	const phoneModule: PhoneAuthModule | null =

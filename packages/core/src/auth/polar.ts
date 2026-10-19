@@ -3,7 +3,7 @@
  *
  * @example
  * ```typescript
- * import { createPolarModule } from '@glinr/theauth/auth';
+import { createPolarModule } from '@glinr/theauth/auth';
  *
  * const polar = createPolarModule({
  *   accessToken: process.env.POLAR_ACCESS_TOKEN!,
@@ -23,6 +23,9 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
+import { withUserUpdate } from "../hooks/user-update-hooks.js";
 
 export interface PolarConfig {
 	/** Polar access token */
@@ -174,7 +177,24 @@ async function verifyWebhookSignature(
 	return JSON.parse(payload) as PolarWebhookEvent;
 }
 
-export function createPolarModule(config: PolarConfig, db: Database): PolarModule {
+export function createPolarModule(
+	config: PolarConfig,
+	db: Database,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
+): PolarModule {
+	/** Billing columns changed by a provider call or webhook, wrapped in the user update hooks. */
+	async function updateUser(
+		userId: string,
+		set: Partial<typeof users.$inferInsert>,
+	): Promise<void> {
+		await withUserUpdate(databaseHooks, db, userId, {}, async (hooked) => {
+			await db
+				.update(users)
+				.set({ ...hooked, ...set })
+				.where(eq(users.id, userId));
+		});
+	}
+
 	const baseUrl = config.sandbox ? POLAR_SANDBOX_API_BASE : POLAR_API_BASE;
 
 	function api<T>(
@@ -206,17 +226,14 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 		const currentPeriodEnd = new Date(sub.current_period_end);
 		const status = sub.status as PolarSubscription["status"];
 
-		await db
-			.update(users)
-			.set({
-				polarSubscriptionId: sub.id,
-				polarSubscriptionStatus: sub.status,
-				polarProductId: sub.product_id,
-				polarCurrentPeriodEnd: currentPeriodEnd,
-				polarCancelAtPeriodEnd: sub.cancel_at_period_end,
-				updatedAt: new Date(),
-			})
-			.where(eq(users.id, userId));
+		await updateUser(userId, {
+			polarSubscriptionId: sub.id,
+			polarSubscriptionStatus: sub.status,
+			polarProductId: sub.product_id,
+			polarCurrentPeriodEnd: currentPeriodEnd,
+			polarCancelAtPeriodEnd: sub.cancel_at_period_end,
+			updatedAt: new Date(),
+		});
 
 		const info: PolarSubscription = {
 			id: sub.id,
@@ -234,17 +251,14 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 	}
 
 	async function clearSubscription(userId: string): Promise<void> {
-		await db
-			.update(users)
-			.set({
-				polarSubscriptionId: null,
-				polarSubscriptionStatus: "canceled",
-				polarProductId: null,
-				polarCurrentPeriodEnd: null,
-				polarCancelAtPeriodEnd: false,
-				updatedAt: new Date(),
-			})
-			.where(eq(users.id, userId));
+		await updateUser(userId, {
+			polarSubscriptionId: null,
+			polarSubscriptionStatus: "canceled",
+			polarProductId: null,
+			polarCurrentPeriodEnd: null,
+			polarCancelAtPeriodEnd: false,
+			updatedAt: new Date(),
+		});
 	}
 
 	async function handleSubscriptionCreatedOrUpdated(obj: Record<string, unknown>): Promise<void> {
@@ -268,10 +282,7 @@ export function createPolarModule(config: PolarConfig, db: Database): PolarModul
 		// Link the customer ID if not yet stored
 		const userRow = await getUserRow(userId);
 		if (userRow && !userRow.polarCustomerId && sub.customer_id) {
-			await db
-				.update(users)
-				.set({ polarCustomerId: sub.customer_id, updatedAt: new Date() })
-				.where(eq(users.id, userId));
+			await updateUser(userId, { polarCustomerId: sub.customer_id, updatedAt: new Date() });
 		}
 
 		await persistSubscription(userId, sub);

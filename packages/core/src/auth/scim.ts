@@ -19,6 +19,8 @@
 
 import { recordAuditEvent } from "../audit/record.js";
 import type { Database } from "../db/database.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { DatabaseHookError } from "../hooks/database-hooks.js";
 import type { RevocationBus } from "../mcp/revocation-bus.js";
 import {
 	handleBulk,
@@ -37,6 +39,7 @@ export function createScimModule(
 	config: ScimConfig,
 	db: Database,
 	revocations?: RevocationBus | null,
+	databaseHooks?: DatabaseHookRunner,
 ): ScimModule {
 	const { bearerToken, audit } = config;
 
@@ -74,7 +77,7 @@ export function createScimModule(
 		const [scheme, token] = authHeader.split(" ");
 		return scheme?.toLowerCase() === "bearer" && token === bearerToken;
 	}
-	const ctx: ScimHandlerContext = { db, config, writeScimAudit, revocations };
+	const ctx: ScimHandlerContext = { db, config, writeScimAudit, revocations, databaseHooks };
 	const {
 		handleListUsers,
 		handleGetUser,
@@ -93,7 +96,7 @@ export function createScimModule(
 		handleDeleteGroup,
 	} = createScimGroupHandlers(ctx);
 
-	async function handleRequest(request: Request): Promise<Response | null> {
+	async function dispatch(request: Request): Promise<Response | null> {
 		const url = new URL(request.url);
 		const pathname = url.pathname;
 
@@ -152,6 +155,18 @@ export function createScimModule(
 		}
 
 		return null;
+	}
+
+	/** A `before` hook that stops a write answers 403 instead of a 500. */
+	async function handleRequest(request: Request): Promise<Response | null> {
+		try {
+			return await dispatch(request);
+		} catch (err) {
+			if (err instanceof DatabaseHookError) {
+				return scimError("The request was rejected by a server hook", 403);
+			}
+			throw err;
+		}
 	}
 
 	return { handleRequest };

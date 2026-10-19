@@ -1,4 +1,5 @@
 import type { Database } from "../db/database.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { RevocationBus } from "../mcp/revocation-bus.js";
 
 export interface ScimConfig {
@@ -90,6 +91,8 @@ export interface ScimHandlerContext {
 	/** Pushed to when a user is deactivated or deprovisioned, so MCP tokens die everywhere. */
 	revocations?: RevocationBus | null;
 	config: ScimConfig;
+	/** Per-model database hooks. Optional so hand-built contexts keep compiling. */
+	databaseHooks?: DatabaseHookRunner;
 	writeScimAudit: (
 		action: string,
 		resource: string,

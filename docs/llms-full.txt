@@ -14788,6 +14788,10 @@ Where the SVID of `/device/spiffe/verify` comes from is a security decision, so 
 - `trustedProxyHeader` is off by default. Turn it on only when a reverse proxy verifies the handshake and overwrites that header on every request, and when the service cannot be reached around the proxy. nginx `$ssl_client_escaped_cert` (URL encoded PEM) and plain PEM both work. The header is capped at 32 KB.
 - The two admin routes that take a chain in the body are for operators. The token a chain produces is bound to the certificate (`cnf` `x5t#S256`), so a leaked chain alone cannot use it.
 
+The admin routes only act on principals you own. A device or agent that belongs to another user is answered as not found by `POST /devices/:id/spiffe` and `POST /devices/spiffe/token`, and `POST /devices/spiffe/verify` reports it as `unknown_workload` with the same text as an id nobody mapped, so the answer does not tell you whether the mapping exists. A mapped agent that is revoked or expired is hidden the same way from anyone but its owner.
+
+The Python and Go clients wrap all four routes: `client.devices.spiffe_verify`, `spiffe_token`, `link_spiffe` and `client.device.spiffe_verify` in Python, `Devices.SPIFFEVerify`, `SPIFFEToken`, `LinkSPIFFEID` and `Device.SPIFFEVerify` in Go. See the READMEs in `sdks/python` and `sdks/go`.
+
 Everything else fails closed: an unconfigured bridge answers 404, an unmapped or inactive principal is refused, and a storage error counts as over the rate limit. `POST /devices/spiffe/token` refuses a device (devices have no bearer token) and a JWT-SVID (no key to bind). Every SPIFFE route is limited per client IP (default 60 per 60 seconds, answer 429 with `Retry-After`). The `rateLimit()` plugin also knows these paths under the key `deviceSpiffe`.
 
 ## Audit
@@ -14931,6 +14935,10 @@ Environment: one process, Node 22.22.2, in-memory SQLite, Apple M4 Max with 36 G
 All 7 scenarios passed (about 12,000 checks). The process went from 62 MB to 66 MB of heap in use and from 144 MB to 501 MB resident, sampled at the end of the run without forcing a garbage collection, so the heap figure is a lower bound of the peak and the resident figure includes the SQLite database, 1000 key pairs and the in-memory stores. Setup took 1.2 seconds and the whole run 9.2 seconds.
 
 These are single runs. Rerun the command on your hardware before you plan capacity from it.
+
+## Go
+
+The kit is TypeScript only. There is no Go twin of the fleet runner, and the Go client (`sdks/go`) does not include one. A Go service that verifies bundles can be checked against the kit by feeding it the tokens the kit stored, as described below, and comparing decisions.
 
 ## Using it with your own verifier
 
@@ -17600,11 +17608,24 @@ Hooks never see OAuth access or refresh tokens. Session metadata keys that theAu
 
 | Model | Create | Update |
 | --- | --- | --- |
-| `user` | `theauth.user.create`, magic link, email OTP, phone and OAuth sign-up | Not wired yet |
+| `user` | `theauth.user.create`, magic link, email OTP, phone, OAuth, anonymous, username, Google One Tap and SCIM sign-up | Admin ban, unban and force password reset, additional fields, email verification, anonymous upgrade, SCIM replace, patch and deactivate, Stripe and Polar subscription writes |
 | `session` | `sessions.create`, including the new session of a refresh | `recordAuth` (step-up) |
 | `account` | `linkAccount` when a provider account is linked | Token refresh on a repeat sign-in, and a repeat `linkAccount` |
 
-Writes that are internal bookkeeping do not fire hooks: the idle activity stamp on a session, a pending OAuth row that has no user yet, and revocation deletes. Other user creation paths (anonymous, username, one tap, SCIM, importers) do not fire user hooks yet.
+On a user update, `before` sees the row as it would be stored. A write that changes other columns (the ban flag, a billing column) still shows the hook the same four fields, and anything the hook replaces is written along with the change. Replacing `email` on an anonymous upgrade or a SCIM write is checked against the unique index like any other email.
+
+Two paths keep the hook's say limited so a hook cannot break sign-in. Phone sign-up always keeps the phone number in `metadata`, and anonymous sign-up always keeps the `anonymous` flag.
+
+### What does not fire hooks
+
+These writes are deliberate bypasses, not gaps.
+
+- **Bookkeeping.** The idle activity stamp on a session, a pending OAuth row that has no user yet, the `forcePasswordReset` flag cleared by a completed password change, and revocation deletes.
+- **GDPR erasure.** `gdpr.deleteUser` (and `admin.deleteUser`, which calls it) and the erasure marker and tombstone rows it writes. An erasure request has to complete, so a hook can neither veto it nor rewrite what it leaves behind. Hard deletes are not hook operations in any path, including a SCIM DELETE with `autoDeactivateUsers` off.
+- **Importers.** `theauth migrate` and the importer stores insert and update users directly, in bulk, with the ids of the source system. They do not call hooks. If you need a check on imported users, run it over the table afterwards.
+- **Dev tooling.** `theauth dev` and the demo server seed users directly.
+
+Writes that bypass hooks on purpose never fire `after` either, so do not rely on `user.create.after` to see every row in `theauth_users`.
 
 ## Failure behavior
 
@@ -17622,7 +17643,8 @@ Magic link tokens, OTP codes, OAuth state and refresh rotation all consume somet
 
 - A `before` hook runs ahead of the write it guards. If it aborts, nothing else was changed: a session `before` abort does not evict another session when `maxConcurrent` is set, and a refresh that is aborted leaves the old session usable.
 - An `after` hook fires only for the caller that won. A refresh fires `session.create.after` once the old session has been claimed, so a refresh that loses the race fires nothing.
-- A `before` hook that aborts a sign-up that already consumed a code (for example an OTP verify that creates the user) leaves that code consumed. The user retries with a new code.
+- A `before` hook that aborts a sign-up that already consumed a code (for example an OTP verify that creates the user) leaves that code consumed. The user retries with a new code. This is deliberate: the claim has to happen first so that only one caller can win, and putting the hook ahead of it would let a slow or hostile hook hold a code open for a second guess. Under concurrent verifies of one code, the hook runs once, for the caller that won the claim.
+- A SCIM request or billing webhook stopped by a `before` hook changes nothing. SCIM answers 403. A Stripe or Polar webhook answers 500, so the provider retries the event until your hook lets it through.
 
 Run slow work (email, webhooks, analytics) in `after`, and keep `before` to quick checks.
 

@@ -30,6 +30,9 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
+import { withUserUpdate } from "../hooks/user-update-hooks.js";
 import type { AuthError, Result, TheAuthError } from "../mcp/types.js";
 import { normalizeEmail } from "./normalize-email.js";
 import type { OneTimeTokenModule } from "./one-time-token.js";
@@ -85,6 +88,7 @@ export function createEmailVerificationModule(
 	db: Database,
 	tokenModule: OneTimeTokenModule,
 	deps: ModuleRequestDeps = {},
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): EmailVerificationModule {
 	const tokenTtl = config.tokenTtlSeconds ?? DEFAULT_TOKEN_TTL_SECONDS;
 
@@ -178,10 +182,12 @@ export function createEmailVerificationModule(
 			resolvedUserId = user.id;
 		}
 
-		await db
-			.update(users)
-			.set({ emailVerified: 1, updatedAt: new Date() })
-			.where(eq(users.id, resolvedUserId));
+		await withUserUpdate(databaseHooks, db, resolvedUserId, {}, async (hooked) => {
+			await db
+				.update(users)
+				.set({ ...hooked, emailVerified: 1, updatedAt: new Date() })
+				.where(eq(users.id, resolvedUserId));
+		});
 
 		await tokenModule.revokeTokens(email, TOKEN_PURPOSE);
 
