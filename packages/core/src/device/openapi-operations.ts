@@ -12,6 +12,7 @@ import {
 	RegisteredDeviceSchema,
 	RevokedDeviceSchema,
 } from "./schemas.js";
+import { SpiffeIssuedTokenSchema, SpiffeVerifyResultSchema } from "./spiffe/schemas.js";
 
 const DEVICE_QUERY: QueryParam[] = [
 	{ name: "ownerId", description: "Only devices of this owner" },
@@ -138,6 +139,47 @@ export const DEVICE_OPERATIONS: Record<string, OperationMeta> = {
 			...NOT_FOUND,
 			400: "devices.bundleSigning is not configured",
 			409: "Device is not active",
+		},
+	},
+	"POST /device/spiffe/verify": {
+		operationId: "verifyDeviceSpiffe",
+		tag: "Device API",
+		status: 200,
+		response: SpiffeVerifyResultSchema,
+		errors: {
+			401: "SVID missing, invalid, expired, untrusted, or not mapped to an active device or agent",
+			404: "The SPIFFE bridge is not configured (devices.spiffe)",
+			429: "Rate limited",
+		},
+	},
+	"POST /devices/spiffe/verify": {
+		operationId: "verifySpiffeSvid",
+		tag: "Devices",
+		status: 200,
+		response: SpiffeVerifyResultSchema,
+		errors: { 404: "The SPIFFE bridge is not configured", 429: "Rate limited" },
+	},
+	"POST /devices/spiffe/token": {
+		operationId: "issueSpiffeAgentToken",
+		tag: "Devices",
+		status: 201,
+		response: SpiffeIssuedTokenSchema,
+		errors: {
+			400: "SVID refused, or the workload is not an agent",
+			404: "The SPIFFE bridge is not configured, or the agent is not yours",
+			429: "Rate limited",
+		},
+	},
+	"POST /devices/:id/spiffe": {
+		operationId: "linkDeviceSpiffe",
+		tag: "Devices",
+		status: 201,
+		response: DeviceCredentialSchema,
+		errors: {
+			...NOT_FOUND,
+			400: "Not a SPIFFE ID of a configured trust domain, or the SVID was refused",
+			409: "SPIFFE ID already linked or device revoked",
+			429: "Rate limited",
 		},
 	},
 	"POST /device/enroll": {

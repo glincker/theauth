@@ -1,3 +1,4 @@
+import { createIdSource } from "../db/id-generation.js";
 import { json, parseBody } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { AnonymousAuthConfig } from "./anonymous.js";
@@ -12,7 +13,12 @@ export function anonymousAuth(config?: AnonymousAuthConfig): TheAuthPlugin {
 				throw new Error("anonymousAuth plugin requires auth.session.secret to be configured");
 			}
 
-			const mod = createAnonymousAuthModule(config ?? {}, ctx.db, ctx.sessionManager);
+			const mod = createAnonymousAuthModule(
+				config ?? {},
+				ctx.db,
+				ctx.sessionManager,
+				createIdSource(ctx.config.advanced?.database?.generateId),
+			);
 
 			// POST /auth/anonymous
 			// Creates a new anonymous user and returns a session token.

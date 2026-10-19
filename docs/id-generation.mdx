@@ -1,0 +1,82 @@
+---
+title: ID generation
+description: Choose how ids of users, sessions and OAuth accounts are made with advanced.database.generateId. Random UUID by default, UUID v7 or your own function. Database generated ids are refused.
+icon: hashtag
+---
+
+By default theAuth gives every new user, session and OAuth account a random UUID (v4). `advanced.database.generateId` changes that for those three tables.
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const auth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
+  advanced: { database: { generateId: "uuidv7" } },
+});
+```
+
+## Options
+
+| Value | Result |
+|---|---|
+| `"uuid"` (default) | Random v4 UUID. |
+| `"uuidv7"` | Time ordered UUID v7, [RFC 9562 section 5.7](https://www.rfc-editor.org/rfc/rfc9562#name-uuid-version-7). |
+| `({ model }) => string` | Your own id. `model` is `"user"`, `"session"` or `"account"`. |
+
+A function can return a different shape per table:
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+import { ulid } from "ulid";
+
+const auth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
+  advanced: {
+    database: {
+      generateId: ({ model }) => (model === "user" ? `usr_${ulid()}` : crypto.randomUUID()),
+    },
+  },
+});
+```
+
+The function must be synchronous and return a new id on every call. theAuth checks each result: 1 to 191 characters from `A-Z a-z 0-9 _ - .`. Anything else throws `THEAUTH_ID_INVALID` before the insert. The 191 limit is the longest key MySQL indexes with `utf8mb4`, and the same limit is applied on every dialect so a database move does not break ids.
+
+## Why UUID v7
+
+Random UUIDs scatter inserts across the primary key index. A v7 id starts with a millisecond timestamp, so new rows land at the end of the index, which keeps pages full on Postgres and MySQL and makes `ORDER BY id` match creation order. theAuth's generator also keeps ids made in one millisecond in order (a 12 bit counter, RFC 9562 section 6.2 method 1) and never goes backwards when the clock steps back.
+
+A v7 id exposes the creation time of the row. Session ids are not secrets (the cookie is a signed JWT whose `sub` is the id), but if user creation times are sensitive in your product, keep `"uuid"` for users:
+
+```ts
+generateId: ({ model }) => (model === "user" ? crypto.randomUUID() : generateUuidV7())
+```
+
+`generateUuidV7` is exported from `@glinr/theauth`.
+
+## Database generated ids are refused
+
+Better Auth accepts `generateId: false` and `"serial"` to let the database assign ids. theAuth throws `THEAUTH_ID_UNSUPPORTED` at startup for both. The id columns are `TEXT` and every table that points at a user or session (agents, audit rows, organization members, tokens) stores the id as text, and theAuth must know an id before it writes the row that references it. Integer ids would need a different schema for every table. If you want ids you control, return them from a function.
+
+## Where it applies
+
+The option is used wherever theAuth creates a user, session or OAuth account row: `user.create`, sessions from every sign in path, anonymous users, username sign up, magic link, email OTP, phone, Google One Tap and OAuth sign up and account linking. An explicit `id` passed to `user.create` is kept as given.
+
+It does not change:
+
+- Rows whose id is a prefixed or derived value on purpose, such as SCIM users (`u_scim_...`), SSO providers (`sso_...`), importers and the GDPR erasure tombstone.
+- Agents, delegations, tokens, audit rows and the other tables, which keep random UUIDs.
+
+## Changing it on a live database
+
+Nothing is rewritten. Existing ids stay as they are, and only rows created after the change use the new generator, so a table can hold v4 ids, v7 ids and custom ids at once. All three fit the same `TEXT` column and compare as plain strings. Sorting by `id` is only creation order among rows made with `"uuidv7"`.
+
+If you also need old rows to carry the new shape, that is an application level migration: update the primary key and every referencing column in one transaction, with foreign key checks deferred. theAuth does not provide it, because the referencing tables depend on which plugins you enabled.
+
+## Errors
+
+| Code | When |
+|---|---|
+| `THEAUTH_ID_UNSUPPORTED` | `false`, `"serial"` or an unknown value. Thrown by `createTheAuth`. |
+| `THEAUTH_ID_INVALID` | A custom function returned a bad id. Thrown at the insert, before any row is written. |
+
+Both are `IdGenerationError` (exported from `@glinr/theauth`) with a `code` property.

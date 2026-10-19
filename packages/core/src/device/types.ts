@@ -1,6 +1,7 @@
 import type { JWK } from "jose";
 import type { Permission } from "../types.js";
 import type { IssuedRevocationSnapshot } from "./revocation.js";
+import type { DeviceSpiffeConfig } from "./spiffe/service.js";
 
 /** Algorithms a device key may use for assertions. RSA is refused (large keys, rare on constrained hardware). */
 export type DeviceKeyAlg = "ES256" | "ES384" | "EdDSA";
@@ -63,6 +64,10 @@ export interface DeviceConfig {
 	 * Return the `x5t#S256` thumbprint (RFC 8705 section 3.1) of the TLS client certificate for this request, or null. TLS ends at your proxy, so only you know it. Never read it from a header a client can set.
 	 */
 	clientCertThumbprint?: (request: Request) => string | null | Promise<string | null>;
+	/**
+	 * SPIFFE bridge and its HTTP routes (`/device/spiffe/verify`, `/devices/spiffe/*`). Off without it, and the routes answer 404. See docs/spiffe.mdx.
+	 */
+	spiffe?: DeviceSpiffeConfig;
 }
 
 export type DeviceStatus = "active" | "suspended" | "revoked";

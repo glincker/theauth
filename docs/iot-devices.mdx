@@ -382,6 +382,10 @@ Device facing routes (turn them off with `routes: { devices: false }`):
 | GET | `/device/bundle` | device credential |
 | GET | `/device/jwks` | none |
 
+With `devices.spiffe` set the handler also serves `POST /device/spiffe/verify`, and the admin routes `POST /devices/spiffe/verify`, `POST /devices/spiffe/token` and `POST /devices/:id/spiffe`. See [SPIFFE workload identity](/spiffe).
+
+To exercise bundles, snapshots, offline use, clock skew and revocation against a fleet of simulated devices, see the [device conformance kit](/device-conformance-kit).
+
 `/auth/device/*` is a different thing: the RFC 8628 flow where a person signs in on a TV or CLI.
 
 ## Resource names for device protocols

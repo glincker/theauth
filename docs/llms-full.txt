@@ -1696,7 +1696,8 @@ theAuth uses [Drizzle ORM](https://orm.drizzle.team) under the hood. You pick a 
 |----------|----------|
 | `sqlite` | Local dev and small single-process deploys. Runs on `sql.js` (SQLite compiled to WebAssembly), no native build step |
 | `sqlite-native` | Node.js servers that want the fastest SQLite. Uses `better-sqlite3`, which needs a native build |
-| `postgres` | Production, high-concurrency, multi-tenant |
+| `postgres` | Production, high-concurrency, multi-tenant. Also Supabase and, with a bring your own handle, Neon |
+| `libsql` | Turso and other libSQL servers, or a `file:` URL. See [Turso, Neon and Supabase](/hosted-databases) |
 | `mysql` | Not supported in this release. Throws unless `experimental: true` is set |
 | `d1` | Cloudflare Workers, using a D1 binding |
 
@@ -1928,6 +1929,7 @@ All table and column names use `snake_case`. IDs are `text`. Timestamps are inte
 | `sqlite` | `sql.js` (installed with core) |
 | `sqlite-native` | `better-sqlite3` |
 | `postgres` | `pg` |
+| `libsql` | `@libsql/client` |
 | `mysql` (not supported in this release) | `mysql2` |
 | `d1` | `drizzle-orm/d1` (a Cloudflare Workers binding, no extra install) |
 
@@ -2028,6 +2030,43 @@ Connection settings that `provider` applies for you become your job:
 
 `createTheAuth` returns your handle as `auth.db`, and plugins receive it as `ctx.db`, so it is the same object you passed in.
 
+## Hot path indexes
+
+Migration `0014` adds seven indexes that agent token lookup, the delegation walks, the hourly rate limit read and the pending approval list depend on. Without them each of those scans its whole table. If you own the schema and skip theAuth migrations, create them yourself. Keep the names, so a later run of the migration finds them and leaves them alone.
+
+| Index | Table | Columns |
+| --- | --- | --- |
+| `theauth_agents_token_hash` | `theauth_agents` | `token_hash` |
+| `theauth_agents_owner_status` | `theauth_agents` | `owner_id, status` |
+| `theauth_delegation_chains_to` | `theauth_delegation_chains` | `to_agent_id, status` |
+| `theauth_delegation_chains_from` | `theauth_delegation_chains` | `from_agent_id, status` |
+| `theauth_rate_limits_lookup` | `theauth_rate_limits` | `agent_id, resource, window_start` |
+| `theauth_approval_requests_status` | `theauth_approval_requests` | `status, created_at` |
+| `theauth_permissions_agent` | `theauth_permissions` | `agent_id` (SQLite and Postgres only) |
+
+The SQL for each dialect:
+
+```sql
+-- SQLite and Postgres
+CREATE INDEX IF NOT EXISTS theauth_agents_token_hash ON theauth_agents (token_hash);
+CREATE INDEX IF NOT EXISTS theauth_agents_owner_status ON theauth_agents (owner_id, status);
+CREATE INDEX IF NOT EXISTS theauth_delegation_chains_to ON theauth_delegation_chains (to_agent_id, status);
+CREATE INDEX IF NOT EXISTS theauth_delegation_chains_from ON theauth_delegation_chains (from_agent_id, status);
+CREATE INDEX IF NOT EXISTS theauth_rate_limits_lookup ON theauth_rate_limits (agent_id, resource, window_start);
+CREATE INDEX IF NOT EXISTS theauth_approval_requests_status ON theauth_approval_requests (status, created_at);
+CREATE INDEX IF NOT EXISTS theauth_permissions_agent ON theauth_permissions (agent_id);
+
+-- MySQL (TEXT columns need a prefix length; InnoDB already indexes the foreign key columns)
+CREATE INDEX theauth_agents_token_hash ON theauth_agents (token_hash(191));
+CREATE INDEX theauth_agents_owner_status ON theauth_agents (owner_id, status);
+CREATE INDEX theauth_delegation_chains_to ON theauth_delegation_chains (to_agent_id(191), status(16));
+CREATE INDEX theauth_delegation_chains_from ON theauth_delegation_chains (from_agent_id(191), status(16));
+CREATE INDEX theauth_rate_limits_lookup ON theauth_rate_limits (agent_id, resource(191), window_start);
+CREATE INDEX theauth_approval_requests_status ON theauth_approval_requests (status, created_at);
+```
+
+If you copy the table objects from `@glinr/theauth` into your own Drizzle schema, they already declare these indexes (SQLite dialect), so `drizzle-kit generate` emits them.
+
 ## Typed unique conflicts
 
 Several flows use a unique index as the tiebreaker: creating a user, appending to the audit chain, a second vote from the same approver, banning twice, MCP client and revocation inserts, erasure tombstones. They now map a driver error through `toStoreConflict`, which returns a `StoreConflictError` (exported from `@glinr/theauth`, with `code: "STORE_CONFLICT"`, `model` and the driver error as `cause`).
@@ -2072,6 +2111,118 @@ Add `peer` (a second instance with its own handle on the same database) to inclu
 
 ---
 
+# Turso, Neon and Supabase
+
+Source: https://docs.theauth.dev/hosted-databases
+
+These three hosted databases are not special cases in the schema. Turso speaks SQLite, Neon and Supabase speak Postgres, and theAuth already runs on both dialects. What changes is how you connect.
+
+| Host | How to connect | Needs |
+|---|---|---|
+| Turso or any libSQL | `provider: "libsql"` | `@libsql/client` |
+| Supabase | `provider: "postgres"` with a Supabase URL | `pg` |
+| Neon | `database: { drizzle, dialect: "postgres" }` with Neon's WebSocket `Pool` | `@neondatabase/serverless`, `ws` on older Node |
+
+## Turso and libSQL
+
+```bash
+pnpm add @glinr/theauth @libsql/client
+```
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const auth = await createTheAuth({
+  database: {
+    provider: "libsql",
+    url: process.env.TURSO_DATABASE_URL!, // libsql://my-db-my-org.turso.io
+    authToken: process.env.TURSO_AUTH_TOKEN!,
+  },
+});
+```
+
+`url` also takes `https://`, `wss://` and `file:./local.db`, so the same code runs against a local file in development. `authToken` is not needed for a `file:` URL. Tables are created on boot, and `skipMigrations: true` makes boot fail with `SchemaOutdatedError` if the schema is behind, like the other providers.
+
+libSQL is SQLite on the wire, so the schema is the SQLite one: ids are text and timestamps are integer epoch seconds. Foreign keys are on by default in the client. The `libsql` provider does not set `journal_mode` or `busy_timeout`, because those belong to the server. If you open a `file:` database from more than one process, set them yourself with a bring your own handle ([Bring your own Drizzle instance](/bring-your-own-drizzle)).
+
+Want your own client, for example an embedded replica with `syncUrl`? Pass it in:
+
+```ts
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
+
+const client = createClient({ url: "file:replica.db", syncUrl: process.env.TURSO_DATABASE_URL!, authToken: process.env.TURSO_AUTH_TOKEN! });
+const auth = await createTheAuth({ database: { drizzle: drizzle(client), dialect: "sqlite" } });
+```
+
+The embedded replica form was not run. Writes on a replica go to the primary, and theAuth reads straight after writing (single use tokens, refresh rotation), so check that your replica sync mode gives read your writes before you rely on it.
+
+## Supabase
+
+Supabase is Postgres. Use the `postgres` provider with a connection string from the dashboard's Connect dialog. Which string you use matters:
+
+| Mode | Port | Use it for |
+|---|---|---|
+| Direct | 5432 | A long running server with IPv6 or the IPv4 add-on. Run migrations here. |
+| Session pooler | 5432 | A long running server on an IPv4 only network. |
+| Transaction pooler | 6543 | Serverless and edge functions. |
+
+```ts
+const auth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.SUPABASE_DB_URL! },
+});
+```
+
+Supabase asks for SSL, because many drivers default to `prefer`, which can fall back to plain text. With the `pg` driver the exact spelling matters. In `pg` 8.20, the version this repository tests with, `sslmode=require` is an alias for `verify-full`, so `pg` checks the server certificate against your system certificate store, and a Supabase certificate chain can fail that check. Pick one:
+
+- Verify properly: download the root certificate from Database settings in the Supabase dashboard and use `?sslmode=verify-full&sslrootcert=/path/to/supabase-root.crt`.
+- Encrypt without verifying, which is what Supabase's own `require` does: `?uselibpqcompat=true&sslmode=require`.
+
+I did not run either against a real Supabase project. The alias behavior comes from running `pg-connection-string` 2.14.1 on those three URLs. The transaction pooler does not support prepared statements. theAuth never creates a named prepared statement, so nothing needs turning off. The suite below ran against a transaction mode pooler with prepared statements disabled and passed.
+
+Two things to know:
+
+- On serverless, keep the pool small. `provider: "postgres"` opens a `pg` pool with its default size, so a function that scales to many instances multiplies it. The transaction pooler absorbs that. If you need a size of one, use bring your own Drizzle with `new Pool({ connectionString, max: 1 })`.
+- Do not point theAuth at the `auth` schema or reuse Supabase Auth tables. theAuth creates its own `theauth_*` tables in `public`. Row Level Security is off on them, so do not expose them through the Data API: turn on RLS with no policies, or revoke access for the `anon` and `authenticated` roles. Your server connects as a role that bypasses RLS.
+
+## Neon
+
+Neon serves Postgres over TCP and over WebSocket. The WebSocket `Pool` from `@neondatabase/serverless` is a drop in for `pg`, and supports the interactive transactions theAuth uses. The HTTP driver (`neon-http`) does not support them, so do not use it.
+
+```bash
+pnpm add @glinr/theauth @neondatabase/serverless drizzle-orm
+```
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+import { Pool } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+const auth = await createTheAuth({
+  database: { drizzle: drizzle({ client: pool }), dialect: "postgres" },
+});
+```
+
+On Node 21 and older there is no global `WebSocket`. Install `ws` and set `neonConfig.webSocketConstructor = ws` before you create the pool. Node 22 has one built in.
+
+On an edge runtime a WebSocket cannot outlive the request. Create the pool and the instance inside the request handler and call `pool.end()` before you return, as Neon's driver docs describe. On a Node server, create them once.
+
+If you are on a Node server and do not need Neon's WebSocket driver, `provider: "postgres"` with the normal Neon connection string works as well. Use the pooled (`-pooler`) host on serverless.
+
+## What was run
+
+- **libSQL.** The store contract suite (`runStoreContract`, 14 checks) against a real libSQL file database, with the `libsql` provider and with a bring your own `drizzle-orm/libsql` handle. It covers 24 parallel callers on one single use row, unique conflicts, an audit chain written by two handles and the hourly budget. Plus a restart that keeps data, and `skipMigrations` on an existing and an empty database. Not run: a remote Turso database, `libsql://` and `wss://` URLs, embedded replicas.
+- **Supabase.** The same suite against local Postgres 14 behind PgBouncer 1.26 in transaction pooling mode with `max_prepared_statements = 0`, three runs, ten parallel callers. Not run: a real Supabase project, Supavisor, `sslmode=require` against Supabase's certificates.
+- **Neon.** A scratch project with the packed `@glinr/theauth`, `@neondatabase/serverless` 1.2.0 and `ws`, using the WebSocket `Pool` through a small local bridge from WebSocket frames to a local Postgres 14 (Neon's wire protocol is plain Postgres messages inside the frames). Migrations ran, a user, an agent and allow and deny decisions worked, and 24 parallel calls against a budget of 10 admitted no more than 10. Not run: a real Neon endpoint, so the `-pooler` host, cold starts and Neon's own proxy are untested. The Neon driver is not a dependency of this repository, so this is a manual check and not part of the test suite.
+
+The pooler suite is in `packages/core/tests/store-contract/pg-pooler.test.ts` and runs when `THEAUTH_TEST_PG_POOLER_URL` points at an empty database behind a transaction mode pooler.
+
+One behavior to expect behind any pooler: the hourly call budget reserves before it checks, so when a burst is larger than the budget it can refuse calls that would have fit. It never admits more than the budget. Under a pooler that interleaves the reservations, a burst of 24 calls against a budget of 10 admitted between one and three.
+
+---
+
 # Which storage should I pick
 
 Source: https://docs.theauth.dev/choose-storage
@@ -2090,7 +2241,7 @@ The default for the second one is process memory, which is correct on a laptop a
 | A laptop or CI job | `sqlite` with `:memory:` | memory (default) |
 | One long-lived Node server, one process | `postgres`, or `sqlite-native` for a small app | memory is fine; `"database"` if you want counters to survive a restart |
 | Several instances behind a load balancer | `postgres` | `"database"` (no new infrastructure) or Redis (more throughput) |
-| Vercel or another serverless host | `postgres` through a pooled connection string | `"database"` or Redis over HTTP such as Upstash. Never memory. |
+| Vercel or another serverless host | `postgres` through a pooled connection string (Supabase and Neon: see [Turso, Neon and Supabase](/hosted-databases)), or `libsql` for Turso | `"database"` or Redis over HTTP such as Upstash. Never memory. |
 | Cloudflare Workers | `d1` | `"database"` on D1 for anything that must be exact, KV only for soft limits |
 
 ## The database, in one paragraph each
@@ -2102,6 +2253,8 @@ The default for the second one is process memory, which is correct on a laptop a
 **`postgres`.** The default recommendation for anything with more than one instance or any real traffic. Needs the `pg` package. Use a pooler on serverless.
 
 **`mysql`.** Not supported in this release. `provider: "mysql"` throws `THEAUTH_MYSQL_UNSUPPORTED` unless you pass `experimental: true`. See [What is tested per database](#what-is-tested-per-database).
+
+**`libsql`.** SQLite served by libSQL: Turso, or a local `file:` URL. Needs `@libsql/client`. See [Turso, Neon and Supabase](/hosted-databases).
 
 **`d1`.** Cloudflare D1 through a Worker binding. Use it when the app lives on Workers. Pass the binding instead of a URL.
 
@@ -2115,10 +2268,11 @@ All providers share one versioned schema (`theauth_schema_migrations`, see [Data
 |----------|--------------|----------------|
 | `sqlite`, `sqlite-native` | Every test file, on every change (fresh create, upgrade from the 1.2.0 schema, stamped baseline, rerun, checksum mismatch, `skipMigrations`) | n/a |
 | `postgres` | Not yet | The dialect suite runs the full instance (users, sessions, agents, delegation, audit chain, MCP OAuth stores, GDPR erasure) against Postgres 14 when `THEAUTH_TEST_PG_URL` is set |
+| `libsql` | Not yet | The store contract suite (14 checks) against a real libSQL file, through the provider and through a bring your own handle. A remote Turso database is untested |
 | `mysql` | No | Not supported in this release |
 | `d1` | Not yet | Not yet. The generated SQLite SQL (`theauth db sql --dialect sqlite`) is applied with `skipMigrations: true` |
 
-> Postgres works through the `pg` driver. We run the full test suite against Postgres 14 by hand before each release; it is not in CI yet. Timestamps are stored as integer epoch seconds, the same as SQLite, so use `to_timestamp(created_at)` when you query the tables yourself. Other Postgres drivers (postgres.js, Neon serverless, PGlite) are not supported yet.
+> Postgres works through the `pg` driver. We run the full test suite against Postgres 14 by hand before each release; it is not in CI yet. Timestamps are stored as integer epoch seconds, the same as SQLite, so use `to_timestamp(created_at)` when you query the tables yourself. The store contract also ran behind a transaction mode pooler (PgBouncer) and, through a bring your own handle, on Neon's WebSocket driver against a local Postgres (see [Turso, Neon and Supabase](/hosted-databases)). Other Postgres drivers (postgres.js, PGlite) are not supported yet.
 >
 > MySQL is not supported in this release. `provider: "mysql"` throws unless you pass `experimental: true`, and even then the baseline schema does not apply on a real server. We will turn it on once the same suite passes on MySQL 8.4.
 
@@ -2230,6 +2384,135 @@ That script builds `@glinr/theauth`, runs `node --expose-gc benchmarks/run.mjs -
 - Table sizes grow during a run, which affects operations that scan.
 
 See [scale and architecture notes](https://github.com/glincker/theauth/blob/main/docs/scale-and-architecture.md) for the code paths these scenarios were written to test.
+
+---
+
+# Performance
+
+Source: https://docs.theauth.dev/performance
+
+These numbers come from one laptop, taken while other work was running on it. They show what changed between two builds of the same code. They are not a throughput claim for your deployment, and nothing here compares TheAuth with anything else. The general benchmark harness is described on [Benchmarks](/benchmarks); this page covers the micro benchmarks and the profile driven fixes.
+
+## Where the numbers come from
+
+| | |
+| --- | --- |
+| Machine | Apple M4 Max, 14 cores, 36 GB, macOS (Darwin 27.2) |
+| Node | 22.22.2 |
+| Database | SQLite through better-sqlite3 (file and in memory) |
+| Load | The load average was about 14 during the runs, so wall clock timings were noisy |
+| Before | The source tree as it was before the changes, rebuilt from a copy |
+| After | The same entry points built from the current source |
+
+Both sides are bundled with esbuild from source, not from `dist`, so a stale build cannot skew a run. `benchmarks/micro-build.mjs` builds either tree.
+
+### How medians and noise are stated
+
+Each micro benchmark is timed in batches. One run is the median over 9 batches. A result on this page is the median of several runs, with the lowest and highest run in brackets, and the run order alternated between before and after.
+
+Wall clock was too noisy on a busy laptop (the same case moved by 30 to 50 percent between rounds, and some crypto cases swung by more than the change being measured). The micro benchmark tables below therefore use `--clock cpu`, which counts process CPU time (user plus system, all threads). With it the spread between runs was under 10 percent for most cases, and the brackets show it. The database timings are wall clock per operation; their brackets are wider and are shown too.
+
+## What the profiles showed
+
+`node --cpu-prof` on the existing authorize scenario put roughly half of the self time in drizzle query building and the SQLite driver, so the first lever was the number and cost of queries, not the matcher. `EXPLAIN QUERY PLAN` then showed full table scans on lookups that every authorize and token check makes. In the micro benchmarks, the top self costs were `TextEncoder.encode` (inside the key sort of the approval hash), a fresh `importKey` per call for HMAC secrets, and a fresh JWKS import per device bundle verify.
+
+## Results
+
+### Database paths
+
+SQLite file, 50,000 agents with 4 permissions each, one delegation link each (a third revoked), 7 runs per setting, 3 rounds. Milliseconds per operation, median with the lowest and highest round.
+
+| Operation | Before | After | Change |
+| --- | --- | --- | --- |
+| `authorize`, direct permission | 4.10 (4.07 to 4.16) | 0.077 (0.075 to 0.077) | 53x |
+| `authorize`, three hop delegation chain | 9.88 (9.80 to 9.90) | 0.36 (0.36 to 0.38) | 27x |
+| `agent.validateToken` style lookup by token hash | 5.33 (5.30 to 5.35) | 0.12 (0.115 to 0.117) | 46x |
+| Admin pending approvals list, 100 quorum requests | 2.29 (2.29 to 2.34) | 0.51 (0.50 to 0.53) | 4.5x |
+
+The wall clock spread inside a round reached 20 to 60 percent for some of these on the loaded machine, but the before and after ranges do not overlap. The cause is the new migration `0014-hot-path-indexes`. Without indexes, SQLite and Postgres scan `theauth_agents` (by `token_hash`), `theauth_permissions` (by `agent_id`), `theauth_delegation_chains` and `theauth_rate_limits` on every call, so the cost grows with table size. MySQL already indexes foreign key columns, so it only gets the composite and `token_hash` indexes. Databases with the MCP module enabled already had the two delegation chain indexes from migration 0007; on a 5,000 row table with MCP on, a direct `authorize` went from 0.52 to 0.076 ms and a three hop chain from 0.86 to 0.36 ms (single round, noisy).
+
+Reproduce with:
+
+```bash
+node benchmarks/micro-build.mjs packages/core/.bench/after.mjs
+node benchmarks/scale.mjs --entry packages/core/.bench/after.mjs --rows 50000 --runs 7
+node benchmarks/scale.mjs --entry packages/core/.bench/after.mjs --rows 50000 --runs 7 --drop-indexes
+```
+
+The last command removes the new indexes after boot, which shows what they are worth on the current code.
+
+### The standard harness, small tables
+
+`benchmarks/run.mjs` (profile `smoke`, better-sqlite3 in memory, 3,000 iterations, p50, median of 5 runs). Tables here are small, so the index effect is mostly absent and the gains come from fewer queries.
+
+| Scenario | Before (ms) | After (ms) | Change |
+| --- | --- | --- | --- |
+| `agent.validateToken` (database lookup and last active write) | 0.448 | 0.097 | 4.6x |
+| `agent.rotate` | 0.265 | 0.110 | 2.4x |
+| `agent.create`, fresh owner | 0.215 | 0.110 | 2.0x |
+| `agent.create`, one owner with a growing agent count | 1.85 | 1.84 | unchanged |
+| `authorize`, delegation depth 1, 2, 3 (audit off) | 0.205, 0.282, 0.358 | 0.170, 0.244, 0.315 | 1.14x to 1.21x |
+| `authorize`, delegation depth 1, 2, 3 (audit row per call) | 0.252, 0.334, 0.411 | 0.214, 0.290, 0.361 | 1.14x to 1.18x |
+| `authorize`, direct permission | 0.067 to 0.115 | 0.067 to 0.114 | unchanged |
+| `simulate`, depth 1, 2, 3 | 0.205 to 0.407 | 0.175 to 0.364 | 1.12x to 1.17x |
+| JWT `verifySession` (stateless) | 0.022 | 0.022 | unchanged |
+
+The delegation gain comes from reading each agent's inbound links once (the liveness walk used to run one query for the live links and a second one for every link ever received) and from reading an agent and its permissions together.
+
+### CPU hot paths, no database
+
+Nanoseconds per operation (CPU time), median of 3 rounds of 9 batches, lowest and highest round in brackets.
+
+| Case | Before | After | Change |
+| --- | --- | --- | --- |
+| Colon match, 50 permissions, hit on the last one | 4,350 (4,290 to 4,762) | 1,842 (1,621 to 1,857) | 2.4x |
+| Colon match, 50 permissions, no match | 4,330 (4,268 to 4,683) | 1,847 (1,603 to 1,869) | 2.3x |
+| Path match, one `*` glob hit | 512 (512 to 515) | 136 (134 to 146) | 3.8x |
+| Path match, deep `**` hit | 1,077 (1,074 to 1,079) | 669 (656 to 680) | 1.6x |
+| Path match, glob miss | 1,374 (1,372 to 1,386) | 695 (682 to 697) | 2.0x |
+| Approval hash canonical JSON, 20 row payload | 38,556 (35,038 to 39,820) | 10,884 (10,740 to 12,374) | 3.5x |
+| Device bundle verify (JWKS object) | 92,650 (91,955 to 92,675) | 63,530 (63,205 to 64,405) | 1.5x |
+| Device bundle sign | 73,530 (71,510 to 78,040) | 42,560 (40,760 to 43,260) | 1.7x |
+| MCP `validateAccessToken`, HS256, offline mode | 24,250 (23,680 to 27,815) | 18,995 (18,455 to 20,300) | 1.3x |
+| MCP `validateAccessToken`, HS256, cached mode | 26,155 (24,670 to 27,160) | 20,965 (18,670 to 21,220) | 1.25x |
+| MCP `validateAccessToken`, HS256, live mode, 5,000 entry denylist | 26,770 (24,165 to 33,920) | 18,935 (18,240 to 20,130) | 1.4x |
+| Stateless session `getSession` | 20,012 (19,992 to 23,261) | 14,145 (13,866 to 15,036) | 1.4x |
+| DPoP proof verify (ES256) | 123,155 (119,765 to 126,445) | 120,880 (119,815 to 123,025) | no change |
+| Device bundle offline decision | 120 (119 to 122) | 128 (126 to 131) | about 7 percent slower |
+
+Two honest notes. The DPoP proof carries a new public key every time, so there is no key to cache and nothing changed. The offline bundle decision with two permissions got a few nanoseconds slower, because the new colon matcher pays a little more than `split` on very short inputs; it wins as soon as a list has more than a handful of entries.
+
+The MCP validation figures use the HMAC secret path with a fake revocation store holding 5,000 denylist entries. The revocation lookup itself is a set or indexed read and was not the cost in any mode; the key import and JWT parsing were.
+
+## What changed
+
+All of these keep decisions identical. Each fast path has a test that compares it with the code it replaced over a seeded random corpus (`tests/perf-equivalence.test.ts`, `tests/delegation-liveness-queries.test.ts`, `tests/admin-api-list-queries.test.ts`, `tests/migrate-hot-path-0014.test.ts`). No check was removed or reordered.
+
+- **Indexes** (migration `0014-hot-path-indexes`): `theauth_agents(token_hash)`, `theauth_agents(owner_id, status)`, `theauth_permissions(agent_id)`, `theauth_delegation_chains(to_agent_id, status)` and `(from_agent_id, status)`, `theauth_rate_limits(agent_id, resource, window_start)`, `theauth_approval_requests(status, created_at)`. The query plans before and after are asserted in the migration test.
+- **HMAC keys**: a string secret is imported once and the non extractable `CryptoKey` is reused (at most 32 secrets, oldest dropped). Used by session cookies, the stateless session ring and MCP HS256 verification.
+- **Device bundles**: the JWKS resolver and the signing key are reused while the same JWKS or JWK object keeps the same content. A fingerprint of the content is compared on every call, so a key rotated in place is picked up at once.
+- **Resource matching**: the default colon matcher walks both strings with `indexOf` instead of splitting them, and the path matcher skips its table when the pattern has no `**`.
+- **Approval hash**: strings that need no escaping skip the character loop, and keys are ordered by byte without encoding two copies per comparison when both are ASCII.
+- **Delegation liveness**: one read per agent for inbound links, filtered in memory for the live ones, instead of two reads.
+- **Admin API**: the pending approvals list reads quorum approvers for the whole page in one query instead of one per request, and the delegation list without a status filter reads only `limit` rows instead of the 500 row ceiling.
+
+One attempt was dropped. Restricting the delegation impact view's denylist read to the links shown cost more than it saved when the denylist is small, so it is unchanged.
+
+## Not changed on purpose
+
+- DPoP proof keys are not cached: they come from the request.
+- Nothing is cached across `authorize` calls. A cached delegation or agent row would delay a revocation, and revocations must take effect on the next call.
+- The rate limit counter still does a read then a write per allowed call. Making it atomic is a separate change.
+
+## Run the micro benchmarks yourself
+
+```bash
+pnpm --filter @glinr/theauth build   # only needed for benchmarks/run.mjs
+node benchmarks/micro-build.mjs packages/core/.bench/micro.mjs
+node benchmarks/micro.mjs --entry packages/core/.bench/micro.mjs --runs 9 --clock cpu --out /tmp/micro.json
+```
+
+The output file lists, for every case, the median and the lowest and highest run, so you can judge the noise on your own machine before trusting a difference.
 
 ---
 
@@ -3921,6 +4204,8 @@ Thirty-eight first-class providers, plus a generic factory for anything with a s
   <Card title="Line" icon="/brand-icons/line.svg" href="/auth/line" />
   <Card title="WeChat" icon="weixin" href="/auth/wechat" />
   <Card title="Kick" icon="/brand-icons/kick.svg" href="/auth/kick" />
+  <Card title="Cloudflare" icon="cloud" href="/auth/cloudflare" />
+  <Card title="Paybin" icon="credit-card" href="/auth/paybin" />
   <Card title="Roblox" icon="/brand-icons/roblox.svg" href="/auth/roblox" />
 </CardGroup>
 </Tab>
@@ -8927,6 +9212,164 @@ Vendor docs: [Kick OAuth 2.1 flow](https://docs.kick.com/getting-started/generat
 
 ---
 
+# Cloudflare
+
+Source: https://docs.theauth.dev/auth/cloudflare
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Create an OAuth client in the Cloudflare dashboard, add `user-details.read` as a required scope, and register the redirect URI:
+
+```
+https://your-app.com/api/theauth/auth/oauth/callback/cloudflare
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/theauth.ts"
+import { createTheAuth } from '@glinr/theauth';
+import { oauth, createCloudflareProvider } from '@glinr/theauth/auth';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
+  plugins: [
+    oauth({
+      providers: {
+        cloudflare: createCloudflareProvider({
+          clientId: process.env.CLOUDFLARE_CLIENT_ID!,
+          clientSecret: process.env.CLOUDFLARE_CLIENT_SECRET!,
+        }),
+      },
+    }),
+  ],
+});
+```
+
+```bash
+CLOUDFLARE_CLIENT_ID=...
+CLOUDFLARE_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `user-details.read`. It must also be a required scope on the OAuth client, or sign in cannot complete.
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `user-details.read` | Read the account email and name from the Cloudflare API |
+| `offline_access` | Opt in through `scopes` to get a refresh token. The client needs the `refresh_token` grant |
+
+Any other Cloudflare API scope can be added through `scopes`, and must be selected on the OAuth client too.
+
+## How it works
+
+- Authorization Code flow with PKCE (S256). The endpoints are `https://dash.cloudflare.com/oauth2/auth` and `https://dash.cloudflare.com/oauth2/token`.
+- Client credentials go in an `Authorization: Basic` header by default. If the client is registered for `client_secret_post`, pass `tokenEndpointAuthMethod: 'client_secret_post'`.
+- Cloudflare's OIDC userinfo endpoint returns only `sub`, so the profile is read from `GET https://api.cloudflare.com/client/v4/user`. The answer is wrapped in `{ success, errors, result }`. The name is `first_name` and `last_name` joined, with the email as the fallback. There is no avatar.
+- `/user` does not say whether the email is verified, so the OAuth plugin will not link a Cloudflare login to an existing account by email.
+- Clients without a secret (token auth method `none`) are not supported by this provider.
+
+Vendor docs: [Integrate your OAuth client with Cloudflare](https://developers.cloudflare.com/fundamentals/oauth/integrate-with-cloudflare/).
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/cloudflare` | Redirect to Cloudflare |
+| GET | `/auth/oauth/callback/cloudflare` | Handle callback |
+
+---
+
+# Paybin
+
+Source: https://docs.theauth.dev/auth/paybin
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Register a client in the Paybin developer portal and set the redirect URI:
+
+```
+https://your-app.com/api/theauth/auth/oauth/callback/paybin
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/theauth.ts"
+import { createTheAuth } from '@glinr/theauth';
+import { oauth, createPaybinProvider } from '@glinr/theauth/auth';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
+  plugins: [
+    oauth({
+      providers: {
+        paybin: createPaybinProvider({
+          clientId: process.env.PAYBIN_CLIENT_ID!,
+          clientSecret: process.env.PAYBIN_CLIENT_SECRET!,
+        }),
+      },
+    }),
+  ],
+});
+```
+
+```bash
+PAYBIN_CLIENT_ID=...
+PAYBIN_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `openid`, `email`, `profile`.
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `openid` | OIDC sign in and the `sub` claim |
+| `email` | `email` and `email_verified` |
+| `profile` | name, picture, locale |
+| `offline_access` | Opt in through `scopes` to get a refresh token |
+
+Paybin also defines `merchant:*`, `transaction:*`, `wallet:*` and `kyc:*` scopes. Some need specific roles on the Paybin side. Pass them through `scopes`.
+
+## How it works
+
+- Authorization Code flow with PKCE (S256). Issuer `https://idp.paybin.io`, endpoints under `/connect/authorize`, `/connect/token` and `/connect/userinfo`.
+- Client credentials go in the form body. Paybin also accepts them in a basic header.
+- The profile comes from the userinfo endpoint. `email_verified` is passed through as `emailVerified`, so a verified Paybin email can link to an existing account.
+
+Vendor docs: [Paybin OpenID Connect](https://developers.paybin.io/knowledge-center/oidc).
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/paybin` | Redirect to Paybin |
+| GET | `/auth/oauth/callback/paybin` | Handle callback |
+
+---
+
 # Roblox
 
 Source: https://docs.theauth.dev/auth/roblox
@@ -13785,7 +14228,7 @@ What a device gets that an agent does not:
 
 - Credentials made for hardware: a pre shared key, a public key that signs short assertions, or a TLS client certificate thumbprint.
 - Enrollment by claim code (one device, typed by a person) or bulk token (a factory line, with a use limit).
-- An attestation hook for evidence at enrollment, with a built in Android Key Attestation verifier.
+- An attestation hook for evidence at enrollment, with built in verifiers for Android Key Attestation, Apple App Attest and TPM 2.0 quotes.
 - A signed offline policy bundle for devices that cannot call home on every decision.
 - Suspend and resume, separate from permanent revoke.
 
@@ -13957,6 +14400,8 @@ devices: {
 }
 ```
 
+The built in Android, Apple and TPM verifiers refuse an empty nonce (`""`) as well as a missing one, with the reason "needs the enrollment nonce". Before this, an empty string passed the missing check, and a TPM quote taken with empty qualifying data would have matched it. The Go port (`iot/attest`) already behaved this way. If you write your own `verify`, do the same: evidence that cannot be shown fresh should never be accepted.
+
 A verifier that throws counts as a refusal. The claims you return are stored on the device as `attestation`.
 
 #### Android Key Attestation (built in)
@@ -13990,7 +14435,75 @@ Things to know:
 
 **How this verifier was tested.** The test suite uses real attestation chains from Google's own repository, [google/android-key-attestation](https://github.com/google/android-key-attestation/tree/master/src/test/resources) (Apache License 2.0, copied unmodified into `packages/core/tests/fixtures/android-key-attestation.json`): EC and RSA keys, TEE and StrongBox, produced by TestDPC on devices. Three of the four chains verify, and `openssl verify` agrees with us on all four, including that the fourth (EC StrongBox) is not a valid chain: its leaf signature matches neither of the certificates above it. The parsed key description is compared with what `openssl asn1parse` prints for the same bytes. Those devices were unlocked, so the strict boot policy refuses them, which the tests also check. What is not covered: we have no chain from a locked, verified device with a known private key, so key binding is tested with the public key of a fixture leaf, and no chain with the provisioning information extension, so that branch is tested only by reading the specification. Treat the verifier as reviewed against Google's documentation and tested against real fixtures, not as certified by Google.
 
-TPM 2.0 quotes and Apple App Attest are not built in yet. Write them behind the same hook, or see the backlog.
+#### Apple App Attest (built in)
+
+`createAppleAppAttestVerifier` checks the attestation object that `DCAppAttestService.attestKey` returns, following Apple's [Attestation Object Validation Guide](https://developer.apple.com/documentation/devicecheck/attestation-object-validation-guide): the CBOR object has format `apple-appattest`, its `x5c` holds the credential and intermediate certificates and the chain must end at the Apple App Attestation Root CA, the credential certificate's nonce extension (OID 1.2.840.113635.100.8.2) must equal SHA-256 of `authData` followed by the client data hash, the key identifier must be SHA-256 of the certificate's public key point and equal the credential id, `rpIdHash` must be SHA-256 of an App ID you allow, the counter must be 0, and the AAGUID must match the environment you expect.
+
+```ts
+import { createAppleAppAttestVerifier } from "@glinr/theauth";
+
+devices: {
+  attestation: {
+    required: true,
+    verify: createAppleAppAttestVerifier({
+      appIds: ["ABCDE12345.com.example.robot"], // TeamID.BundleID, required
+      environment: "production", // "development" for sandbox builds, "any" for both
+      allowedValidationCategories: [1], // optional, see below
+    }),
+  },
+}
+```
+
+On the device, generate a key with `generateKey`, enroll your own credential as a `jwk` credential, and attest with client data that names that credential. By default (`bind: "client-data"`) the verifier expects the client data to be the UTF-8 text `<nonce>:<RFC 7638 thumbprint of the enrolled key>`, hashed with SHA-256:
+
+```swift
+let clientData = Data("\(nonce):\(thumbprint)".utf8)
+let hash = Data(SHA256.hash(data: clientData))
+let attestation = try await DCAppAttestService.shared.attestKey(keyId, clientDataHash: hash)
+// evidence: {"attestation": attestation.base64EncodedString(), "keyId": keyId}
+```
+
+Apple's certificate then vouches for that exact pairing of nonce and enrolled key. App Attest keys cannot be exported or used as a signing credential for your own tokens, which is why the enrolled key is a separate one. `bind: "attested-key"` instead demands that the enrolled key is the App Attest key itself, and `bind: "none"` checks the nonce only.
+
+Things to know:
+
+- The bundled root was downloaded over HTTPS from `apple.com/certificateauthority/Apple_App_Attestation_Root_CA.pem` on 2026-10-18. Apple publishes no fingerprint for it, so the evidence that it is the right root is that the intermediate certificates in real attestations verify against it. Pass `roots` to pin your own.
+- The credential certificate is valid for about three days. Verify at enrollment, not later. There is no revocation list for App Attest, so no revocation option exists.
+- Two extensions in `authData` are returned as claims when present: `apple_validation_category_01` (Apple's guide shows 1 for an OS distributed app, a development signed build on an iPhone reported 3) and `apple_bundle_version_01`. Apple's own 2026 sample sets only the attested credential flag yet carries the extension map, so the verifier reads the map whenever bytes follow the key, and the map is covered by the certificate's nonce.
+- Not built: verifying the fraud metric receipt (a PKCS#7 object from Apple, outside the signed data), verifying assertions from `generateAssertion` and tracking their counters, and any macOS specific checks.
+- `theauth device attest apple --evidence att.json --nonce <n> --app-id <TeamID.BundleID>` runs the same verifier from the command line.
+
+**How this verifier was tested.** Three real attestation objects, copied unmodified into `packages/core/tests/fixtures/apple-app-attest.json`: the sample in Apple's validation guide (fetched from developer.apple.com on 2026-10-18, example app `com.example.myapp`), a recording from a physical iPhone on iOS 14.4 in the development environment from [veehaitch/devicecheck-appattest](https://github.com/veehaitch/devicecheck-appattest/blob/main/src/test/resources/ios-14.4.yaml) (Apache License 2.0), and a recording from an iPhone on iOS 27.0.1 in the production environment from [jewei/app-attest-php](https://github.com/jewei/app-attest-php/blob/main/spec/termakan-ios27-attestation.json) (MIT). All three verify against the bundled root with the clock set inside their three day window, which also shows the chain, the nonce and the key id logic match what Apple's service produces. The tests refuse a different nonce, another App ID, the wrong environment, a wrong key id, a changed `authData`, an expired certificate and a foreign root. Limits of that evidence: the tests do not bind with real keys, because those devices never saw our client data format. The `client-data` path is run on real data by reading the iOS 27 recording's challenge (which contains colons) as `<nonce>:<thumbprint>`, which exercises the code but is not a recording of a device doing it. Nothing here covers attestation objects from macOS, Mac Catalyst or visionOS. Treat the verifier as reviewed against Apple's documentation and tested against real fixtures, not as certified by Apple.
+
+#### TPM 2.0 quotes (built in)
+
+`createTpm2QuoteVerifier` checks a TPM2_Quote against the TCG TPM 2.0 Library specification. The attestation key must be a restricted signing key that cannot leave its TPM (`restricted`, `sign`, `fixedTPM`, `fixedParent`, not `decrypt`), because only a restricted key signs nothing but structures the TPM built, which is what gives the `TPM_GENERATED` magic its meaning. The quote must be a TPM_ST_ATTEST_QUOTE, its qualifying data must equal the enrollment nonce, its signature must verify under that key (RSASSA or ECDSA, SHA-256 or stronger), its clock must be marked safe, and the PCR values in the evidence must hash to the signed digest. With `roots`, the evidence must also carry a certificate chain from the attestation key to a root you trust.
+
+```ts
+import { createTpm2QuoteVerifier } from "@glinr/theauth";
+
+devices: {
+  attestation: {
+    required: true,
+    verify: createTpm2QuoteVerifier({
+      roots: [vendorRootPem], // trust anchor for the attestation key certificate
+      challengeEncoding: "hex", // how the nonce string maps to the qualifying data
+      expectedPcrs: { sha256: { 7: "<hex of the secure boot PCR you expect>" } },
+    }),
+  },
+}
+```
+
+The evidence is JSON: `akPublic` (TPMT_PUBLIC or TPM2B_PUBLIC, base64), `quote` (the TPMS_ATTEST message, base64), `signature` (TPMT_SIGNATURE, base64), `pcrs` (hex values by bank and index, for example `{"sha256": {"0": "...", "7": "..."}}`, covering every PCR the quote selected) and `akCertificates` (base64 DER, leaf first). With tpm2-tools these are what `tpm2_quote` writes with `-m` and `-s` plus the values from `tpm2_pcrread`. We did not run tpm2-tools while building this, so check the flags and the output format against your version.
+
+Things to know:
+
+- There is no bundled root. TPM vendors and clouds each run their own, so you pass the one you trust. Without `roots` you must pass `allowUnverifiedAk: true`, and the claims then say `akVerified: false`: the quote proves someone holding that key signed a TPM shaped structure, not that a TPM exists.
+- This verifier does not run the TPM2_MakeCredential and TPM2_ActivateCredential handshake that proves an attestation key shares a TPM with an endorsement key, and it does not check TPM2_Certify of the enrolled device key. A genuine TPM therefore vouches for the nonce, but the quote does not prove that the enrolled credential lives in that TPM. If that matters, make the attestation key the device identity or add the handshake on your server.
+- The event log, RSA-PSS signatures and ECDAA are not supported. PCR values are reported in the claims, and `expectedPcrs` compares chosen ones.
+- `theauth device attest tpm --evidence quote.json --nonce <n> --root vendor-root.pem` runs the same verifier from the command line.
+
+**How this verifier was tested.** The fixture is a real attestation from a Google Compute Engine Shielded VM (virtual TPM) in [google/go-tpm-tools](https://github.com/google/go-tpm-tools/blob/7350267efdfa67fc62be505004fd61d7d05e5288/internal/test/attestations/gce-cos-85-nonce9009.pb) (Apache License 2.0): three quotes of the same machine (SHA-1, SHA-256 and SHA-384 PCR banks, signed RSASSA-2048 with SHA-256), a second file with quotes taken without a nonce, and the key certificate from the same file. Google's published [intermediate](https://pki.goog/cloud_integrity/tpm_ek_intermediate_2.crt) and [root](https://pki.goog/cloud_integrity/tpm_ek_root_1.crt) were fetched on 2026-10-18 to complete the chain. `openssl verify` accepts that chain, and `openssl dgst -verify` accepts all six quote signatures and finds each PCR digest in its quote, which agrees with this verifier. The tests also refuse another nonce, a quote taken without one, changed PCR values, a changed quote or signature, a key that is not restricted, a foreign root and an expired chain. Limits: it is one vendor and one virtual TPM, so physical TPMs from Infineon, STMicro, Nuvoton or Intel and Windows platform keys are untested. In this fixture the certified key carries the endorsement key certificate usage, which is how that cloud issues it. The ECDSA branch is covered only by keys generated inside the test, which shows the code path works and nothing about any device.
 
 ## Authorization, delegation and revocation
 
@@ -14087,6 +14600,10 @@ Device facing routes (turn them off with `routes: { devices: false }`):
 | GET | `/device/bundle` | device credential |
 | GET | `/device/jwks` | none |
 
+With `devices.spiffe` set the handler also serves `POST /device/spiffe/verify`, and the admin routes `POST /devices/spiffe/verify`, `POST /devices/spiffe/token` and `POST /devices/:id/spiffe`. See [SPIFFE workload identity](/spiffe).
+
+To exercise bundles, snapshots, offline use, clock skew and revocation against a fleet of simulated devices, see the [device conformance kit](/device-conformance-kit).
+
 `/auth/device/*` is a different thing: the RFC 8628 flow where a person signs in on a TV or CLI.
 
 ## Resource names for device protocols
@@ -14107,11 +14624,317 @@ theauth device enroll-token --config ./theauth.config.mjs --owner owner-1 --kind
 theauth device suspend <deviceId> --config ./theauth.config.mjs --reason "battery swap"
 theauth device revoke <deviceId> --config ./theauth.config.mjs
 theauth device attest android --evidence chain.json --nonce <nonce> --revocation google
+theauth device attest apple --evidence att.json --nonce <nonce> --app-id ABCDE12345.com.example.robot
+theauth device attest tpm --evidence quote.json --nonce <nonce> --challenge hex --root vendor-root.pem
+theauth device spiffe verify-x509 --cert leaf.pem --root ca.pem
+theauth device spiffe link <deviceId> spiffe://example.org/ns/yard/sa/robot-7 --config ./theauth.config.mjs
 ```
+
+SPIFFE SVIDs as device credentials are covered in [SPIFFE workload identity](/spiffe).
 
 ## What is not here yet
 
-CWT and COSE encoding of bundles for very small devices, built in verifiers for TPM 2.0 quotes, Apple App Attest and EAT, uploading decisions a device made offline into the audit chain, and a dashboard page.
+CWT and COSE encoding of bundles for very small devices, a built in verifier for EAT, App Attest assertions and the TPM credential activation handshake, uploading decisions a device made offline into the audit chain, and a dashboard page.
+
+---
+
+# SPIFFE workload identity
+
+Source: https://docs.theauth.dev/spiffe
+
+Workloads in a cluster that runs SPIRE or another SPIFFE issuer already hold a short lived identity document, an SVID. The SPIFFE bridge takes that document, checks it against a trust bundle you configure, and maps the SPIFFE ID to a device or agent you registered. The workload never needs a pre shared key from you.
+
+The bridge is a plain function over the pieces theAuth already has. It does not open sockets and it does not create principals: a SPIFFE ID that nobody mapped is refused.
+
+## What it accepts
+
+| Document | Checked against | You get |
+| --- | --- | --- |
+| X.509-SVID (certificate with one `spiffe://` URI SAN) | CA certificates of the trust bundle | The principal and `cnf` `x5t#S256` (RFC 8705), and for an agent a token bound to that certificate |
+| JWT-SVID (compact JWS) | `jwt-svid` keys of the trust bundle, plus your audience | The principal. No token: a JWT-SVID has no key to bind |
+
+Rules come from the SPIFFE specifications: [SPIFFE ID](https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE-ID.md), [X509-SVID](https://github.com/spiffe/spiffe/blob/main/standards/X509-SVID.md), [JWT-SVID](https://github.com/spiffe/spiffe/blob/main/standards/JWT-SVID.md) and [trust domain and bundle](https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE_Trust_Domain_and_Bundle.md). The checks fail closed.
+
+X.509-SVID refusals (X509-SVID sections 2, 3.1, 4.1, 4.3, 5):
+
+- no URI SAN, or more than one URI SAN (code `no_uri_san`, `multiple_uri_sans`)
+- a URI that is not a valid SPIFFE ID, or has no path (`invalid_spiffe_id`)
+- a trust domain without a configured bundle (`untrusted_domain`), or a chain that does not end at a CA of that same trust domain (`untrusted_chain`)
+- expired or not yet valid, with 30 seconds of skew (`expired`, `not_yet_valid`)
+- a leaf with the CA flag set (`ca_leaf`)
+- key usage missing, not critical, without `digitalSignature`, or with `keyCertSign` or `cRLSign` (`key_usage`)
+- extended key usage that does not allow `clientAuth`, an unknown critical extension, or a non critical SAN on an empty Subject (`key_usage`, `extension`)
+- an intermediate that is not a CA, is expired, or breaks a `pathLenConstraint` (`untrusted_chain`)
+
+JWT-SVID refusals (JWT-SVID sections 2 to 4): an algorithm outside RS, ES and PS 256/384/512, headers other than `alg`, `kid` and `typ`, `typ` other than `JWT` or `JOSE`, no `kid`, a missing or wrong `aud`, a missing or past `exp`, `exp` more than `maxJwtTtlSeconds` (default 3600) ahead, a bad signature, an unknown `kid`.
+
+## Set it up
+
+Map a SPIFFE ID to a device. Only the owner side can do this, enrollment refuses it, otherwise whoever holds a bulk token could claim any identity:
+
+```ts
+import { createSpiffeBridge, createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "file:./theauth.db" },
+  agents: {
+    enabled: true,
+    // A token bound to a certificate is only accepted with that certificate. Your TLS terminator knows it.
+    confirmation: {
+      methods: { "x5t#S256": (req) => req.headers.get("x-client-cert-sha256") },
+    },
+  },
+  devices: {},
+});
+
+const { device } = await theauth.device!.register({
+  ownerId: "owner-1",
+  name: "yard robot 7",
+  permissions: [{ resource: "mqtt:sensors:*", actions: ["publish"] }],
+  credential: { kind: "spiffe", spiffeId: "spiffe://example.org/ns/yard/sa/robot-7" },
+});
+
+const bridge = createSpiffeBridge({
+  trustDomains: {
+    "example.org": {
+      // Static roots, a bundle document, or a bundle endpoint. They can be combined.
+      endpoint: { url: "https://spire.example.org/bundle" },
+    },
+  },
+  audience: ["https://theauth.example.org"],
+  devices: theauth.device,
+  agents: {
+    get: (id) => theauth.agent.get(id),
+    rotate: (id, options) => theauth.agent.rotate(id, options),
+    map: { "spiffe://example.org/ns/yard/sa/planner": "agent-id-of-the-planner" },
+  },
+});
+```
+
+Then authenticate. For an X.509-SVID pass the chain from the TLS handshake your server verified (leaf first, PEM or DER). Never read it from a header the client can set: the bridge cannot tell whether the peer holds the private key, only your TLS layer can.
+
+```ts
+const result = await bridge.authenticate({ kind: "x509", chain: peerCertificatePem });
+if (!result.ok) {
+  // result.code is stable, result.reason is for your logs. Answer 401 with a generic message.
+  throw new Error(result.code);
+}
+
+if (result.principal.type === "device") {
+  const decision = await theauth.device!.authorize(result.principal.device.id, {
+    action: "publish",
+    resource: "mqtt:sensors:temp:1",
+  });
+}
+
+// Agents can also get a token bound to the certificate (RFC 8705, cnf "x5t#S256").
+const issued = await bridge.issueAgentToken(result);
+```
+
+`bridge.authenticateRequest(request)` does the same for a `Request`: it reads the certificate from the `clientCertificate` callback you pass to `createSpiffeBridge`, and falls back to `Authorization: Bearer <JWT-SVID>`.
+
+Two things to know about `issueAgentToken`. It rotates the agent token, so the previous token stops working: use one agent per workload identity, not one agent for a replicated deployment. And a device has no bearer token, it acts through `device.authorize`, so there is nothing to bind.
+
+## Trust bundles and rotation
+
+A bundle is a JWK Set (`use: "x509-svid"` entries hold a CA certificate in `x5c`, `use: "jwt-svid"` entries hold a public key and `kid`), with `spiffe_sequence` and `spiffe_refresh_hint`. Give a trust domain any mix of `bundle` (object or JSON text), `roots` (PEM) and `endpoint`.
+
+With an `endpoint` the bundle is refreshed lazily, on the first call after `spiffe_refresh_hint` has passed. There is no timer, so it works on serverless runtimes. Rules:
+
+- the URL must be https, redirects are refused, the body is capped (1 MiB) and the request has a timeout (5 seconds)
+- polling is never faster than `minRefreshSeconds` (60), whatever the hint says
+- a `spiffe_sequence` that goes backwards, or disappears from a bundle that had one, is refused (rollback)
+- an empty `keys` array is accepted, it means the trust domain revoked everything
+- a failed refresh keeps the last good bundle until `maxStaleSeconds` (86400), then that trust domain fails closed
+
+A plain `fetch` works for an `https_web` bundle endpoint (public web PKI). An `https_spiffe` endpoint authenticates itself with an SVID, so pass your own `fetch` that does mutual TLS against your bootstrap bundle.
+
+## HTTP routes
+
+Set `devices.spiffe` and the handler serves the bridge. The same trust bundle options as `createSpiffeBridge` apply, plus the pieces only an HTTP service needs:
+
+```ts
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "file:./theauth.db" },
+  agents: { enabled: true },
+  devices: {
+    spiffe: {
+      trustDomains: { "example.org": { endpoint: { url: "https://spire.example.org/bundle" } } },
+      audience: ["https://theauth.example.org"],
+      // SPIFFE ID of a workload that is an agent, to its agent id.
+      agentMap: { "spiffe://example.org/ns/yard/sa/planner": "agent-id-of-the-planner" },
+      // Where a client certificate comes from. Pick one, or neither.
+      clientCertificate: (request) => myTlsLayer.peerCertificatePem(request),
+      // trustedProxyHeader: "x-forwarded-client-cert",
+      rateLimit: { max: 60, windowSeconds: 60 },
+    },
+  },
+});
+```
+
+| Route | Who | What |
+| --- | --- | --- |
+| `POST /device/spiffe/verify` | The workload, with its SVID | Verify the caller's SVID and name the device or agent it maps to. 401 with a stable `code` otherwise. |
+| `POST /devices/spiffe/verify` | Admin | Check an X.509 or JWT SVID sent in the body and report the result. Mints nothing. |
+| `POST /devices/spiffe/token` | Admin | Issue an agent token bound to an X.509-SVID (RFC 8705). Rotates the agent token. |
+| `POST /devices/:id/spiffe` | Admin | Link a SPIFFE ID to a device, by `spiffeId` or by a verified `presentation`. |
+
+`GET /devices/:id` already lists the SPIFFE credentials, and the dashboard Devices page shows them with their trust domain and lets you link an id.
+
+Where the SVID of `/device/spiffe/verify` comes from is a security decision, so the route is strict about it:
+
+- A JWT-SVID is read from `Authorization: Bearer`.
+- An X.509 chain is read only from the `clientCertificate` callback, or from the one header you name in `trustedProxyHeader`. A chain in the request body is never accepted on this route, because a certificate is public and carries no proof that the sender holds its key. Only the TLS handshake proves that.
+- `trustedProxyHeader` is off by default. Turn it on only when a reverse proxy verifies the handshake and overwrites that header on every request, and when the service cannot be reached around the proxy. nginx `$ssl_client_escaped_cert` (URL encoded PEM) and plain PEM both work. The header is capped at 32 KB.
+- The two admin routes that take a chain in the body are for operators. The token a chain produces is bound to the certificate (`cnf` `x5t#S256`), so a leaked chain alone cannot use it.
+
+Everything else fails closed: an unconfigured bridge answers 404, an unmapped or inactive principal is refused, and a storage error counts as over the rate limit. `POST /devices/spiffe/token` refuses a device (devices have no bearer token) and a JWT-SVID (no key to bind). Every SPIFFE route is limited per client IP (default 60 per 60 seconds, answer 429 with `Retry-After`). The `rateLimit()` plugin also knows these paths under the key `deviceSpiffe`.
+
+## Audit
+
+Every outcome goes to `onOutcome` of `createSpiffeBridge` (success, each failure code, `unknown_workload`, `principal_inactive`), and `devices.spiffe` writes it to the audit log as `device.spiffe.authenticate` or `device.spiffe.verify`. A row has the SPIFFE ID, `kind`, `code`, `verified` and the `x5t#S256` thumbprint of an X.509 leaf. It never holds the certificate or the token.
+
+An audit row belongs to an agent, and a device is an agent underneath, so a row exists only when the outcome can be tied to a device or an agent:
+
+- a success, or a refusal after the SVID verified (unknown workload excepted, nobody is mapped), is attributed to the mapped principal
+- a failed SVID (expired, bad signature, wrong audience) is attributed to the device that owns the SPIFFE ID the document names, with `verified: false`. That ID was read before the signature check, so it is a claim: someone can present a bad certificate that names your robot and write a denied row on it. Treat those rows as signals, and rely on the rate limit for volume.
+- a document with no readable SPIFFE ID, or an ID nobody owns, has no row. Use `onOutcome` if you need to count those.
+
+## Verify an SVID from the shell
+
+```bash
+theauth device spiffe verify-x509 --cert leaf.pem --root ca.pem
+theauth device spiffe verify-x509 --cert leaf.pem --bundle bundle.json --now 2026-10-18T12:00:00Z --json
+theauth device spiffe verify-jwt --token svid.jwt --bundle bundle.json --audience https://theauth.example.org
+theauth device spiffe link <deviceId> spiffe://example.org/ns/yard/sa/robot-7 --config ./theauth.config.mjs
+```
+
+The first three run offline with the same code the bridge uses and exit 1 when the SVID is refused.
+
+## Test SVIDs with openssl
+
+The test suite makes real certificates with the openssl CLI, so you can reproduce a case by hand. A root and an SVID, with the extensions the specification requires:
+
+```bash
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -noenc -keyout ca.key -out ca.pem \
+  -days 3650 -subj "/O=SPIFFE" \
+  -addext "basicConstraints=critical,CA:TRUE" \
+  -addext "keyUsage=critical,keyCertSign,cRLSign" \
+  -addext "subjectAltName=URI:spiffe://example.org"
+
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -noenc -keyout leaf.key -out leaf.csr -subj "/"
+
+cat > leaf.cnf <<'EXT'
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature
+extendedKeyUsage=serverAuth,clientAuth
+subjectAltName=critical,URI:spiffe://example.org/ns/yard/sa/robot-7
+EXT
+
+openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -days 1 -out leaf.pem -extfile leaf.cnf
+```
+
+`-noenc` is `-nodes` on OpenSSL 1.1. Change one line of `leaf.cnf` to see a refusal: `CA:TRUE` gives `ca_leaf`, dropping `keyUsage` gives `key_usage`, a second `URI:` gives `multiple_uri_sans`.
+
+## Limits
+
+- Not implemented: name constraints, and RSASSA-PSS or Ed25519 certificate signatures. A chain that uses them is refused, never accepted.
+- Outside `devices.spiffe` the bridge is a plain function: call it from your own handler or gateway.
+- A JWT-SVID is a bearer credential, keep it on TLS and use one audience per service. The bridge accepts a token with several audiences if yours is one of them.
+- Audit rows exist only for outcomes that map to a device or an agent, see Audit above. Actions that follow (`device.authorize`, agent calls) are audited as usual.
+- The `spiffe` credential of a device does not go through `device.authenticate`, only through the bridge.
+
+The Go twin lives in the `iot/spiffe` package of theauth-go and replays the same test vectors.
+
+---
+
+# Device conformance kit
+
+Source: https://docs.theauth.dev/device-conformance-kit
+
+`@glinr/theauth/testing/devices` runs a fleet of simulated devices against a real in-memory theAuth and the real HTTP handler. It exists for two readers: you, to check that your device code and policy behave when devices go offline, drift in time or get revoked; and anyone writing a device SDK or a verifier, who needs a fixed set of scenarios to compare against.
+
+Nothing in it imports vitest or jest. It is for tests: the virtual clock replaces `globalThis.Date`, so never install it in a running service.
+
+## Run it
+
+```ts
+import { createDeviceFleet, runDeviceConformance } from "@glinr/theauth/testing/devices";
+
+const fleet = await createDeviceFleet({ size: 100 });
+try {
+  const report = await runDeviceConformance(fleet);
+  for (const s of report.scenarios) {
+    console.log(s.name, s.checks, s.failures);
+  }
+} finally {
+  fleet.dispose(); // puts the real Date back
+}
+```
+
+`createDeviceFleet` builds the app, creates one owner, issues a bulk enrollment token and enrolls every device through `POST /device/enroll` with its own ES256 key. From then on a device acts through `POST /device/authorize` and `GET /device/bundle`, signing a fresh assertion with its own clock each time. The handler's rate limiter stays on, with one key per simulated device.
+
+## The clock
+
+`fleet.clock` is the only time source of the server side while the clock is installed: token and bundle lifetimes, replay windows, row timestamps and jose all read it. Runs are repeatable and a test can move a day forward in one call:
+
+```ts
+fleet.clock.advance(2 * 60 * 60 * 1000); // two hours
+const device = fleet.devices[0];
+device.setSkew(10 * 60_000);             // this device runs 10 minutes fast
+```
+
+A device has its own view of time (`device.nowMs()`, server time plus its skew). It uses that for assertions and when it verifies a bundle, as real hardware would. `performance.now()` is not touched, so the latency numbers below are wall time.
+
+## What a device can do
+
+| Method | Needs network | What it does |
+| --- | --- | --- |
+| `enroll(token)` | yes | Generates a key and enrolls |
+| `authorize(action, resource)` | yes | Online decision from the server |
+| `fetchBundle()` | yes | Stores the bundle and revocation snapshot |
+| `verifyBundle()` | no | `verifyDeviceBundle` with the device clock, the last accepted `seq` and the snapshot |
+| `decideOffline(action, resource)` | no | Verifies again, then `evaluateDeviceBundle`. An unverifiable bundle is a denial |
+| `goOffline()`, `goOnline()` | | An offline device throws `DeviceOfflineError` on any network call |
+| `setSkew(ms)` | | Device clock minus server clock |
+
+On the fleet: `revoke(device)`, `suspend(device)`, `resume(device)`, `forEach(task, concurrency)` and `latency.report()`.
+
+## Scenarios
+
+`runDeviceConformance` runs these in order, and each one is also exported on its own:
+
+1. **enrollment**: every device has a distinct id.
+2. **assertion**: an allowed action answers 200, an ungranted one 403.
+3. **bundle and snapshot**: the bundle and snapshot verify, and the offline decision equals the server decision for an allowed and a denied action.
+4. **clock skew**: a device 10 seconds fast or slow is accepted, one 10 minutes off is refused with 401 (the window is 30 seconds).
+5. **rollback**: an older bundle presented after a newer one was accepted is refused.
+6. **offline and online**: offline devices cannot reach the server but decide from the bundle; past the bundle lifetime they fail closed; back online they fetch a new bundle and recover.
+7. **revocation mid session**: revoked devices get 401 on `authorize` and on `bundle`, healthy devices are unaffected, and a snapshot fetched afterwards lists exactly the revoked devices.
+
+The last scenario also shows the bound you accept with offline revocation: a device that keeps an old snapshot does not know about a revocation until it fetches a new one or the snapshot passes the maximum age you give `verifyBundle`. Pick `revocations.ttlSeconds` and that age with that in mind.
+
+## Measured numbers
+
+Command: `pnpm --filter @glinr/theauth exec jiti scripts/device-fleet-bench.ts 1000`. It runs the full set above with 1000 devices.
+
+Environment: one process, Node 22.22.2, in-memory SQLite, Apple M4 Max with 36 GB of RAM, macOS. One laptop, one run. There is no network and no real database round trip, so read the figures as the cost of the library code, not of a deployed service. The fleet runs 25 devices at a time on one event loop, so each latency includes time spent waiting behind other devices.
+
+| Operation | Calls | p50 | p99 |
+| --- | --- | --- | --- |
+| enroll (`POST /device/enroll`) | 1000 | 25.8 ms | 59.0 ms |
+| authorize (`POST /device/authorize`) | 1000 | 16.6 ms | 29.1 ms |
+| fetch bundle and snapshot (`GET /device/bundle`) | 1000 | 16.9 ms | 28.8 ms |
+| verify bundle and snapshot (device side) | 1000 | 5.3 ms | 15.3 ms |
+| decide offline (verify, then evaluate) | 1000 | 2.2 ms | 13.2 ms |
+
+All 7 scenarios passed (about 12,000 checks). The process went from 62 MB to 66 MB of heap in use and from 144 MB to 501 MB resident, sampled at the end of the run without forcing a garbage collection, so the heap figure is a lower bound of the peak and the resident figure includes the SQLite database, 1000 key pairs and the in-memory stores. Setup took 1.2 seconds and the whole run 9.2 seconds.
+
+These are single runs. Rerun the command on your hardware before you plan capacity from it.
+
+## Using it with your own verifier
+
+Replace `verifyBundle` and `decideOffline` by your own code by reading what the fleet stored: `device.bundleToken`, `device.snapshotToken`, `fleet.jwks()` and `device.nowMs()`. A verifier written in another language can be fed the same tokens and must reach the same decisions.
 
 ---
 
@@ -16821,6 +17644,89 @@ The OAuth callback turns a `DatabaseHookError` into a 403 response.
 
 ---
 
+# ID generation
+
+Source: https://docs.theauth.dev/id-generation
+
+By default theAuth gives every new user, session and OAuth account a random UUID (v4). `advanced.database.generateId` changes that for those three tables.
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const auth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
+  advanced: { database: { generateId: "uuidv7" } },
+});
+```
+
+## Options
+
+| Value | Result |
+|---|---|
+| `"uuid"` (default) | Random v4 UUID. |
+| `"uuidv7"` | Time ordered UUID v7, [RFC 9562 section 5.7](https://www.rfc-editor.org/rfc/rfc9562#name-uuid-version-7). |
+| `({ model }) => string` | Your own id. `model` is `"user"`, `"session"` or `"account"`. |
+
+A function can return a different shape per table:
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+import { ulid } from "ulid";
+
+const auth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
+  advanced: {
+    database: {
+      generateId: ({ model }) => (model === "user" ? `usr_${ulid()}` : crypto.randomUUID()),
+    },
+  },
+});
+```
+
+The function must be synchronous and return a new id on every call. theAuth checks each result: 1 to 191 characters from `A-Z a-z 0-9 _ - .`. Anything else throws `THEAUTH_ID_INVALID` before the insert. The 191 limit is the longest key MySQL indexes with `utf8mb4`, and the same limit is applied on every dialect so a database move does not break ids.
+
+## Why UUID v7
+
+Random UUIDs scatter inserts across the primary key index. A v7 id starts with a millisecond timestamp, so new rows land at the end of the index, which keeps pages full on Postgres and MySQL and makes `ORDER BY id` match creation order. theAuth's generator also keeps ids made in one millisecond in order (a 12 bit counter, RFC 9562 section 6.2 method 1) and never goes backwards when the clock steps back.
+
+A v7 id exposes the creation time of the row. Session ids are not secrets (the cookie is a signed JWT whose `sub` is the id), but if user creation times are sensitive in your product, keep `"uuid"` for users:
+
+```ts
+generateId: ({ model }) => (model === "user" ? crypto.randomUUID() : generateUuidV7())
+```
+
+`generateUuidV7` is exported from `@glinr/theauth`.
+
+## Database generated ids are refused
+
+Better Auth accepts `generateId: false` and `"serial"` to let the database assign ids. theAuth throws `THEAUTH_ID_UNSUPPORTED` at startup for both. The id columns are `TEXT` and every table that points at a user or session (agents, audit rows, organization members, tokens) stores the id as text, and theAuth must know an id before it writes the row that references it. Integer ids would need a different schema for every table. If you want ids you control, return them from a function.
+
+## Where it applies
+
+The option is used wherever theAuth creates a user, session or OAuth account row: `user.create`, sessions from every sign in path, anonymous users, username sign up, magic link, email OTP, phone, Google One Tap and OAuth sign up and account linking. An explicit `id` passed to `user.create` is kept as given.
+
+It does not change:
+
+- Rows whose id is a prefixed or derived value on purpose, such as SCIM users (`u_scim_...`), SSO providers (`sso_...`), importers and the GDPR erasure tombstone.
+- Agents, delegations, tokens, audit rows and the other tables, which keep random UUIDs.
+
+## Changing it on a live database
+
+Nothing is rewritten. Existing ids stay as they are, and only rows created after the change use the new generator, so a table can hold v4 ids, v7 ids and custom ids at once. All three fit the same `TEXT` column and compare as plain strings. Sorting by `id` is only creation order among rows made with `"uuidv7"`.
+
+If you also need old rows to carry the new shape, that is an application level migration: update the primary key and every referencing column in one transaction, with foreign key checks deferred. theAuth does not provide it, because the referencing tables depend on which plugins you enabled.
+
+## Errors
+
+| Code | When |
+|---|---|
+| `THEAUTH_ID_UNSUPPORTED` | `false`, `"serial"` or an unknown value. Thrown by `createTheAuth`. |
+| `THEAUTH_ID_INVALID` | A custom function returned a bad id. Thrown at the insert, before any row is written. |
+
+Both are `IdGenerationError` (exported from `@glinr/theauth`) with a `code` property.
+
+---
+
 # Policy shrink
 
 Source: https://docs.theauth.dev/policy-shrink
@@ -17597,6 +18503,34 @@ The rules for a request that needs more than one approver:
 - Until the quorum is complete the status is `pending`, so `authorize()` answers `approval_pending`. Once approved, the usual rules hold: one spend, bound to the exact arguments, same expiry.
 
 Over the admin API, `POST /approvals` takes `requiredApprovals`. `POST /approvals/:id/approve` answers `{ status: "pending", approvalsReceived: 1, requiredApprovals: 2 }` until the last approver, then `status: "approved"`. A repeat approver gets 409 `DUPLICATE_APPROVER` and the requester gets 403 `SELF_APPROVAL`. The dashboard inbox shows "1 of 2 approvals" and who has approved. See [Robotics and ROS 2](/robotics-ros2) for a dangerous robot command example.
+
+Other storage and clients follow the same rules. The Prisma adapter has `castApprovalVote` (see [Prisma](/prisma)), and the Python and Go clients take the quorum when they open a request:
+
+```python
+opened = await client.approvals.open(OpenApprovalInput("admin:rotate", "agent:a1", required_approvals=2))
+step = await client.approvals.approve(opened.id)  # step.status == "pending", step.approvals_received == 1
+```
+
+```go
+opened, _ := client.Approvals.Open(ctx, theauth.OpenApprovalInput{Action: "admin:rotate", Resource: "agent:a1", RequiredApprovals: 2})
+decision, _ := client.Approvals.Approve(ctx, opened.ID) // decision.Status == theauth.ApprovalPending
+```
+
+`POST /approvals` only opens requests whose action looks like `admin:<name>`, owned by the signed in admin and the configured system agent. It does not open a request for another agent's `execute` call, so an agent action is still opened with `theauth.approval.request()` in your server code.
+
+### From the command line
+
+`theauth approvals` talks to the admin API over HTTP, so it works against any server that mounts `adminApi`. It uses the token from `theauth login`, or `--token` / `THEAUTH_ADMIN_TOKEN`, and the server from `--server` or `THEAUTH_URL`.
+
+```bash
+theauth approvals request --action admin:rotate --resource agent:a1 --required-approvals 2
+theauth approvals list
+theauth approvals show <id>
+theauth approvals approve <id>   # prints "counted, 1 of 2 approvals" until the last approver
+theauth approvals deny <id>
+```
+
+Add `--json` for machine output. `--args '{"key":"value"}'` attaches arguments to a request, and `--limit` caps the list (1 to 100). A 401 step-up challenge tells you to sign in again.
 
 This feature adds migration `0013` (a nullable `required_approvals` column and the `theauth_approval_votes` table). Run `theauth migrate` before you use it.
 
@@ -19405,7 +20339,7 @@ const theauth = await createTheAuth({
 <ParamField path="trustedProxyCount" type="number" default="0">How many reverse proxies you run. With `x-forwarded-for: a, b, c` and a count of 1 the client is `c`, the entry your proxy added. With 0 the header is ignored, because clients can forge it.</ParamField>
 <ParamField path="trustedHeader" type="string">A header your edge overwrites, such as `cf-connecting-ip` or `x-real-ip`. Takes precedence over `trustedProxyCount`. Only set it when the app is reachable only through that edge.</ParamField>
 <ParamField path="keyBy" type={`"ip" | "client_id" | "ip+client_id"`} default={`"ip"`}>What identifies a caller. `client_id` is read from the query string, a form or JSON body, or Basic auth, and falls back to the IP. A caller can rotate client ids, so use `ip+client_id` when you want both bounds.</ParamField>
-<ParamField path="mcpToken, mcpRegister, deviceCode, deviceToken, deviceAuthorize" type="EndpointLimit | false">Limits for `/mcp/token`, `/mcp/register` and the device endpoints. Defaults: 60/min, 10/hour, 10/min, 60/min, 20/min. `false` turns one off.</ParamField>
+<ParamField path="mcpToken, mcpRegister, deviceCode, deviceToken, deviceAuthorize, deviceSpiffe" type="EndpointLimit | false">Limits for `/mcp/token`, `/mcp/register` and the device endpoints. Defaults: 60/min, 10/hour, 10/min, 60/min, 20/min, 60/min. `false` turns one off.</ParamField>
 <ParamField path="keyExtractor" type="(request: Request) => string">Rate limit key for the client part. Defaults to the IP from `trustedHeader` or `trustedProxyCount`, and to a shared `"unknown"` bucket when neither is set. Forwarded headers are no longer trusted by default: if you run behind a proxy, set `trustedProxyCount` or `trustedHeader`, otherwise all clients share one bucket.</ParamField>
 <ParamField path="onLimit" type="(request: Request, retryAfter: number) => Response">Custom 429 response factory.</ParamField>
 
@@ -24250,6 +25184,8 @@ Earlier versions mounted these routes with no authentication. After upgrading, p
 |---|---|---|
 | [`@glinr/theauth-hono`](/adapters/hono) | Hono | `app.route('/api/theauth', theAuthHono(theauth))` |
 | [`@glinr/theauth`](/adapters/elysia) | Elysia | `new Elysia().mount('/api/theauth', createTheAuthHandler(theauth, { basePath: '' }))` |
+| [`@glinr/theauth`](/adapters/nitro) | Nitro (standalone) | catch-all route `server/routes/api/theauth/[...path].ts` |
+| [`@glinr/theauth`](/adapters/waku) | Waku | API route `src/pages/_api/theauth/[...path].ts` |
 | [`@glinr/theauth`](/adapters/react-router) | React Router v7 | resource route `app/routes/api.theauth.$.ts` |
 | [`@glinr/theauth-express`](/adapters/express) | Express | `app.use('/api/theauth', theAuthExpress(theauth))` |
 | [`@glinr/theauth-nextjs`](/adapters/nextjs) | Next.js App Router | catch-all route `app/api/theauth/[...theauth]/route.ts` |
@@ -24810,6 +25746,213 @@ export default app;
 ## What was run
 
 This snippet type checks under `strict` against Elysia 1.4 and was run with `app.handle`: `GET /api/theauth/agents` answered 200 with an authenticated caller, `GET /docs` without a token answered 401, and an unknown path under the mount answered 404.
+
+---
+
+# Nitro
+
+Source: https://docs.theauth.dev/adapters/nitro
+
+A Nitro route handler can return the `Response` that `createTheAuthHandler` from `@glinr/theauth/http` produces, so there is no Nitro package. This page is for a standalone Nitro server, or any app that uses Nitro without Nuxt. In a Nuxt app use [`@glinr/theauth-nuxt`](/adapters/nuxt), which wraps the same handler.
+
+## Install
+
+```bash
+pnpm add @glinr/theauth better-sqlite3
+pnpm add nitro        # Nitro 3 (beta)
+# or: pnpm add nitropack   # Nitro 2
+```
+
+Nitro 3 beta needs `pg` and `mysql2` installed as well, even if you never use them. Its bundler hoists the lazy driver imports in `drizzle-orm` into one chunk that imports both at startup, so a missing package fails the first request. Nitro 2 does not do this.
+
+## Create the instance once
+
+Nitro 2 builds for `es2019`, which has no top-level `await`. Create the instance on the first request and reuse it. This works on Nitro 2 and 3.
+
+```typescript title="server/utils/theauth.ts"
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler } from "@glinr/theauth/http";
+
+async function setup() {
+  const theauth = await createTheAuth({
+    database: { provider: "sqlite-native", url: "theauth.db" },
+    agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+  });
+  const handler = createTheAuthHandler(theauth, {
+    basePath: "/api/theauth",
+    // Who may call the management routes. Return { id } to allow, null for a 401.
+    authenticate: async (request) => {
+      const user = await theauth.auth.resolveUser(request);
+      return user ? { id: user.id } : null;
+    },
+  });
+  return { theauth, handler };
+}
+
+let instance: ReturnType<typeof setup> | undefined;
+
+export function useTheAuth() {
+  instance ??= setup();
+  return instance;
+}
+```
+
+The in-memory `sql.js` provider (`provider: "sqlite"`) does not survive a Nitro 3 build: the bundler inlines its CommonJS file and the first request fails with `__dirname is not defined`. Use `sqlite-native`, Postgres or D1.
+
+## Mount the handler
+
+The route file is a catch-all. The handler sees the full path, so `basePath` is the mount path.
+
+<CodeGroup>
+
+```typescript title="Nitro 3: server/routes/api/theauth/[...path].ts"
+import { defineHandler } from "nitro";
+import { useTheAuth } from "../../../utils/theauth";
+
+export default defineHandler(async (event) => {
+  const { handler } = await useTheAuth();
+  return handler(event.req); // event.req is a Web Request
+});
+```
+
+```typescript title="Nitro 2: server/routes/api/theauth/[...path].ts"
+import { toWebRequest } from "h3";
+import { useTheAuth } from "../../../utils/theauth";
+
+export default defineEventHandler(async (event) => {
+  const { handler } = await useTheAuth();
+  return handler(toWebRequest(event));
+});
+```
+
+</CodeGroup>
+
+## Protect your own routes
+
+`requireAgent` is the decision logic behind the `requireScope` helpers of the other adapters. It returns the agent, or a ready 401 or 403 `Response`.
+
+```typescript title="Nitro 3: server/routes/docs.get.ts"
+import { defineHandler } from "nitro";
+import { requireAgent } from "@glinr/theauth/http";
+import { useTheAuth } from "../utils/theauth";
+
+export default defineHandler(async (event) => {
+  const { theauth } = await useTheAuth();
+  const result = await requireAgent(theauth, event.req, { action: "read", resource: "docs" });
+  if (!result.ok) return result.response; // 401 or 403 with { error: { code, message } }
+  return { agentId: result.agent.id };
+});
+```
+
+On Nitro 2 pass `toWebRequest(event)` instead of `event.req`.
+
+## What was run
+
+Both versions were built with `nitro build` and `nitropack build` and started from the build output, with `@glinr/theauth` installed from a packed tarball (so the bundler treated it like an installed dependency). On Nitro 3 beta (`3.0.260903-beta`, h3 2.0.5) and Nitro 2: `GET /api/theauth/agents` without a session answered 401, an unknown path under the mount answered 404, and `GET /docs` without a token answered 401. With an `authenticate` stub that accepts a test header, `GET /api/theauth/agents` answered 200. The `sql.js` and missing `pg` and `mysql2` failures above come from those runs.
+
+---
+
+# Waku
+
+Source: https://docs.theauth.dev/adapters/waku
+
+Waku API routes export functions named after HTTP methods. Each takes a Web `Request` and returns a `Response`, which is what `createTheAuthHandler` from `@glinr/theauth/http` produces. There is no Waku package.
+
+API routes live in `src/pages/_api`. The `_api` directory is not part of the URL, so `src/pages/_api/theauth/[...path].ts` answers at `/theauth/*`.
+
+## Install
+
+```bash
+pnpm add @glinr/theauth better-sqlite3 waku react react-dom react-server-dom-webpack
+```
+
+## Create the instance once
+
+```typescript title="src/lib/theauth.ts"
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler } from "@glinr/theauth/http";
+
+async function setup() {
+  const theauth = await createTheAuth({
+    database: { provider: "sqlite-native", url: "theauth.db" },
+    agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+  });
+  const handler = createTheAuthHandler(theauth, {
+    basePath: "/theauth",
+    // Who may call the management routes. Return { id } to allow, null for a 401.
+    authenticate: async (request) => {
+      const user = await theauth.auth.resolveUser(request);
+      return user ? { id: user.id } : null;
+    },
+  });
+  return { theauth, handler };
+}
+
+let instance: ReturnType<typeof setup> | undefined;
+
+export function useTheAuth() {
+  instance ??= setup();
+  return instance;
+}
+```
+
+## Mount the handler
+
+```typescript title="src/pages/_api/theauth/[...path].ts"
+import { useTheAuth } from "../../../lib/theauth";
+
+const serve = async (request: Request): Promise<Response> => {
+  const { handler } = await useTheAuth();
+  return handler(request);
+};
+
+export const GET = serve;
+export const POST = serve;
+export const PUT = serve;
+export const PATCH = serve;
+export const DELETE = serve;
+```
+
+API routes are dynamic by default, so no `getConfig` is needed.
+
+## Keep native packages out of the bundle
+
+Waku builds with Vite and Rolldown and bundles server dependencies. Two things then break: `better-sqlite3` fails with `__dirname is not defined` on the first request, and `@glinr/theauth` carries an optional `nodemailer` import that Rolldown refuses to leave unresolved. Mark both external:
+
+```typescript title="waku.config.ts"
+import { defineConfig } from "waku/config";
+
+export default defineConfig({
+  vite: {
+    build: {
+      rolldownOptions: {
+        // Native and optional packages stay in node_modules instead of being bundled.
+        external: ["better-sqlite3", "nodemailer"],
+      },
+    },
+  },
+});
+```
+
+If you use the email adapters or another optional driver, add its package name to `external` the same way. With Postgres you would externalize `pg` instead of `better-sqlite3`.
+
+## Protect your own routes
+
+```typescript title="src/pages/_api/docs.ts"
+import { requireAgent } from "@glinr/theauth/http";
+import { useTheAuth } from "../../lib/theauth";
+
+export const GET = async (request: Request): Promise<Response> => {
+  const { theauth } = await useTheAuth();
+  const result = await requireAgent(theauth, request, { action: "read", resource: "docs" });
+  if (!result.ok) return result.response; // 401 or 403 with { error: { code, message } }
+  return Response.json({ agentId: result.agent.id });
+};
+```
+
+## What was run
+
+A scratch Waku project (`waku@1.0.0-rc.3`, React 19.3, Node 22) with `@glinr/theauth` installed from a packed tarball. After `waku build` and `waku start`: `GET /theauth/agents` without a session answered 401, an unknown path under the mount answered 404, and `GET /docs` without a token answered 401. Both failures described above were reproduced before the config was added. The session cookie flow for pages (server components reading the session) was not run.
 
 ---
 
@@ -29733,6 +30876,56 @@ await theAuthDb.updateApprovalRequest(requestId, {
 });
 ```
 
+A request can need several distinct approvers. Create it with `requiredApprovals` (null or 1 means a single approver) and count each approver with `castApprovalVote`, which keeps the same single vote guarantee as the core library:
+
+```typescript
+import { ApprovalVoteError } from '@glinr/theauth-prisma';
+
+await theAuthDb.createApprovalRequest({
+  id: requestId,
+  agentId: 'agent-123',
+  userId: 'owner-1',
+  action: 'execute',
+  resource: 'mcp:payments:wire',
+  arguments: null,
+  status: 'pending',
+  expiresAt: new Date(Date.now() + 3600_000),
+  respondedAt: null,
+  respondedBy: null,
+  createdAt: new Date(),
+  requiredApprovals: 2,
+});
+
+try {
+  const result = await theAuthDb.castApprovalVote({
+    approvalId: requestId,
+    approverId: 'alice',
+    now: new Date(),
+  });
+  // result.kind is "pending", "approved" or "lost" (decided or expired first, vote withdrawn)
+} catch (err) {
+  if (err instanceof ApprovalVoteError) console.log(err.code); // SELF_APPROVAL, DUPLICATE_APPROVER, NOT_FOUND
+}
+```
+
+The composite primary key on `TheAuthApprovalVote` stops one approver being counted twice when two calls race. The request flips to `approved` with one `updateMany` on `status = pending` and an unexpired `expiresAt`, so only one caller completes the quorum, and the first `requiredApprovals` votes are the ones reported. `listApprovalVotes(approvalId)` returns who has approved. A denial is a plain `updateApprovalRequest` with `status: 'denied'`. If you already have a database from the core migrations, the new model maps onto migration `0013` (`required_approvals` column and `theauth_approval_votes` table), so no extra migration is needed. The concurrency tests run against a real SQLite Prisma 7 client with the better-sqlite3 driver adapter.
+
+### Indexes
+
+The reference `schema.prisma` declares the hot path indexes from core migration `0014` with `@@index(..., map: "...")`, using the same names as the SQL migration. If you wrote your own models, add them, or `prisma migrate dev` will not create them and agent token lookup, delegation walks, the hourly rate limit read and the pending approval list will scan whole tables.
+
+| Index | Table | Columns |
+| --- | --- | --- |
+| `theauth_agents_token_hash` | `theauth_agents` | `token_hash` |
+| `theauth_agents_owner_status` | `theauth_agents` | `owner_id, status` |
+| `theauth_delegation_chains_to` | `theauth_delegation_chains` | `to_agent_id, status` |
+| `theauth_delegation_chains_from` | `theauth_delegation_chains` | `from_agent_id, status` |
+| `theauth_rate_limits_lookup` | `theauth_rate_limits` | `agent_id, resource, window_start` |
+| `theauth_approval_requests_status` | `theauth_approval_requests` | `status, created_at` |
+| `theauth_permissions_agent` | `theauth_permissions` | `agent_id` (SQLite and Postgres only) |
+
+On MySQL, Prisma maps `String` to `VARCHAR(191)`, so no prefix length is needed. If you manage the database with raw SQL instead, use the statements in [Bring your own Drizzle](/bring-your-own-drizzle#hot-path-indexes).
+
 ## Migration from Drizzle
 
 If you started with the built-in Drizzle backend and want to switch to Prisma:
@@ -30246,9 +31439,15 @@ const { success, deletedAgents, deletedSessions, deletedDelegations, deletedApiK
 
 What the delete does, in order: revokes the user's agents; deletes sessions, delegation chains involving those agents, and API keys; anonymizes the audit rows of those agents (or deletes the rows of this user when `keepAuditLogs` is `false`); deletes approval requests, budget policies, OAuth tokens and codes, magic links, email OTPs, TOTP records, passkeys, and org memberships; optionally deletes owned organizations; then deletes the user row. Note that with `keepAuditLogs: true` the agent rows are kept with status `revoked` (so `deletedAgents` counts agents revoked, not rows removed), and they still carry their name and metadata. With `keepAuditLogs: false` the agent rows are deleted.
 
-<Warning>
-  The module toggles `PRAGMA foreign_keys` while deleting and anonymizing audit rows. That statement is SQLite syntax, so on Postgres or MySQL the `keepAuditLogs: true` path and the final user deletion will fail with a database error unless the statement is accepted by your driver. Test deletion against your production database engine before relying on it.
-</Warning>
+### If a delete is interrupted
+
+The delete is a list of steps with no database transaction around it, because some backends (Cloudflare D1) have none. Each step is safe to run again, and a progress marker records how many steps finished. The marker is stored in the metadata of an inert placeholder user whose id is derived from the real user id with a keyed hash, so it needs no extra table and outlives the deleted user row.
+
+If the process dies or the database errors halfway, call `deleteUser` again with the same user id. It resumes at the first unfinished step, and the end state is the same as an uninterrupted run: no leftover rows, one erasure record per affected audit chain, and a chain that still verifies. Two calls at the same time are also safe, the second one repeats steps the first already did. A call after completion returns the stored counts. On a resumed run the counts can be lower than the true totals, since rows removed before the crash are no longer there to count.
+
+Runs of writes that do not depend on a read (credential and token rows, organization removal, ownership moves) go through one atomic batch where the backend has it. Where it does not, the same writes run in order and the retry rule covers the gap.
+
+The audit rewrite follows the same rule. Placeholder rows come first, then each agent's rows are repointed, then the signed `audit.erasure` record for version 1 rows is derived from the rewritten rows. The record id is derived from the rows it names, so a rerun finds it instead of adding a second one. Between the rewrite and the record, a verification run reports the rewritten version 1 rows as changed. Finish the call and it clears.
 
 <Warning>
   Deletion is irreversible. Any app data you store outside theAuth that references the user ID will become orphaned, the plugin has no `onBeforeDelete` hook, cascade those deletes yourself before calling this endpoint.
@@ -30258,7 +31457,7 @@ What the delete does, in order: revokes the user's agents; deletes sessions, del
 
 `POST /auth/gdpr/anonymize`
 
-Replaces the email with a deterministic anonymous value (`deleted-<hash>@anon.invalid`) and clears name, external ID, and metadata, while keeping the account row, agents, and audit history. It also deletes the user's TOTP records and passkeys. It does not revoke sessions, and it does not touch audit rows (those still reference the same user ID). Use this instead of deletion when org membership or audit referential integrity must be preserved.
+Replaces the email with a deterministic anonymous value (`deleted-<hash>@anon.invalid`) and clears name, external ID, and metadata, while keeping the account row, agents, and audit history. It also deletes the user's TOTP records and passkeys, in one atomic group with the email change where the backend has a batch. Without one, the credentials go first and the email change last, so calling it again finishes a half run. It does not revoke sessions, and it does not touch audit rows (those still reference the same user ID). Use this instead of deletion when org membership or audit referential integrity must be preserved.
 
 ```typescript title="Anonymize account (client)"
 const res = await fetch('/auth/gdpr/anonymize', {

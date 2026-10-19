@@ -32,6 +32,13 @@ export type {
 } from "./db/database.js";
 export { createDatabase, createDatabaseSync } from "./db/database.js";
 export type {
+	IdGeneratorContext,
+	IdGeneratorFn,
+	IdGeneratorOption,
+	IdModel,
+} from "./db/id-generation.js";
+export { generateUuidV7, IdGenerationError } from "./db/id-generation.js";
+export type {
 	Dialect as SchemaDialect,
 	Migration as SchemaMigration,
 	MigrationRunResult as SchemaMigrationRunResult,

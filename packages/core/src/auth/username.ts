@@ -26,6 +26,8 @@ import {
 	resolvePbkdf2Iterations,
 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
+import type { IdSource } from "../db/id-generation.js";
+import { defaultIdSource } from "../db/id-generation.js";
 import { usernameAccounts, users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
 import type { SecondaryStorage } from "../storage/types.js";
@@ -68,6 +70,8 @@ export interface UsernameAuthDeps {
 	storage?: SecondaryStorage;
 	/** Receives the startup warning when lockout fails open. */
 	logger?: LockoutLogger;
+	/** Source for new user ids (`advanced.database.generateId`). Default: random UUIDs. */
+	ids?: IdSource;
 }
 
 export interface UsernameAuthModule {
@@ -120,6 +124,7 @@ export function createUsernameAuthModule(
 	signInGate?: SignInGate,
 	deps?: UsernameAuthDeps,
 ): UsernameAuthModule {
+	const ids = deps?.ids ?? defaultIdSource();
 	const lockout: LoginLockout | null =
 		config.lockout === false || lockoutDisabledByEnv()
 			? null
@@ -191,7 +196,7 @@ export function createUsernameAuthModule(
 		if (existing[0]) throw new Error("Username already taken");
 
 		const now = new Date();
-		const userId = generateId();
+		const userId = ids.newId("user");
 		const passwordHash = await hashPassword(input.password, iterationTarget);
 
 		await db.insert(users).values({

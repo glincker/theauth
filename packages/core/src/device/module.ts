@@ -1,3 +1,4 @@
+import type { AgentConfirmation } from "../agent/confirmation.js";
 import { recordAuditEvent } from "../audit/record.js";
 import { stripReservedAuditKeys } from "../audit/reserved.js";
 import type { PipelineAuthorizeOptions } from "../authorize/pipeline.js";
@@ -24,6 +25,7 @@ import { createDeviceEnrollment } from "./enrollment.js";
 import { createDeviceRegistry, DeviceInputError, nowSec } from "./registry.js";
 import { signRevocationSnapshot } from "./revocation.js";
 import { clampRevocationTtl, collectBlockedIds } from "./revocation-issue.js";
+import { createDeviceSpiffeService } from "./spiffe/service.js";
 import { deviceBlock, devicePrincipal } from "./state.js";
 import type {
 	CreateEnrollmentTokenInput,
@@ -43,6 +45,11 @@ export interface DeviceModuleDeps {
 	agent: {
 		update(agentId: string, input: UpdateAgentInput): Promise<AgentIdentity>;
 		revoke(agentId: string): Promise<{ revokedDelegations: string[] }>;
+		get(agentId: string): Promise<AgentIdentity | null>;
+		rotate(
+			agentId: string,
+			options: { cnf: AgentConfirmation },
+		): Promise<AgentIdentity & { token: string }>;
 	};
 	delegate(input: DelegateInput): Promise<DelegationChain>;
 	getEffectivePermissions(agentId: string): Promise<Permission[]>;
@@ -238,6 +245,22 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 		return { device, credentialId: row.id };
 	}
 
+	/** Owner of a SPIFFE id credential in any state. No side effects, never use it to authenticate. */
+	async function attributeSpiffeId(spiffeId: string): Promise<Device | null> {
+		const row = await registry.findCredential("spiffe", spiffeId);
+		return row ? registry.get(row.deviceId) : null;
+	}
+
+	const spiffe = config.spiffe
+		? createDeviceSpiffeService({
+				db,
+				config: config.spiffe,
+				storage: deps.storage,
+				devices: { findBySpiffeId, attribute: attributeSpiffeId },
+				agents: { get: deps.agent.get, rotate: deps.agent.rotate },
+			})
+		: null;
+
 	/**
 	 * Decide whether a device may perform an action. Device level state is checked first (suspended, revoked, expired), then the full agent pipeline runs for the backing agent: hooks, own and delegated permissions, constraints, approvals, audit.
 	 */
@@ -362,6 +385,8 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 		authenticate: authenticator.authenticate,
 		authenticateRequest: authenticator.authenticateRequest,
 		findBySpiffeId,
+		/** SPIFFE bridge with its HTTP helpers, or null without `devices.spiffe`. */
+		spiffe,
 		authorize,
 		delegate,
 		issueBundle,

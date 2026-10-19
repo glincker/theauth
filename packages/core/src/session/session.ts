@@ -21,7 +21,6 @@
 
 import { and, eq } from "drizzle-orm";
 import { jwtVerify, SignJWT } from "jose";
-import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
 import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
@@ -267,7 +266,7 @@ export function createSessionManager(
 		options?: CreateSessionOptions,
 	): Promise<{ session: Session; token: string }> {
 		await assertUserNotBanned(db, userId);
-		const id = generateId();
+		const id = databaseHooks.newId("session");
 		const nowMs = activity.now();
 		const now = new Date(nowMs);
 		const split = splitMetadata(metadata);

@@ -126,7 +126,7 @@ export function createPhoneAuthModule(
 			}
 		}
 
-		const id = generateId();
+		const id = databaseHooks.newId("user");
 		const now = new Date();
 		const placeholderEmail = `${phone.replace(/\+/g, "")}@phone.local`;
 		let storedMetadata: Record<string, unknown> = { phone };

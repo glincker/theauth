@@ -91,6 +91,11 @@
       "import": "./dist/testing/index.js",
       "default": "./dist/testing/index.js"
     },
+    "./testing/devices": {
+      "types": "./dist/testing/devices/index.d.ts",
+      "import": "./dist/testing/devices/index.js",
+      "default": "./dist/testing/devices/index.js"
+    },
     "./robotics": {
       "types": "./dist/robotics/index.d.ts",
       "import": "./dist/robotics/index.js",

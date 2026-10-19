@@ -59,6 +59,15 @@ export type ProviderDatabaseConfig =
 			experimental?: boolean;
 	  }
 	| {
+			provider: "libsql";
+			/** libSQL or Turso URL: `libsql://name-org.turso.io`, `https://...`, `wss://...` or `file:./local.db`. */
+			url: string;
+			/** Auth token for a Turso database. Not needed for a `file:` URL. */
+			authToken?: string;
+			/** Skip automatic table creation on init (default: false) */
+			skipMigrations?: boolean;
+	  }
+	| {
 			provider: "d1";
 			/** Cloudflare D1 binding from the Worker environment. Required when provider is "d1". */
 			binding: D1DatabaseBinding;
@@ -93,7 +102,9 @@ export function isDrizzleConfig(config: DatabaseConfig): config is DrizzleDataba
 
 /** The provider name migrations key on. A Drizzle instance reports its dialect. */
 export function databaseProvider(config: DatabaseConfig): DatabaseProvider {
-	return isDrizzleConfig(config) ? config.dialect : config.provider;
+	if (isDrizzleConfig(config)) return config.dialect;
+	// libSQL is SQLite on the wire, so it migrates with the SQLite DDL.
+	return config.provider === "libsql" ? "sqlite" : config.provider;
 }
 
 const DIALECTS: readonly string[] = ["sqlite", "postgres", "mysql"];
@@ -222,6 +233,23 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 		return drizzle(pool) as any as Database;
 	}
 
+	if (config.provider === "libsql") {
+		// Dynamic import keeps `@libsql/client` an optional peer dep.
+		const { createClient } = await import("@libsql/client").catch(() => {
+			throw new Error(
+				'TheAuth: provider "libsql" requires the "@libsql/client" package. ' +
+					"Install it with: npm install @libsql/client",
+			);
+		});
+		const { drizzle } = await import("drizzle-orm/libsql");
+		const client = createClient({
+			url: config.url,
+			...(config.authToken !== undefined && { authToken: config.authToken }),
+		});
+		// biome-ignore lint/suspicious/noExplicitAny: adapter boundary - libsql drizzle types differ from the sqlite-typed Database
+		return drizzle(client, { schema }) as any as Database;
+	}
+
 	if (config.provider === "d1") {
 		const { drizzle } = await import("drizzle-orm/d1");
 		// biome-ignore lint/suspicious/noExplicitAny: adapter boundary - D1 drizzle types differ from SQLite
@@ -230,7 +258,7 @@ export async function createDatabase(config: DatabaseConfig): Promise<Database> 
 
 	throw new Error(
 		`TheAuth: unsupported database provider "${(config as ProviderDatabaseConfig).provider}". ` +
-			'Valid values are "sqlite", "sqlite-native", "postgres", "mysql", "d1".',
+			'Valid values are "sqlite", "sqlite-native", "postgres", "mysql", "libsql", "d1".',
 	);
 }
 

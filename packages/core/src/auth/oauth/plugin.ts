@@ -72,6 +72,7 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 			const databaseHooks = createDatabaseHookRunner(ctx.config.databaseHooks, {
 				logger: ctx.config.logger,
 				hookSafety: ctx.config.hookSafety,
+				generateId: ctx.config.advanced?.database?.generateId,
 			});
 			const module = createOAuthModule(ctx.db, { ...config, databaseHooks });
 
@@ -228,7 +229,7 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 								}
 								userId = existing[0].id;
 							} else {
-								const newId = crypto.randomUUID();
+								const newId = databaseHooks.newId("user");
 								const hookedUser = await databaseHooks.before("user", "create", {
 									id: newId,
 									email: normalized,

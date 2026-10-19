@@ -35,6 +35,8 @@ export interface DeviceApi {
 		input: DeviceCredentialInput,
 	) => Promise<ApiResult<AddedDeviceCredential>>;
 	revokeDeviceCredential: (id: string, credentialId: string) => Promise<ApiResult<undefined>>;
+	/** Link a SPIFFE ID (POST /devices/:id/spiffe). The server refuses ids outside a configured trust domain. */
+	linkDeviceSpiffe: (id: string, spiffeId: string) => Promise<ApiResult<AddedDeviceCredential>>;
 	issueDeviceBundle: (id: string, ttlSeconds?: number) => Promise<ApiResult<DeviceBundle>>;
 }
 
@@ -84,6 +86,11 @@ export function createDeviceApi(fetch: Fetcher): DeviceApi {
 			fetch<AddedDeviceCredential>(`/api/devices/${id(deviceId)}/credentials`, {
 				method: "POST",
 				body: JSON.stringify(input),
+			}),
+		linkDeviceSpiffe: (deviceId, spiffeId) =>
+			fetch<AddedDeviceCredential>(`/api/devices/${id(deviceId)}/spiffe`, {
+				method: "POST",
+				body: JSON.stringify({ spiffeId }),
 			}),
 		revokeDeviceCredential: (deviceId, credentialId) =>
 			fetch<undefined>(`/api/devices/${id(deviceId)}/credentials/${id(credentialId)}`, {

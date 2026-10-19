@@ -111,6 +111,57 @@ With an `endpoint` the bundle is refreshed lazily, on the first call after `spif
 
 A plain `fetch` works for an `https_web` bundle endpoint (public web PKI). An `https_spiffe` endpoint authenticates itself with an SVID, so pass your own `fetch` that does mutual TLS against your bootstrap bundle.
 
+## HTTP routes
+
+Set `devices.spiffe` and the handler serves the bridge. The same trust bundle options as `createSpiffeBridge` apply, plus the pieces only an HTTP service needs:
+
+```ts
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "file:./theauth.db" },
+  agents: { enabled: true },
+  devices: {
+    spiffe: {
+      trustDomains: { "example.org": { endpoint: { url: "https://spire.example.org/bundle" } } },
+      audience: ["https://theauth.example.org"],
+      // SPIFFE ID of a workload that is an agent, to its agent id.
+      agentMap: { "spiffe://example.org/ns/yard/sa/planner": "agent-id-of-the-planner" },
+      // Where a client certificate comes from. Pick one, or neither.
+      clientCertificate: (request) => myTlsLayer.peerCertificatePem(request),
+      // trustedProxyHeader: "x-forwarded-client-cert",
+      rateLimit: { max: 60, windowSeconds: 60 },
+    },
+  },
+});
+```
+
+| Route | Who | What |
+| --- | --- | --- |
+| `POST /device/spiffe/verify` | The workload, with its SVID | Verify the caller's SVID and name the device or agent it maps to. 401 with a stable `code` otherwise. |
+| `POST /devices/spiffe/verify` | Admin | Check an X.509 or JWT SVID sent in the body and report the result. Mints nothing. |
+| `POST /devices/spiffe/token` | Admin | Issue an agent token bound to an X.509-SVID (RFC 8705). Rotates the agent token. |
+| `POST /devices/:id/spiffe` | Admin | Link a SPIFFE ID to a device, by `spiffeId` or by a verified `presentation`. |
+
+`GET /devices/:id` already lists the SPIFFE credentials, and the dashboard Devices page shows them with their trust domain and lets you link an id.
+
+Where the SVID of `/device/spiffe/verify` comes from is a security decision, so the route is strict about it:
+
+- A JWT-SVID is read from `Authorization: Bearer`.
+- An X.509 chain is read only from the `clientCertificate` callback, or from the one header you name in `trustedProxyHeader`. A chain in the request body is never accepted on this route, because a certificate is public and carries no proof that the sender holds its key. Only the TLS handshake proves that.
+- `trustedProxyHeader` is off by default. Turn it on only when a reverse proxy verifies the handshake and overwrites that header on every request, and when the service cannot be reached around the proxy. nginx `$ssl_client_escaped_cert` (URL encoded PEM) and plain PEM both work. The header is capped at 32 KB.
+- The two admin routes that take a chain in the body are for operators. The token a chain produces is bound to the certificate (`cnf` `x5t#S256`), so a leaked chain alone cannot use it.
+
+Everything else fails closed: an unconfigured bridge answers 404, an unmapped or inactive principal is refused, and a storage error counts as over the rate limit. `POST /devices/spiffe/token` refuses a device (devices have no bearer token) and a JWT-SVID (no key to bind). Every SPIFFE route is limited per client IP (default 60 per 60 seconds, answer 429 with `Retry-After`). The `rateLimit()` plugin also knows these paths under the key `deviceSpiffe`.
+
+## Audit
+
+Every outcome goes to `onOutcome` of `createSpiffeBridge` (success, each failure code, `unknown_workload`, `principal_inactive`), and `devices.spiffe` writes it to the audit log as `device.spiffe.authenticate` or `device.spiffe.verify`. A row has the SPIFFE ID, `kind`, `code`, `verified` and the `x5t#S256` thumbprint of an X.509 leaf. It never holds the certificate or the token.
+
+An audit row belongs to an agent, and a device is an agent underneath, so a row exists only when the outcome can be tied to a device or an agent:
+
+- a success, or a refusal after the SVID verified (unknown workload excepted, nobody is mapped), is attributed to the mapped principal
+- a failed SVID (expired, bad signature, wrong audience) is attributed to the device that owns the SPIFFE ID the document names, with `verified: false`. That ID was read before the signature check, so it is a claim: someone can present a bad certificate that names your robot and write a denied row on it. Treat those rows as signals, and rely on the rate limit for volume.
+- a document with no readable SPIFFE ID, or an ID nobody owns, has no row. Use `onOutcome` if you need to count those.
+
 ## Verify an SVID from the shell
 
 ```bash
@@ -150,9 +201,9 @@ openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -days 1 
 ## Limits
 
 - Not implemented: name constraints, and RSASSA-PSS or Ed25519 certificate signatures. A chain that uses them is refused, never accepted.
-- No HTTP route yet. Call the bridge from your own handler or gateway.
+- Outside `devices.spiffe` the bridge is a plain function: call it from your own handler or gateway.
 - A JWT-SVID is a bearer credential, keep it on TLS and use one audience per service. The bridge accepts a token with several audiences if yours is one of them.
-- The bridge writes no audit row of its own. Actions that follow (`device.authorize`, agent calls) are audited as usual.
+- Audit rows exist only for outcomes that map to a device or an agent, see Audit above. Actions that follow (`device.authorize`, agent calls) are audited as usual.
 - The `spiffe` credential of a device does not go through `device.authenticate`, only through the bridge.
 
 The Go twin lives in the `iot/spiffe` package of theauth-go and replays the same test vectors.

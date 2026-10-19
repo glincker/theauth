@@ -20,7 +20,8 @@ export type EndpointKey =
 	| "mcpRegister"
 	| "deviceCode"
 	| "deviceToken"
-	| "deviceAuthorize";
+	| "deviceAuthorize"
+	| "deviceSpiffe";
 
 /**
  * Path suffix to limit key. Suffixes start with "/" so a match always lands on a segment
@@ -75,6 +76,9 @@ export const PATH_TO_CONFIG_KEY: ReadonlyArray<readonly [string, EndpointKey]> =
 	["/auth/device/code", "deviceCode"],
 	["/auth/device/token", "deviceToken"],
 	["/auth/device/authorize", "deviceAuthorize"],
+	["/device/spiffe/verify", "deviceSpiffe"],
+	["/devices/spiffe/verify", "deviceSpiffe"],
+	["/devices/spiffe/token", "deviceSpiffe"],
 	["/mcp/token", "mcpToken"],
 	["/mcp/register", "mcpRegister"],
 ];
@@ -92,6 +96,7 @@ export const BUILT_IN_LIMITS: Readonly<Record<EndpointKey, EndpointLimit | undef
 	deviceCode: { window: "1m", max: 10 },
 	deviceToken: { window: "1m", max: 60 },
 	deviceAuthorize: { window: "1m", max: 20 },
+	deviceSpiffe: { window: "1m", max: 60 },
 };
 
 function decodeSegment(segment: string): string {

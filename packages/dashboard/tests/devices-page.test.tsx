@@ -9,9 +9,11 @@ import {
 	activeCredentialKinds,
 	buildCredentialInput,
 	buildEnrollmentInput,
+	buildSpiffeId,
 	formatLastSeen,
 	parseBundleTtl,
 	parseGroups,
+	spiffeTrustDomain,
 	statusTone,
 } from "../src/pages/devices-format.js";
 
@@ -217,6 +219,37 @@ describe("device components", () => {
 		expect(html).toContain("jwk");
 		expect(html).toContain("thumb123");
 		expect(html).toContain("hw-9");
+	});
+});
+
+describe("spiffe credentials", () => {
+	it("lists SPIFFE ids with their trust domain in the detail panel", () => {
+		const detail: DeviceDetail = {
+			...device({}),
+			credentials: [
+				{
+					id: "c2",
+					deviceId: "dev_1",
+					kind: "spiffe",
+					lookup: "spiffe://example.org/ns/prod/sa/robot",
+					status: "active",
+					expiresAt: null,
+					lastUsedAt: null,
+					createdAt: "x",
+				},
+			],
+		};
+		const html = renderToStaticMarkup(<DeviceDetailPanel device={detail} />);
+		expect(html).toContain("SPIFFE identities");
+		expect(html).toContain("trust domain example.org");
+	});
+
+	it("validates the SPIFFE id typed into the link form", () => {
+		expect(spiffeTrustDomain("spiffe://example.org/a/b")).toBe("example.org");
+		expect(spiffeTrustDomain("https://example.org/a")).toBeNull();
+		expect(spiffeTrustDomain("spiffe://example.org")).toBeNull();
+		expect(buildSpiffeId(" spiffe://example.org/a ")).toBe("spiffe://example.org/a");
+		expect(spiffeTrustDomain(buildSpiffeId("nope"))).toBeNull();
 	});
 });
 

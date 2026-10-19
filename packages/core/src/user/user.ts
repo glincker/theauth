@@ -2,7 +2,6 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { isErasedId } from "../audit/pseudonym.js";
 import { normalizeEmail } from "../auth/normalize-email.js";
-import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
 import { toStoreConflict } from "../db/store-conflict.js";
@@ -118,7 +117,7 @@ export function createUserModule(config: {
 		const existing = await matchExisting(email, id);
 		if (existing) return existing;
 
-		const newId = id ?? generateId();
+		const newId = id ?? databaseHooks.newId("user");
 		let storedMetadata: Record<string, unknown> | null = metadata ?? null;
 		let storedName: string | null = name ? name : null;
 		if (databaseHooks.has("user", "create")) {

@@ -12,6 +12,12 @@ export {
 } from "./atlassian.js";
 
 export {
+	type CloudflareProviderConfig,
+	createCloudflareProvider,
+	DEFAULT_CLOUDFLARE_SCOPES,
+} from "./cloudflare.js";
+
+export {
 	createDiscordProvider,
 	DEFAULT_DISCORD_SCOPES,
 	normalizeProfile as normalizeDiscordProfile,
@@ -48,6 +54,7 @@ export {
 	DEFAULT_NOTION_SCOPES,
 	normalizeProfile as normalizeNotionProfile,
 } from "./notion.js";
+export { createPaybinProvider, DEFAULT_PAYBIN_SCOPES } from "./paybin.js";
 export {
 	createPaypalProvider,
 	DEFAULT_PAYPAL_SCOPES,

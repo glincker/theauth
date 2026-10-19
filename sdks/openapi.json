@@ -2646,6 +2646,660 @@
         }
       }
     },
+    "/device/spiffe/verify": {
+      "post": {
+        "summary": "Verify the caller's SVID (TLS certificate or Bearer JWT-SVID) and name the device or agent it maps to",
+        "operationId": "verifyDeviceSpiffe",
+        "tags": [
+          "Device API"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean"
+                        },
+                        "code": {
+                          "type": "string",
+                          "description": "\"ok\" or the failure code, for example expired or untrusted_chain"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "spiffeId": {
+                          "type": "string"
+                        },
+                        "svid": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "x509",
+                                "jwt"
+                              ]
+                            },
+                            "expiresAt": {
+                              "type": "string"
+                            },
+                            "thumbprint": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "expiresAt"
+                          ]
+                        },
+                        "principal": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "device",
+                                "agent"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "code"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "SVID missing, invalid, expired, untrusted, or not mapped to an active device or agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The SPIFFE bridge is not configured (devices.spiffe)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devices/spiffe/verify": {
+      "post": {
+        "summary": "Check an X.509 or JWT SVID against the trust bundles (diagnostic, mints nothing)",
+        "operationId": "verifySpiffeSvid",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean"
+                        },
+                        "code": {
+                          "type": "string",
+                          "description": "\"ok\" or the failure code, for example expired or untrusted_chain"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "spiffeId": {
+                          "type": "string"
+                        },
+                        "svid": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "x509",
+                                "jwt"
+                              ]
+                            },
+                            "expiresAt": {
+                              "type": "string"
+                            },
+                            "thumbprint": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "expiresAt"
+                          ]
+                        },
+                        "principal": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "device",
+                                "agent"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "code"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The SPIFFE bridge is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "x509"
+                      },
+                      "chain": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "PEM certificates, leaf first"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "chain"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "jwt"
+                      },
+                      "token": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Compact JWT-SVID"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "token"
+                    ]
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devices/spiffe/token": {
+      "post": {
+        "summary": "Issue an agent token bound to a verified X.509-SVID (rotates the agent token)",
+        "operationId": "issueSpiffeAgentToken",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "agentId": {
+                          "type": "string"
+                        },
+                        "token": {
+                          "type": "string",
+                          "description": "Agent token bound to the certificate (RFC 8705), returned once"
+                        },
+                        "cnf": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "agentId",
+                        "token",
+                        "cnf"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "SVID refused, or the workload is not an agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The SPIFFE bridge is not configured, or the agent is not yours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chain": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "PEM certificates, leaf first"
+                  }
+                },
+                "required": [
+                  "chain"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devices/{id}/spiffe": {
+      "post": {
+        "summary": "Link a SPIFFE ID to a device (by id in a configured trust domain, or by SVID)",
+        "operationId": "linkDeviceSpiffe",
+        "tags": [
+          "Devices"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "deviceId": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "psk",
+                            "jwk",
+                            "x509",
+                            "spiffe"
+                          ]
+                        },
+                        "lookup": {
+                          "type": "string"
+                        },
+                        "publicJwk": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "revoked"
+                          ]
+                        },
+                        "expiresAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastUsedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "secret": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "deviceId",
+                        "kind",
+                        "lookup",
+                        "status",
+                        "expiresAt",
+                        "lastUsedAt",
+                        "createdAt"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a SPIFFE ID of a configured trust domain, or the SVID was refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside the caller's scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found, not yours, or devices are not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SPIFFE ID already linked or device revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "spiffeId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "presentation": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "x509"
+                          },
+                          "chain": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "PEM certificates, leaf first"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "chain"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "jwt"
+                          },
+                          "token": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Compact JWT-SVID"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "token"
+                        ]
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "kind"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/devices": {
       "get": {
         "summary": "List devices (filters: ownerId, status, group, enrollmentId)",

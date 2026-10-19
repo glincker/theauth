@@ -90,6 +90,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	const databaseHooks = createDatabaseHookRunner(config.databaseHooks, {
 		logger: observability.logger,
 		hookSafety: config.hookSafety,
+		generateId: config.advanced?.database?.generateId,
 	});
 	const userModule = createUserModule({ db, databaseHooks });
 	const permissionEngine = createPermissionEngine({

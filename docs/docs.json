@@ -136,6 +136,7 @@
               "configuration",
               "database",
               "bring-your-own-drizzle",
+              "hosted-databases",
               "choose-storage",
               "benchmarks",
               "performance",
@@ -249,6 +250,8 @@
                   "auth/line",
                   "auth/wechat",
                   "auth/kick",
+                  "auth/cloudflare",
+                  "auth/paybin",
                   "auth/roblox"
                 ]
               },
@@ -330,6 +333,7 @@
               "delegation",
               "iot-devices",
               "spiffe",
+              "device-conformance-kit",
               "token-vault"
             ]
           },
@@ -357,6 +361,7 @@
               "audit-checkpoints",
               "observability",
               "database-hooks",
+              "id-generation",
               "policy-shrink",
               "analyzer",
               "trust",
@@ -436,6 +441,8 @@
                 "pages": [
                   "adapters/hono",
                   "adapters/elysia",
+                  "adapters/nitro",
+                  "adapters/waku",
                   "adapters/react-router",
                   "adapters/express",
                   "adapters/fastify",

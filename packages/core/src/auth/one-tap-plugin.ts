@@ -1,3 +1,4 @@
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import { createSessionManager } from "../session/session.js";
 import type { OneTapConfig } from "./one-tap.js";
@@ -17,8 +18,19 @@ export function oneTap(config: OneTapConfig): TheAuthPlugin {
 				);
 			}
 
-			const sessionManager = createSessionManager(sessionConfig, ctx.db);
-			const module = createOneTapModule(config, ctx.db, sessionManager, ctx.signInGate);
+			const databaseHooks = createDatabaseHookRunner(ctx.config.databaseHooks, {
+				logger: ctx.config.logger,
+				hookSafety: ctx.config.hookSafety,
+				generateId: ctx.config.advanced?.database?.generateId,
+			});
+			const sessionManager = createSessionManager(sessionConfig, ctx.db, databaseHooks);
+			const module = createOneTapModule(
+				config,
+				ctx.db,
+				sessionManager,
+				ctx.signInGate,
+				databaseHooks,
+			);
 
 			// POST /auth/one-tap/callback
 			// Accepts application/x-www-form-urlencoded from Google's JS library.

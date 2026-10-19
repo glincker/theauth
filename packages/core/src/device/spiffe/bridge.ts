@@ -5,6 +5,7 @@ import { certBytesFromText } from "../attestation/x509.js";
 import type { Device } from "../types.js";
 import type { SpiffeBundleStore, SpiffeTrustDomainConfig } from "./bundle-store.js";
 import { createBundleStore } from "./bundle-store.js";
+import { claimedSpiffeId } from "./claimed.js";
 import { verifyJwtSvid } from "./jwt-svid.js";
 import type { SvidFailure } from "./x509-svid.js";
 import { verifyX509Svid } from "./x509-svid.js";
@@ -28,6 +29,10 @@ export interface SpiffeBridgeConfig {
 		resolve?: (spiffeId: string) => string | null | Promise<string | null>;
 		map?: Record<string, string>;
 	};
+	/**
+	 * Called once per verification outcome, success or failure, never with the certificate or token. `spiffeId` is only trusted when `verified` is true. Errors thrown here are swallowed.
+	 */
+	onOutcome?: (outcome: SpiffeOutcome) => void | Promise<void>;
 	/** Time source in ms, for tests. */
 	clock?: () => number;
 	clockSkewSeconds?: number;
@@ -50,6 +55,23 @@ export type SpiffePresentation =
 export type SpiffePrincipal =
 	| { type: "device"; device: Device; credentialId: string }
 	| { type: "agent"; agent: AgentIdentity };
+
+/** What `onOutcome` receives. Holds no certificate body and no token. */
+export interface SpiffeOutcome {
+	/** `authenticate` maps the id to a device or agent, `verify` only checks the SVID. */
+	purpose: "authenticate" | "verify";
+	kind: "x509" | "jwt";
+	ok: boolean;
+	/** "ok" or the failure code. */
+	code: "ok" | SpiffeAuthFailure;
+	/** The id the SVID names. A failed outcome carries it unverified (read before the signature check), so treat it as a claim. */
+	spiffeId?: string;
+	/** True when the SVID passed verification against a trust bundle. */
+	verified: boolean;
+	principal?: { type: "device" | "agent"; id: string };
+	/** `x5t#S256` of an X.509 leaf, when it could be read. */
+	thumbprint?: string;
+}
 
 export type SpiffeAuthFailure = SvidFailure | "unknown_workload" | "principal_inactive";
 
@@ -97,7 +119,9 @@ export function createSpiffeBridge(config: SpiffeBridgeConfig) {
 		return agent;
 	}
 
-	async function principalFor(spiffeId: string): Promise<SpiffePrincipal | SpiffeAuthResult> {
+	async function principalFor(
+		spiffeId: string,
+	): Promise<SpiffePrincipal | { ok: false; code: SpiffeAuthFailure; reason: string }> {
 		const device = await config.devices?.findBySpiffeId(spiffeId);
 		if (device) return { type: "device", ...device };
 		const agent = await resolveAgent(spiffeId);
@@ -114,7 +138,17 @@ export function createSpiffeBridge(config: SpiffeBridgeConfig) {
 		return { type: "agent", agent };
 	}
 
-	async function authenticate(presentation: SpiffePresentation): Promise<SpiffeAuthResult> {
+	type Verified =
+		| {
+				ok: true;
+				spiffeId: string;
+				svid: { kind: "x509" | "jwt"; expiresAt: Date; thumbprint?: string };
+				cnf?: AgentConfirmation;
+		  }
+		| { ok: false; code: SvidFailure; reason: string };
+
+	/** Check the SVID against the trust bundles. No principal lookup. */
+	async function verifySvid(presentation: SpiffePresentation): Promise<Verified> {
 		const at = new Date(now());
 		if (presentation.kind === "x509") {
 			const chain = chainOf(presentation.chain);
@@ -127,11 +161,8 @@ export function createSpiffeBridge(config: SpiffeBridgeConfig) {
 				}),
 			});
 			if (!result.ok) return result;
-			const principal = await principalFor(result.identity.spiffeId);
-			if ("ok" in principal) return principal;
 			return {
 				ok: true,
-				principal,
 				spiffeId: result.identity.spiffeId,
 				svid: {
 					kind: "x509",
@@ -148,13 +179,98 @@ export function createSpiffeBridge(config: SpiffeBridgeConfig) {
 			...(config.maxJwtTtlSeconds !== undefined && { maxTtlSeconds: config.maxJwtTtlSeconds }),
 		});
 		if (!result.ok) return result;
-		const principal = await principalFor(result.identity.spiffeId);
-		if ("ok" in principal) return principal;
+		return {
+			ok: true,
+			spiffeId: result.identity.spiffeId,
+			svid: { kind: "jwt", expiresAt: result.identity.expiresAt },
+		};
+	}
+
+	async function emit(outcome: SpiffeOutcome): Promise<void> {
+		if (!config.onOutcome) return;
+		try {
+			await config.onOutcome(outcome);
+		} catch {
+			// An audit sink that fails must not change the authentication result.
+		}
+	}
+
+	/** Verify the SVID only (no device or agent mapping). Used to link an id and for diagnostics. */
+	async function verify(
+		presentation: SpiffePresentation,
+	): Promise<Exclude<Verified, { ok: true }> | Extract<Verified, { ok: true }>> {
+		const result = await verifySvid(presentation);
+		if (result.ok) {
+			await emit({
+				purpose: "verify",
+				kind: presentation.kind,
+				ok: true,
+				code: "ok",
+				spiffeId: result.spiffeId,
+				verified: true,
+				...(result.svid.thumbprint && { thumbprint: result.svid.thumbprint }),
+			});
+		} else {
+			await emitFailure("verify", presentation, result.code);
+		}
+		return result;
+	}
+
+	async function emitFailure(
+		purpose: SpiffeOutcome["purpose"],
+		presentation: SpiffePresentation,
+		code: SpiffeAuthFailure,
+	): Promise<void> {
+		const claimed = await claimedSpiffeId(presentation, chainOf);
+		await emit({
+			purpose,
+			kind: presentation.kind,
+			ok: false,
+			code,
+			verified: false,
+			...(claimed && { spiffeId: claimed.spiffeId }),
+			...(claimed?.thumbprint && { thumbprint: claimed.thumbprint }),
+		});
+	}
+
+	async function authenticate(presentation: SpiffePresentation): Promise<SpiffeAuthResult> {
+		const result = await verifySvid(presentation);
+		if (!result.ok) {
+			await emitFailure("authenticate", presentation, result.code);
+			return result;
+		}
+		const principal = await principalFor(result.spiffeId);
+		if ("code" in principal) {
+			await emit({
+				purpose: "authenticate",
+				kind: presentation.kind,
+				ok: false,
+				code: principal.code,
+				spiffeId: result.spiffeId,
+				verified: true,
+				...(result.svid.thumbprint && { thumbprint: result.svid.thumbprint }),
+			});
+			return principal;
+		}
+		await emit({
+			purpose: "authenticate",
+			kind: presentation.kind,
+			ok: true,
+			code: "ok",
+			spiffeId: result.spiffeId,
+			verified: true,
+			principal: {
+				type: principal.type,
+				id: principal.type === "device" ? principal.device.id : principal.agent.id,
+			},
+			...(result.svid.thumbprint && { thumbprint: result.svid.thumbprint }),
+		});
 		return {
 			ok: true,
 			principal,
-			spiffeId: result.identity.spiffeId,
-			svid: { kind: "jwt", expiresAt: result.identity.expiresAt },
+			spiffeId: result.spiffeId,
+			svid: result.svid,
+			...(result.cnf && { cnf: result.cnf }),
 		};
 	}
 
@@ -177,7 +293,7 @@ export function createSpiffeBridge(config: SpiffeBridgeConfig) {
 		return config.agents.rotate(result.principal.agent.id, { cnf: result.cnf });
 	}
 
-	return { authenticate, authenticateRequest, issueAgentToken, bundles: store };
+	return { authenticate, authenticateRequest, verify, issueAgentToken, bundles: store };
 }
 
 export type SpiffeBridge = ReturnType<typeof createSpiffeBridge>;

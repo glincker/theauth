@@ -91,7 +91,7 @@ export function createMagicLinkModule(
 
 		if (existing[0]) return { id: existing[0].id, email: existing[0].email };
 
-		const id = generateId();
+		const id = databaseHooks.newId("user");
 		const now = new Date();
 		let storedEmail = email;
 		if (databaseHooks.has("user", "create")) {

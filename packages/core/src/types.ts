@@ -29,6 +29,7 @@ import type { AuthAdapter } from "./auth/types.js";
 import type { UsernameAuthConfig } from "./auth/username.js";
 import type { WebhookConfig } from "./auth/webhooks.js";
 import type { DatabaseConfig } from "./db/database.js";
+import type { IdGeneratorOption } from "./db/id-generation.js";
 import type { DeviceConfig } from "./device/types.js";
 import type { DidWebConfig } from "./did/types.js";
 import type { DatabaseHooks } from "./hooks/database-hooks.js";
@@ -75,6 +76,10 @@ export interface TheAuthConfig {
 	 * Per-model database hooks: `before` and `after` for create and update on `user`, `session` and `account`. A `before` hook can return `false` to abort or `{ data }` to replace fields, and it fails closed on a throw or timeout. See `docs/database-hooks.mdx`.
 	 */
 	databaseHooks?: DatabaseHooks;
+	/**
+	 * Advanced database behavior. `database.generateId` sets how ids of users, sessions and OAuth accounts are made: `"uuid"` (default, random v4), `"uuidv7"` (time ordered, RFC 9562) or a function `({ model }) => string`. Database generated ids (`false`, `"serial"`) are refused. See `docs/id-generation.mdx`.
+	 */
+	advanced?: { database?: { generateId?: IdGeneratorOption } };
 	/**
 	 * Optional permission catalog (see `definePermissions`). Declaring it narrows `resource` and `action` on the returned instance at the type level. Not enforced at runtime.
 	 */

@@ -54,6 +54,7 @@ export function createHumanAuthModules(
 	const databaseHooks = createDatabaseHookRunner(config.databaseHooks, {
 		logger: config.logger,
 		hookSafety: config.hookSafety,
+		generateId: config.advanced?.database?.generateId,
 	});
 	const magicLinkModule: MagicLinkModule | null =
 		config.magicLink && sessionManager
@@ -122,6 +123,7 @@ export function createHumanAuthModules(
 			? createUsernameAuthModule(config.username, db, sessionManager, signInGate, {
 					storage: createSecondaryStorageResolver(config.secondaryStorage, db).for("rateLimit"),
 					logger: createObservability(config.observability, config.logger).logger,
+					ids: databaseHooks,
 				})
 			: null;
 

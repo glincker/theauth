@@ -65,6 +65,8 @@ export interface RateLimitConfig extends TrustedProxyConfig {
 	deviceToken?: EndpointLimit | false;
 	/** Limit for POST /auth/device/authorize. Default 20 per minute. `false` disables. */
 	deviceAuthorize?: EndpointLimit | false;
+	/** `/device/spiffe/verify` and `/devices/spiffe/verify` and `/token`. Default 60/min. */
+	deviceSpiffe?: EndpointLimit | false;
 	/** Fallback limit applied to all other /auth/* paths */
 	default?: EndpointLimit;
 	/** What to key counters on: `ip`, `client_id`, or `ip+client_id`. */

@@ -1,6 +1,11 @@
 import { Cpu } from "lucide-react";
 import type { DeviceDetail, DeviceFleetStats, DeviceRow } from "../api/device-types.js";
-import { activeCredentialKinds, formatLastSeen, statusTone } from "../pages/devices-format.js";
+import {
+	activeCredentialKinds,
+	formatLastSeen,
+	spiffeTrustDomain,
+	statusTone,
+} from "../pages/devices-format.js";
 import { Badge } from "./badge.js";
 import { Button } from "./button.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "./table.js";
@@ -192,6 +197,23 @@ export function DeviceDetailPanel({ device }: { device: DeviceDetail }) {
 				))}
 				{device.credentials.length === 0 && <li className="text-zinc-500">No credentials</li>}
 			</ul>
+			{device.credentials.some((c) => c.kind === "spiffe") && (
+				<div data-testid="device-spiffe" className="space-y-1">
+					<p className="font-medium">SPIFFE identities</p>
+					<ul className="space-y-1" aria-label="SPIFFE identities">
+						{device.credentials
+							.filter((c) => c.kind === "spiffe")
+							.map((c) => (
+								<li key={c.id} className="flex items-center gap-2">
+									<span className="font-mono truncate">{c.lookup}</span>
+									<span className="text-zinc-500">
+										trust domain {spiffeTrustDomain(c.lookup) ?? "unknown"}, {c.status}
+									</span>
+								</li>
+							))}
+					</ul>
+				</div>
+			)}
 		</div>
 	);
 }

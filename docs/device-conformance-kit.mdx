@@ -1,0 +1,89 @@
+---
+title: Device conformance kit
+description: Simulate a fleet of devices against the real handler with a deterministic clock, to test bundle verification, revocation snapshots and offline decisions at scale.
+icon: vial
+---
+
+`@glinr/theauth/testing/devices` runs a fleet of simulated devices against a real in-memory theAuth and the real HTTP handler. It exists for two readers: you, to check that your device code and policy behave when devices go offline, drift in time or get revoked; and anyone writing a device SDK or a verifier, who needs a fixed set of scenarios to compare against.
+
+Nothing in it imports vitest or jest. It is for tests: the virtual clock replaces `globalThis.Date`, so never install it in a running service.
+
+## Run it
+
+```ts
+import { createDeviceFleet, runDeviceConformance } from "@glinr/theauth/testing/devices";
+
+const fleet = await createDeviceFleet({ size: 100 });
+try {
+  const report = await runDeviceConformance(fleet);
+  for (const s of report.scenarios) {
+    console.log(s.name, s.checks, s.failures);
+  }
+} finally {
+  fleet.dispose(); // puts the real Date back
+}
+```
+
+`createDeviceFleet` builds the app, creates one owner, issues a bulk enrollment token and enrolls every device through `POST /device/enroll` with its own ES256 key. From then on a device acts through `POST /device/authorize` and `GET /device/bundle`, signing a fresh assertion with its own clock each time. The handler's rate limiter stays on, with one key per simulated device.
+
+## The clock
+
+`fleet.clock` is the only time source of the server side while the clock is installed: token and bundle lifetimes, replay windows, row timestamps and jose all read it. Runs are repeatable and a test can move a day forward in one call:
+
+```ts
+fleet.clock.advance(2 * 60 * 60 * 1000); // two hours
+const device = fleet.devices[0];
+device.setSkew(10 * 60_000);             // this device runs 10 minutes fast
+```
+
+A device has its own view of time (`device.nowMs()`, server time plus its skew). It uses that for assertions and when it verifies a bundle, as real hardware would. `performance.now()` is not touched, so the latency numbers below are wall time.
+
+## What a device can do
+
+| Method | Needs network | What it does |
+| --- | --- | --- |
+| `enroll(token)` | yes | Generates a key and enrolls |
+| `authorize(action, resource)` | yes | Online decision from the server |
+| `fetchBundle()` | yes | Stores the bundle and revocation snapshot |
+| `verifyBundle()` | no | `verifyDeviceBundle` with the device clock, the last accepted `seq` and the snapshot |
+| `decideOffline(action, resource)` | no | Verifies again, then `evaluateDeviceBundle`. An unverifiable bundle is a denial |
+| `goOffline()`, `goOnline()` | | An offline device throws `DeviceOfflineError` on any network call |
+| `setSkew(ms)` | | Device clock minus server clock |
+
+On the fleet: `revoke(device)`, `suspend(device)`, `resume(device)`, `forEach(task, concurrency)` and `latency.report()`.
+
+## Scenarios
+
+`runDeviceConformance` runs these in order, and each one is also exported on its own:
+
+1. **enrollment**: every device has a distinct id.
+2. **assertion**: an allowed action answers 200, an ungranted one 403.
+3. **bundle and snapshot**: the bundle and snapshot verify, and the offline decision equals the server decision for an allowed and a denied action.
+4. **clock skew**: a device 10 seconds fast or slow is accepted, one 10 minutes off is refused with 401 (the window is 30 seconds).
+5. **rollback**: an older bundle presented after a newer one was accepted is refused.
+6. **offline and online**: offline devices cannot reach the server but decide from the bundle; past the bundle lifetime they fail closed; back online they fetch a new bundle and recover.
+7. **revocation mid session**: revoked devices get 401 on `authorize` and on `bundle`, healthy devices are unaffected, and a snapshot fetched afterwards lists exactly the revoked devices.
+
+The last scenario also shows the bound you accept with offline revocation: a device that keeps an old snapshot does not know about a revocation until it fetches a new one or the snapshot passes the maximum age you give `verifyBundle`. Pick `revocations.ttlSeconds` and that age with that in mind.
+
+## Measured numbers
+
+Command: `pnpm --filter @glinr/theauth exec jiti scripts/device-fleet-bench.ts 1000`. It runs the full set above with 1000 devices.
+
+Environment: one process, Node 22.22.2, in-memory SQLite, Apple M4 Max with 36 GB of RAM, macOS. One laptop, one run. There is no network and no real database round trip, so read the figures as the cost of the library code, not of a deployed service. The fleet runs 25 devices at a time on one event loop, so each latency includes time spent waiting behind other devices.
+
+| Operation | Calls | p50 | p99 |
+| --- | --- | --- | --- |
+| enroll (`POST /device/enroll`) | 1000 | 25.8 ms | 59.0 ms |
+| authorize (`POST /device/authorize`) | 1000 | 16.6 ms | 29.1 ms |
+| fetch bundle and snapshot (`GET /device/bundle`) | 1000 | 16.9 ms | 28.8 ms |
+| verify bundle and snapshot (device side) | 1000 | 5.3 ms | 15.3 ms |
+| decide offline (verify, then evaluate) | 1000 | 2.2 ms | 13.2 ms |
+
+All 7 scenarios passed (about 12,000 checks). The process went from 62 MB to 66 MB of heap in use and from 144 MB to 501 MB resident, sampled at the end of the run without forcing a garbage collection, so the heap figure is a lower bound of the peak and the resident figure includes the SQLite database, 1000 key pairs and the in-memory stores. Setup took 1.2 seconds and the whole run 9.2 seconds.
+
+These are single runs. Rerun the command on your hardware before you plan capacity from it.
+
+## Using it with your own verifier
+
+Replace `verifyBundle` and `decideOffline` by your own code by reading what the fleet stored: `device.bundleToken`, `device.snapshotToken`, `fleet.jwks()` and `device.nowMs()`. A verifier written in another language can be fed the same tokens and must reach the same decisions.

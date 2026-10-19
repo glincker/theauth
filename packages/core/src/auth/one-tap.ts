@@ -21,8 +21,9 @@
 
 import { eq } from "drizzle-orm";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
+import type { IdSource } from "../db/id-generation.js";
+import { defaultIdSource } from "../db/id-generation.js";
 import { users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
 import type { SignInGate } from "./sign-in-gate.js";
@@ -101,6 +102,7 @@ export function createOneTapModule(
 	db: Database,
 	sessionManager: SessionManager,
 	signInGate?: SignInGate,
+	ids: IdSource = defaultIdSource(),
 ): OneTapModule {
 	const gate = signInGate ?? createSignInGate({ db });
 	const autoCreateUser = config.autoCreateUser ?? true;
@@ -159,7 +161,7 @@ export function createOneTapModule(
 			throw new OneTapVerifyError(`No account found for ${googleUser.email}`, "USER_NOT_FOUND");
 		}
 
-		const id = generateId();
+		const id = ids.newId("user");
 		const now = new Date();
 
 		await db.insert(users).values({

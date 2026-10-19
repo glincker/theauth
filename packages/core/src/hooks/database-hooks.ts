@@ -12,6 +12,8 @@
  */
 import { z } from "zod";
 import { normalizeEmail } from "../auth/normalize-email.js";
+import type { IdSource } from "../db/id-generation.js";
+import { createIdSource, defaultIdSource } from "../db/id-generation.js";
 import type { TheAuthLogger } from "../observability/types.js";
 import { runWithTimeout } from "./run.js";
 import type { HookSafetyConfig } from "./safety.js";
@@ -125,7 +127,7 @@ export class DatabaseHookError extends Error {
 	}
 }
 
-export interface DatabaseHookRunner {
+export interface DatabaseHookRunner extends IdSource {
 	/** False when no hook is configured, so call sites can skip their extra reads. */
 	readonly active: boolean;
 	/** True when a `before` or `after` hook exists for this model and operation. */
@@ -189,6 +191,7 @@ function applyPatch<M extends DatabaseHookModel>(
 }
 
 const NOOP_RUNNER: DatabaseHookRunner = {
+	...defaultIdSource(),
 	active: false,
 	has: () => false,
 	before: async (_model, _operation, data) => data,
@@ -198,6 +201,8 @@ const NOOP_RUNNER: DatabaseHookRunner = {
 export interface DatabaseHookRunnerOptions {
 	logger?: Pick<TheAuthLogger, "warn" | "error">;
 	hookSafety?: HookSafetyConfig;
+	/** The `advanced.database.generateId` option. Default: random UUIDs. */
+	generateId?: unknown;
 }
 
 type AnyHook = (data: unknown, ctx: DatabaseHookContext) => unknown;
@@ -207,12 +212,16 @@ export function createDatabaseHookRunner(
 	hooks: DatabaseHooks | undefined,
 	options: DatabaseHookRunnerOptions = {},
 ): DatabaseHookRunner {
-	if (!hooks) return NOOP_RUNNER;
+	const ids =
+		options.generateId === undefined ? defaultIdSource() : createIdSource(options.generateId);
+	const withIds = (base: DatabaseHookRunner): DatabaseHookRunner =>
+		ids === defaultIdSource() ? base : { ...base, newId: (model) => ids.newId(model) };
+	if (!hooks) return withIds(NOOP_RUNNER);
 	const configured = (["user", "session", "account"] as const).some((m) => {
 		const h = hooks[m];
 		return !!(h?.create?.before || h?.create?.after || h?.update?.before || h?.update?.after);
 	});
-	if (!configured) return NOOP_RUNNER;
+	if (!configured) return withIds(NOOP_RUNNER);
 
 	const timeoutMs = resolveHookSafety({ timeoutMs: options.hookSafety?.timeoutMs })
 		.beforeAgentCreate.timeoutMs;
@@ -229,6 +238,7 @@ export function createDatabaseHookRunner(
 	}
 
 	return {
+		newId: (model) => ids.newId(model),
 		active: true,
 		has: (model, operation) =>
 			!!(pick(model, operation, "before") || pick(model, operation, "after")),

@@ -115,3 +115,17 @@ export function buildCredentialInput(
 export function parseBundleTtl(raw: string): number | undefined | string {
 	return positiveInt(raw, "Lifetime");
 }
+
+/** Trust domain of a SPIFFE ID (`spiffe://<trust domain>/<path>`), or null when it is not one. */
+export function spiffeTrustDomain(id: string): string | null {
+	const match = /^spiffe:\/\/([^/]+)\/.+$/.exec(id);
+	return match?.[1] ?? null;
+}
+
+/** The SPIFFE ID typed into the link form, or the message to show. */
+export function buildSpiffeId(text: string): string {
+	const value = text.trim();
+	if (spiffeTrustDomain(value) === null)
+		return "A SPIFFE ID looks like spiffe://example.org/ns/prod/sa/robot";
+	return value;
+}

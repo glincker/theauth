@@ -3,6 +3,7 @@ export type {
 	SpiffeAuthResult,
 	SpiffeBridge,
 	SpiffeBridgeConfig,
+	SpiffeOutcome,
 	SpiffePresentation,
 	SpiffePrincipal,
 } from "./bridge.js";
@@ -18,6 +19,8 @@ export type {
 export { createBundleStore } from "./bundle-store.js";
 export type { JwtSvidIdentity, JwtSvidOptions, JwtSvidResult } from "./jwt-svid.js";
 export { verifyJwtSvid } from "./jwt-svid.js";
+export type { DeviceSpiffeConfig, DeviceSpiffeService } from "./service.js";
+export { createDeviceSpiffeService } from "./service.js";
 export type { SpiffeId, SpiffeIdResult } from "./spiffe-id.js";
 export { MAX_SPIFFE_ID_BYTES, parseSpiffeId, parseTrustDomain } from "./spiffe-id.js";
 export type {

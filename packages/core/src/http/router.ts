@@ -12,6 +12,7 @@ import { auditRoutes } from "./routes/audit.js";
 import { authorizeRoutes } from "./routes/authorize.js";
 import { delegationRoutes } from "./routes/delegations.js";
 import { deviceSelfRoutes } from "./routes/device-self.js";
+import { deviceSpiffeRoutes } from "./routes/device-spiffe.js";
 import { deviceAdminRoutes } from "./routes/devices.js";
 import { explainRoutes } from "./routes/explain.js";
 import { mcpRoutes } from "./routes/mcp.js";
@@ -31,6 +32,7 @@ const ALL_ROUTES: HttpRoute[] = [
 	...auditRoutes,
 	...mcpRoutes,
 	...explainRoutes,
+	...deviceSpiffeRoutes,
 	...deviceAdminRoutes,
 	...deviceSelfRoutes,
 ];

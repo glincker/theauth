@@ -7,7 +7,13 @@ import type {
 	DeviceCredentialInput,
 	DeviceDetail,
 } from "../api/device-types.js";
-import { buildCredentialInput, parseBundleTtl, parseGroups } from "../pages/devices-format.js";
+import {
+	buildCredentialInput,
+	buildSpiffeId,
+	parseBundleTtl,
+	parseGroups,
+	spiffeTrustDomain,
+} from "../pages/devices-format.js";
 import { Button } from "./button.js";
 import { FormGroup, Input, Label, Select, Textarea } from "./input.js";
 import { useToast } from "./toast.js";
@@ -25,7 +31,7 @@ export function DeviceActions({ client, device }: Props) {
 	const { toast } = useToast();
 	const locked = device.status === "revoked";
 	const [groups, setGroups] = useState(device.groups.join(", "));
-	const [kind, setKind] = useState<DeviceCredentialInput["kind"]>("psk");
+	const [kind, setKind] = useState<DeviceCredentialInput["kind"] | "spiffe">("psk");
 	const [material, setMaterial] = useState("");
 	const [ttl, setTtl] = useState("");
 	const [error, setError] = useState<string | null>(null);
@@ -72,6 +78,18 @@ export function DeviceActions({ client, device }: Props) {
 		onError: () => setError("Request failed"),
 	});
 
+	const linkSpiffe = useMutation({
+		mutationFn: (spiffeId: string) => client.linkDeviceSpiffe(device.id, spiffeId),
+		onSuccess: (result) => {
+			if (report(result)) {
+				setMaterial("");
+				toast("success", "SPIFFE ID linked");
+				refresh();
+			}
+		},
+		onError: () => setError("Request failed"),
+	});
+
 	const revokeCredential = useMutation({
 		mutationFn: (credentialId: string) => client.revokeDeviceCredential(device.id, credentialId),
 		onSuccess: (result) => {
@@ -94,6 +112,17 @@ export function DeviceActions({ client, device }: Props) {
 
 	function submitCredential(event: React.FormEvent) {
 		event.preventDefault();
+		if (kind === "spiffe") {
+			const id = buildSpiffeId(material);
+			if (spiffeTrustDomain(id) === null) {
+				setError(id);
+				return;
+			}
+			setError(null);
+			setAdded(null);
+			linkSpiffe.mutate(id);
+			return;
+		}
 		const input = buildCredentialInput(kind, material);
 		if (typeof input === "string") {
 			setError(input);
@@ -179,17 +208,26 @@ export function DeviceActions({ client, device }: Props) {
 						id="credential-kind"
 						value={kind}
 						disabled={locked}
-						onChange={(e) => setKind(e.target.value as DeviceCredentialInput["kind"])}
+						onChange={(e) => setKind(e.target.value as DeviceCredentialInput["kind"] | "spiffe")}
 					>
 						<option value="psk">Pre shared key (generated)</option>
 						<option value="jwk">Public JWK</option>
 						<option value="x509">Certificate thumbprint</option>
+						<option value="spiffe">SPIFFE ID</option>
 					</Select>
 				</FormGroup>
 				{kind === "jwk" && (
 					<Textarea
 						aria-label="Public JWK"
 						rows={4}
+						value={material}
+						onChange={(e) => setMaterial(e.target.value)}
+					/>
+				)}
+				{kind === "spiffe" && (
+					<Input
+						aria-label="SPIFFE ID"
+						placeholder="spiffe://example.org/ns/prod/sa/robot"
 						value={material}
 						onChange={(e) => setMaterial(e.target.value)}
 					/>
@@ -201,7 +239,12 @@ export function DeviceActions({ client, device }: Props) {
 						onChange={(e) => setMaterial(e.target.value)}
 					/>
 				)}
-				<Button type="submit" size="sm" disabled={locked} loading={addCredential.isPending}>
+				<Button
+					type="submit"
+					size="sm"
+					disabled={locked}
+					loading={addCredential.isPending || linkSpiffe.isPending}
+				>
 					Add credential
 				</Button>
 				{added?.secret && (

@@ -255,7 +255,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		// New link, we do NOT create the theauth_users row here.  That is the
 		// caller's responsibility because they may want to look up an existing
 		// user by email, collect extra profile fields, enforce tenant rules, etc.
-		const accountId = generateId();
+		const accountId = databaseHooks.newId("account");
 		const expiresAt = tokens.expiresIn ? new Date(now.getTime() + tokens.expiresIn * 1000) : null;
 
 		await db.insert(oauthAccounts).values({
@@ -352,7 +352,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			return rowToAccount(updated[0] as typeof oauthAccounts.$inferSelect);
 		}
 
-		const accountId = generateId();
+		const accountId = databaseHooks.newId("account");
 		const newExpiry = await accountBefore(
 			"create",
 			{ id: accountId, userId, provider: providerId, providerAccountId: userInfo.id },
