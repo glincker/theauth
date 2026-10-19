@@ -1,5 +1,7 @@
 import { eq } from "drizzle-orm";
 import { organizations, orgInvitations, orgMembers, orgRoles } from "../db/schema.js";
+import { createDrizzleKernel } from "../db/store/drizzle-kernel.js";
+import type { WriteOp } from "../db/store/types.js";
 import {
 	makeMemberId,
 	makeOrgId,
@@ -49,34 +51,34 @@ export function createOrgCore(
 		const id = makeOrgId();
 		const now = new Date();
 
-		await db.insert(organizations).values({
-			id,
-			name: input.name,
-			slug: input.slug,
-			ownerId: input.ownerId,
-			metadata: input.metadata ?? null,
-			createdAt: now,
-			updatedAt: now,
-		});
-
-		// Add owner as member with "owner" role
-		await db.insert(orgMembers).values({
-			id: makeMemberId(),
-			orgId: id,
-			userId: input.ownerId,
-			role: "owner",
-			joinedAt: now,
-		});
-
-		// Seed default roles
-		for (const role of defaultRoles) {
-			await db.insert(orgRoles).values({
-				id: makeRoleId(),
-				orgId: id,
-				name: role.name,
-				permissions: role.permissions,
-			});
-		}
+		// One atomic group: an org never exists without its owner member and seeded roles.
+		await createDrizzleKernel(db).batch([
+			{
+				op: "insert",
+				model: "organizations",
+				row: {
+					id,
+					name: input.name,
+					slug: input.slug,
+					ownerId: input.ownerId,
+					metadata: input.metadata ?? null,
+					createdAt: now,
+					updatedAt: now,
+				},
+			},
+			{
+				op: "insert",
+				model: "orgMembers",
+				row: { id: makeMemberId(), orgId: id, userId: input.ownerId, role: "owner", joinedAt: now },
+			},
+			...defaultRoles.map(
+				(role): WriteOp => ({
+					op: "insert",
+					model: "orgRoles",
+					row: { id: makeRoleId(), orgId: id, name: role.name, permissions: role.permissions },
+				}),
+			),
+		]);
 
 		return {
 			id,

@@ -603,6 +603,7 @@
             "pages": [
               "compare/index",
               "compare/vs-ba",
+              "compare/vs-keycloak",
               "compare/vs-hanko",
               "compare/vs-casdoor",
               "compare/vs-paid"

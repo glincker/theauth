@@ -10,6 +10,7 @@ import { Pool } from "pg";
 import { afterAll } from "vitest";
 import { runStoreContract } from "../../../test-utils/src/store-contract/index.js";
 import { bootTarget } from "./boot.js";
+import { withQueryLatency } from "./latency.js";
 import { dropScratchDatabase, ensureScratchDatabase, scratchUrl } from "./scratch.js";
 
 /**
@@ -37,6 +38,18 @@ runStoreContract("drizzle instance (better-sqlite3 file)", () =>
 		sqlite.pragma("journal_mode = WAL");
 		sqlite.pragma("foreign_keys = ON");
 		return { drizzle: drizzle(sqlite), dialect: "sqlite" };
+	}, true),
+);
+
+// Same engine, but every query yields first. This is what makes a read-then-write claim observable
+// on SQLite, where the drivers otherwise answer synchronously (see latency.ts).
+runStoreContract("drizzle instance (better-sqlite3 file, query latency)", () =>
+	bootTarget(() => {
+		const sqlite = new BetterSqlite3(join(dir, "latency.db"));
+		sqlite.pragma("journal_mode = WAL");
+		sqlite.pragma("busy_timeout = 5000");
+		sqlite.pragma("foreign_keys = ON");
+		return { drizzle: withQueryLatency(drizzle(sqlite)), dialect: "sqlite" };
 	}, true),
 );
 

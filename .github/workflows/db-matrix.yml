@@ -1,9 +1,9 @@
 name: DB matrix
 
-# Runs the dialect contract suite (packages/core/tests/dialect) against real servers:
-# Postgres 17 and MySQL 8.4. Each suite file is skipped unless its URL variable is set,
-# so a leg only runs the suite for its own database. The static MySQL DDL checks
-# (mysql-ddl.test.ts) need no server and run on both legs.
+# Runs the dialect contract suite (packages/core/tests/dialect) and the store contract suite
+# (packages/core/tests/store-contract) against real servers: Postgres 17 and MySQL 8.4. Each suite
+# file is skipped unless its URL variable is set, so a leg only runs the suite for its own database.
+# The static MySQL DDL checks (mysql-ddl.test.ts) need no server and run on both legs.
 #
 # Not yet run in CI. MySQL stays gated (THEAUTH_MYSQL_UNSUPPORTED) until a leg of this job is green.
 
@@ -14,6 +14,8 @@ on:
       - "packages/core/src/db/**"
       - "packages/core/src/mcp/**"
       - "packages/core/tests/dialect/**"
+      - "packages/core/tests/store-contract/**"
+      - "packages/test-utils/src/store-contract/**"
       - ".github/workflows/db-matrix.yml"
   pull_request:
     branches: [main]
@@ -21,6 +23,8 @@ on:
       - "packages/core/src/db/**"
       - "packages/core/src/mcp/**"
       - "packages/core/tests/dialect/**"
+      - "packages/core/tests/store-contract/**"
+      - "packages/test-utils/src/store-contract/**"
       - ".github/workflows/db-matrix.yml"
   schedule:
     - cron: "41 4 * * *"
@@ -93,4 +97,4 @@ jobs:
         env:
           THEAUTH_TEST_PG_URL: ${{ matrix.url_var == 'THEAUTH_TEST_PG_URL' && matrix.url || '' }}
           THEAUTH_TEST_MYSQL_URL: ${{ matrix.url_var == 'THEAUTH_TEST_MYSQL_URL' && matrix.url || '' }}
-        run: pnpm --filter @glinr/theauth exec vitest run tests/dialect tests/claim.test.ts tests/database-mysql-gate.test.ts
+        run: pnpm --filter @glinr/theauth exec vitest run tests/dialect tests/store-contract/store-contract.test.ts tests/claim.test.ts tests/database-mysql-gate.test.ts

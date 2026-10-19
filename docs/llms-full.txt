@@ -62,6 +62,7 @@ const theauth = await createTheAuth({
   ],
 });
 
+// Routes served by the email plugin (only while it is installed):
 // POST /auth/sign-up, /auth/sign-in, /auth/verify-email, /auth/request-reset ...
 const res = await theauth.plugins.handleRequest(request);
 ```
@@ -545,7 +546,7 @@ pnpm add @glinr/theauth @glinr/theauth-email better-sqlite3
 
 ### Add the plugin
 
-`emailPassword()` registers `POST /auth/sign-up`, `/auth/sign-in`, `/auth/verify-email`, `/auth/request-reset`, `/auth/reset-password` and `/auth/change-password`. You supply the email transport; the callbacks below just log. Passwords are hashed before storage.
+`emailPassword()` registers `POST /auth/sign-up`, `/auth/sign-in`, `/auth/verify-email`, `/auth/request-reset`, `/auth/reset-password` and `/auth/change-password`. You supply the email transport; the callbacks below just log. Passwords are hashed before storage. These routes exist only while `@glinr/theauth-email` is installed: the core on its own serves `/auth/username/sign-up` and `/auth/username/sign-in` instead.
 
 ```ts title="human.ts"
 import { createTheAuth } from '@glinr/theauth';
@@ -1898,6 +1899,7 @@ The full set of tables theAuth can create is below. Which ones exist in your dat
 | `theauth_agent_registration_tokens` | One-time tokens for [agent registration](/agent-registration-tokens) |
 | `theauth_oauth_accounts`, `theauth_oauth_states` | Linked social accounts and in-flight OAuth state (`oauth()` plugin) |
 | `theauth_approval_requests` | CIBA async approval flow records |
+| `theauth_approval_votes` | One row per approver on a quorum approval request |
 | `theauth_trust_scores` | Graduated autonomy trust scores per agent |
 | `theauth_budget_policies` | Token and call budget caps per agent/user/tenant |
 | `theauth_magic_links`, `theauth_email_otps`, `theauth_phone_verifications`, `theauth_totp` | Magic link, email OTP, phone OTP, and TOTP records |
@@ -1983,6 +1985,90 @@ Each `createTheAuth()` call with `:memory:` gets a completely isolated database,
     Provision agents and permissions as infrastructure-as-code.
   </Card>
 </CardGroup>
+
+---
+
+# Bring your own Drizzle instance
+
+Source: https://docs.theauth.dev/bring-your-own-drizzle
+
+Most apps that already use Drizzle have a connection pool, credentials and a driver choice that theAuth should not duplicate. Pass that instance in and theAuth queries it directly.
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+const auth = await createTheAuth({
+  database: { drizzle: drizzle(pool), dialect: "postgres" },
+});
+```
+
+`dialect` is `"sqlite"`, `"postgres"` or `"mysql"`. It picks the migration SQL, the same way `provider` does for the URL form. Everything else about the database section is unchanged: tables are created on boot, and `skipMigrations: true` makes boot fail with `SchemaOutdatedError` when the schema is behind (see [Database setup](/database#using-skipmigrations)).
+
+## What you own
+
+theAuth does not open this connection, so it never closes it. Shut the pool down yourself when the process exits.
+
+Connection settings that `provider` applies for you become your job:
+
+| Dialect | Set this on your own handle |
+|---|---|
+| `sqlite` | `PRAGMA foreign_keys = ON`. For a file, `PRAGMA journal_mode = WAL` is a good idea if more than one process opens it. |
+| `mysql` | Create the pool with `timezone: "Z"`. The migration ledger stores UTC. Use a `utf8mb4` database with a binary collation (`utf8mb4_bin`) so ids compare case sensitively. |
+| `postgres` | Nothing extra. Use a pooled connection string on serverless hosts. |
+
+## Requirements for the handle
+
+- It must expose the driver client at `db.$client`, because migrations and the schema check send raw SQL through it. The node-postgres, mysql2 and better-sqlite3 drivers do, and those are the ones this release tests. A driver that hides its client can still work if you run the migrations yourself (`theauth db sql`) and every query path goes through Drizzle, but boot calls the schema check even with `skipMigrations`, so that is untested territory.
+- Do not pass a `schema` that renames or replaces theAuth's tables. theAuth uses its own table objects and never reads `db.query`, so a plain `drizzle(pool)` is enough.
+- Reads must see your own writes. Single use tokens, refresh rotation and the audit chain read right after a write. If you route reads to a replica, pin auth traffic to the primary.
+
+`createTheAuth` returns your handle as `auth.db`, and plugins receive it as `ctx.db`, so it is the same object you passed in.
+
+## Typed unique conflicts
+
+Several flows use a unique index as the tiebreaker: creating a user, appending to the audit chain, a second vote from the same approver, banning twice, MCP client and revocation inserts, erasure tombstones. They now map a driver error through `toStoreConflict`, which returns a `StoreConflictError` (exported from `@glinr/theauth`, with `code: "STORE_CONFLICT"`, `model` and the driver error as `cause`).
+
+Detection reads structured codes first: Postgres `23505`, MySQL `ER_DUP_ENTRY` or errno `1062`, SQLite `SQLITE_CONSTRAINT_UNIQUE` and `SQLITE_CONSTRAINT_PRIMARYKEY`, SQL Server `2627` and `2601`, Prisma `P2002`, MongoDB `11000`. The old text match stays as a fallback for drivers that wrap the code away, so behavior on the existing providers is unchanged.
+
+## Run the contract suite against your backend
+
+`@glinr/theauth-test-utils/store-contract` holds the checks that make a backend safe for auth: 24 parallel callers fighting over one single use row with exactly one winner (magic link, email OTP, approval decision and consumption, refresh rotation), the attempt limit on OTP guesses, unique conflicts, and an audit chain that stays gapless and verifies when two processes append for one agent.
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+import { runStoreContract } from "@glinr/theauth-test-utils/store-contract";
+
+const url = process.env.TEST_DATABASE_URL;
+
+runStoreContract(
+  "my postgres",
+  async () => {
+    const mail = { magicTokens: [] as string[], otpCodes: [] as string[] };
+    const auth = await createTheAuth({
+      database: { drizzle: makeMyDrizzle(url), dialect: "postgres" },
+      agents: { enabled: true, maxPerUser: 500 },
+      audit: { tamperEvident: true, hmacKey: "test-key" },
+      magicLink: {
+        appUrl: "https://app.test",
+        sendMagicLink: async (_email, token) => void mail.magicTokens.push(token),
+      },
+      emailOtp: { sendOtp: async (_email, code) => void mail.otpCodes.push(code) },
+    });
+    return { auth, mail, close: async () => {} };
+  },
+  { skip: !url },
+);
+```
+
+Add `peer` (a second instance with its own handle on the same database) to include the two process audit check, `duplicateInsert` to check conflict typing with your driver, and `tokenFamilies` for the refresh rotation race. The repository runs this suite on sql.js, better-sqlite3 through both config forms, Postgres and MySQL; set `THEAUTH_TEST_PG_URL` and `THEAUTH_TEST_MYSQL_URL` to include the last two.
+
+<Note>
+  The suite needs `vitest` as a dev dependency. It runs against the instance's public surface, so it describes how today's Drizzle code behaves, not a future storage interface.
+</Note>
 
 ---
 
@@ -3582,6 +3668,9 @@ const theauth = await createTheAuth({
 | `"memory"` (default) | yes | no | Lost on restart. Dev and single process. |
 | `"database"` | yes | yes | Uses the TheAuth database (SQLite, Postgres, MySQL, D1). No new infrastructure. |
 | `redisStorage(client)` | yes | yes | Redis, Valkey, Upstash, Dragonfly. Best throughput. |
+| `mongoStorage(collection)` | yes | yes | MongoDB 4.4+. TTL index cleans up expired rows. |
+| `sqlStorage({ dialect, run })` | yes | yes | Any SQL database, including Microsoft SQL Server. You supply the query runner. |
+| `kyselyStorage(db, { dialect, CompiledQuery })` | yes | yes | `sqlStorage` wired to a Kysely instance: SQLite and D1, Postgres, MySQL, SQL Server. |
 | `cloudflareKvStorage(kv)` | **no** | eventually | See the warning below. |
 | `defineSecondaryStorage({...})` | only if you supply `incr` | depends | Bring your own. |
 
@@ -3628,6 +3717,50 @@ const storage = redisStorage(client);
 ```
 
 If the process dies between `INCR` and `PEXPIRE`, the next caller notices the missing TTL and repairs it, so a counter can never become permanent.
+
+## MongoDB adapter
+
+`mongoStorage` takes one collection. The official `mongodb` driver (v5 and later) fits as is, and TheAuth does not depend on it.
+
+```ts
+import { MongoClient } from "mongodb";
+import { mongoStorage } from "@glinr/theauth";
+
+const client = await MongoClient.connect(process.env.MONGO_URL);
+const storage = mongoStorage(client.db("app").collection("theauth_secondary_storage"));
+await storage.ensureIndexes(); // TTL index on expiresAt
+```
+
+`incr` is one `findOneAndUpdate` with an aggregation pipeline, so a live counter is bumped and an expired one restarted in a single step. Reads skip rows whose `expiresAt` has passed, because MongoDB's TTL monitor only sweeps about once a minute. This needs MongoDB 4.4 or later (`$isNumber`).
+
+This covers secondary storage only. The main database (users, sessions, agents, audit) is a SQL schema and still runs on SQLite, Postgres or D1. See [Which storage should I pick](/choose-storage).
+
+## Kysely and SQL Server
+
+`sqlStorage` only uses INSERT, UPDATE, DELETE and primary key SELECT, and builds placeholders for the dialect (`?`, `$1`, `@p1`). With Kysely, pass its `CompiledQuery` class so TheAuth can run parameterised statements without importing Kysely:
+
+```ts
+import { CompiledQuery, Kysely, MssqlDialect } from "kysely";
+import { kyselyStorage } from "@glinr/theauth";
+
+const db = new Kysely({ dialect: new MssqlDialect({ /* tarn + tedious */ }) });
+const storage = kyselyStorage(db, { dialect: "mssql", CompiledQuery });
+await storage.ensureTable(); // creates theauth_secondary_storage if missing
+```
+
+Without Kysely, give `sqlStorage` any function that runs one statement and reports `affectedRows`:
+
+```ts
+const storage = sqlStorage({
+  dialect: "postgres",
+  run: async (text, params) => {
+    const r = await pool.query(text, params);
+    return { rows: r.rows, affectedRows: r.rowCount ?? 0 };
+  },
+});
+```
+
+Counters are exact per key. The value `incr` returns is read back after the update, so under heavy contention it may include callers that landed just after you, which only errs toward limiting more. Call `purgeExpired()` from a cron on large keyspaces. The SQL Server statements are generated but have not been run against a real SQL Server; SQLite and Postgres are tested.
 
 ## Custom store
 
@@ -4797,7 +4930,26 @@ State lives in a [secondary storage](/secondary-storage). The default is in memo
 |--------|---------|-------|
 | `emailOtpSender(provider)` | email | Wraps any email provider: `resend`, `ses`, `postmark`, `sendgrid`, `smtp` |
 | `twilioOtpSender(config)` | sms | Raw `fetch`, give `from` or `messagingServiceSid` |
+| `vonageOtpSender(config)` | sms | Vonage Messages API, Basic auth. Needs `apiKey`, `apiSecret`, `from`. Optional `region` |
+| `plivoOtpSender(config)` | sms | Plivo Message API. Needs `authId`, `authToken` and `from` or `powerpackUuid` |
 | `consoleOtpSender()` | either | Prints the code. Development only |
+
+All three SMS senders use `fetch` with no SDK, time out after 10 seconds (`timeoutMs`), accept only the `sms` channel, and throw on a non-2xx answer. The error carries the HTTP status and the vendor's short error code, never the response body, credentials, phone number or code, so it is safe to log. A 2xx answer means the vendor accepted the message, not that the phone received it: delivery receipts are a vendor webhook and are not handled here.
+
+```typescript
+import { createOtpService, plivoOtpSender, vonageOtpSender } from '@glinr/theauth/auth';
+
+const sms = vonageOtpSender({
+  apiKey: process.env.VONAGE_API_KEY!,
+  apiSecret: process.env.VONAGE_API_SECRET!,
+  from: process.env.VONAGE_FROM!, // E.164 number, or an alphanumeric ID where the country allows it
+});
+// or: plivoOtpSender({ authId: process.env.PLIVO_AUTH_ID!, authToken: process.env.PLIVO_AUTH_TOKEN!, from: process.env.PLIVO_FROM! })
+
+export const otp = createOtpService({ secret: process.env.OTP_SECRET!, senders: { sms } });
+```
+
+Vonage wants the recipient without the leading `+`, and the sender strips it for you. Request shapes follow the vendors' docs: [Twilio Messages](https://www.twilio.com/docs/messaging/api/message-resource), [Vonage Messages API](https://developer.vonage.com/en/api/messages), [Plivo Message API](https://www.plivo.com/docs/messaging/api/message/send-a-message). Look at the sender cost and sender registration rules (10DLC in the US, sender ID rules elsewhere) of the vendor you pick, they differ by country.
 
 A sender is `{ send(message): Promise<void> }`, so adding another provider takes a few lines. `emailOtpSender` accepts `subject` and `render` to change the message text.
 
@@ -13633,7 +13785,7 @@ What a device gets that an agent does not:
 
 - Credentials made for hardware: a pre shared key, a public key that signs short assertions, or a TLS client certificate thumbprint.
 - Enrollment by claim code (one device, typed by a person) or bulk token (a factory line, with a use limit).
-- An attestation hook for evidence such as an EAT (RFC 9711) at enrollment.
+- An attestation hook for evidence at enrollment, with a built in Android Key Attestation verifier.
 - A signed offline policy bundle for devices that cannot call home on every decision.
 - Suspend and resume, separate from permanent revoke.
 
@@ -13665,7 +13817,8 @@ Migration `0010-devices` adds three tables (`theauth_devices`, `theauth_device_c
 | `issuer` | `"theauth"` | `iss` of offline bundles. |
 | `bundleSigning` | none | `{ alg, kid, privateKey, previous? }`. Without it bundles are refused. |
 | `bundleTtlSeconds` | 3600 | Bundle lifetime. Capped at 86400. |
-| `attestation` | none | `{ required?, verify? }`. Evidence without a `verify` function is refused. |
+| `attestation` | none | `{ required?, requireNonce?, verify? }`. Evidence without a `verify` function is refused, and so is evidence without a nonce. |
+| `revocations` | off | `{ ttlSeconds?, maxEntries? }`. Signs a revocation snapshot next to every bundle. |
 | `clientCertThumbprint` | none | `(request) => x5t#S256 or null`, for mTLS terminated at your proxy. |
 
 ## A runnable example
@@ -13789,7 +13942,7 @@ Codes and tokens are stored as hashes. A use is claimed with one conditional UPD
 
 ### Attestation
 
-Set `attestation.verify` to check evidence (for example an EAT from a secure element) before the device is created. The device first asks for a nonce and binds it into its evidence, so old evidence cannot be replayed:
+Set `attestation.verify` to check evidence before the device is created. The device first asks for a nonce (`POST /device/attestation-nonce`) and binds it into its evidence, so old evidence cannot be replayed. Evidence that arrives without a nonce is refused unless you set `attestation.requireNonce: false`. The hook receives `{ evidence, nonce, hardwareId, enrollmentId, credentialKind, credentialKeyThumbprint }`, where the last two describe the credential the device is enrolling (`credentialKeyThumbprint` is the RFC 7638 thumbprint of a `jwk` credential).
 
 ```ts
 devices: {
@@ -13805,6 +13958,39 @@ devices: {
 ```
 
 A verifier that throws counts as a refusal. The claims you return are stored on the device as `attestation`.
+
+#### Android Key Attestation (built in)
+
+`createAndroidKeyAttestationVerifier` checks the certificate chain that `KeyStore.getCertificateChain` returns for a hardware backed key. It implements Google's published steps: the chain must end at a Google Hardware Attestation root, no certificate may be on Google's revocation list, the key attestation extension must appear once and in the leaf (a later copy could have been added by an attacker), the key and the attestation must meet a minimum security level (TEE or StrongBox), the TEE enforced root of trust must show a locked bootloader and verified boot, the key must have been generated in hardware, and the attestation challenge must equal the enrollment nonce.
+
+```ts
+import { createAndroidKeyAttestationVerifier, googleRevocationList } from "@glinr/theauth";
+
+devices: {
+  attestation: {
+    required: true,
+    verify: createAndroidKeyAttestationVerifier({
+      revocation: googleRevocationList(), // required choice: a lookup, or "disabled" on purpose
+      minSecurityLevel: "trusted_environment", // or "strongbox"
+      bootPolicy: "verified", // "verified_or_self_signed" or "any" for development devices
+      allowedPackages: ["com.example.robot"], // optional, software enforced
+    }),
+  },
+}
+```
+
+On the device, generate an EC P-256 key with `setAttestationChallenge(nonce.getBytes(UTF_8))`, enroll that same public key as a `jwk` credential, and send the chain as evidence: a JSON array of base64 DER certificates, leaf first. By default the verifier requires that the attested key is the enrolled key (`bindKey`), so a genuine device cannot vouch for a key that lives somewhere else. A `psk` or `x509` credential fails that check; set `bindKey: false` if you only want proof that the device is genuine.
+
+Things to know:
+
+- The bundled roots are the two Google roots published at `android.googleapis.com/attestation/root`, copied on 2026-10-18. Pass `roots` to pin a newer list. Anchors are not time checked. Factory chains of the old root (subject serial `f92009e853b6b045`) are accepted after their `notAfter` date, as Google instructs, unless the chain carries the provisioning information extension (Remote Key Provisioning), where validity is enforced.
+- `googleRevocationList()` caches the list by its `Cache-Control` header and throws when it cannot fetch it, which refuses the enrollment. Set `staleIfErrorSeconds` to tolerate an outage for a bounded time.
+- Not supported: chains that use an attest key to certify another key (the verifier wants the extension in the leaf), the CBOR provisioning information content (only its position is checked), and `attestationIdSerial` or IMEI matching against `hardwareId`.
+- `theauth device attest android --evidence chain.json --nonce <n> --revocation google` runs the same verifier from the command line.
+
+**How this verifier was tested.** The test suite uses real attestation chains from Google's own repository, [google/android-key-attestation](https://github.com/google/android-key-attestation/tree/master/src/test/resources) (Apache License 2.0, copied unmodified into `packages/core/tests/fixtures/android-key-attestation.json`): EC and RSA keys, TEE and StrongBox, produced by TestDPC on devices. Three of the four chains verify, and `openssl verify` agrees with us on all four, including that the fourth (EC StrongBox) is not a valid chain: its leaf signature matches neither of the certificates above it. The parsed key description is compared with what `openssl asn1parse` prints for the same bytes. Those devices were unlocked, so the strict boot policy refuses them, which the tests also check. What is not covered: we have no chain from a locked, verified device with a known private key, so key binding is tested with the public key of a fixture leaf, and no chain with the provisioning information extension, so that branch is tested only by reading the specification. Treat the verifier as reviewed against Google's documentation and tested against real fixtures, not as certified by Google.
+
+TPM 2.0 quotes and Apple App Attest are not built in yet. Write them behind the same hook, or see the backlog.
 
 ## Authorization, delegation and revocation
 
@@ -13835,6 +14021,36 @@ Rules on the device, as implemented by `verifyDeviceBundle` and `evaluateDeviceB
 4. `requireApproval` always denies offline. `maxCallsPerHour` denies unless you pass the local call count. Time windows use the device clock.
 
 `perms` is the device's own permissions plus active delegations at issue time. A revocation reaches online checks at once but reaches an offline device only when its bundle expires, so pick the TTL as the longest stale window you accept. One hour is the default.
+
+### Signed revocation snapshots
+
+A revoked device keeps working offline until its bundle expires. If a robot talks to other devices while disconnected, or you want a device to notice its own revocation without a round trip, turn on snapshots:
+
+```ts
+devices: {
+  bundleSigning: { alg: "ES256", kid: "bundle-2026-10", privateKey },
+  revocations: { ttlSeconds: 3600 }, // opt in; needs bundleSigning
+}
+```
+
+`issueBundle` then returns `revocations: { token, claims }` next to the bundle (and `GET /device/bundle` includes it). The token is a compact JWS (`typ: device-revocations+jwt`, same key and JWKS as bundles) that lists the revoked and suspended devices of the bundle's owner: claims `iss`, `sub` (the owner), `iat`, `nbf`, `exp`, `jti`, `seq` (issue time in ms), `n` (entry count), `h` (`sha256-64`) and `ids`. Each entry is the first 8 bytes of the SHA-256 of the device id, sorted, concatenated and base64url encoded, so a device costs 11 characters and the list is exact for practical purposes (a false match needs a 64 bit collision). A Bloom filter would be smaller, but its false positives would lock healthy devices out, so we did not use one. `maxEntries` (default 50000) caps the list, and the server refuses to sign a truncated one.
+
+The device opts in to checking it when it verifies the bundle:
+
+```ts
+const res = await verifyDeviceBundle(bundle.token, {
+  keys: jwks,
+  deviceId,
+  revocations: { token: bundle.revocations?.token, maxAgeSeconds: 900, lastSeq: savedSnapshotSeq },
+});
+if (!res.ok) {
+  // "revoked": this device is on the list
+  // "stale_revocations": snapshot missing, expired or older than maxAgeSeconds (fail closed)
+  // "rollback": an older snapshot than one already accepted
+}
+```
+
+`maxAgeSeconds` is measured from the snapshot's `iat`, so a device can demand fresher data than the snapshot's own `exp`. Without the `revocations` option nothing changes. To ask whether a peer is revoked, call `verifyRevocationSnapshot(token, { keys, maxAgeSeconds, owner })` and then `result.has(peerId)`. The Go package `iot/device` has the same checks (`VerifyBundle` with `Revocations`, `VerifyRevocations`, `RevocationSnapshot.Contains`) and runs against shared vectors generated from the TypeScript code. One note on timing: suspension is reversible, and a resumed device stays on a snapshot until that snapshot expires, so pick a short `ttlSeconds` if you suspend often.
 
 ## HTTP routes
 
@@ -13890,11 +14106,12 @@ theauth device list --config ./theauth.config.mjs --status active
 theauth device enroll-token --config ./theauth.config.mjs --owner owner-1 --kind bulk --max-uses 200
 theauth device suspend <deviceId> --config ./theauth.config.mjs --reason "battery swap"
 theauth device revoke <deviceId> --config ./theauth.config.mjs
+theauth device attest android --evidence chain.json --nonce <nonce> --revocation google
 ```
 
 ## What is not here yet
 
-CWT and COSE encoding of bundles for very small devices, a built in EAT verifier, uploading decisions a device made offline into the audit chain, and a dashboard page.
+CWT and COSE encoding of bundles for very small devices, built in verifiers for TPM 2.0 quotes, Apple App Attest and EAT, uploading decisions a device made offline into the audit chain, and a dashboard page.
 
 ---
 
@@ -16499,6 +16716,111 @@ The code filter is sent as a `codes` query parameter and applied again to the lo
 
 ---
 
+# Database hooks
+
+Source: https://docs.theauth.dev/database-hooks
+
+`databaseHooks` lets you run your own code around the rows theAuth writes for `user`, `session` and `account`. The shape follows Better Auth's `databaseHooks`, so a hook you wrote there moves over with small changes.
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "theauth.db" },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  databaseHooks: {
+    user: {
+      create: {
+        // Runs before the row is written.
+        before: async (user) => {
+          if (!user.email.endsWith("@example.com")) return false; // abort
+          return { data: { name: user.name ?? "New user" } }; // replace fields
+        },
+        // Runs after the row is committed.
+        after: async (user) => {
+          await sendWelcomeEmail(user.email);
+        },
+      },
+    },
+    session: {
+      create: {
+        before: async (session) => ({
+          data: { expiresAt: new Date(session.expiresAt.getTime() - 60_000) },
+        }),
+      },
+    },
+  },
+});
+```
+
+## What a hook can return
+
+A `before` hook returns one of three things.
+
+| Return | Effect |
+| --- | --- |
+| `undefined` | The write goes ahead unchanged. |
+| `false` | The write is stopped. The caller gets a `DatabaseHookError` with code `DATABASE_HOOK_ABORTED`. |
+| `{ data }` | The listed fields replace the ones about to be written. |
+
+Only some fields can be replaced. Anything else in `data` (including `id`) stops the write with `DATABASE_HOOK_INVALID_PAYLOAD`.
+
+| Model | Fields you can replace |
+| --- | --- |
+| `user` | `email` (lowercased and checked again), `name`, `metadata` |
+| `session` | `expiresAt`, `metadata` |
+| `account` | `expiresAt` |
+
+Hooks never see OAuth access or refresh tokens. Session metadata keys that theAuth owns (the auth event history, the idle activity stamp and the remember me flag) are kept as computed, so a hook cannot forge a stronger login.
+
+## Where hooks fire
+
+| Model | Create | Update |
+| --- | --- | --- |
+| `user` | `theauth.user.create`, magic link, email OTP, phone and OAuth sign-up | Not wired yet |
+| `session` | `sessions.create`, including the new session of a refresh | `recordAuth` (step-up) |
+| `account` | `linkAccount` when a provider account is linked | Token refresh on a repeat sign-in, and a repeat `linkAccount` |
+
+Writes that are internal bookkeeping do not fire hooks: the idle activity stamp on a session, a pending OAuth row that has no user yet, and revocation deletes. Other user creation paths (anonymous, username, one tap, SCIM, importers) do not fire user hooks yet.
+
+## Failure behavior
+
+`before` hooks fail closed. A throw, a timeout or a malformed return value stops the write with a `DatabaseHookError` (`DATABASE_HOOK_FAILED`, `DATABASE_HOOK_TIMEOUT` or `DATABASE_HOOK_INVALID_PAYLOAD`), whatever `hookSafety.onError` is set to. The error message is generic, so it does not leak what your hook checked.
+
+`after` hooks run once the row exists, so they cannot undo it. A throw or timeout is logged through `logger.warn` and swallowed.
+
+The timeout comes from `hookSafety.timeoutMs` or `THEAUTH_HOOK_TIMEOUT_MS` (default 2000 ms). Each hook gets an `AbortSignal` in `ctx.signal` that fires when it runs out of time.
+
+Hooks receive a copy of the data. Changing the argument does not change what is stored, return `{ data }` instead.
+
+## Single-use claims stay atomic
+
+Magic link tokens, OTP codes, OAuth state and refresh rotation all consume something with one conditional statement so that only one concurrent caller wins. Hooks never run inside that statement.
+
+- A `before` hook runs ahead of the write it guards. If it aborts, nothing else was changed: a session `before` abort does not evict another session when `maxConcurrent` is set, and a refresh that is aborted leaves the old session usable.
+- An `after` hook fires only for the caller that won. A refresh fires `session.create.after` once the old session has been claimed, so a refresh that loses the race fires nothing.
+- A `before` hook that aborts a sign-up that already consumed a code (for example an OTP verify that creates the user) leaves that code consumed. The user retries with a new code.
+
+Run slow work (email, webhooks, analytics) in `after`, and keep `before` to quick checks.
+
+## Handling an abort
+
+```ts
+import { DatabaseHookError } from "@glinr/theauth";
+
+try {
+  await theauth.user.create({ email: "someone@other.test" });
+} catch (err) {
+  if (err instanceof DatabaseHookError && err.code === "DATABASE_HOOK_ABORTED") {
+    // err.model is "user", err.operation is "create"
+  }
+}
+```
+
+The OAuth callback turns a `DatabaseHookError` into a 403 response.
+
+---
+
 # Policy shrink
 
 Source: https://docs.theauth.dev/policy-shrink
@@ -17079,6 +17401,8 @@ Spending the approval in `authorize()` emits the usual event with code `approval
 <ParamField path="expiresAt" type="Date">When the request expires if no response is received. Default TTL is 5 minutes (`ttl` is in seconds).</ParamField>
 <ParamField path="respondedAt" type="Date | undefined">When the human responded.</ParamField>
 <ParamField path="respondedBy" type="string | undefined">Identifier of the person who approved or denied.</ParamField>
+<ParamField path="requiredApprovals" type="number">How many distinct approvers the request needs. 1 unless you asked for a quorum.</ParamField>
+<ParamField path="approvers" type="string[] | undefined">Approvers counted so far, oldest first. Only set when `requiredApprovals` is above 1.</ParamField>
 <ParamField path="createdAt" type="Date">When the request was created.</ParamField>
 
 ## Configuration
@@ -17117,7 +17441,9 @@ Both `webhookUrl` and `onApprovalNeeded` fire asynchronously (not awaited) so th
 
 ## The approval.pending webhook
 
-When `webhooks` is configured, a new pending request also sends `approval.pending` to endpoints that subscribe to it. The payload carries `approvalId`, `agentId`, `userId`, `action`, `resource`, `argumentsHash`, `expiresAt` and `createdAt`. It never carries the raw arguments, so fetch them with `approval.get(approvalId)` when your approver needs to see them.
+When `webhooks` is configured, a new pending request also sends `approval.pending` to endpoints that subscribe to it. The payload carries `approvalId`, `agentId`, `userId`, `action`, `resource`, `argumentsHash`, `requiredApprovals`, `approvalsReceived` (0 for a new request), `expiresAt` and `createdAt`. It never carries the raw arguments, so fetch them with `approval.get(approvalId)` when your approver needs to see them.
+
+A request that needs a quorum also sends `approval.vote` after each approval that does not complete it. The payload carries `approvalId`, `approverId`, `approvalsReceived` and `approvalsRequired`. Use it to nudge the next approver.
 
 ## How webhooks work
 
@@ -17239,6 +17565,41 @@ if (request?.status === 'approved') {
 }
 ```
 
+## Quorum approvals (two person rule)
+
+Some actions should never rest on one person's click. A request can require several distinct approvers before it becomes `approved`. The default is 1, so nothing changes until you ask for more.
+
+```typescript
+const req = await theauth.approval.request({
+  agentId,
+  userId: ownerId,
+  action: "execute",
+  resource: "mcp:payments:wire",
+  arguments: { amount: 90000 },
+  requiredApprovals: 2,
+});
+
+await theauth.approval.approve(req.id, "alice"); // status "pending", approvers ["alice"]
+await theauth.approval.approve(req.id, "bob"); //   status "approved", approvers ["alice", "bob"]
+```
+
+To set it for many requests at once, use `approval.requiredApprovals` for a default, or `approval.quorum(request)` to choose per action. An explicit `requiredApprovals` on `request()` wins. The value must be a whole number from 1 to 10.
+
+The rules for a request that needs more than one approver:
+
+- The requester (`userId`) and the agent cannot approve it, whatever `allowSelfApproval` says. `approve()` throws `ApprovalQuorumError` with code `SELF_APPROVAL`.
+- Each approver counts once. A second approval from the same person throws `DUPLICATE_APPROVER`. This is enforced by a primary key on `theauth_approval_votes`, so two parallel calls from one approver cannot both count.
+- A named approver is required (`APPROVER_REQUIRED` otherwise).
+- One denial ends the request. Any approver can veto.
+- Expiry covers the whole quorum. If the request expires before the last approver acts, it is `expired` and the earlier approvals are worth nothing.
+- Every approval writes its own `approval.approve` audit row with `approvalsReceived`, `approvalsRequired` and `quorumComplete`, so the trail shows who approved and in what order.
+- A step-up rule applies to each approver separately.
+- Until the quorum is complete the status is `pending`, so `authorize()` answers `approval_pending`. Once approved, the usual rules hold: one spend, bound to the exact arguments, same expiry.
+
+Over the admin API, `POST /approvals` takes `requiredApprovals`. `POST /approvals/:id/approve` answers `{ status: "pending", approvalsReceived: 1, requiredApprovals: 2 }` until the last approver, then `status: "approved"`. A repeat approver gets 409 `DUPLICATE_APPROVER` and the requester gets 403 `SELF_APPROVAL`. The dashboard inbox shows "1 of 2 approvals" and who has approved. See [Robotics and ROS 2](/robotics-ros2) for a dangerous robot command example.
+
+This feature adds migration `0013` (a nullable `required_approvals` column and the `theauth_approval_votes` table). Run `theauth migrate` before you use it.
+
 ## Requiring a fresh passkey or TOTP code
 
 For risky actions you can require that the person approving just proved who they are. Set `approval.requireAcr`, `approval.maxAuthAge` or an `approval.stepUp` callback, or pass `stepUp` to `request()`. The rule is stored on the request and enforced when someone approves it. See [step-up authentication](/step-up-auth).
@@ -17324,7 +17685,7 @@ So a user who logged in with a password two hours ago and entered a TOTP code te
 
 ### Recording a step-up
 
-`POST /auth/2fa/verify` and `POST /auth/2fa/otp/verify` record the proof on the session that made the request, when the code is correct. The headless handlers (`theauth.totp.handleRequest` for `/auth/2fa/verify`, `theauth.passkey.handleRequest` for `/auth/passkey/login/verify`) do the same when the request carries a session of that user.
+`POST /auth/2fa/verify` and `POST /auth/2fa/otp/verify` record the proof on the session that made the request, when the code is correct. The headless handlers (`theauth.totp.handleRequest` for `/auth/2fa/verify`, `theauth.passkey.handleRequest` for `/auth/passkey/authenticate/verify`) do the same when the request carries a session of that user.
 
 A passkey sign-in at `/auth/passkey/authenticate/verify` creates a new session. To step up the session the user already has, call the step-up pair instead. Both need a signed-in user:
 
@@ -23524,6 +23885,34 @@ It fails closed. A timeout, a refused connection, a 500, a body that is not JSON
 
 When the answer is `approval_required`, create the approval as described in [Approvals](/approval), and pass the granted id as `approvalId` on the retry.
 
+### Two person rule for dangerous commands
+
+Some commands should need two people, for example releasing a brake, moving an arm near a person or driving above a speed limit. Open the approval with a quorum, and the gate keeps answering `approval_pending` until two different operators have approved.
+
+```typescript
+const req = await theauth.approval.request({
+  agentId: robot.id,
+  userId: fleetOwnerId,
+  action: "publish",
+  resource: "ros2:/arm/cmd_vel",
+  arguments: { linear: 0.4 },
+  requiredApprovals: 2,
+});
+
+await theauth.approval.approve(req.id, "operator-a"); // still pending
+await theauth.approval.approve(req.id, "operator-b"); // approved
+
+// The gate passes the id on the retry. It works once, for these arguments only.
+const result = await theauth.authorize(robot.id, {
+  action: "publish",
+  resource: "ros2:/arm/cmd_vel",
+  arguments: { linear: 0.4 },
+  approvalId: req.id,
+});
+```
+
+The person who opened the request cannot be one of the two, and the same operator cannot approve twice. A single denial cancels it, and if the second operator does not act before `ttl` runs out, the request expires and the first approval is discarded. Keep `ttl` short for robot commands so an old approval cannot be reused later. See [Approvals](/approval) for the full rules.
+
 ### rclpy: a gate node
 
 This node listens on `/cmd_vel_request`, asks theAuth, and republishes to `/cmd_vel`. Give the planner an enclave that may publish `/cmd_vel_request` only, and give this node the only grant for `/cmd_vel`. It uses only the Python standard library for HTTP.
@@ -23860,6 +24249,8 @@ Earlier versions mounted these routes with no authentication. After upgrading, p
 | Package | Framework | Mount pattern |
 |---|---|---|
 | [`@glinr/theauth-hono`](/adapters/hono) | Hono | `app.route('/api/theauth', theAuthHono(theauth))` |
+| [`@glinr/theauth`](/adapters/elysia) | Elysia | `new Elysia().mount('/api/theauth', createTheAuthHandler(theauth, { basePath: '' }))` |
+| [`@glinr/theauth`](/adapters/react-router) | React Router v7 | resource route `app/routes/api.theauth.$.ts` |
 | [`@glinr/theauth-express`](/adapters/express) | Express | `app.use('/api/theauth', theAuthExpress(theauth))` |
 | [`@glinr/theauth-nextjs`](/adapters/nextjs) | Next.js App Router | catch-all route `app/api/theauth/[...theauth]/route.ts` |
 | [`@glinr/theauth-fastify`](/adapters/fastify) | Fastify | `app.register(theAuthFastify(theauth), { prefix: '/api/theauth' })` |
@@ -24365,6 +24756,100 @@ serve({ fetch: app.fetch, port: 3000 });
     OAuth 2.1 authorization server endpoints mounted by the adapter.
   </Card>
 </CardGroup>
+
+---
+
+# Elysia
+
+Source: https://docs.theauth.dev/adapters/elysia
+
+Elysia mounts any function of the shape `(request: Request) => Response | Promise<Response>`, which is what `createTheAuthHandler` from `@glinr/theauth/http` returns. So there is no Elysia package: you use the core handler directly.
+
+## Install
+
+```bash
+pnpm add @glinr/theauth elysia
+```
+
+## Mount the handler
+
+`app.mount(prefix, handler)` strips the prefix before calling the handler, so pass `basePath: ""`.
+
+```typescript
+import { Elysia } from "elysia";
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler, requireAgent } from "@glinr/theauth/http";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+});
+
+const handler = createTheAuthHandler(theauth, {
+  basePath: "",
+  // Who may call the management routes. Return { id } to allow, null for a 401.
+  authenticate: async (request) => {
+    const user = await theauth.auth.resolveUser(request);
+    return user ? { id: user.id } : null;
+  },
+});
+
+const app = new Elysia()
+  .mount("/api/theauth", handler)
+  .get("/docs", async ({ request }) => {
+    const result = await requireAgent(theauth, request, { action: "read", resource: "docs" });
+    if (!result.ok) return result.response; // 401 or 403 with { error: { code, message } }
+    return { agentId: result.agent.id };
+  });
+
+export default app;
+```
+
+`requireAgent` is the same decision logic the Hono, Express and Fastify `requireScope` helpers use.
+
+## What was run
+
+This snippet type checks under `strict` against Elysia 1.4 and was run with `app.handle`: `GET /api/theauth/agents` answered 200 with an authenticated caller, `GET /docs` without a token answered 401, and an unknown path under the mount answered 404.
+
+---
+
+# React Router
+
+Source: https://docs.theauth.dev/adapters/react-router
+
+React Router v7 (and Remix) resource routes receive a Web `Request` and return a `Response`, so the core handler fits with no wrapper package.
+
+## Install
+
+```bash
+pnpm add @glinr/theauth
+```
+
+## Resource route
+
+Create `app/routes/api.theauth.$.ts` and register it with `route("api/theauth/*", "routes/api.theauth.$.ts")` in `app/routes.ts`. The request keeps its full path, so leave `basePath` at the default `/api/theauth`.
+
+```typescript
+// app/routes/api.theauth.$.ts
+import { createTheAuthHandler } from "@glinr/theauth/http";
+import { theauth } from "~/lib/theauth.server";
+
+const handler = createTheAuthHandler(theauth, {
+  authenticate: async (request) => {
+    const user = await theauth.auth.resolveUser(request);
+    return user ? { id: user.id } : null;
+  },
+});
+
+export const loader = ({ request }: { request: Request }) => handler(request);
+export const action = ({ request }: { request: Request }) => handler(request);
+```
+
+Export both `loader` (GET, HEAD) and `action` (POST, PUT, PATCH, DELETE). Build the handler once at module scope so an unsafe configuration fails at startup.
+
+## What was run
+
+The handler contract (full path in, `Response` out and 404 outside the base path) is covered by `packages/core/tests/http/fetch-mount.test.ts`. This page did not run a React Router app.
 
 ---
 
@@ -26287,6 +26772,41 @@ const servers = await client.mcp.list();
 const found = await client.mcp.get(server.id);
 ```
 
+## Session refetch and SSR
+
+`createSessionStore` keeps a session in step with the server. It is the same store the React, Vue, Svelte and Solid bindings use.
+
+```typescript
+import { createSessionStore } from "@glinr/theauth-client";
+
+const store = createSessionStore({
+  basePath: "/api/theauth",
+  storage: typeof localStorage === "undefined" ? undefined : localStorage,
+  refetch: { intervalMs: 5 * 60_000 },
+});
+```
+
+| Trigger | Option | Default |
+|-|-|-|
+| Window focus, or the tab becoming visible | `refetch.onFocus` | on |
+| Browser back online | `refetch.onReconnect` | on |
+| Fixed interval | `refetch.intervalMs` | off (0) |
+| Interval while offline | `refetch.whenOffline` | off |
+
+The triggers run while the store has at least one subscriber and stop when the last one leaves. `store.startAutoRefresh(options)` starts them by hand and returns a `stop` function, `store.destroy()` stops them and aborts a refresh in flight. With no `window` (a server, a worker, an edge runtime) every trigger is a no-op, so the same code runs there. `refetch.env` takes your own `window`, `document` and `isOnline`, which is how the tests drive it with fake event targets.
+
+`store.refresh()` calls `GET {basePath}/auth/session`. Concurrent calls, such as focus and visibility firing together, share one request. A 401 or 403 clears the session. A network error or a 5xx keeps what the store has, so a dropped connection does not sign anyone out. A sign out that happens while a refresh is running wins over the refresh result.
+
+For SSR, resolve the session on the server and seed the store so the first render matches and no request is needed:
+
+```typescript
+store.hydrateSession({ user: { id: "u_123", email: "ada@example.com" }, expiresAt });
+```
+
+Leave `token` out of the HTML you render. Cookie sessions do not need it, and the store asks the server again on the next refresh. An expired or malformed value counts as signed out, and `hydrateSession(null)` means the server found no session. Neither the store nor the refetch code logs anything, and no error message contains a token.
+
+The routes the store calls are `POST /auth/username/sign-in`, `POST /auth/username/sign-up`, `POST /auth/sign-out` and `GET /auth/session`. The core has no email and password route, so set `signInPath`, `signUpPath` and `identifierField` if you serve your own.
+
 ## Next steps
 
 <CardGroup cols={2}>
@@ -26358,14 +26878,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 <ParamField path="basePath" type="string" default="&quot;/api/theauth&quot;">Path to your theAuth API handler. Must match the route you mounted in the adapter.</ParamField>
 <ParamField path="external" type="ExternalAuthConfig" default="undefined">Delegate authentication to an external API instead of the managed mode described below. See "External auth mode".</ParamField>
+<ParamField path="managed" type="ManagedAuthConfig" default="undefined">Options for managed mode: `refetch` (focus, reconnect, interval), `initialSession` (SSR seed), `signInPath`, `signUpPath` and `identifierField`. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
 <ParamField path="debug" type="boolean" default="false">Enable verbose auth state logging (also enabled when `localStorage.DEBUG === "theauth"`).</ParamField>
 
 <Info>
-In managed mode (no `external` prop) the session is stored in `localStorage` under the key `theauth_session`, and the provider restores it from there on page load. It does not re-verify the session with the server on load.
+In managed mode (no `external` prop) the session token is stored in `localStorage` under the key `theauth_session`. On load the provider shows that stored session at once, then confirms it with `GET {basePath}/auth/session`. A 401 or 403 clears it. A network error or a 5xx keeps it, so going offline never signs anyone out. Cookie-only sessions work too: with nothing stored, the same request picks up the session cookie.
 </Info>
 
 <Warning>
-The managed provider signs in and up by calling `POST {basePath}/auth/sign-in` and `POST {basePath}/auth/sign-up` with a JSON body of `{ email, password }` (plus `name` for sign-up). theAuth core does not ship email-and-password routes at those paths (its built-in password module is [username based](/auth/username)), so you need to serve them from your own handler, returning `{ user, session: { token, expiresAt } }` for sign-in and `{ user, token }` for sign-up, or use `external` mode instead.
+Managed mode signs in and up through the username module: `POST {basePath}/auth/username/sign-in` and `POST {basePath}/auth/username/sign-up` with `{ username, password }` (plus `name` for sign-up), answering `{ user, session: { token, expiresAt } }`. The first argument of `signIn` and `signUp` is sent as `username`. theAuth core has no email-and-password route, so for one of your own set `managed.signInPath`, `managed.signUpPath` and `managed.identifierField` (for example `"email"`), and return the same response shape.
 </Warning>
 
 ## useSession
@@ -26391,7 +26912,7 @@ function SessionDebug() {
 
 <ParamField path="session" type="TheAuthSession | null">The current session (`{ token, user, expiresAt? }`). Null when unauthenticated or still loading.</ParamField>
 <ParamField path="isLoading" type="boolean">True during the initial session restore.</ParamField>
-<ParamField path="refresh" type={`() => Promise<void>`}>Re-read the session. In managed mode this re-reads `localStorage`, in external mode it re-fetches the current user.</ParamField>
+<ParamField path="refresh" type={`() => Promise<void>`}>Re-read the session from the server. In managed mode this calls `GET {basePath}/auth/session`, in external mode it re-fetches the current user. Concurrent calls share one request.</ParamField>
 
 ## useUser
 
@@ -26423,7 +26944,7 @@ function ProfileCard() {
 
 Handles email and password sign-in. Returns `signIn(email, password)` plus `isLoading` and `error` (a string or `null`).
 
-The hook posts to `POST {basePath}/auth/sign-in` (see the warning above about the server route).
+The hook posts to `POST {basePath}/auth/username/sign-in` by default (see the warning above about the server route).
 
 ```tsx
 import { useSignIn } from '@glinr/theauth-react';
@@ -26458,7 +26979,7 @@ function SignInForm() {
 
 ## useSignUp
 
-Handles new account registration with `signUp(email, password, name?)`. Posts to `POST {basePath}/auth/sign-up`.
+Handles new account registration with `signUp(email, password, name?)`. Posts to `POST {basePath}/auth/username/sign-up` by default.
 
 ```tsx
 import { useSignUp } from '@glinr/theauth-react';
@@ -26490,7 +27011,7 @@ function SignUpForm() {
 
 ## useSignOut
 
-Signs the user out. `signOut()` takes no arguments. In managed mode it clears the stored session from React state and `localStorage` and does not call the server, so revoke the session server-side separately if you need to. In external mode it calls your logout path. It does not redirect, navigate yourself afterwards.
+Signs the user out. `signOut()` takes no arguments. In managed mode it clears React state and `localStorage` first, then calls `POST {basePath}/auth/sign-out` to revoke the session on the server (the stored token goes as a bearer header, the cookie is sent too). In external mode it calls your logout path. It does not redirect, navigate yourself afterwards.
 
 ```tsx
 import { useSignOut } from '@glinr/theauth-react';
@@ -26561,7 +27082,7 @@ The hook calls `GET {basePath}/agents?userId=<id>` (expecting `{ data: Agent[] }
 
 ## External auth mode
 
-Pass `external` to delegate authentication to an API you already run, for example one that manages httpOnly cookies. The provider then fetches the user from `apiUrl + mePath` (default `/api/auth/me`), sends login redirects to `loginPath` (default `/auth/github`), and calls `logoutPath` (default `/auth/logout`, method `POST`) on sign out. No session is stored in `localStorage`.
+Pass `external` to delegate authentication to an API you already run, for example one that manages httpOnly cookies. The provider then fetches the user from `apiUrl + mePath` (default `/api/auth/me`), sends login redirects to `loginPath` (default `/auth/github`), and calls `logoutPath` (default `/auth/logout`, method `POST`) on sign out. No session is stored in `localStorage`. `external.refetch` and `external.initialUser` work the same way as in managed mode, and a network error during a refetch keeps the current user.
 
 ```tsx
 <TheAuthProvider
@@ -26716,7 +27237,23 @@ await createAgent({ name: 'My AI assistant', permissions: ['read:data'] });
 ## Plugin configuration reference
 
 <ParamField path="basePath" type="string" default="'/api/theauth'">Base path where your theAuth handler is mounted.</ParamField>
-<ParamField path="fetchOptions" type="RequestInit">Options passed to every internal fetch call (e.g. custom headers).</ParamField>
+<ParamField path="refetch" type="RefetchOptions">Refetch the session on window focus, reconnect or an interval. Off unless set. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
+<ParamField path="initialSession" type="HydrateInput | null">Session the server already resolved. Skips the first request.</ParamField>
+<ParamField path="signInPath" type="string" default="'/auth/username/sign-in'">Route for `signIn`. Core has no email and password route, so point this at your own if you need one.</ParamField>
+<ParamField path="signUpPath" type="string" default="'/auth/username/sign-up'">Route for `signUp`.</ParamField>
+<ParamField path="identifierField" type="string" default="'username'">Body field that carries the first argument of `signIn` and `signUp`.</ParamField>
+<ParamField path="storage" type="SessionStorageLike">Defaults to `window.localStorage` when the browser allows it.</ParamField>
+
+On install the plugin shows a stored session at once, then confirms it with `GET {basePath}/auth/session`. `signOut` clears local state first, then calls `POST {basePath}/auth/sign-out` to revoke the session on the server.
+
+```typescript
+app.use(
+  createTheAuthPlugin({
+    basePath: "/api/theauth",
+    refetch: { intervalMs: 5 * 60_000 },
+  }),
+);
+```
 
 ## Related
 
@@ -26843,6 +27380,13 @@ The store also exposes `rotate(agentId)`.
 ## Client configuration reference
 
 <ParamField path="basePath" type="string" default="'/api/theauth'">Base path where your theAuth handler is mounted.</ParamField>
+<ParamField path="refetch" type="RefetchOptions">Refetch the session on window focus, reconnect or an interval. Runs while any of the client's stores has a subscriber. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
+<ParamField path="initialSession" type="HydrateInput | null">Session the server already resolved. Skips the first request. Also available later as `client.hydrateSession(initial)`.</ParamField>
+<ParamField path="signInPath" type="string" default="'/auth/username/sign-in'">Route for `signIn`. Core has no email and password route, so point this at your own if you need one.</ParamField>
+<ParamField path="signUpPath" type="string" default="'/auth/username/sign-up'">Route for `signUp`.</ParamField>
+<ParamField path="identifierField" type="string" default="'username'">Body field that carries the first argument of `signIn` and `signUp`.</ParamField>
+
+On creation the client shows a stored session at once, then confirms it with `GET {basePath}/auth/session`. `signOut` clears local state first, then calls `POST {basePath}/auth/sign-out`. `client.destroy()` stops the refetch triggers and aborts an in-flight refresh.
 
 ## Related
 
@@ -26860,6 +27404,55 @@ The store also exposes `rotate(agentId)`.
     Framework-agnostic fetch client underlying all framework SDKs.
   </Card>
 </CardGroup>
+
+---
+
+# Solid
+
+Source: https://docs.theauth.dev/solid
+
+`@glinr/theauth-client` ships `createSessionStore` (plain state, subscribe, sign in and out) and `createSolidAuth`, which turns the store into Solid accessors. Pass in the two Solid primitives you already import. The client takes no dependency on `solid-js`, so it works with any 1.x release.
+
+```bash
+pnpm add @glinr/theauth-client solid-js
+```
+
+```typescript
+// lib/auth.ts
+import { createSignal, onCleanup } from "solid-js";
+import { createSessionStore, createSolidAuth } from "@glinr/theauth-client";
+
+const store = createSessionStore({
+  basePath: "/api/theauth",
+  storage: typeof localStorage === "undefined" ? undefined : localStorage,
+});
+
+export const { useSession, useUser, useIsAuthenticated } = createSolidAuth(
+  { createSignal, onCleanup },
+  store,
+);
+export { store };
+```
+
+```tsx
+// components/Profile.tsx
+import { store, useUser } from "../lib/auth";
+
+export function Profile() {
+  const user = useUser();
+  return (
+    <button onClick={() => store.signOut()}>
+      {user()?.email ?? "Sign in"}
+    </button>
+  );
+}
+```
+
+Call `store.refresh()` once on the client. It reads `GET {basePath}/auth/session` (cookie or stored bearer token) and shows a saved session while it waits. `store.signIn(identifier, password)` and `store.signUp(identifier, password, name)` post to `/auth/username/sign-in` and `/auth/username/sign-up` by default and return `{ success: true }` or `{ success: false, error }`. `store.signOut()` clears local state, then revokes the session with `POST {basePath}/auth/sign-out`. To refetch on focus or an interval, pass `refetch` to `createSessionStore`, see [Session refetch and SSR](/client-sdk#session-refetch-and-ssr). `createSolidAuth` also returns `refresh` and `hydrateSession`. The store uses `fetch` only, so it runs in browsers, workers and edge runtimes. Without a `storage`, the session lives in memory only.
+
+## What was run
+
+The `lib/auth.ts` code type checks under `strict` against solid-js 1.x types and runs under `createRoot` in Node. Store behavior is covered by `packages/client/tests/session-store-solid.test.ts`. No browser run of the JSX.
 
 ---
 
@@ -27173,7 +27766,7 @@ found, err := client.MCP.Get(ctx, srv.ID) // nil, nil when missing
 
 ## Plugin endpoints
 
-Call routes declared with `defineEndpoint` on the server.
+Call routes declared with `defineEndpoint` on the Go server. The path below is an example of a route you define yourself, not one the library ships. This client talks to the Go server only: the TypeScript handler serves a different route set (see [REST API](/api)).
 
 ```go
 var out struct{ ID string `json:"id"` }
@@ -28001,6 +28594,10 @@ Source: https://docs.theauth.dev/ui-headless
 
 The package wraps the query hooks from `@glinr/theauth-react/query`, so it must render inside `TheAuthQueryProvider`.
 
+<Warning>
+  These components talk to the Go server, through `createTheAuthGoClient`. Its routes (`/auth/sessions`, `/auth/tokens`, `/auth/account/agents`, `/auth/step-up`, `/auth/device/approve`) are served by the Go server. The TypeScript handler does not serve them: it has `/auth/session`, `/agents`, `/auth/2fa/verify` and `/auth/passkey/step-up/*` instead. Point `baseUrl` at a Go server.
+</Warning>
+
 ## What it includes
 
 | Component | What it does |
@@ -28444,22 +29041,24 @@ The dashboard calls these REST endpoints on `${apiUrl}`, each under an `/api` pr
 | GET | `/dashboard/stats` | Agent counts, audit stats, delegation counts |
 | GET | `/agents` | List all agents |
 | POST | `/agents` | Create an agent |
-| POST | `/agents/:id/revoke` | Revoke an agent |
+| DELETE | `/agents/:id` | Revoke an agent |
 | POST | `/agents/:id/rotate` | Rotate an agent's token |
-| GET | `/agents/:id/permissions` | Get an agent's permissions |
+| GET | `/agents/:id` | Get an agent. The permissions page reads the `permissions` field from it |
 | GET | `/audit` | Query audit logs (supports filters) |
 | GET | `/audit/export` | Export logs as JSON or CSV |
 | GET | `/delegations` | List delegation chains |
 | DELETE | `/delegations/:id` | Revoke a delegation chain, answers 204 with no body |
-| GET | `/permissions/templates` | List permission templates |
-| POST | `/permissions/templates` | Create a template |
-| PATCH | `/permissions/templates/:id` | Update a template |
-| DELETE | `/permissions/templates/:id` | Delete a template |
-| GET | `/settings` | Get system settings |
-| PATCH | `/settings` | Update settings |
-| GET | `/users` | List users |
-| GET | `/mcp/servers` | List MCP servers |
-| POST | `/mcp/servers` | Register an MCP server |
+| GET | `/permissions/templates` | List permission templates (demo server only) |
+| POST | `/permissions/templates` | Create a template (demo server only) |
+| PATCH | `/permissions/templates/:id` | Update a template (demo server only) |
+| DELETE | `/permissions/templates/:id` | Delete a template (demo server only) |
+| GET | `/settings` | Get system settings (demo server only) |
+| PATCH | `/settings` | Update settings (demo server only) |
+| GET | `/users` | List users (demo server only) |
+| GET | `/mcp/servers` | List MCP servers (demo server only) |
+| POST | `/mcp/servers` | Register an MCP server (demo server only) |
+
+The core handler serves the agents, audit, delegations, approvals, revocations, devices, explain and `/dashboard/stats` routes. It does not serve `/users`, `/permissions/templates`, `/settings` or `/mcp/servers`, and `/dashboard/auth` is yours to add (see the login gate above). Only the CLI demo server (`theauth dev`) answers the four routes marked above. Against a server without them, the Users, Permissions, Settings and MCP Servers pages show a "does not serve" message instead of data.
 
 ## Related
 
@@ -32575,7 +33174,7 @@ console.log(agentDid.did);
 // did:web:auth.example.com:agents:agt_abc123
 ```
 
-theAuth stores the DID document but does not serve it. Publish it yourself (for example from `agentDid.didDocument`) at the resolved URL:
+theAuth stores the DID document but does not register a route for it, so `/agents/:id/did.json` and `/.well-known/did.json` answer 404 until you add them. Publish it yourself (for example from `agentDid.didDocument`) at the resolved URL:
 
 ```
 did:web:auth.example.com:agents:agt_abc123
@@ -33045,7 +33644,7 @@ const federation = createFederationModule({
 
 ### Expose the well-known endpoint
 
-Serve the instance identity at `/.well-known/theauth-federation.json` so other instances can discover your public key.
+Serve the instance identity at `/.well-known/theauth-federation.json` so other instances can discover your public key. theAuth fetches this URL from a peer (`discoverInstance`) but registers no route for it: the handler below is yours to add, and so is the `/agents/:id/federate` route in the examples, which is an example app route and not part of the handler.
 
 ```typescript
 // In your HTTP server
@@ -33616,6 +34215,12 @@ Start with how you want to move, then pick the guide for your current setup.
   <Card title="From Clerk" icon="arrow-right" href="/migrate/from-clerk">
     Concepts map, hooks and middleware diff, Clerk data export SQL, rollout plan.
   </Card>
+  <Card title="From Supabase Auth" icon="arrow-right" href="/migrate/from-supabase">
+    SQL export of auth.users, importer, and what happens to bcrypt passwords.
+  </Card>
+  <Card title="From WorkOS" icon="arrow-right" href="/migrate/from-workos">
+    List users export, importer, and an honest note on password hashes.
+  </Card>
   <Card title="From the better-auth agent plugin" icon="arrow-right" href="/migrate/from-better-auth-agent-plugin">
     Concepts map, delegation chain shape, cascading revocation, authorizeByToken migration.
   </Card>
@@ -34028,6 +34633,14 @@ OIDC provider refresh tokens now belong to a family (RFC 9700 section 4.14.2). P
 
 The core route table answered 204 with no body, while the admin API plugin answered 200 with `{ "revoked": [...] }` for the same path. Both now use one handler and answer 204. A missing chain is a 404 on both. The admin plugin still writes its `admin_api.delegation.revoke` audit row, and the ids of the revoked links (the chain and its descendants) are in that row's `parameters.revoked`. If you read `revoked` from the admin response, read it from the audit log or call `GET /revocations/delegations` before revoking to see the cascade.
 
+## Quorum approvals and migration 0013
+
+An approval can require more than one approver with `requiredApprovals` (default 1, so existing flows do not change). It adds migration `0013`: a nullable `required_approvals` column on `theauth_approval_requests` and a new `theauth_approval_votes` table. Run `theauth migrate` (or let `createTheAuth` migrate) before you use it. `ApprovalRequest` gains `requiredApprovals` and, for a quorum request, `approvers`. The admin API approve and deny responses and the pending list now carry `requiredApprovals` and `approvalsReceived`, and the approve response can have `status: "pending"` while a quorum is incomplete. A client that treats any 200 from approve as "approved" must check `status`. New webhook event: `approval.vote`. See [Approval flows](/approval).
+
+## Device attestation evidence needs a nonce
+
+`devices.attestation.verify` is now only called for evidence that comes with a nonce from `device.attestationNonce()` (`POST /device/attestation-nonce`). Evidence without one is refused with `nonce_invalid`, because it cannot be shown to be fresh (RFC 9334 section 10). Before, a missing nonce skipped the check and left replay protection to your verifier. If your verifier proves freshness another way, for example a signed timestamp, set `attestation.requireNonce: false`. The hook input also gains `credentialKind` and `credentialKeyThumbprint`. See [IoT devices](/iot-devices).
+
 ---
 
 # Pick a migration path
@@ -34259,6 +34872,22 @@ You have the dashboard CSV export, or users fetched from the Backend API as JSON
 - Maps: id, names, username, primary email, and whether that email is in the verified list.
 - Hashes: `password_digest` when it is bcrypt or argon2.
 - Gaps: other hashers are reported as `UNSUPPORTED_HASHER`. Clerk's export does not carry social connections, so users reconnect on first social sign-in.
+
+### Supabase Auth
+
+You have rows from `auth.users` (JSON or CSV), optionally with `auth.identities` joined in. Full steps in [Migrate from Supabase](/migrate/from-supabase).
+
+- Maps: id, email, `email_confirmed_at`, name from `raw_user_meta_data`, identities other than `email` and `phone` as linked accounts.
+- Hashes: `encrypted_password` when it is bcrypt or argon2. Social only users have none.
+- Gaps: no sessions, MFA factors or phone only users.
+
+### WorkOS
+
+You have users from the List users API (an array, a raw page, or newline delimited pages). Full steps in [Migrate from WorkOS](/migrate/from-workos).
+
+- Maps: id, email, `email_verified`, names, `external_id` and `metadata`.
+- Hashes: the API returns none. If WorkOS support gives you a hash file, pass it with `--hashes` (bcrypt and argon2 only).
+- Gaps: no organizations, SSO connections or social links.
 
 ### Better Auth
 
@@ -36023,6 +36652,190 @@ Technically yes, but you will spend more time on the boundary than on the migrat
   </Card>
   <Card title="Agent identity" href="/agents" icon="robot">
     The agent layer Clerk does not model natively.
+  </Card>
+</CardGroup>
+
+---
+
+# Migrate from Supabase Auth
+
+Source: https://docs.theauth.dev/migrate/from-supabase
+
+Supabase Auth (the GoTrue service) keeps users in the `auth` schema of your own Postgres database. That makes the export easy: you run SQL, not a support ticket. This page covers moving the users. For the code side, see the concept map in [Migrate from Clerk](/migrate/from-clerk), which applies here too, and [Run both and migrate](/migrate/run-both-and-migrate) for the rollout.
+
+## Password hashes: what carries over
+
+Supabase stores a bcrypt hash in `auth.users.encrypted_password`. Supabase's own users receive it as a modular crypt string starting with `$2a$10$`. WorkOS documents the same fact in [its Supabase migration guide](https://workos.com/docs/migrate/supabase), and notes you can read the hashes yourself because you have database access.
+
+The importer keeps the hash as it is. [Lazy migration](/migrate/lazy-passwords) checks it on the user's first sign-in and rehashes it with theAuth's own algorithm, so users keep their passwords. theAuth does not bundle a bcrypt implementation: pass a `verifiers.bcrypt` function (for example from `bcryptjs`) as shown on that page. Without it, those users are sent through a password reset.
+
+Limits, stated plainly:
+
+- Only rows whose `encrypted_password` is bcrypt or argon2 are imported with a hash. Anything else is imported without one and reported as `UNSUPPORTED_HASHER`.
+- Users who only ever signed in with OAuth or a magic link have an empty `encrypted_password`. They are imported without a hash and sign in the way they did before.
+- The Supabase Admin API (`auth.admin.listUsers`) does not return hashes. You need a direct database connection, or a dump of the `auth` schema.
+- We built the fixtures from the documented column names, not from a live Supabase project. Run `theauth migrate verify` with one real account before you trust a full batch.
+
+## Step 1: export
+
+Run this in the Supabase SQL editor or any Postgres client. It produces one JSON array.
+
+```sql
+select json_agg(row_to_json(u)) from (
+  select
+    id,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    phone,
+    raw_user_meta_data,
+    raw_app_meta_data,
+    (
+      select json_agg(json_build_object('provider', i.provider, 'provider_id', i.provider_id))
+      from auth.identities i
+      where i.user_id = users.id
+    ) as identities
+  from auth.users as users
+) u;
+```
+
+Save the single cell as `supabase-users.json`. A CSV export also works. The importer accepts either the one row per user shape above, or the join shape that Supabase and WorkOS show in their docs: `auth.users` left joined to `auth.identities`, which gives several rows per user with `provider` and `provider_id` columns. Rows are merged by user id.
+
+Treat the file like a credential store. It holds password hashes. Keep it off shared drives and delete it after the import.
+
+## Step 2: dry run, then import
+
+```bash
+theauth migrate plan --from supabase ./supabase-users.json
+theauth migrate import --from supabase ./supabase-users.json --db ./theauth.db
+theauth migrate import --from supabase ./supabase-users.json --db ./theauth.db --apply
+```
+
+From code:
+
+```ts
+import { createMemoryMigrationStore, importUsers } from "@glinr/theauth/migrate";
+import { readFileSync } from "node:fs";
+
+const result = await importUsers({
+  source: "supabase",
+  stream: readFileSync("./supabase-users.json", "utf8"),
+  store: createMemoryMigrationStore(), // use createDbMigrationStore(db) for a real database
+  dryRun: true,
+});
+```
+
+## What maps
+
+| Supabase | theAuth |
+|---|---|
+| `auth.users.id` | external id, used to skip repeats on a re-run |
+| `email` (lowercased) | email |
+| `email_confirmed_at` set | email verified |
+| `raw_user_meta_data.full_name` or `name` | name |
+| `auth.identities` rows other than `email` and `phone` | linked accounts (`provider`, `provider_id`) |
+| `raw_user_meta_data`, `raw_app_meta_data`, `phone` | metadata |
+| `encrypted_password` (bcrypt) | legacy password hash |
+
+Not imported: sessions and refresh tokens (users sign in once more), MFA factors, one time tokens, and users with no email (phone only accounts are reported as `MISSING_FIELD`). Row level security policies that reference `auth.uid()` are database code and stay yours to port.
+
+## Cutover
+
+1. Import, then run `theauth migrate verify --from supabase ./supabase-users.json --db ./theauth.db --sample-email you@yourcompany.com` with `THEAUTH_MIGRATE_PASSWORD` set.
+2. Point sign-in at theAuth. Supabase JWTs are signed with your project secret and cannot be accepted as theAuth sessions, so everyone signs in once.
+3. Update OAuth app redirect URIs from `https://<project>.supabase.co/auth/v1/callback` to theAuth's callback.
+4. Keep the Supabase project read only for a few weeks, then remove the `auth` schema copy of the hashes.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Import users" href="/migrate/import-users" icon="file-import">
+    The importer, dry runs, conflicts and the CLI.
+  </Card>
+  <Card title="Lazy password migration" href="/migrate/lazy-passwords" icon="key">
+    How bcrypt hashes become native hashes on first login.
+  </Card>
+</CardGroup>
+
+---
+
+# Migrate from WorkOS
+
+Source: https://docs.theauth.dev/migrate/from-workos
+
+WorkOS AuthKit is a hosted user management service. This page covers moving its users into theAuth. Sessions, SSO connections and organization memberships are WorkOS concepts and are not moved by the user importer.
+
+## Password hashes: what carries over
+
+Be realistic here. The WorkOS [User object](https://workos.com/docs/reference/authkit/user) and the List users response contain no password or hash fields. The WorkOS docs describe importing hashes into WorkOS (`password_hash` with `password_hash_type`), and we found no documented way to export them. Whether WorkOS support will produce a hash file for you is something to ask them. We have not confirmed it.
+
+So the default outcome is that imported users have no password hash and set a new password on first sign-in through your password reset flow. If WorkOS does give you a hash file, the importer takes it through `--hashes`, one JSON object per line. Checking those bcrypt hashes at sign-in needs a `verifiers.bcrypt` function, see [Lazy password migration](/migrate/lazy-passwords).
+
+```json
+{"email":"ada@example.com","passwordHash":"$2b$10$..."}
+```
+
+Only bcrypt and argon2 hashes are recognised. Any other algorithm in that file is ignored, and the user resets instead. The hash file is matched to users by email address.
+
+## Step 1: export users
+
+The List users endpoint returns up to 100 users per page and a cursor in `list_metadata.after` ([API reference](https://workos.com/docs/reference/authkit/user)).
+
+```ts
+import { WorkOS } from "@workos-inc/node";
+import { writeFileSync } from "node:fs";
+
+const workos = new WorkOS(process.env.WORKOS_API_KEY!);
+
+const users: unknown[] = [];
+let after: string | undefined;
+do {
+  const page = await workos.userManagement.listUsers({ limit: 100, after });
+  users.push(...page.data);
+  after = page.listMetadata.after ?? undefined;
+} while (after);
+
+writeFileSync("./workos-users.json", JSON.stringify(users, null, 2));
+```
+
+The importer accepts that array, a raw API page (`{"object": "list", "data": [...]}`), or several pages as newline delimited JSON. Note that the Node SDK returns camelCase property names for some fields. The importer reads the API's snake_case names (`first_name`, `email_verified`, `external_id`), so export the raw JSON from the REST API, or map the keys back before writing the file.
+
+## Step 2: dry run, then import
+
+```bash
+theauth migrate plan --from workos ./workos-users.json
+theauth migrate import --from workos ./workos-users.json --db ./theauth.db --apply
+
+# with a hash file from WorkOS support, if you got one
+theauth migrate plan --from workos ./workos-users.json --hashes ./workos-hashes.ndjson
+```
+
+## What maps
+
+| WorkOS | theAuth |
+|---|---|
+| `id` | external id, used to skip repeats on a re-run |
+| `email` (lowercased) | email |
+| `email_verified` | email verified |
+| `name`, or `first_name` and `last_name` | name |
+| `external_id`, `metadata`, `locale` | metadata |
+
+Not imported: profile pictures, organization memberships and roles, SSO and directory sync connections, MFA factors, sessions. Users who signed in through social providers or SSO have no linked account records in the export, so they reconnect the provider on first sign-in. Recreate SAML or OIDC connections with the [SSO guides](/auth/sso).
+
+## Cutover
+
+1. Import and check the counts with `theauth migrate verify`.
+2. Move sign-in to theAuth. WorkOS sealed sessions cannot be read without WorkOS, so everyone signs in once.
+3. Tell users without an imported hash to use password reset, or sign in with their social or SSO provider.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Import users" href="/migrate/import-users" icon="file-import">
+    The importer, dry runs, conflicts and the CLI.
+  </Card>
+  <Card title="Coexist with your IdP" href="/migrate/coexist-with-your-idp" icon="plug">
+    Keep WorkOS in front of enterprise customers while the rest move.
   </Card>
 </CardGroup>
 
@@ -37904,11 +38717,14 @@ Each state transition is tracked with timestamps. When the server's `onAudit` ca
 
 Source: https://docs.theauth.dev/compare/index
 
-Auth is a crowded space. These pages are meant to help you pick the right tool, not sell you on any particular one. If a competitor does something better, we say so.
+Auth is a crowded space. Every fact on these pages was checked on 2026-10-18, and a row that says "we did not find X" means we did not find it on the pages we fetched that day. These pages are meant to help you pick the right tool, not sell you on any particular one. If a competitor does something better, we say so.
 
 <CardGroup cols={2}>
   <Card title="theAuth vs better-auth" icon="code-compare" href="/compare/vs-ba">
-    Both are MIT TypeScript libraries and both ship an MCP OAuth 2.1 server and an agent plugin or module. better-auth is the larger project with the larger community. theAuth adds delegation chains, approvals bound to arguments, an audit chain, devices and a Go library, some of which are on the release branch and not yet in a published release. The page lists each row with its source.
+    Both are MIT TypeScript libraries and both ship an MCP OAuth 2.1 server and an agent plugin or module. better-auth is the larger project with the larger community. theAuth adds delegation chains, approvals bound to arguments, an audit chain, devices and a Go library, some of which are on the release branch and not yet in a published release (npm `@glinr/theauth` is 1.2.0). The page lists each row with its source.
+  </Card>
+  <Card title="theAuth vs Keycloak" icon="key" href="/compare/vs-keycloak">
+    Keycloak is the closest rival on devices and delegation: CIBA, Device Grant, DPoP and RFC 8693 are supported, with delegation and SPIFFE in Preview. It is a server you deploy, not a library. The page shows where its own docs stop.
   </Card>
   <Card title="theAuth vs Hanko" icon="fingerprint" href="/compare/vs-hanko">
     Hanko is a passkey-first library with an AGPL backend. If passkeys are your entire auth story and you have no agent workloads, it's worth a look. If you need any agent identity or RBAC, you'll be building on top of it yourself.
@@ -37917,7 +38733,7 @@ Auth is a crowded space. These pages are meant to help you pick the right tool, 
     Casdoor is a deployed Go IAM service with LDAP, CAS, and RADIUS support. It targets employee SSO in Go shops. theAuth is a library, not a service, and it's built for agent-native TypeScript apps.
   </Card>
   <Card title="theAuth vs paid options" icon="building" href="/compare/vs-paid">
-    Clerk and Auth0 are polished, fast to start, and expensive at scale. They're also closed-source. This page covers the open-source vs. managed tradeoff without reproducing any pricing tables.
+    Clerk and Auth0 are polished, fast to start, and expensive at scale. Both are proprietary hosted services with MIT licensed SDKs, and Auth0 sells a private deployment add-on on Enterprise. This page covers the open-source vs. managed tradeoff without reproducing any pricing tables.
   </Card>
 </CardGroup>
 
@@ -37929,40 +38745,49 @@ Source: https://docs.theauth.dev/compare/vs-ba
 
 better-auth and theAuth are both open-source TypeScript auth libraries, and they start from different places. better-auth grew out of human sign-in and added a plugin system on top. theAuth is built around identities that can be humans, agents or devices, so permissions, delegation and audit apply to all of them.
 
-better-auth is the larger project with the larger community, and it has an agent plugin of its own. This page lists what each documents, with the source for each row, so you can check the rows that matter to you. Where we did not verify a row for better-auth, we left it out instead of guessing. Last checked: 2026-10-18.
+better-auth is the larger project with the larger community, and it has an agent plugin of its own. Its latest stable release on 2026-10-18 was v1.7.10, published 2026-10-15 (a v1.8.0 beta was out the day after). This page lists what each documents, with the source for each row, so you can check the rows that matter to you. Where we did not verify a row for better-auth, we left it out instead of guessing. Last checked: 2026-10-18.
+
+Status words for theAuth rows: "Published" means it is in the npm release `@glinr/theauth` 1.2.0 (or the Go release named). "Release branch" means it is written and tested on `release/agent-wave9-2026-10-18` and is not in a published release.
 
 A migration guide is available: [Migrate from better-auth](/migrate/from-better-auth).
 
 ## What both do
 
-| Capability | theAuth | better-auth |
-|---|---|---|
-| License and language | MIT, TypeScript, plus a Go library | MIT, TypeScript |
-| MCP OAuth 2.1 server | PKCE, RFC 7591, RFC 8707, RFC 9728 and Client ID Metadata Documents | MCP plugin built on its OAuth 2.1 Provider, PKCE, RFC 8414 and RFC 9728 metadata, DCR off unless you enable it, CIMD recommended ([docs](https://www.better-auth.com/docs/plugins/mcp)) |
-| Agent identity | `AgentIdentity` entity next to `User`, with delegation chains between agents | Agent Auth plugin with agent, host, grant and approval records and capability grants. Its docs label it "not yet stable" ([docs](https://www.better-auth.com/docs/plugins/agent-auth)) |
-| Human approval of agent actions | Approval module with decision codes | `device_authorization` and `ciba` approval methods in the Agent Auth plugin ([docs](https://www.better-auth.com/docs/plugins/agent-auth)) |
-| Passkeys, two factor, SAML, SCIM, organizations, API keys | Plugins for each | Plugins for each, documented on its site |
+| Capability | theAuth | theAuth status | better-auth |
+|---|---|---|---|
+| License and language | MIT, TypeScript, plus a Go library | Published | MIT, TypeScript |
+| MCP OAuth 2.1 server | PKCE, RFC 7591, RFC 8707, RFC 9728 and Client ID Metadata Documents | Published | MCP plugin built on its OAuth 2.1 Provider, PKCE, RFC 8414 and RFC 9728 metadata, DCR off unless you enable it, CIMD recommended ([docs](https://www.better-auth.com/docs/plugins/mcp)). Its OAuth Provider page also lists RFC 7009, RFC 7662, RFC 8707 and the device_code grant ([docs](https://www.better-auth.com/docs/plugins/oauth-provider)) |
+| Agent identity | `AgentIdentity` entity next to `User`, with delegation chains between agents | Published | Agent Auth plugin with agent, host, grant and approval records and capability grants. Its docs label it "not yet stable" ([docs](https://www.better-auth.com/docs/plugins/agent-auth)) |
+| Human approval of agent actions | Approval module with decision codes | Published | `device_authorization` and `ciba` approval methods in the Agent Auth plugin ([docs](https://www.better-auth.com/docs/plugins/agent-auth)) |
+| Passkeys, two factor, SAML, SCIM, organizations, API keys | Plugins for each | Published | Plugins for each, documented on its site. Organizations have owner, admin and member roles, custom roles and optional teams ([docs](https://www.better-auth.com/docs/plugins/organization)). Two factor covers OTP and TOTP with backup codes ([docs](https://www.better-auth.com/docs/plugins/2fa)) |
 
 ## Where theAuth goes further
 
-These come from our own repository. We did not find the same features in better-auth's documentation when we looked on 2026-10-18, which does not prove they are absent.
+These come from our own repository. For each of the five differentiators below we did not find the same feature on the better-auth pages we fetched on 2026-10-18. That is a statement about those pages, not proof that the feature is missing elsewhere or in a later release.
 
-| Capability | theAuth | Status |
+- Approvals bound to arguments: we did not find this on the Agent Auth page we fetched on 2026-10-18. Grants can carry `constraints`, but the page does not define a schema or say they bind call arguments.
+- Tamper evident audit chain: we did not find one on the pages we fetched on 2026-10-18. The `onEvent` hook is described as a place to write audit logs, with no integrity mechanism mentioned.
+- Device principals and MQTT: we did not find these on the pages we fetched on 2026-10-18. The plugin's "device authorization" is for a human to approve an agent.
+- ROS 2 or robotics: we did not find this on the Agent Auth page we fetched on 2026-10-18.
+- Delegation chains with revocation that reaches issued tokens: we did not find multi-hop chains on the pages we fetched on 2026-10-18. Its OAuth Provider docs say opaque access tokens are deleted at once on revocation and that revoking a refresh token removes the access tokens it minted. JWT access tokens cannot be revoked server side.
+
+| Capability | theAuth | theAuth status |
 |---|---|---|
-| Approvals bound to the arguments the human saw, with a mismatch code | Canonical hash of action, resource and arguments, spent once | On the release branch, not in a published release yet |
-| Tamper evident audit chain with signed checkpoints, and a verifier for the Go library's chain | Chained rows, signed head checkpoints | Chain published; signed head checkpoints on the release branch |
-| Revocation that reaches issued MCP tokens | A signed delegation claim and a shared denylist, checked live, cached or offline | On the release branch |
-| Devices as principals: enrollment, offline signed policy bundles | `device` principal with the same permissions, delegation and audit | On the release branch |
-| MQTT broker authorization | Backend for EMQX and Mosquitto, tested against EMQX 5.8.6 and Mosquitto 2.0.15 | On the release branch (Go) |
-| ROS 2 permissions | Export to SROS2 and DDS Security files, tested with enforcement on ROS 2 Humble | On the release branch |
-| Go library with the same model | Memory, SQLite, Postgres and MySQL stores | Published (v2.12.0) |
+| Approvals bound to the arguments the human saw, with a mismatch code | Canonical hash of action, resource and arguments, spent once | Release branch |
+| Tamper evident audit chain with Ed25519 signed checkpoints and portable receipts | Chained rows, Merkle tree head signed with Ed25519, inclusion and consistency proofs | Published (1.2.0) |
+| Verifier in TypeScript for the Go library's signed head checkpoints | Detects tail truncation of a Go chain | Release branch |
+| Revocation that reaches issued MCP tokens | A signed delegation claim and a shared denylist, checked live, cached or offline | Release branch |
+| Devices as principals: enrollment, offline signed policy bundles | `device` principal with the same permissions, delegation and audit | Release branch |
+| MQTT broker authorization | Backend for EMQX and Mosquitto, tested against EMQX 5.8.6 and Mosquitto 2.0.15 | Release branch (Go) |
+| ROS 2 permissions | Export to SROS2 and DDS Security files, tested with enforcement on ROS 2 Humble | Release branch |
+| Go library with the same model | Memory, SQLite, Postgres and MySQL stores | Published (Go v2.12.0) |
 | No `node:crypto` imports in core | Runs on Workers, Deno and Bun | Published |
 
-"Release branch" means the code is written and tested but is not in the npm or Go release you get today. Check the [GitHub releases](https://github.com/glincker/theauth/releases) before you rely on a row.
+"Release branch" means the code is written and tested but is not in the npm or Go release you get today (npm `@glinr/theauth` is 1.2.0). Check the [GitHub releases](https://github.com/glincker/theauth/releases) before you rely on a row.
 
 ## Where better-auth is ahead or equal
 
-- Adoption and ecosystem. better-auth had 30.4k GitHub stars on 2026-10-18 and a large plugin and integration community. theAuth is new and has no user numbers we can quote.
+- Adoption and ecosystem. better-auth had 30.4k GitHub stars on 2026-10-18 and a large plugin and integration community. It also ships more named social providers than we do. We counted 36 provider source files in its repository on 2026-10-18, which is a file count and not a figure from its docs. theAuth is new and has no user numbers we can quote.
 - Databases. better-auth documents Kysely (SQLite and D1, PostgreSQL, MySQL, MSSQL), Prisma, Drizzle and MongoDB. theAuth has Drizzle and a Prisma adapter, and the Go library has memory, SQLite, Postgres and MySQL. If you need MongoDB or MSSQL, better-auth covers it today. Redis in better-auth is secondary storage, not a database.
 - MCP. Both ship an OAuth 2.1 server for MCP, so that alone does not separate them.
 - Approvals. Both support human approval of agent actions. The difference is the argument binding noted above.
@@ -37986,6 +38811,9 @@ These come from our own repository. We did not find the same features in better-
   <Card title="Migrate from better-auth" href="/migrate/from-better-auth" icon="arrow-right-arrow-left">
     Step-by-step migration with before and after code diffs.
   </Card>
+  <Card title="theAuth vs Keycloak" href="/compare/vs-keycloak" icon="key">
+    The closest rival on devices and delegation, and where its own docs stop.
+  </Card>
   <Card title="theAuth vs Hanko" href="/compare/vs-hanko" icon="fingerprint">
     How theAuth compares to the passkey-first auth library.
   </Card>
@@ -37994,6 +38822,79 @@ These come from our own repository. We did not find the same features in better-
   </Card>
   <Card title="Core concepts" href="/concepts" icon="lightbulb">
     The mental model behind agents, permissions, and audit.
+  </Card>
+</CardGroup>
+
+---
+
+# theAuth vs Keycloak
+
+Source: https://docs.theauth.dev/compare/vs-keycloak
+
+Keycloak is a mature identity server that you deploy and run. theAuth is a library you embed in your app. Of the products we checked, Keycloak comes closest to theAuth on device flows and delegation, so it is the one to read carefully if you need those. Every Keycloak fact below comes from its own documentation, fetched on 2026-10-18. Its latest release on that date was 26.8.1, published 2026-10-13.
+
+Status words for theAuth rows: "Published" means it is in npm `@glinr/theauth` 1.2.0. "Release branch" means it is on `release/agent-wave9-2026-10-18` and not in a published release.
+
+## What Keycloak documents
+
+| Capability | Keycloak | Source |
+|---|---|---|
+| CIBA (backchannel approval) | Supported, on by default | [features](https://www.keycloak.org/server/features) |
+| Device Authorization Grant | Supported, on by default | [features](https://www.keycloak.org/server/features) |
+| DPoP | Supported | [features](https://www.keycloak.org/server/features) |
+| RFC 8693 token exchange | Standard exchange v2 Supported | [token exchange](https://www.keycloak.org/securing-apps/token-exchange) |
+| Delegation with `actor_token` and the `act` claim | Preview, off by default | [token exchange](https://www.keycloak.org/securing-apps/token-exchange) |
+| SPIFFE trust provider | Preview. Kubernetes service accounts are Supported | [features](https://www.keycloak.org/server/features) |
+| MCP authorization server | OAuth 2.1 Supported for MCP spec 2025-03-26, later spec versions Experimental. RFC 8414 and RFC 7591 Supported. RFC 8707 and Client ID Metadata Documents Experimental | [MCP](https://www.keycloak.org/securing-apps/mcp-authz-server) |
+| Organizations, SCIM, themed login pages | Organizations Supported, `scim-api:v1` Supported, server rendered themes | [features](https://www.keycloak.org/server/features) |
+| Databases | PostgreSQL, MySQL, MariaDB, Oracle, SQL Server and others | [db](https://www.keycloak.org/server/db) |
+
+## Where its docs stop
+
+On 2026-10-18 we did not find the following on the Keycloak pages we fetched. This is not proof that Keycloak lacks them.
+
+- Approvals bound to call arguments: not found. We did not find it in the CIBA material we read.
+- A tamper evident audit chain: not found. The admin guide covers auditing user events and admin events, and we saw no hash chain or integrity mechanism. We read only the first 200k of 688k characters of that guide.
+- IoT device principals and MQTT: partly. The Device Authorization Grant exists, but we found MQTT only in third party tutorials, which we did not verify.
+- ROS 2 or robotics: not found in Keycloak's documentation.
+- Revocation that reaches exchanged tokens: its token exchange documentation says revoking an access token does not revoke the exchanged access token. A refresh token revocation chain does exist. We did not find multi-hop nested `act` chains described.
+
+## How theAuth differs
+
+| Capability | theAuth | Status |
+|---|---|---|
+| Form factor | Library in your process, with a Go library alongside | Published |
+| Delegation chains between agents, revoked as a cascade | `agent.revoke()` revokes the delegation chains downstream | Published |
+| Approvals bound to action, resource and arguments, spent once | Canonical hash with a mismatch code | Release branch |
+| Revocation that reaches issued MCP tokens | Signed delegation claim and shared denylist | Release branch |
+| Devices as principals with offline signed policy bundles | `device` principal | Release branch |
+| MQTT broker authorization | EMQX and Mosquitto backends | Release branch (Go) |
+| ROS 2 permissions | SROS2 and DDS Security export | Release branch |
+
+## Where Keycloak is ahead
+
+- It is a full identity server with years of production use, a supported standards list, an admin console, themed login pages, and many database backends.
+- Device Authorization Grant, CIBA and DPoP are marked Supported today. The theAuth device work is not in a published release.
+- It covers SAML, LDAP style federation and social login out of the box. Our SAML verifier has not had an independent audit.
+
+## Pick theAuth if
+
+- You want auth as a library inside a TypeScript or Go app, with agents and devices as principals.
+- You need approvals tied to exact arguments or revocation that reaches issued tokens, and you can run the release branch or wait for it.
+
+## Pick Keycloak if
+
+- You want a standalone identity server for employees and customers, with a supported standards list.
+- You need device grant, CIBA or DPoP now, from a stable release.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="theAuth vs better-auth" href="/compare/vs-ba" icon="code-compare">
+    The closest open source library comparison.
+  </Card>
+  <Card title="theAuth vs paid platforms" href="/compare/vs-paid" icon="building">
+    Clerk and Auth0 against theAuth.
   </Card>
 </CardGroup>
 
@@ -38129,11 +39030,13 @@ The tradeoff is real too. You run on their service, and the bill scales with you
 
 ## The structural differences
 
-**Open source vs. closed.** theAuth is MIT. You can read every line, fork it, run it anywhere. Clerk and Auth0 are hosted platforms, so you rely on their security posture, their uptime commitments and their product roadmap. Check each one's license and terms on its own site.
+**Open source vs. closed.** theAuth is MIT. You can read every line, fork it, run it anywhere. Clerk and Auth0 are hosted platforms, so you rely on their security posture, their uptime commitments and their product roadmap. Both services are proprietary. Clerk's terms keep all rights in the service and give customers a limited, revocable right to use it ([terms](https://clerk.com/legal/terms), fetched 2026-10-18). Only their SDKs are open source: Clerk's `clerk/javascript` repository and Auth0's `node-auth0` are MIT licensed (GitHub, 2026-10-18). Auth0 does list a Private Deployment add-on on its pricing page as an Enterprise option with a custom quote ([pricing](https://auth0.com/pricing), 2026-10-18). We did not find a self-hosting offer for Clerk on the pages we fetched.
 
 **Self-hosted vs. vendor.** Running theAuth means you control the database, the logs, and the data residency. That matters if you're in healthcare, finance, or working under GDPR data locality requirements. Vendor platforms handle the infrastructure, which also means your auth logs live in their service.
 
-**Agent identity in the core.** theAuth models agents directly: `AgentIdentity`, delegation chains, ephemeral sessions and cost attribution are part of the library. Clerk and Auth0 now document MCP and agent features of their own, so compare what each one covers (Auth0 labels parts of this early access, as of 2026-10-18). With theAuth the model lives in the library you run.
+**Agent identity in the core.** theAuth models agents directly: `AgentIdentity`, delegation chains, ephemeral sessions and cost attribution are part of the library. Clerk and Auth0 now document MCP and agent features of their own, so compare what each one covers (Auth0 labels parts of this early access, as of 2026-10-18). Clerk's Agent Tasks create authenticated sessions on behalf of users, and Auth0 documents Token Vault and CIBA (CIBA needs an Enterprise plan or add-on). On 2026-10-18 we did not find approvals bound to call arguments, a tamper evident audit chain, device or IoT principals, ROS 2 support, or delegation chains with revocation that reaches issued tokens on the Clerk and Auth0 pages we fetched. That says nothing about pages we did not read.
+
+Status of the theAuth pieces named here: `AgentIdentity` and delegation chains are Published (npm `@glinr/theauth` 1.2.0). Devices, MQTT and ROS 2 support, and revocation that reaches issued MCP tokens, are on the release branch and not yet in a published release. With theAuth the model lives in the library you run.
 
 ## When managed platforms make sense
 

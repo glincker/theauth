@@ -1,0 +1,72 @@
+---
+title: theAuth vs Keycloak
+description: A sourced comparison of theAuth and Keycloak on devices, delegation and agent approvals, last checked 2026-10-18.
+icon: key
+---
+
+Keycloak is a mature identity server that you deploy and run. theAuth is a library you embed in your app. Of the products we checked, Keycloak comes closest to theAuth on device flows and delegation, so it is the one to read carefully if you need those. Every Keycloak fact below comes from its own documentation, fetched on 2026-10-18. Its latest release on that date was 26.8.1, published 2026-10-13.
+
+Status words for theAuth rows: "Published" means it is in npm `@glinr/theauth` 1.2.0. "Release branch" means it is on `release/agent-wave9-2026-10-18` and not in a published release.
+
+## What Keycloak documents
+
+| Capability | Keycloak | Source |
+|---|---|---|
+| CIBA (backchannel approval) | Supported, on by default | [features](https://www.keycloak.org/server/features) |
+| Device Authorization Grant | Supported, on by default | [features](https://www.keycloak.org/server/features) |
+| DPoP | Supported | [features](https://www.keycloak.org/server/features) |
+| RFC 8693 token exchange | Standard exchange v2 Supported | [token exchange](https://www.keycloak.org/securing-apps/token-exchange) |
+| Delegation with `actor_token` and the `act` claim | Preview, off by default | [token exchange](https://www.keycloak.org/securing-apps/token-exchange) |
+| SPIFFE trust provider | Preview. Kubernetes service accounts are Supported | [features](https://www.keycloak.org/server/features) |
+| MCP authorization server | OAuth 2.1 Supported for MCP spec 2025-03-26, later spec versions Experimental. RFC 8414 and RFC 7591 Supported. RFC 8707 and Client ID Metadata Documents Experimental | [MCP](https://www.keycloak.org/securing-apps/mcp-authz-server) |
+| Organizations, SCIM, themed login pages | Organizations Supported, `scim-api:v1` Supported, server rendered themes | [features](https://www.keycloak.org/server/features) |
+| Databases | PostgreSQL, MySQL, MariaDB, Oracle, SQL Server and others | [db](https://www.keycloak.org/server/db) |
+
+## Where its docs stop
+
+On 2026-10-18 we did not find the following on the Keycloak pages we fetched. This is not proof that Keycloak lacks them.
+
+- Approvals bound to call arguments: not found. We did not find it in the CIBA material we read.
+- A tamper evident audit chain: not found. The admin guide covers auditing user events and admin events, and we saw no hash chain or integrity mechanism. We read only the first 200k of 688k characters of that guide.
+- IoT device principals and MQTT: partly. The Device Authorization Grant exists, but we found MQTT only in third party tutorials, which we did not verify.
+- ROS 2 or robotics: not found in Keycloak's documentation.
+- Revocation that reaches exchanged tokens: its token exchange documentation says revoking an access token does not revoke the exchanged access token. A refresh token revocation chain does exist. We did not find multi-hop nested `act` chains described.
+
+## How theAuth differs
+
+| Capability | theAuth | Status |
+|---|---|---|
+| Form factor | Library in your process, with a Go library alongside | Published |
+| Delegation chains between agents, revoked as a cascade | `agent.revoke()` revokes the delegation chains downstream | Published |
+| Approvals bound to action, resource and arguments, spent once | Canonical hash with a mismatch code | Release branch |
+| Revocation that reaches issued MCP tokens | Signed delegation claim and shared denylist | Release branch |
+| Devices as principals with offline signed policy bundles | `device` principal | Release branch |
+| MQTT broker authorization | EMQX and Mosquitto backends | Release branch (Go) |
+| ROS 2 permissions | SROS2 and DDS Security export | Release branch |
+
+## Where Keycloak is ahead
+
+- It is a full identity server with years of production use, a supported standards list, an admin console, themed login pages, and many database backends.
+- Device Authorization Grant, CIBA and DPoP are marked Supported today. The theAuth device work is not in a published release.
+- It covers SAML, LDAP style federation and social login out of the box. Our SAML verifier has not had an independent audit.
+
+## Pick theAuth if
+
+- You want auth as a library inside a TypeScript or Go app, with agents and devices as principals.
+- You need approvals tied to exact arguments or revocation that reaches issued tokens, and you can run the release branch or wait for it.
+
+## Pick Keycloak if
+
+- You want a standalone identity server for employees and customers, with a supported standards list.
+- You need device grant, CIBA or DPoP now, from a stable release.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="theAuth vs better-auth" href="/compare/vs-ba" icon="code-compare">
+    The closest open source library comparison.
+  </Card>
+  <Card title="theAuth vs paid platforms" href="/compare/vs-paid" icon="building">
+    Clerk and Auth0 against theAuth.
+  </Card>
+</CardGroup>

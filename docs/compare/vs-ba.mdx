@@ -6,40 +6,49 @@ icon: code-compare
 
 better-auth and theAuth are both open-source TypeScript auth libraries, and they start from different places. better-auth grew out of human sign-in and added a plugin system on top. theAuth is built around identities that can be humans, agents or devices, so permissions, delegation and audit apply to all of them.
 
-better-auth is the larger project with the larger community, and it has an agent plugin of its own. This page lists what each documents, with the source for each row, so you can check the rows that matter to you. Where we did not verify a row for better-auth, we left it out instead of guessing. Last checked: 2026-10-18.
+better-auth is the larger project with the larger community, and it has an agent plugin of its own. Its latest stable release on 2026-10-18 was v1.7.10, published 2026-10-15 (a v1.8.0 beta was out the day after). This page lists what each documents, with the source for each row, so you can check the rows that matter to you. Where we did not verify a row for better-auth, we left it out instead of guessing. Last checked: 2026-10-18.
+
+Status words for theAuth rows: "Published" means it is in the npm release `@glinr/theauth` 1.2.0 (or the Go release named). "Release branch" means it is written and tested on `release/agent-wave9-2026-10-18` and is not in a published release.
 
 A migration guide is available: [Migrate from better-auth](/migrate/from-better-auth).
 
 ## What both do
 
-| Capability | theAuth | better-auth |
-|---|---|---|
-| License and language | MIT, TypeScript, plus a Go library | MIT, TypeScript |
-| MCP OAuth 2.1 server | PKCE, RFC 7591, RFC 8707, RFC 9728 and Client ID Metadata Documents | MCP plugin built on its OAuth 2.1 Provider, PKCE, RFC 8414 and RFC 9728 metadata, DCR off unless you enable it, CIMD recommended ([docs](https://www.better-auth.com/docs/plugins/mcp)) |
-| Agent identity | `AgentIdentity` entity next to `User`, with delegation chains between agents | Agent Auth plugin with agent, host, grant and approval records and capability grants. Its docs label it "not yet stable" ([docs](https://www.better-auth.com/docs/plugins/agent-auth)) |
-| Human approval of agent actions | Approval module with decision codes | `device_authorization` and `ciba` approval methods in the Agent Auth plugin ([docs](https://www.better-auth.com/docs/plugins/agent-auth)) |
-| Passkeys, two factor, SAML, SCIM, organizations, API keys | Plugins for each | Plugins for each, documented on its site |
+| Capability | theAuth | theAuth status | better-auth |
+|---|---|---|---|
+| License and language | MIT, TypeScript, plus a Go library | Published | MIT, TypeScript |
+| MCP OAuth 2.1 server | PKCE, RFC 7591, RFC 8707, RFC 9728 and Client ID Metadata Documents | Published | MCP plugin built on its OAuth 2.1 Provider, PKCE, RFC 8414 and RFC 9728 metadata, DCR off unless you enable it, CIMD recommended ([docs](https://www.better-auth.com/docs/plugins/mcp)). Its OAuth Provider page also lists RFC 7009, RFC 7662, RFC 8707 and the device_code grant ([docs](https://www.better-auth.com/docs/plugins/oauth-provider)) |
+| Agent identity | `AgentIdentity` entity next to `User`, with delegation chains between agents | Published | Agent Auth plugin with agent, host, grant and approval records and capability grants. Its docs label it "not yet stable" ([docs](https://www.better-auth.com/docs/plugins/agent-auth)) |
+| Human approval of agent actions | Approval module with decision codes | Published | `device_authorization` and `ciba` approval methods in the Agent Auth plugin ([docs](https://www.better-auth.com/docs/plugins/agent-auth)) |
+| Passkeys, two factor, SAML, SCIM, organizations, API keys | Plugins for each | Published | Plugins for each, documented on its site. Organizations have owner, admin and member roles, custom roles and optional teams ([docs](https://www.better-auth.com/docs/plugins/organization)). Two factor covers OTP and TOTP with backup codes ([docs](https://www.better-auth.com/docs/plugins/2fa)) |
 
 ## Where theAuth goes further
 
-These come from our own repository. We did not find the same features in better-auth's documentation when we looked on 2026-10-18, which does not prove they are absent.
+These come from our own repository. For each of the five differentiators below we did not find the same feature on the better-auth pages we fetched on 2026-10-18. That is a statement about those pages, not proof that the feature is missing elsewhere or in a later release.
 
-| Capability | theAuth | Status |
+- Approvals bound to arguments: we did not find this on the Agent Auth page we fetched on 2026-10-18. Grants can carry `constraints`, but the page does not define a schema or say they bind call arguments.
+- Tamper evident audit chain: we did not find one on the pages we fetched on 2026-10-18. The `onEvent` hook is described as a place to write audit logs, with no integrity mechanism mentioned.
+- Device principals and MQTT: we did not find these on the pages we fetched on 2026-10-18. The plugin's "device authorization" is for a human to approve an agent.
+- ROS 2 or robotics: we did not find this on the Agent Auth page we fetched on 2026-10-18.
+- Delegation chains with revocation that reaches issued tokens: we did not find multi-hop chains on the pages we fetched on 2026-10-18. Its OAuth Provider docs say opaque access tokens are deleted at once on revocation and that revoking a refresh token removes the access tokens it minted. JWT access tokens cannot be revoked server side.
+
+| Capability | theAuth | theAuth status |
 |---|---|---|
-| Approvals bound to the arguments the human saw, with a mismatch code | Canonical hash of action, resource and arguments, spent once | On the release branch, not in a published release yet |
-| Tamper evident audit chain with signed checkpoints, and a verifier for the Go library's chain | Chained rows, signed head checkpoints | Chain published; signed head checkpoints on the release branch |
-| Revocation that reaches issued MCP tokens | A signed delegation claim and a shared denylist, checked live, cached or offline | On the release branch |
-| Devices as principals: enrollment, offline signed policy bundles | `device` principal with the same permissions, delegation and audit | On the release branch |
-| MQTT broker authorization | Backend for EMQX and Mosquitto, tested against EMQX 5.8.6 and Mosquitto 2.0.15 | On the release branch (Go) |
-| ROS 2 permissions | Export to SROS2 and DDS Security files, tested with enforcement on ROS 2 Humble | On the release branch |
-| Go library with the same model | Memory, SQLite, Postgres and MySQL stores | Published (v2.12.0) |
+| Approvals bound to the arguments the human saw, with a mismatch code | Canonical hash of action, resource and arguments, spent once | Release branch |
+| Tamper evident audit chain with Ed25519 signed checkpoints and portable receipts | Chained rows, Merkle tree head signed with Ed25519, inclusion and consistency proofs | Published (1.2.0) |
+| Verifier in TypeScript for the Go library's signed head checkpoints | Detects tail truncation of a Go chain | Release branch |
+| Revocation that reaches issued MCP tokens | A signed delegation claim and a shared denylist, checked live, cached or offline | Release branch |
+| Devices as principals: enrollment, offline signed policy bundles | `device` principal with the same permissions, delegation and audit | Release branch |
+| MQTT broker authorization | Backend for EMQX and Mosquitto, tested against EMQX 5.8.6 and Mosquitto 2.0.15 | Release branch (Go) |
+| ROS 2 permissions | Export to SROS2 and DDS Security files, tested with enforcement on ROS 2 Humble | Release branch |
+| Go library with the same model | Memory, SQLite, Postgres and MySQL stores | Published (Go v2.12.0) |
 | No `node:crypto` imports in core | Runs on Workers, Deno and Bun | Published |
 
-"Release branch" means the code is written and tested but is not in the npm or Go release you get today. Check the [GitHub releases](https://github.com/glincker/theauth/releases) before you rely on a row.
+"Release branch" means the code is written and tested but is not in the npm or Go release you get today (npm `@glinr/theauth` is 1.2.0). Check the [GitHub releases](https://github.com/glincker/theauth/releases) before you rely on a row.
 
 ## Where better-auth is ahead or equal
 
-- Adoption and ecosystem. better-auth had 30.4k GitHub stars on 2026-10-18 and a large plugin and integration community. theAuth is new and has no user numbers we can quote.
+- Adoption and ecosystem. better-auth had 30.4k GitHub stars on 2026-10-18 and a large plugin and integration community. It also ships more named social providers than we do. We counted 36 provider source files in its repository on 2026-10-18, which is a file count and not a figure from its docs. theAuth is new and has no user numbers we can quote.
 - Databases. better-auth documents Kysely (SQLite and D1, PostgreSQL, MySQL, MSSQL), Prisma, Drizzle and MongoDB. theAuth has Drizzle and a Prisma adapter, and the Go library has memory, SQLite, Postgres and MySQL. If you need MongoDB or MSSQL, better-auth covers it today. Redis in better-auth is secondary storage, not a database.
 - MCP. Both ship an OAuth 2.1 server for MCP, so that alone does not separate them.
 - Approvals. Both support human approval of agent actions. The difference is the argument binding noted above.
@@ -62,6 +71,9 @@ These come from our own repository. We did not find the same features in better-
 <CardGroup cols={2}>
   <Card title="Migrate from better-auth" href="/migrate/from-better-auth" icon="arrow-right-arrow-left">
     Step-by-step migration with before and after code diffs.
+  </Card>
+  <Card title="theAuth vs Keycloak" href="/compare/vs-keycloak" icon="key">
+    The closest rival on devices and delegation, and where its own docs stop.
   </Card>
   <Card title="theAuth vs Hanko" href="/compare/vs-hanko" icon="fingerprint">
     How theAuth compares to the passkey-first auth library.
