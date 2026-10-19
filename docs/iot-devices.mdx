@@ -10,7 +10,7 @@ What a device gets that an agent does not:
 
 - Credentials made for hardware: a pre shared key, a public key that signs short assertions, or a TLS client certificate thumbprint.
 - Enrollment by claim code (one device, typed by a person) or bulk token (a factory line, with a use limit).
-- An attestation hook for evidence at enrollment, with a built in Android Key Attestation verifier.
+- An attestation hook for evidence at enrollment, with built in verifiers for Android Key Attestation, Apple App Attest and TPM 2.0 quotes.
 - A signed offline policy bundle for devices that cannot call home on every decision.
 - Suspend and resume, separate from permanent revoke.
 
@@ -215,7 +215,75 @@ Things to know:
 
 **How this verifier was tested.** The test suite uses real attestation chains from Google's own repository, [google/android-key-attestation](https://github.com/google/android-key-attestation/tree/master/src/test/resources) (Apache License 2.0, copied unmodified into `packages/core/tests/fixtures/android-key-attestation.json`): EC and RSA keys, TEE and StrongBox, produced by TestDPC on devices. Three of the four chains verify, and `openssl verify` agrees with us on all four, including that the fourth (EC StrongBox) is not a valid chain: its leaf signature matches neither of the certificates above it. The parsed key description is compared with what `openssl asn1parse` prints for the same bytes. Those devices were unlocked, so the strict boot policy refuses them, which the tests also check. What is not covered: we have no chain from a locked, verified device with a known private key, so key binding is tested with the public key of a fixture leaf, and no chain with the provisioning information extension, so that branch is tested only by reading the specification. Treat the verifier as reviewed against Google's documentation and tested against real fixtures, not as certified by Google.
 
-TPM 2.0 quotes and Apple App Attest are not built in yet. Write them behind the same hook, or see the backlog.
+#### Apple App Attest (built in)
+
+`createAppleAppAttestVerifier` checks the attestation object that `DCAppAttestService.attestKey` returns, following Apple's [Attestation Object Validation Guide](https://developer.apple.com/documentation/devicecheck/attestation-object-validation-guide): the CBOR object has format `apple-appattest`, its `x5c` holds the credential and intermediate certificates and the chain must end at the Apple App Attestation Root CA, the credential certificate's nonce extension (OID 1.2.840.113635.100.8.2) must equal SHA-256 of `authData` followed by the client data hash, the key identifier must be SHA-256 of the certificate's public key point and equal the credential id, `rpIdHash` must be SHA-256 of an App ID you allow, the counter must be 0, and the AAGUID must match the environment you expect.
+
+```ts
+import { createAppleAppAttestVerifier } from "@glinr/theauth";
+
+devices: {
+  attestation: {
+    required: true,
+    verify: createAppleAppAttestVerifier({
+      appIds: ["ABCDE12345.com.example.robot"], // TeamID.BundleID, required
+      environment: "production", // "development" for sandbox builds, "any" for both
+      allowedValidationCategories: [1], // optional, see below
+    }),
+  },
+}
+```
+
+On the device, generate a key with `generateKey`, enroll your own credential as a `jwk` credential, and attest with client data that names that credential. By default (`bind: "client-data"`) the verifier expects the client data to be the UTF-8 text `<nonce>:<RFC 7638 thumbprint of the enrolled key>`, hashed with SHA-256:
+
+```swift
+let clientData = Data("\(nonce):\(thumbprint)".utf8)
+let hash = Data(SHA256.hash(data: clientData))
+let attestation = try await DCAppAttestService.shared.attestKey(keyId, clientDataHash: hash)
+// evidence: {"attestation": attestation.base64EncodedString(), "keyId": keyId}
+```
+
+Apple's certificate then vouches for that exact pairing of nonce and enrolled key. App Attest keys cannot be exported or used as a signing credential for your own tokens, which is why the enrolled key is a separate one. `bind: "attested-key"` instead demands that the enrolled key is the App Attest key itself, and `bind: "none"` checks the nonce only.
+
+Things to know:
+
+- The bundled root was downloaded over HTTPS from `apple.com/certificateauthority/Apple_App_Attestation_Root_CA.pem` on 2026-10-18. Apple publishes no fingerprint for it, so the evidence that it is the right root is that the intermediate certificates in real attestations verify against it. Pass `roots` to pin your own.
+- The credential certificate is valid for about three days. Verify at enrollment, not later. There is no revocation list for App Attest, so no revocation option exists.
+- Two extensions in `authData` are returned as claims when present: `apple_validation_category_01` (Apple's guide shows 1 for an OS distributed app, a development signed build on an iPhone reported 3) and `apple_bundle_version_01`. Apple's own 2026 sample sets only the attested credential flag yet carries the extension map, so the verifier reads the map whenever bytes follow the key, and the map is covered by the certificate's nonce.
+- Not built: verifying the fraud metric receipt (a PKCS#7 object from Apple, outside the signed data), verifying assertions from `generateAssertion` and tracking their counters, and any macOS specific checks.
+- `theauth device attest apple --evidence att.json --nonce <n> --app-id <TeamID.BundleID>` runs the same verifier from the command line.
+
+**How this verifier was tested.** Three real attestation objects, copied unmodified into `packages/core/tests/fixtures/apple-app-attest.json`: the sample in Apple's validation guide (fetched from developer.apple.com on 2026-10-18, example app `com.example.myapp`), a recording from a physical iPhone on iOS 14.4 in the development environment from [veehaitch/devicecheck-appattest](https://github.com/veehaitch/devicecheck-appattest/blob/main/src/test/resources/ios-14.4.yaml) (Apache License 2.0), and a recording from an iPhone on iOS 27.0.1 in the production environment from [jewei/app-attest-php](https://github.com/jewei/app-attest-php/blob/main/spec/termakan-ios27-attestation.json) (MIT). All three verify against the bundled root with the clock set inside their three day window, which also shows the chain, the nonce and the key id logic match what Apple's service produces. The tests refuse a different nonce, another App ID, the wrong environment, a wrong key id, a changed `authData`, an expired certificate and a foreign root. Limits of that evidence: the tests do not bind with real keys, because those devices never saw our client data format. The `client-data` path is run on real data by reading the iOS 27 recording's challenge (which contains colons) as `<nonce>:<thumbprint>`, which exercises the code but is not a recording of a device doing it. Nothing here covers attestation objects from macOS, Mac Catalyst or visionOS. Treat the verifier as reviewed against Apple's documentation and tested against real fixtures, not as certified by Apple.
+
+#### TPM 2.0 quotes (built in)
+
+`createTpm2QuoteVerifier` checks a TPM2_Quote against the TCG TPM 2.0 Library specification. The attestation key must be a restricted signing key that cannot leave its TPM (`restricted`, `sign`, `fixedTPM`, `fixedParent`, not `decrypt`), because only a restricted key signs nothing but structures the TPM built, which is what gives the `TPM_GENERATED` magic its meaning. The quote must be a TPM_ST_ATTEST_QUOTE, its qualifying data must equal the enrollment nonce, its signature must verify under that key (RSASSA or ECDSA, SHA-256 or stronger), its clock must be marked safe, and the PCR values in the evidence must hash to the signed digest. With `roots`, the evidence must also carry a certificate chain from the attestation key to a root you trust.
+
+```ts
+import { createTpm2QuoteVerifier } from "@glinr/theauth";
+
+devices: {
+  attestation: {
+    required: true,
+    verify: createTpm2QuoteVerifier({
+      roots: [vendorRootPem], // trust anchor for the attestation key certificate
+      challengeEncoding: "hex", // how the nonce string maps to the qualifying data
+      expectedPcrs: { sha256: { 7: "<hex of the secure boot PCR you expect>" } },
+    }),
+  },
+}
+```
+
+The evidence is JSON: `akPublic` (TPMT_PUBLIC or TPM2B_PUBLIC, base64), `quote` (the TPMS_ATTEST message, base64), `signature` (TPMT_SIGNATURE, base64), `pcrs` (hex values by bank and index, for example `{"sha256": {"0": "...", "7": "..."}}`, covering every PCR the quote selected) and `akCertificates` (base64 DER, leaf first). With tpm2-tools these are what `tpm2_quote` writes with `-m` and `-s` plus the values from `tpm2_pcrread`. We did not run tpm2-tools while building this, so check the flags and the output format against your version.
+
+Things to know:
+
+- There is no bundled root. TPM vendors and clouds each run their own, so you pass the one you trust. Without `roots` you must pass `allowUnverifiedAk: true`, and the claims then say `akVerified: false`: the quote proves someone holding that key signed a TPM shaped structure, not that a TPM exists.
+- This verifier does not run the TPM2_MakeCredential and TPM2_ActivateCredential handshake that proves an attestation key shares a TPM with an endorsement key, and it does not check TPM2_Certify of the enrolled device key. A genuine TPM therefore vouches for the nonce, but the quote does not prove that the enrolled credential lives in that TPM. If that matters, make the attestation key the device identity or add the handshake on your server.
+- The event log, RSA-PSS signatures and ECDAA are not supported. PCR values are reported in the claims, and `expectedPcrs` compares chosen ones.
+- `theauth device attest tpm --evidence quote.json --nonce <n> --root vendor-root.pem` runs the same verifier from the command line.
+
+**How this verifier was tested.** The fixture is a real attestation from a Google Compute Engine Shielded VM (virtual TPM) in [google/go-tpm-tools](https://github.com/google/go-tpm-tools/blob/7350267efdfa67fc62be505004fd61d7d05e5288/internal/test/attestations/gce-cos-85-nonce9009.pb) (Apache License 2.0): three quotes of the same machine (SHA-1, SHA-256 and SHA-384 PCR banks, signed RSASSA-2048 with SHA-256), a second file with quotes taken without a nonce, and the key certificate from the same file. Google's published [intermediate](https://pki.goog/cloud_integrity/tpm_ek_intermediate_2.crt) and [root](https://pki.goog/cloud_integrity/tpm_ek_root_1.crt) were fetched on 2026-10-18 to complete the chain. `openssl verify` accepts that chain, and `openssl dgst -verify` accepts all six quote signatures and finds each PCR digest in its quote, which agrees with this verifier. The tests also refuse another nonce, a quote taken without one, changed PCR values, a changed quote or signature, a key that is not restricted, a foreign root and an expired chain. Limits: it is one vendor and one virtual TPM, so physical TPMs from Infineon, STMicro, Nuvoton or Intel and Windows platform keys are untested. In this fixture the certified key carries the endorsement key certificate usage, which is how that cloud issues it. The ECDSA branch is covered only by keys generated inside the test, which shows the code path works and nothing about any device.
 
 ## Authorization, delegation and revocation
 
@@ -332,8 +400,10 @@ theauth device enroll-token --config ./theauth.config.mjs --owner owner-1 --kind
 theauth device suspend <deviceId> --config ./theauth.config.mjs --reason "battery swap"
 theauth device revoke <deviceId> --config ./theauth.config.mjs
 theauth device attest android --evidence chain.json --nonce <nonce> --revocation google
+theauth device attest apple --evidence att.json --nonce <nonce> --app-id ABCDE12345.com.example.robot
+theauth device attest tpm --evidence quote.json --nonce <nonce> --challenge hex --root vendor-root.pem
 ```
 
 ## What is not here yet
 
-CWT and COSE encoding of bundles for very small devices, built in verifiers for TPM 2.0 quotes, Apple App Attest and EAT, uploading decisions a device made offline into the audit chain, and a dashboard page.
+CWT and COSE encoding of bundles for very small devices, a built in verifier for EAT, App Attest assertions and the TPM credential activation handshake, uploading decisions a device made offline into the audit chain, and a dashboard page.

@@ -16,7 +16,7 @@ Usage:
   theauth device revoke <deviceId> [--reason text]
   theauth device enroll-token --owner <userId> --kind claim|bulk [--max-uses n] [--ttl seconds]
                               [--group g]... [--perm "resource=action,action"]...
-  theauth device attest android --evidence <file> --nonce <n> --revocation google|off
+  theauth device attest android|apple|tpm --evidence <file> --nonce <n> ...
                                 (offline evidence check, no --config; see "device attest --help")
 
 Every command needs --config <file.mjs>: an ES module whose default export is a

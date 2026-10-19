@@ -1,4 +1,3 @@
-import { calculateJwkThumbprint } from "jose";
 import { constantTimeEqual, fromBase64Url, fromHex } from "../../crypto/web-crypto.js";
 import type { DeviceAttestationInput, DeviceAttestationResult } from "../types.js";
 import type {
@@ -13,8 +12,9 @@ import {
 	parseKeyDescription,
 } from "./android-key-description.js";
 import { GOOGLE_ATTESTATION_ROOTS } from "./google-roots.js";
+import { keyThumbprint } from "./key-thumbprint.js";
 import type { X509Cert } from "./x509.js";
-import { certBytesFromText, parseCertificate, spkiInfo, verifyChain } from "./x509.js";
+import { certBytesFromText, parseCertificate, verifyChain } from "./x509.js";
 
 /** Revocation lookup for attestation certificates. `serialHex` is lowercase hex without leading zeros. */
 export type RevocationCheck = (serialHex: string) => boolean | Promise<boolean>;
@@ -94,33 +94,6 @@ export function parseAndroidKeyEvidence(evidence: string): Uint8Array[] {
 function challengeBytes(nonce: string, encoding: "utf8" | "base64url" | "hex"): Uint8Array {
 	if (encoding === "utf8") return new TextEncoder().encode(nonce);
 	return encoding === "hex" ? fromHex(nonce) : fromBase64Url(nonce);
-}
-
-async function keyThumbprint(spki: Uint8Array): Promise<string | undefined> {
-	try {
-		const info = spkiInfo(spki);
-		if (info.alg !== "1.2.840.10045.2.1") return undefined;
-		const namedCurve =
-			info.curve === "1.3.132.0.34"
-				? "P-384"
-				: info.curve === "1.2.840.10045.3.1.7"
-					? "P-256"
-					: undefined;
-		if (!namedCurve) return undefined;
-		const copy = new Uint8Array(new ArrayBuffer(spki.length));
-		copy.set(spki);
-		const key = await globalThis.crypto.subtle.importKey(
-			"spki",
-			copy,
-			{ name: "ECDSA", namedCurve },
-			true,
-			["verify"],
-		);
-		const jwk = await globalThis.crypto.subtle.exportKey("jwk", key);
-		return await calculateJwkThumbprint(jwk, "sha256");
-	} catch {
-		return undefined;
-	}
 }
 
 function hardwareList(kd: KeyDescription): AuthorizationList {
