@@ -46,7 +46,7 @@
     "@types/node": "^25.6.0",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.5"
   },
   "homepage": "https://docs.theauth.dev/prisma",
   "bugs": {

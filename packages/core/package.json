@@ -159,14 +159,14 @@
     "@types/node": "^25.6.0",
     "@types/pg": "^8.20.0",
     "@types/sql.js": "^1.4.11",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "5.0.5",
     "better-sqlite3": "^12.9.0",
     "kysely": "^0.29.7",
     "tarn": "^3.1.2",
     "tedious": "^20.3.8",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.5"
   },
   "peerDependencies": {
     "@libsql/client": ">=0.6.0",
