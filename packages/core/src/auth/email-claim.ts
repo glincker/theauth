@@ -24,6 +24,35 @@ export interface ClaimOptions {
 	keepUnverifiedCredentials?: boolean;
 }
 
+/** True for the "table was never created" error of any dialect, which means the feature is off. */
+function isMissingTable(error: unknown): boolean {
+	for (let e: unknown = error, depth = 0; e && depth < 4; depth++) {
+		const err = e as { message?: unknown; code?: unknown; errno?: unknown; cause?: unknown };
+		const message = typeof err.message === "string" ? err.message : "";
+		if (
+			/no such table/i.test(message) ||
+			/relation ".*" does not exist/i.test(message) ||
+			/table '.*' doesn't exist/i.test(message) ||
+			err.code === "42P01" ||
+			err.code === "ER_NO_SUCH_TABLE" ||
+			err.errno === 1146
+		) {
+			return true;
+		}
+		e = err.cause;
+	}
+	return false;
+}
+
+/** Run one credential delete. A feature whose table does not exist has nothing to clear, anything else still throws. */
+async function clearIfPresent(run: () => Promise<unknown>): Promise<void> {
+	try {
+		await run();
+	} catch (error) {
+		if (!isMissingTable(error)) throw error;
+	}
+}
+
 /** Mark the address verified. On a first proof, also drop credentials made before it. */
 export async function claimVerifiedMailbox(
 	db: Database,
@@ -37,9 +66,13 @@ export async function claimVerifiedMailbox(
 	if (!row || row.emailVerified === 1) return;
 
 	if (!options.keepUnverifiedCredentials) {
-		await db.delete(usernameAccounts).where(eq(usernameAccounts.userId, userId));
-		await db.delete(oauthAccounts).where(eq(oauthAccounts.userId, userId));
-		await db.delete(passkeyCredentials).where(eq(passkeyCredentials.userId, userId));
+		await clearIfPresent(() =>
+			db.delete(usernameAccounts).where(eq(usernameAccounts.userId, userId)),
+		);
+		await clearIfPresent(() => db.delete(oauthAccounts).where(eq(oauthAccounts.userId, userId)));
+		await clearIfPresent(() =>
+			db.delete(passkeyCredentials).where(eq(passkeyCredentials.userId, userId)),
+		);
 		await db.delete(sessions).where(eq(sessions.userId, userId));
 		// The session manager may hold a cache the row delete does not reach.
 		await revokeSessions?.(userId);
