@@ -1,8 +1,11 @@
 export { createPrismaAdapter } from "./adapter.js";
 export type {
 	AgentFilter,
+	ApprovalVoteErrorCode,
 	AuditLogFilter,
 	AuthPrismaAdapter,
+	CastApprovalVoteInput,
+	CastApprovalVoteResult,
 	CreateAgentInput,
 	CreateAuditLogInput,
 	CreatePermissionInput,
@@ -11,6 +14,7 @@ export type {
 	PrismaAgent,
 	PrismaApiKey,
 	PrismaApprovalRequest,
+	PrismaApprovalVote,
 	PrismaAuditLog,
 	PrismaDelegationChain,
 	PrismaJwtRefreshToken,
@@ -28,3 +32,4 @@ export type {
 	PrismaUser,
 	TheAuthPrismaAdapter,
 } from "./types.js";
+export { ApprovalVoteError } from "./types.js";

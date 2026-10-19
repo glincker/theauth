@@ -67,9 +67,15 @@ const { success, deletedAgents, deletedSessions, deletedDelegations, deletedApiK
 
 What the delete does, in order: revokes the user's agents; deletes sessions, delegation chains involving those agents, and API keys; anonymizes the audit rows of those agents (or deletes the rows of this user when `keepAuditLogs` is `false`); deletes approval requests, budget policies, OAuth tokens and codes, magic links, email OTPs, TOTP records, passkeys, and org memberships; optionally deletes owned organizations; then deletes the user row. Note that with `keepAuditLogs: true` the agent rows are kept with status `revoked` (so `deletedAgents` counts agents revoked, not rows removed), and they still carry their name and metadata. With `keepAuditLogs: false` the agent rows are deleted.
 
-<Warning>
-  The module toggles `PRAGMA foreign_keys` while deleting and anonymizing audit rows. That statement is SQLite syntax, so on Postgres or MySQL the `keepAuditLogs: true` path and the final user deletion will fail with a database error unless the statement is accepted by your driver. Test deletion against your production database engine before relying on it.
-</Warning>
+### If a delete is interrupted
+
+The delete is a list of steps with no database transaction around it, because some backends (Cloudflare D1) have none. Each step is safe to run again, and a progress marker records how many steps finished. The marker is stored in the metadata of an inert placeholder user whose id is derived from the real user id with a keyed hash, so it needs no extra table and outlives the deleted user row.
+
+If the process dies or the database errors halfway, call `deleteUser` again with the same user id. It resumes at the first unfinished step, and the end state is the same as an uninterrupted run: no leftover rows, one erasure record per affected audit chain, and a chain that still verifies. Two calls at the same time are also safe, the second one repeats steps the first already did. A call after completion returns the stored counts. On a resumed run the counts can be lower than the true totals, since rows removed before the crash are no longer there to count.
+
+Runs of writes that do not depend on a read (credential and token rows, organization removal, ownership moves) go through one atomic batch where the backend has it. Where it does not, the same writes run in order and the retry rule covers the gap.
+
+The audit rewrite follows the same rule. Placeholder rows come first, then each agent's rows are repointed, then the signed `audit.erasure` record for version 1 rows is derived from the rewritten rows. The record id is derived from the rows it names, so a rerun finds it instead of adding a second one. Between the rewrite and the record, a verification run reports the rewritten version 1 rows as changed. Finish the call and it clears.
 
 <Warning>
   Deletion is irreversible. Any app data you store outside theAuth that references the user ID will become orphaned, the plugin has no `onBeforeDelete` hook, cascade those deletes yourself before calling this endpoint.
@@ -79,7 +85,7 @@ What the delete does, in order: revokes the user's agents; deletes sessions, del
 
 `POST /auth/gdpr/anonymize`
 
-Replaces the email with a deterministic anonymous value (`deleted-<hash>@anon.invalid`) and clears name, external ID, and metadata, while keeping the account row, agents, and audit history. It also deletes the user's TOTP records and passkeys. It does not revoke sessions, and it does not touch audit rows (those still reference the same user ID). Use this instead of deletion when org membership or audit referential integrity must be preserved.
+Replaces the email with a deterministic anonymous value (`deleted-<hash>@anon.invalid`) and clears name, external ID, and metadata, while keeping the account row, agents, and audit history. It also deletes the user's TOTP records and passkeys, in one atomic group with the email change where the backend has a batch. Without one, the credentials go first and the email change last, so calling it again finishes a half run. It does not revoke sessions, and it does not touch audit rows (those still reference the same user ID). Use this instead of deletion when org membership or audit referential integrity must be preserved.
 
 ```typescript title="Anonymize account (client)"
 const res = await fetch('/auth/gdpr/anonymize', {

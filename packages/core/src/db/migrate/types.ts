@@ -1,4 +1,4 @@
-import type { DatabaseConfig } from "../database.js";
+import type { DatabaseProvider } from "../database.js";
 import type { EnabledFeatures, FeatureKey } from "./features.js";
 
 /** SQL dialects TheAuth ships DDL for. */
@@ -50,7 +50,7 @@ export interface MigrationStatus {
 	unknown: string[];
 }
 
-export type SchemaProvider = DatabaseConfig["provider"];
+export type SchemaProvider = DatabaseProvider;
 
 /** Thrown when `database.skipMigrations` is set and the schema is behind. */
 export class SchemaOutdatedError extends Error {

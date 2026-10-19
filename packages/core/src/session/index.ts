@@ -1,4 +1,23 @@
 export type { SessionActivityConfig } from "./activity.js";
+export type {
+	AcrValue,
+	AuthAssertion,
+	AuthContext,
+	AuthEvent,
+	AuthMethod,
+	AuthRequirement,
+	AuthRequirementResult,
+} from "./auth-context.js";
+export {
+	ACR,
+	ACR_ORDER,
+	acrList,
+	authMethodsForSignIn,
+	buildStepUpChallenge,
+	evaluateAuthRequirement,
+	resolveAuthContext,
+	StepUpRequiredError,
+} from "./auth-context.js";
 export { UserBannedError } from "./banned.js";
 export type { BaseUrlConfig, BaseUrlResolver } from "./base-url.js";
 export { createBaseUrlResolver } from "./base-url.js";

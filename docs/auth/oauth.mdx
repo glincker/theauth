@@ -93,7 +93,9 @@ The provider account is identified by the provider's own user ID, so the same pr
 
 ## Account linking
 
-When the email returned by the provider matches an existing user, theAuth links the provider account to that user. Otherwise it creates a new user with the email marked as verified. A user can have several linked providers. Only the email and name are copied onto the user record; the avatar is not stored.
+When the email returned by the provider matches an existing user, theAuth links the provider account to that user only if the provider says the address is verified and the existing user's address is verified too. If either side is unverified, the callback answers 409 and links nothing: the user signs in with their existing method and links the provider from account settings. This stops account pre-hijacking, where someone registers a victim's address first and keeps access after the victim signs in with a provider. Otherwise it creates a new user, with the email marked verified only when the provider vouched for it. Providers that do not report verification (Microsoft, Linear, Cloudflare, PayPal, Kick, Spotify and Apple) never link by email. A user can have several linked providers. Only the email and name are copied onto the user record; the avatar is not stored.
+
+Apps that need the old behavior can set `unsafeAllowUnverifiedEmailLinking: true` on `oauth()`. It links by email whatever either side says, so only use it when every sign-up path of your app verifies addresses first.
 
 If a provider returns no email (Reddit, for example), the callback cannot match or create a user. The account row stays unassigned and the callback responds with JSON (`isNewAccount`, `account`, `userInfo`) instead of a session.
 

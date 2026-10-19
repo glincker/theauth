@@ -1,6 +1,6 @@
 import { useCallback, useContext, useState } from "react";
 import { TheAuthExpoContext } from "./provider.js";
-import type { ActionResult, CreateAgentInput, TheAuthAgent } from "./types.js";
+import type { ActionResult, CreateAgentInput, SignUpData, TheAuthAgent } from "./types.js";
 
 function useRequiredContext(hookName: string) {
 	const ctx = useContext(TheAuthExpoContext);
@@ -96,7 +96,7 @@ export function useSignUp() {
 	const [error, setError] = useState<string | null>(null);
 
 	const execute = useCallback(
-		async (email: string, password: string, name?: string): Promise<ActionResult> => {
+		async (email: string, password: string, name?: string): Promise<ActionResult<SignUpData>> => {
 			setIsLoading(true);
 			setError(null);
 			const result = await signUp(email, password, name);

@@ -1,0 +1,717 @@
+{
+ "cases": [
+  {
+   "name": "simple",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"amount\":10,\"to\":\"alice\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"amount\":10,\"to\":\"alice\"},\"resource\":\"bank:transfer\"}",
+    "hash": "53aa0947fd80dbbe7536ac0119511737ea6b05d80e2475e7a5fba49df809ca69"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"amount\":10,\"to\":\"alice\"},\"resource\":\"bank:transfer\"}",
+    "hash": "53aa0947fd80dbbe7536ac0119511737ea6b05d80e2475e7a5fba49df809ca69"
+   }
+  },
+  {
+   "name": "empty_object",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{},\"resource\":\"bank:transfer\"}",
+    "hash": "e58549e39a77b52a6234af3368eef18d8f308681c6db580fe08d2a41595f48e0"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{},\"resource\":\"bank:transfer\"}",
+    "hash": "e58549e39a77b52a6234af3368eef18d8f308681c6db580fe08d2a41595f48e0"
+   }
+  },
+  {
+   "name": "null_arguments",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "null",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{},\"resource\":\"bank:transfer\"}",
+    "hash": "e58549e39a77b52a6234af3368eef18d8f308681c6db580fe08d2a41595f48e0"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{},\"resource\":\"bank:transfer\"}",
+    "hash": "e58549e39a77b52a6234af3368eef18d8f308681c6db580fe08d2a41595f48e0"
+   }
+  },
+  {
+   "name": "key_order_nested",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"b\":{\"z\":1,\"a\":{\"y\":2,\"x\":3}},\"a\":[{\"d\":1,\"c\":2}]}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":[{\"c\":2,\"d\":1}],\"b\":{\"a\":{\"x\":3,\"y\":2},\"z\":1}},\"resource\":\"bank:transfer\"}",
+    "hash": "f52fe0da9c5294eb5c2aae5e2df22892358392da1b82b0a89d75ca23e6052ea4"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":[{\"c\":2,\"d\":1}],\"b\":{\"a\":{\"x\":3,\"y\":2},\"z\":1}},\"resource\":\"bank:transfer\"}",
+    "hash": "f52fe0da9c5294eb5c2aae5e2df22892358392da1b82b0a89d75ca23e6052ea4"
+   }
+  },
+  {
+   "name": "unicode_bmp",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"name\":\"café Zoë 日本語\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"name\":\"café Zoë 日本語\"},\"resource\":\"bank:transfer\"}",
+    "hash": "cf67d26862abe3db5f895203ab4b656af293ceda4d6bddc45c72de6371aa3aae"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"name\":\"café Zoë 日本語\"},\"resource\":\"bank:transfer\"}",
+    "hash": "cf67d26862abe3db5f895203ab4b656af293ceda4d6bddc45c72de6371aa3aae"
+   }
+  },
+  {
+   "name": "unicode_astral_value",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"emoji\":\"\\ud83d\\ude00 ok\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"emoji\":\"😀 ok\"},\"resource\":\"bank:transfer\"}",
+    "hash": "b83bcded2474e9c1949244e1d2b56c6f9ea4253cd772f8e8a49679afa40e5efa"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"emoji\":\"😀 ok\"},\"resource\":\"bank:transfer\"}",
+    "hash": "b83bcded2474e9c1949244e1d2b56c6f9ea4253cd772f8e8a49679afa40e5efa"
+   }
+  },
+  {
+   "name": "key_order_astral_vs_bmp_top",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"\\ud83d\\ude00\":1,\"\\uffff\":2,\"a\":3}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":3,\"￿\":2,\"😀\":1},\"resource\":\"bank:transfer\"}",
+    "hash": "200d43dd1b62aaf2f2cc140c5721b4e0d082c9ef942b9b65833b6d3f22bd99c6"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":3,\"￿\":2,\"😀\":1},\"resource\":\"bank:transfer\"}",
+    "hash": "200d43dd1b62aaf2f2cc140c5721b4e0d082c9ef942b9b65833b6d3f22bd99c6"
+   }
+  },
+  {
+   "name": "key_order_astral_vs_bmp_nested",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":{\"\\ud83d\\ude00\":1,\"\\ue000\":2}}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":{\"\":2,\"😀\":1}},\"resource\":\"bank:transfer\"}",
+    "hash": "8f4523ec49754c8e0030f943ae887599e5ba215b2929ccc9fb3b72db97946c15"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":{\"\":2,\"😀\":1}},\"resource\":\"bank:transfer\"}",
+    "hash": "8f4523ec49754c8e0030f943ae887599e5ba215b2929ccc9fb3b72db97946c15"
+   }
+  },
+  {
+   "name": "html_chars",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"q\":\"\u003cscript\u003ea\u0026b\u003c/script\u003e\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"q\":\"\\u003cscript\\u003ea\\u0026b\\u003c/script\\u003e\"},\"resource\":\"bank:transfer\"}",
+    "hash": "d4c72668ab54aa184a2316f469ad541d2996fac07723acb29e078e1ac93cfaca"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"q\":\"\\u003cscript\\u003ea\\u0026b\\u003c/script\\u003e\"},\"resource\":\"bank:transfer\"}",
+    "hash": "d4c72668ab54aa184a2316f469ad541d2996fac07723acb29e078e1ac93cfaca"
+   }
+  },
+  {
+   "name": "html_chars_in_key",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"\u003ck\u003e\u0026\":1}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"\\u003ck\\u003e\\u0026\":1},\"resource\":\"bank:transfer\"}",
+    "hash": "95b55e2700348147c58d10e3db83fcb9570cf68d823be86e9d306977cf583b2c"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"\\u003ck\\u003e\\u0026\":1},\"resource\":\"bank:transfer\"}",
+    "hash": "95b55e2700348147c58d10e3db83fcb9570cf68d823be86e9d306977cf583b2c"
+   }
+  },
+  {
+   "name": "line_separators",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"s\":\"a\\u2028b\\u2029c\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"a\\u2028b\\u2029c\"},\"resource\":\"bank:transfer\"}",
+    "hash": "4d3425273eb0d7a2104efde3b7a98d617aa0fb2ff309611bfba2dd96c9e98ea1"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"a\\u2028b\\u2029c\"},\"resource\":\"bank:transfer\"}",
+    "hash": "4d3425273eb0d7a2104efde3b7a98d617aa0fb2ff309611bfba2dd96c9e98ea1"
+   }
+  },
+  {
+   "name": "control_chars",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"s\":\"a\\tb\\nc\\rd\\u0001e\\u0008f\\u000cg\\u001fh\\u007fi\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"a\\tb\\nc\\rd\\u0001e\\bf\\fg\\u001fhi\"},\"resource\":\"bank:transfer\"}",
+    "hash": "7ea307c32f2675e566fb6f5a455c95ef1e1f86c0cb31f60144f0bd76e1fe66cd"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"a\\tb\\nc\\rd\\u0001e\\bf\\fg\\u001fhi\"},\"resource\":\"bank:transfer\"}",
+    "hash": "7ea307c32f2675e566fb6f5a455c95ef1e1f86c0cb31f60144f0bd76e1fe66cd"
+   }
+  },
+  {
+   "name": "quote_backslash",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"s\":\"say \\\"hi\\\" \\\\ path\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"say \\\"hi\\\" \\\\ path\"},\"resource\":\"bank:transfer\"}",
+    "hash": "054a815a8e23e7591c2337ddfce6aafc4755f70ee44f299813762b02ec8ebba8"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"say \\\"hi\\\" \\\\ path\"},\"resource\":\"bank:transfer\"}",
+    "hash": "054a815a8e23e7591c2337ddfce6aafc4755f70ee44f299813762b02ec8ebba8"
+   }
+  },
+  {
+   "name": "slash",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"s\":\"a/b\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"a/b\"},\"resource\":\"bank:transfer\"}",
+    "hash": "67a0c33b06ba197963de996ed1d829648379b6b196c23d4ef8a85f9ed3990d9b"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"a/b\"},\"resource\":\"bank:transfer\"}",
+    "hash": "67a0c33b06ba197963de996ed1d829648379b6b196c23d4ef8a85f9ed3990d9b"
+   }
+  },
+  {
+   "name": "lone_surrogate_value",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"s\":\"x\\ud800y\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"x�y\"},\"resource\":\"bank:transfer\"}",
+    "hash": "a12a37817bf631b0fb3a591f56fd0dcd2dcb4dba1ea5615a68bbc59dce8c02e5"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"x�y\"},\"resource\":\"bank:transfer\"}",
+    "hash": "a12a37817bf631b0fb3a591f56fd0dcd2dcb4dba1ea5615a68bbc59dce8c02e5"
+   }
+  },
+  {
+   "name": "lone_low_surrogate_value",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"s\":\"x\\udc00y\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"x�y\"},\"resource\":\"bank:transfer\"}",
+    "hash": "a12a37817bf631b0fb3a591f56fd0dcd2dcb4dba1ea5615a68bbc59dce8c02e5"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"x�y\"},\"resource\":\"bank:transfer\"}",
+    "hash": "a12a37817bf631b0fb3a591f56fd0dcd2dcb4dba1ea5615a68bbc59dce8c02e5"
+   }
+  },
+  {
+   "name": "int_small",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":0,\"m\":-5,\"k\":42}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"k\":42,\"m\":-5,\"n\":0},\"resource\":\"bank:transfer\"}",
+    "hash": "38ec84f2cd9243c55ae0161cfbdd3b28fef6ca8b873070607d248b388721947a"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"k\":42,\"m\":-5,\"n\":0},\"resource\":\"bank:transfer\"}",
+    "hash": "38ec84f2cd9243c55ae0161cfbdd3b28fef6ca8b873070607d248b388721947a"
+   }
+  },
+  {
+   "name": "int_max_safe",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":9007199254740991}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":9007199254740991},\"resource\":\"bank:transfer\"}",
+    "hash": "8d2f66fcaab960445c7e529dcbea2d91033444ef173666e45a878ef72a3f2122"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":9007199254740991},\"resource\":\"bank:transfer\"}",
+    "hash": "8d2f66fcaab960445c7e529dcbea2d91033444ef173666e45a878ef72a3f2122"
+   }
+  },
+  {
+   "name": "int_beyond_safe",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":9007199254740993}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":9007199254740992},\"resource\":\"bank:transfer\"}",
+    "hash": "5ac5129b234fcd4dc9aa091c56f2c4e970374737d26e625e046fd347b3d6176e"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":9007199254740993},\"resource\":\"bank:transfer\"}",
+    "hash": "ddb615721b9a996e8c29f1230f9f09750d4eb4d73b6aef850ea1babe6acb0eac"
+   }
+  },
+  {
+   "name": "int_int64_max",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":9223372036854775807}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":9223372036854776000},\"resource\":\"bank:transfer\"}",
+    "hash": "80101df1b275c0a9e1b00028e9e1f399cf057afbdbca2540855cee63e1079723"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":9223372036854775807},\"resource\":\"bank:transfer\"}",
+    "hash": "8dc1bb203abc937946c9450e841e8e7929f91932b6ab1b5e8caae46827c7d243"
+   }
+  },
+  {
+   "name": "int_beyond_int64",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":123456789012345678901234567890}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":1.2345678901234568e+29},\"resource\":\"bank:transfer\"}",
+    "hash": "ed9b30c8d4f42ec6c917010d73fee3e6679572c3d9e37e0adca6d72b97e67cd8"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":123456789012345678901234567890},\"resource\":\"bank:transfer\"}",
+    "hash": "fade7cf72b2f79ee3fe53d72f57780467ad6a196d84e029b872ffdbe8e2f843b"
+   }
+  },
+  {
+   "name": "float_simple",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":1.5,\"m\":0.1,\"k\":-2.25}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"k\":-2.25,\"m\":0.1,\"n\":1.5},\"resource\":\"bank:transfer\"}",
+    "hash": "c86715ef44f63f78373511cc81b7524520ce5b9c2a093bcc249b831ad0c3942c"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"k\":-2.25,\"m\":0.1,\"n\":1.5},\"resource\":\"bank:transfer\"}",
+    "hash": "c86715ef44f63f78373511cc81b7524520ce5b9c2a093bcc249b831ad0c3942c"
+   }
+  },
+  {
+   "name": "float_trailing_zero",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":1.0}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":1},\"resource\":\"bank:transfer\"}",
+    "hash": "e64bb546ec2668a2605f1305b1890fcf5029afbec8430a3a1d2a0ec095dd5da6"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":1},\"resource\":\"bank:transfer\"}",
+    "hash": "e64bb546ec2668a2605f1305b1890fcf5029afbec8430a3a1d2a0ec095dd5da6"
+   }
+  },
+  {
+   "name": "float_exponent_input",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":1e2}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":100},\"resource\":\"bank:transfer\"}",
+    "hash": "c3fe32df8f664051d8a99148291d0a998d107bc4ef4b2b5d882072cfac33ca1c"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":100},\"resource\":\"bank:transfer\"}",
+    "hash": "c3fe32df8f664051d8a99148291d0a998d107bc4ef4b2b5d882072cfac33ca1c"
+   }
+  },
+  {
+   "name": "float_exponent_upper",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":1E+2}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":100},\"resource\":\"bank:transfer\"}",
+    "hash": "c3fe32df8f664051d8a99148291d0a998d107bc4ef4b2b5d882072cfac33ca1c"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":100},\"resource\":\"bank:transfer\"}",
+    "hash": "c3fe32df8f664051d8a99148291d0a998d107bc4ef4b2b5d882072cfac33ca1c"
+   }
+  },
+  {
+   "name": "float_small",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":0.000001,\"m\":1e-7}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"m\":1e-7,\"n\":0.000001},\"resource\":\"bank:transfer\"}",
+    "hash": "07c527ba972cbedb6827456aaa8283e1d928b0ac7d41799725c533474f1586b4"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"m\":1e-7,\"n\":0.000001},\"resource\":\"bank:transfer\"}",
+    "hash": "07c527ba972cbedb6827456aaa8283e1d928b0ac7d41799725c533474f1586b4"
+   }
+  },
+  {
+   "name": "float_small_text_form",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":1e-7}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":1e-7},\"resource\":\"bank:transfer\"}",
+    "hash": "1173693ef9cb29170c0d7f20875127cc93d97e7c622c98c65e86e44565608f28"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":1e-7},\"resource\":\"bank:transfer\"}",
+    "hash": "1173693ef9cb29170c0d7f20875127cc93d97e7c622c98c65e86e44565608f28"
+   }
+  },
+  {
+   "name": "float_large",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":1e21,\"m\":123456789012345680000}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"m\":123456789012345680000,\"n\":1e+21},\"resource\":\"bank:transfer\"}",
+    "hash": "57c65394c095d5e263777e06490d40ea1193a52a01e59d78c7d5fe55e3aa8cf3"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"m\":123456789012345680000,\"n\":1e+21},\"resource\":\"bank:transfer\"}",
+    "hash": "57c65394c095d5e263777e06490d40ea1193a52a01e59d78c7d5fe55e3aa8cf3"
+   }
+  },
+  {
+   "name": "float_1e20",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":100000000000000000000}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":100000000000000000000},\"resource\":\"bank:transfer\"}",
+    "hash": "cbc32d4f640d69d47dd05130e2fe444a16b3ad128c3a74c17c1bc012f6c0be7b"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":100000000000000000000},\"resource\":\"bank:transfer\"}",
+    "hash": "cbc32d4f640d69d47dd05130e2fe444a16b3ad128c3a74c17c1bc012f6c0be7b"
+   }
+  },
+  {
+   "name": "float_negative_zero",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":-0}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":-0},\"resource\":\"bank:transfer\"}",
+    "hash": "fc514a4198f2c35ad64acea9152d0b731b4da7eb9bdd3712f1cd9036174bd153"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":-0},\"resource\":\"bank:transfer\"}",
+    "hash": "fc514a4198f2c35ad64acea9152d0b731b4da7eb9bdd3712f1cd9036174bd153"
+   }
+  },
+  {
+   "name": "float_negative_zero_decimal",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":-0.0}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":-0},\"resource\":\"bank:transfer\"}",
+    "hash": "fc514a4198f2c35ad64acea9152d0b731b4da7eb9bdd3712f1cd9036174bd153"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":-0},\"resource\":\"bank:transfer\"}",
+    "hash": "fc514a4198f2c35ad64acea9152d0b731b4da7eb9bdd3712f1cd9036174bd153"
+   }
+  },
+  {
+   "name": "float_precision",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":0.30000000000000004}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":0.30000000000000004},\"resource\":\"bank:transfer\"}",
+    "hash": "68a8ee601ad2631bdfba2ce43873efdc1c4ad3878b32f7b445b2a2610c578410"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":0.30000000000000004},\"resource\":\"bank:transfer\"}",
+    "hash": "68a8ee601ad2631bdfba2ce43873efdc1c4ad3878b32f7b445b2a2610c578410"
+   }
+  },
+  {
+   "name": "float_long_digits",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"n\":3.141592653589793238462643}",
+   "numberTextCase": true,
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":3.141592653589793},\"resource\":\"bank:transfer\"}",
+    "hash": "c1936a0a832ddd51ac5f675d30673d858f05415aac5f05fcb03033874c281927"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"n\":3.141592653589793},\"resource\":\"bank:transfer\"}",
+    "hash": "c1936a0a832ddd51ac5f675d30673d858f05415aac5f05fcb03033874c281927"
+   }
+  },
+  {
+   "name": "bool_null_values",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"a\":true,\"b\":false,\"c\":null}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":true,\"b\":false,\"c\":null},\"resource\":\"bank:transfer\"}",
+    "hash": "c7cda18363a5ff59dc0e119033125b1ded0348d3bcab1e2b76c8cc34262a5d53"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":true,\"b\":false,\"c\":null},\"resource\":\"bank:transfer\"}",
+    "hash": "c7cda18363a5ff59dc0e119033125b1ded0348d3bcab1e2b76c8cc34262a5d53"
+   }
+  },
+  {
+   "name": "null_vs_absent_key",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"a\":null}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":null},\"resource\":\"bank:transfer\"}",
+    "hash": "ab4872214051d2034e0b9d2e6e867f5b3c9af9cdbca22b0424dc2c4285338f41"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":null},\"resource\":\"bank:transfer\"}",
+    "hash": "ab4872214051d2034e0b9d2e6e867f5b3c9af9cdbca22b0424dc2c4285338f41"
+   }
+  },
+  {
+   "name": "absent_key",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{},\"resource\":\"bank:transfer\"}",
+    "hash": "e58549e39a77b52a6234af3368eef18d8f308681c6db580fe08d2a41595f48e0"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{},\"resource\":\"bank:transfer\"}",
+    "hash": "e58549e39a77b52a6234af3368eef18d8f308681c6db580fe08d2a41595f48e0"
+   }
+  },
+  {
+   "name": "array_top_values",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"a\":[1,\"two\",null,true,[],{}]}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":[1,\"two\",null,true,[],{}]},\"resource\":\"bank:transfer\"}",
+    "hash": "30dc815160e12d2503a0021963204607de4af9dfc695a255038229d0d8ba8327"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":[1,\"two\",null,true,[],{}]},\"resource\":\"bank:transfer\"}",
+    "hash": "30dc815160e12d2503a0021963204607de4af9dfc695a255038229d0d8ba8327"
+   }
+  },
+  {
+   "name": "array_empty",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"a\":[]}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":[]},\"resource\":\"bank:transfer\"}",
+    "hash": "451b8e179f4204d152cedfd486c69263748a617def29fa3b7873139805f2102c"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":[]},\"resource\":\"bank:transfer\"}",
+    "hash": "451b8e179f4204d152cedfd486c69263748a617def29fa3b7873139805f2102c"
+   }
+  },
+  {
+   "name": "deep_nesting",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":[1,{\"f\":2}]}}}}}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":[1,{\"f\":2}]}}}}},\"resource\":\"bank:transfer\"}",
+    "hash": "7c9d532564f2f066c2b417d2e2e51172d3b70086333087ff24876d11a965d811"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":[1,{\"f\":2}]}}}}},\"resource\":\"bank:transfer\"}",
+    "hash": "7c9d532564f2f066c2b417d2e2e51172d3b70086333087ff24876d11a965d811"
+   }
+  },
+  {
+   "name": "reserved_top_level",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"amount\":1,\"approvalId\":\"x\",\"inputProvenance\":{\"s\":1},\"theauthHook\":\"v\",\"THEAUTH_x\":1,\"TheAuth\":2}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"amount\":1},\"resource\":\"bank:transfer\"}",
+    "hash": "4776282e13b637b3c150c57706bc8b2924557568c78edae8015ec21e30c073c6"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"amount\":1},\"resource\":\"bank:transfer\"}",
+    "hash": "4776282e13b637b3c150c57706bc8b2924557568c78edae8015ec21e30c073c6"
+   }
+  },
+  {
+   "name": "reserved_nested_kept",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"o\":{\"approvalId\":\"x\",\"theauthHook\":\"v\"}}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"o\":{\"approvalId\":\"x\",\"theauthHook\":\"v\"}},\"resource\":\"bank:transfer\"}",
+    "hash": "8d322ec1b1632344a952b6d5af395d2d9e94d112fd414b2f96095b49ea20259f"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"o\":{\"approvalId\":\"x\",\"theauthHook\":\"v\"}},\"resource\":\"bank:transfer\"}",
+    "hash": "8d322ec1b1632344a952b6d5af395d2d9e94d112fd414b2f96095b49ea20259f"
+   }
+  },
+  {
+   "name": "reserved_lookalike_kept",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"theAuthx\":0,\"the_auth\":1,\"approval\":2,\"approvalid\":3,\"inputprovenance\":4}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"approval\":2,\"approvalid\":3,\"inputprovenance\":4,\"the_auth\":1},\"resource\":\"bank:transfer\"}",
+    "hash": "ecdf840f3f6e60581a6670e450154b18824e8dc4c66cdddefeaad6ef1178df06"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"approval\":2,\"approvalid\":3,\"inputprovenance\":4,\"the_auth\":1},\"resource\":\"bank:transfer\"}",
+    "hash": "ecdf840f3f6e60581a6670e450154b18824e8dc4c66cdddefeaad6ef1178df06"
+   }
+  },
+  {
+   "name": "empty_string_key",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"\":1,\"a\":2}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"\":1,\"a\":2},\"resource\":\"bank:transfer\"}",
+    "hash": "671f325f2cb669ad6be5d7c6bb540872e559021b176da35b7859f2e42f49bb9a"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"\":1,\"a\":2},\"resource\":\"bank:transfer\"}",
+    "hash": "671f325f2cb669ad6be5d7c6bb540872e559021b176da35b7859f2e42f49bb9a"
+   }
+  },
+  {
+   "name": "empty_string_value",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"a\":\"\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":\"\"},\"resource\":\"bank:transfer\"}",
+    "hash": "fcc6065cfe1efcac5abda2e636f5b9378c3564c5f6a0947aec06af56a981dc4f"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"a\":\"\"},\"resource\":\"bank:transfer\"}",
+    "hash": "fcc6065cfe1efcac5abda2e636f5b9378c3564c5f6a0947aec06af56a981dc4f"
+   }
+  },
+  {
+   "name": "proto_key",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"__proto__\":{\"x\":1},\"constructor\":2}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"__proto__\":{\"x\":1},\"constructor\":2},\"resource\":\"bank:transfer\"}",
+    "hash": "2eebf4c2cf69b36d9c5d00ceb3c9afa78d9ed5648224a3f2abd34ddae83098fc"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"__proto__\":{\"x\":1},\"constructor\":2},\"resource\":\"bank:transfer\"}",
+    "hash": "2eebf4c2cf69b36d9c5d00ceb3c9afa78d9ed5648224a3f2abd34ddae83098fc"
+   }
+  },
+  {
+   "name": "numeric_looking_keys",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"10\":1,\"9\":2,\"1\":3,\"a\":4}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"1\":3,\"10\":1,\"9\":2,\"a\":4},\"resource\":\"bank:transfer\"}",
+    "hash": "582c6d8bff6bda4e6a4acde36b7698b8d224ae9d560bedeeff1223d2dd43a60e"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"1\":3,\"10\":1,\"9\":2,\"a\":4},\"resource\":\"bank:transfer\"}",
+    "hash": "582c6d8bff6bda4e6a4acde36b7698b8d224ae9d560bedeeff1223d2dd43a60e"
+   }
+  },
+  {
+   "name": "whitespace_in_strings",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"s\":\" a  b\\t\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\" a  b\\t\"},\"resource\":\"bank:transfer\"}",
+    "hash": "6f6a13d35672d7bf2f7304f6e08c10d316ca114cd88c8981172b669106cd8565"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\" a  b\\t\"},\"resource\":\"bank:transfer\"}",
+    "hash": "6f6a13d35672d7bf2f7304f6e08c10d316ca114cd88c8981172b669106cd8565"
+   }
+  },
+  {
+   "name": "action_unicode",
+   "action": "exécuter",
+   "resource": "banque:\u003cvirement\u003e\u0026",
+   "argumentsJson": "{\"a\":1}",
+   "float64": {
+    "canonical": "{\"action\":\"exécuter\",\"arguments\":{\"a\":1},\"resource\":\"banque:\\u003cvirement\\u003e\\u0026\"}",
+    "hash": "0342b295ad2296cee29d1808a44865a50561f66f26e1eec9cf8d7d0e73a19181"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"exécuter\",\"arguments\":{\"a\":1},\"resource\":\"banque:\\u003cvirement\\u003e\\u0026\"}",
+    "hash": "0342b295ad2296cee29d1808a44865a50561f66f26e1eec9cf8d7d0e73a19181"
+   }
+  },
+  {
+   "name": "action_resource_empty",
+   "action": "",
+   "resource": "",
+   "argumentsJson": "{\"a\":1}",
+   "float64": {
+    "canonical": "{\"action\":\"\",\"arguments\":{\"a\":1},\"resource\":\"\"}",
+    "hash": "dc97b400b4e783092aacd69bdcadf392ab96cbb40847bc9d83a4c63e58d5c273"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"\",\"arguments\":{\"a\":1},\"resource\":\"\"}",
+    "hash": "dc97b400b4e783092aacd69bdcadf392ab96cbb40847bc9d83a4c63e58d5c273"
+   }
+  },
+  {
+   "name": "long_string",
+   "action": "execute",
+   "resource": "bank:transfer",
+   "argumentsJson": "{\"s\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+   "float64": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"},\"resource\":\"bank:transfer\"}",
+    "hash": "6aa4daa1a2da48323aa3d47468bb4bf252f6b0d847646a1e177fb6440dd64efc"
+   },
+   "useNumber": {
+    "canonical": "{\"action\":\"execute\",\"arguments\":{\"s\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"},\"resource\":\"bank:transfer\"}",
+    "hash": "6aa4daa1a2da48323aa3d47468bb4bf252f6b0d847646a1e177fb6440dd64efc"
+   }
+  }
+ ],
+ "producer": "theauth-go policy/toolguard HashApprovalAction"
+}

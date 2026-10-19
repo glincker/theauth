@@ -17,10 +17,10 @@ Usage:
   theauth migrate verify --from <source> <export> [--hashes <file>] [--db <url>] [--sample-email <email>]
   theauth migrate status [--db <url>] [--json] [--out <file>]
 
-Sources: auth0, keycloak, clerk, better-auth, nextauth, generic
+Sources: auth0, keycloak, clerk, supabase, workos, better-auth, nextauth, generic
 
 Options:
-  --hashes <file>    Auth0 only: the password hash export (newline-delimited JSON).
+  --hashes <file>    Auth0 and WorkOS: the vendor password hash file (newline-delimited JSON).
   --map k=v,...      generic only: externalId=,email=,emailVerified=,name=,passwordHash=
   --db <url>         SQLite file path or :memory: (default: DATABASE_URL).
   --apply            import only: write. Without it import is a dry run.
@@ -51,6 +51,8 @@ const SOURCES: readonly string[] = [
 	"auth0",
 	"keycloak",
 	"clerk",
+	"supabase",
+	"workos",
 	"better-auth",
 	"nextauth",
 	"generic",

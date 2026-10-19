@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, ListChecks, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { TheAuthApiClient } from "../api/client.js";
 import type { PendingApproval } from "../api/types.js";
+import { Badge } from "../components/badge.js";
 import { Button } from "../components/button.js";
 import { PageHeader } from "../components/layout.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
@@ -13,6 +14,38 @@ const POLL_MS = 15_000;
 type Decision = "approve" | "deny";
 
 /** "4m 05s", "45s", or "expired" for a past timestamp. */
+/** The approvals routes are opt in on the server; a 404 means they are not mounted, not that loading broke. */
+export function approvalsUnavailable(error: { code: string }): boolean {
+	return error.code === "HTTP_404";
+}
+
+const ACR_LABELS: Record<string, string> = {
+	"urn:theauth:acr:single-factor": "a sign-in",
+	"urn:theauth:acr:mfa": "a second factor",
+	"urn:theauth:acr:phishing-resistant": "a passkey",
+};
+
+/** What the approver must prove, or null when the request has no step-up rule. */
+export function stepUpHint(
+	approval: Pick<PendingApproval, "requiredAcr" | "maxAuthAge">,
+): string | null {
+	const { requiredAcr, maxAuthAge } = approval;
+	if (requiredAcr === undefined && maxAuthAge === undefined) return null;
+	const what = requiredAcr === undefined ? "a sign-in" : (ACR_LABELS[requiredAcr] ?? requiredAcr);
+	if (maxAuthAge === undefined) return `Needs ${what}`;
+	const fresh = maxAuthAge < 60 ? `${maxAuthAge}s` : `${Math.round(maxAuthAge / 60)}m`;
+	return `Needs ${what} within ${fresh}`;
+}
+
+/** "1 of 2 approvals" for a request that needs more than one approver, else null. */
+export function quorumHint(
+	approval: Pick<PendingApproval, "requiredApprovals" | "approvalsReceived">,
+): string | null {
+	const { requiredApprovals, approvalsReceived } = approval;
+	if (requiredApprovals === undefined || requiredApprovals <= 1) return null;
+	return `${approvalsReceived ?? 0} of ${requiredApprovals} approvals`;
+}
+
 export function formatExpiresIn(iso: string, now: number): string {
 	const secs = Math.floor((new Date(iso).getTime() - now) / 1000);
 	if (secs <= 0) return "expired";
@@ -61,6 +94,21 @@ function ApprovalRow({
 					<code className="text-xs font-mono text-zinc-700 dark:text-zinc-300">
 						{approval.action}
 					</code>
+					{stepUpHint(approval) && (
+						<div className="mt-1">
+							<Badge variant="yellow">{stepUpHint(approval)}</Badge>
+						</div>
+					)}
+					{quorumHint(approval) && (
+						<div className="mt-1">
+							<Badge variant="yellow">{quorumHint(approval)}</Badge>
+							{approval.approvers && approval.approvers.length > 0 && (
+								<span className="ml-2 text-xs text-zinc-500">
+									Approved by {approval.approvers.join(", ")}
+								</span>
+							)}
+						</div>
+					)}
 				</Td>
 				<Td>
 					<code className="text-xs font-mono text-zinc-400 max-w-[220px] truncate block">
@@ -169,8 +217,18 @@ export function ApprovalsPage({ client }: ApprovalsPageProps) {
 		mutationFn: (v: { id: string; decision: Decision }) => client.decideApproval(v.id, v.decision),
 		onSuccess: (result, v) => {
 			setConfirm(null);
-			if (result.success) {
+			if (result.success && result.data.status === "pending") {
+				toast(
+					"success",
+					`Your approval counted (${result.data.approvalsReceived ?? 1} of ${result.data.requiredApprovals ?? 2}). Another approver is needed.`,
+				);
+			} else if (result.success) {
 				toast("success", v.decision === "approve" ? "Request approved" : "Request denied");
+			} else if (result.error.code === "STEP_UP_REQUIRED") {
+				toast(
+					"error",
+					"This approval needs a fresher or stronger sign-in. Sign in again, then retry.",
+				);
 			} else {
 				toast("error", result.error.message);
 			}
@@ -200,7 +258,9 @@ export function ApprovalsPage({ client }: ApprovalsPageProps) {
 					role="alert"
 					className="mb-4 rounded-lg border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-400"
 				>
-					Could not load approvals: {data.error.message}
+					{approvalsUnavailable(data.error)
+						? "The approvals API is not enabled on this server. Turn on adminApi to use the inbox."
+						: `Could not load approvals: ${data.error.message}`}
 				</div>
 			)}
 

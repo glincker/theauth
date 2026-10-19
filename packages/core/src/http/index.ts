@@ -11,7 +11,12 @@ export {
 	toWebRequest,
 } from "./node.js";
 export type { RequireAgentOptions, RequireAgentResult } from "./require-agent.js";
-export { bearerTokenOf, requireAgent, statusForDecisionCode } from "./require-agent.js";
+export {
+	agentCredentialOf,
+	bearerTokenOf,
+	requireAgent,
+	statusForDecisionCode,
+} from "./require-agent.js";
 export { createTheAuthHandler, listRoutes, resolveMountedMcpRoutes } from "./router.js";
 export type { SecurityHeadersInput, SecurityHeadersOptions } from "./security-headers.js";
 export { isSecureRequest, securityHeaders } from "./security-headers.js";

@@ -249,7 +249,7 @@ class TestAsyncAgentAuthorize:
     @pytest.mark.asyncio
     async def test_authorize_allowed(self, async_client: TheAuthClient) -> None:
         with respx.mock:
-            respx.post(f"{BASE_URL}/agents/agent-abc123/authorize").mock(
+            respx.post(f"{BASE_URL}/authorize").mock(
                 return_value=httpx.Response(200, json=AUTHORIZE_RESULT_FIXTURE)
             )
             result = await async_client.agents.authorize(
@@ -264,7 +264,7 @@ class TestAsyncAgentAuthorize:
     async def test_authorize_denied(self, async_client: TheAuthClient) -> None:
         denied = {"allowed": False, "auditId": "aud-denied", "reason": "Permission not granted"}
         with respx.mock:
-            respx.post(f"{BASE_URL}/agents/agent-abc123/authorize").mock(
+            respx.post(f"{BASE_URL}/authorize").mock(
                 return_value=httpx.Response(200, json=denied)
             )
             result = await async_client.agents.authorize(
@@ -278,7 +278,7 @@ class TestAsyncAgentAuthorize:
     @pytest.mark.asyncio
     async def test_authorize_includes_arguments(self, async_client: TheAuthClient) -> None:
         with respx.mock:
-            route = respx.post(f"{BASE_URL}/agents/agent-abc123/authorize").mock(
+            route = respx.post(f"{BASE_URL}/authorize").mock(
                 return_value=httpx.Response(200, json=AUTHORIZE_RESULT_FIXTURE)
             )
             await async_client.agents.authorize(

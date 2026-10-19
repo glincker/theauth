@@ -57,7 +57,15 @@ export interface CreateAgentInput {
 	metadata?: Record<string, unknown>;
 }
 
-export type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };
+/** `code` is the server's error code when it sent one, for example `EMAIL_NOT_VERIFIED`. */
+export type ActionResult<T = void> =
+	| { success: true; data: T }
+	| { success: false; error: string; code?: string };
+
+/** What a sign-up reports. `verificationRequired` means no session yet: verify the email, then sign in. */
+export interface SignUpData {
+	verificationRequired: boolean;
+}
 
 export interface TheAuthContextValue {
 	session: AuthSession | null;
@@ -66,7 +74,15 @@ export interface TheAuthContextValue {
 	isAuthenticated: boolean;
 	basePath: string;
 	signIn: (email: string, password: string) => Promise<ActionResult>;
-	signUp: (email: string, password: string, name?: string) => Promise<ActionResult>;
+	signUp: (email: string, password: string, name?: string) => Promise<ActionResult<SignUpData>>;
+	/** Email and password only. Confirms an address with the token from the verification email. */
+	verifyEmail: (token: string) => Promise<ActionResult>;
+	/** Email and password only. Sends the verification email again. */
+	resendVerification: (email: string) => Promise<ActionResult>;
+	/** Email and password only. Emails a reset link when the server has `passwordReset`. */
+	requestPasswordReset: (email: string) => Promise<ActionResult>;
+	/** Email and password only. Sets a new password from the emailed token. */
+	resetPassword: (token: string, password: string) => Promise<ActionResult>;
 	signOut: () => Promise<void>;
 	refresh: () => Promise<void>;
 }

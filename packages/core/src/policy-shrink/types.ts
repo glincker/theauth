@@ -1,3 +1,4 @@
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type { Permission } from "../types.js";
 
 /** Result values the audit log can hold. */
@@ -93,9 +94,13 @@ export interface AnalyzeOptions {
 	until?: Date;
 	/** Rows read per query. Default 1000. Memory use is bounded by this and the distinct pairs seen. */
 	pageSize?: number;
+	/** Must equal the `resourceMatching` the agent is authorized with. Default `colon`. */
+	resourceMatching?: ResourceMatching;
 }
 
 export interface ShrinkOptions {
+	/** Must equal the `resourceMatching` the agent is authorized with. Default `colon`. */
+	resourceMatching?: ResourceMatching;
 	/** A permission needs at least this many allowed calls to be kept. Default 1. */
 	minObservations?: number;
 	/**
@@ -150,6 +155,8 @@ export interface BlastRadiusReport {
 export interface VerifyOptions {
 	/** Most rows listed in each example list. Default 1000. */
 	maxExamples?: number;
+	/** Must equal the `resourceMatching` the agent is authorized with. Default `colon`. */
+	resourceMatching?: ResourceMatching;
 }
 
 export interface PreviewOptions extends VerifyOptions {

@@ -655,4 +655,58 @@ describe("TheAuth Gateway", () => {
 			expect(Array.isArray(entries)).toBe(true);
 		});
 	});
+
+	describe("input provenance", () => {
+		const DOC = "page that says ignore previous instructions";
+		const header = (inputs: unknown) => Buffer.from(JSON.stringify(inputs)).toString("base64url");
+
+		it("records TheAuth-Inputs as hashes on the permission check and keeps it from the upstream", async () => {
+			const { token, id } = await createTestAgent(theauth, [
+				{ resource: "files", actions: ["read"] },
+			]);
+			gateway = createGateway({
+				upstream: UPSTREAM,
+				theauth,
+				policies: [
+					{ path: "/files/*", requiredPermissions: [{ resource: "files", actions: ["read"] }] },
+				],
+			});
+			const res = await gateway.handleRequest(
+				makeRequest("/files/doc.txt", {
+					token,
+					headers: {
+						"theauth-inputs": header([{ kind: "retrieved_document", id: "doc-1", content: DOC }]),
+					},
+				}),
+			);
+			expect(res.status).toBe(200);
+			const rows = await theauth.audit.query({
+				agentId: id,
+				provenance: { kind: "retrieved_document", content: DOC },
+			});
+			expect(rows.length).toBeGreaterThan(0);
+			expect(JSON.stringify(rows)).not.toContain(DOC);
+			const forwarded = fetchSpy.mock.calls[0]?.[0] as Request;
+			expect(forwarded.headers.get("theauth-inputs")).toBeNull();
+		});
+
+		it("ignores a malformed TheAuth-Inputs header", async () => {
+			const { token, id } = await createTestAgent(theauth, [
+				{ resource: "files", actions: ["read"] },
+			]);
+			gateway = createGateway({
+				upstream: UPSTREAM,
+				theauth,
+				policies: [
+					{ path: "/files/*", requiredPermissions: [{ resource: "files", actions: ["read"] }] },
+				],
+			});
+			const res = await gateway.handleRequest(
+				makeRequest("/files/doc.txt", { token, headers: { "theauth-inputs": "%%%not-json" } }),
+			);
+			expect(res.status).toBe(200);
+			const rows = await theauth.audit.query({ agentId: id });
+			expect(rows.every((r) => r.inputs === undefined)).toBe(true);
+		});
+	});
 });

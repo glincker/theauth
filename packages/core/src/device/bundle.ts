@@ -1,0 +1,270 @@
+import type { JWK, JWTVerifyGetKey } from "jose";
+import { jwtVerify, SignJWT } from "jose";
+import { generateId } from "../crypto/web-crypto.js";
+import type { DecisionCode } from "../permission/codes.js";
+import { DECISION_CODES } from "../permission/codes.js";
+import { findMatchingPermission, inspectConstraints } from "../policy/abac.js";
+import type { AttestationFacts } from "../policy/attestation-constraint.js";
+import { parseAttestationFacts } from "../policy/attestation-constraint.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
+import { resolveResourceMatching } from "../policy/resource-match.js";
+import type { Permission } from "../types.js";
+import { importSigningKey, localJwkSet } from "./key-cache.js";
+import type { RevocationSnapshotClaims } from "./revocation.js";
+import { verifyRevocationSnapshot } from "./revocation.js";
+import type { DeviceBundleClaims, DeviceConfig, IssuedDeviceBundle } from "./types.js";
+
+/** `typ` header of an offline policy bundle. */
+export const DEVICE_BUNDLE_TYP = "device-policy+jwt";
+export const DEFAULT_BUNDLE_TTL_SECONDS = 3600;
+/** Hard cap on bundle lifetime: a stolen or stale bundle is bounded to one day. */
+export const MAX_BUNDLE_TTL_SECONDS = 86_400;
+const SKEW_SECONDS = 30;
+
+type BundleSigning = NonNullable<DeviceConfig["bundleSigning"]>;
+
+function publicOf(jwk: JWK, kid: string, alg: string): JWK {
+	const pub: JWK = { kty: jwk.kty, kid, alg, use: "sig" };
+	if (jwk.crv !== undefined) pub.crv = jwk.crv;
+	if (jwk.x !== undefined) pub.x = jwk.x;
+	if (jwk.y !== undefined) pub.y = jwk.y;
+	return pub;
+}
+
+/** Public verification keys for bundles, current first. Serve at `GET /device/jwks`. */
+export function deviceBundleJwks(signing: BundleSigning | undefined): { keys: JWK[] } {
+	if (!signing) return { keys: [] };
+	const keys = [publicOf(signing.privateKey, signing.kid, signing.alg)];
+	for (const prev of signing.previous ?? []) {
+		if (prev.kid !== signing.kid) keys.push(publicOf(prev.publicKey, prev.kid, signing.alg));
+	}
+	return { keys };
+}
+
+export function clampBundleTtl(
+	requested: number | undefined,
+	configured: number | undefined,
+): number {
+	const ttl = requested ?? configured ?? DEFAULT_BUNDLE_TTL_SECONDS;
+	if (!Number.isFinite(ttl) || ttl < 60) return 60;
+	return Math.min(Math.floor(ttl), MAX_BUNDLE_TTL_SECONDS);
+}
+
+export interface SignBundleInput {
+	signing: BundleSigning;
+	issuer: string;
+	deviceId: string;
+	ownerId: string;
+	groups: string[];
+	permissions: Permission[];
+	ttlSeconds: number;
+	nowMs?: number;
+	/** Written to the signed claims when `path`, so offline decisions match the server. */
+	resourceMatching?: ResourceMatching;
+	/** Facts of the device attestation, written to the signed `att` claim. */
+	attestation?: AttestationFacts;
+}
+
+/** Sign an offline policy bundle (compact JWS). */
+export async function signDeviceBundle(input: SignBundleInput): Promise<IssuedDeviceBundle> {
+	const nowMs = input.nowMs ?? Date.now();
+	const iat = Math.floor(nowMs / 1000);
+	const claims: DeviceBundleClaims = {
+		iss: input.issuer,
+		sub: input.deviceId,
+		aud: input.deviceId,
+		iat,
+		nbf: iat,
+		exp: iat + input.ttlSeconds,
+		jti: generateId(),
+		seq: nowMs,
+		owner: input.ownerId,
+		groups: input.groups,
+		perms: input.permissions.map(stripRelation),
+		...(input.resourceMatching === "path" && { rm: "path" as const }),
+		...(input.attestation && { att: input.attestation }),
+	};
+	const key = await importSigningKey(input.signing.privateKey, input.signing.alg);
+	const token = await new SignJWT({ ...claims })
+		.setProtectedHeader({ alg: input.signing.alg, typ: DEVICE_BUNDLE_TYP, kid: input.signing.kid })
+		.sign(key);
+	return { token, claims };
+}
+
+/** ReBAC relations need the server graph, so a bundle never carries a permission that depends on one. */
+function stripRelation(p: Permission): Permission {
+	const out: Permission = { resource: p.resource, actions: [...p.actions] };
+	if (p.constraints) out.constraints = p.constraints;
+	return out;
+}
+
+export interface VerifyBundleOptions {
+	/** Public keys: a JWKS object (from `GET /device/jwks`) or a jose key resolver. */
+	keys: { keys: JWK[] } | JWTVerifyGetKey;
+	deviceId: string;
+	issuer?: string;
+	/** Highest `seq` this device accepted before. A lower one is a rollback and is refused. */
+	lastSeq?: number;
+	/**
+	 * Opt in to offline revocation. `token` is the snapshot delivered next to the bundle (`revocations.token` of the bundle response). The bundle is refused with `revoked` when this device is on the list, and with `stale_revocations` when the snapshot is older than `maxAgeSeconds`, expired or missing. Without this option no revocation list is consulted.
+	 */
+	revocations?: { token: string | undefined; maxAgeSeconds: number; lastSeq?: number };
+	now?: Date;
+}
+
+export type VerifyBundleResult =
+	| { ok: true; claims: DeviceBundleClaims; revocations?: RevocationSnapshotClaims }
+	| {
+			ok: false;
+			reason: "invalid" | "wrong_device" | "rollback" | "revoked" | "stale_revocations";
+			message: string;
+	  };
+
+/**
+ * Device side check of a bundle: signature, typ, iss, sub and aud equal the device id, nbf and exp (both required) with 30 s skew, a kid in the header, seq not lower than the last accepted. Runs anywhere jose runs (gateways, Workers, Node).
+ */
+export async function verifyDeviceBundle(
+	token: string,
+	options: VerifyBundleOptions,
+): Promise<VerifyBundleResult> {
+	const getKey = typeof options.keys === "function" ? options.keys : localJwkSet(options.keys);
+	let payload: Record<string, unknown>;
+	try {
+		const verified = await jwtVerify(token, getKey, {
+			typ: DEVICE_BUNDLE_TYP,
+			algorithms: ["ES256", "EdDSA"],
+			issuer: options.issuer ?? "theauth",
+			clockTolerance: SKEW_SECONDS,
+			currentDate: options.now,
+		});
+		payload = verified.payload as Record<string, unknown>;
+		// A bundle with no exp would never expire, and a header with no kid lets a verifier that holds
+		// one key skip key selection. The server always sets both, so refuse anything without them.
+		if (typeof payload.exp !== "number" || typeof verified.protectedHeader.kid !== "string") {
+			throw new Error("bundle has no exp or no kid");
+		}
+	} catch {
+		return {
+			ok: false,
+			reason: "invalid",
+			message: "Bundle signature, issuer or lifetime is invalid",
+		};
+	}
+	if (payload.sub !== options.deviceId || payload.aud !== options.deviceId) {
+		return { ok: false, reason: "wrong_device", message: "Bundle was issued for another device" };
+	}
+	if (typeof payload.seq !== "number" || !Array.isArray(payload.perms)) {
+		return { ok: false, reason: "invalid", message: "Bundle is missing seq or perms" };
+	}
+	if (options.lastSeq !== undefined && payload.seq < options.lastSeq) {
+		return { ok: false, reason: "rollback", message: "Bundle is older than the last one accepted" };
+	}
+	const claims = payload as unknown as DeviceBundleClaims;
+	const rev = options.revocations;
+	if (!rev) return { ok: true, claims };
+	if (!rev.token) {
+		return { ok: false, reason: "stale_revocations", message: "No revocation snapshot supplied" };
+	}
+	const snapshot = await verifyRevocationSnapshot(rev.token, {
+		keys: options.keys,
+		issuer: options.issuer ?? "theauth",
+		owner: claims.owner,
+		maxAgeSeconds: rev.maxAgeSeconds,
+		...(rev.lastSeq !== undefined && { lastSeq: rev.lastSeq }),
+		...(options.now && { now: options.now }),
+	});
+	if (!snapshot.ok) {
+		return {
+			ok: false,
+			reason:
+				snapshot.reason === "stale"
+					? "stale_revocations"
+					: snapshot.reason === "rollback"
+						? "rollback"
+						: "invalid",
+			message: snapshot.message,
+		};
+	}
+	if (await snapshot.has(options.deviceId)) {
+		return { ok: false, reason: "revoked", message: "Device is on the revocation list" };
+	}
+	return { ok: true, claims, revocations: snapshot.claims };
+}
+
+export interface BundleDecisionInput {
+	action: string;
+	resource: string;
+	arguments?: Record<string, unknown>;
+	ip?: string;
+	/** Calls this device made to the resource in the last hour, counted locally. Required when the permission has `maxCallsPerHour`. */
+	callsInLastHour?: number;
+	now?: Date;
+}
+
+export interface BundleDecision {
+	allowed: boolean;
+	code: DecisionCode;
+	reason?: string;
+}
+
+/**
+ * Decide offline from a verified bundle. Same matcher and constraint walk as the server, with two fail closed rules: `requireApproval` always denies (no human is reachable offline) and `maxCallsPerHour` denies when the caller has no local count.
+ */
+export function evaluateDeviceBundle(
+	claims: DeviceBundleClaims,
+	input: BundleDecisionInput,
+): BundleDecision {
+	const now = input.now ?? new Date();
+	if (now.getTime() / 1000 > claims.exp + SKEW_SECONDS) {
+		return { allowed: false, code: DECISION_CODES.DEVICE_EXPIRED, reason: "Bundle has expired" };
+	}
+	const match = findMatchingPermission(
+		claims.perms,
+		input.action,
+		input.resource,
+		resolveResourceMatching(claims.rm),
+	);
+	if (!match) {
+		return {
+			allowed: false,
+			code: DECISION_CODES.NO_PERMISSION,
+			reason: `Bundle grants no "${input.action}" on "${input.resource}"`,
+		};
+	}
+	const constraints = match.permission.constraints;
+	if (!constraints) return { allowed: true, code: DECISION_CODES.ALLOWED };
+	if (constraints.requireApproval) {
+		return {
+			allowed: false,
+			code: DECISION_CODES.APPROVAL_REQUIRED,
+			reason: "Approval needs the server; denied offline",
+		};
+	}
+	if (constraints.maxCallsPerHour != null && input.callsInLastHour === undefined) {
+		return {
+			allowed: false,
+			code: DECISION_CODES.RATE_LIMITED,
+			reason: "Rate limited permission needs a local call count offline",
+		};
+	}
+	const inspection = inspectConstraints(
+		{
+			subjectId: claims.sub,
+			resource: input.resource,
+			arguments: input.arguments,
+			ip: input.ip,
+			// Re-parsed: the claim is signed, but a verifier must still not trust its shape.
+			attestation: parseAttestationFacts(claims.att),
+		},
+		constraints,
+		{ now, rateUsage: input.callsInLastHour },
+	);
+	if (!inspection.allowed) {
+		return {
+			allowed: false,
+			code: inspection.code ?? DECISION_CODES.NO_PERMISSION,
+			reason: inspection.reason,
+		};
+	}
+	return { allowed: true, code: DECISION_CODES.ALLOWED };
+}

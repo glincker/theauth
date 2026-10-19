@@ -2,6 +2,9 @@ import { desc, eq, or } from "drizzle-orm";
 import type { ApprovalConfig } from "../approval/approval.js";
 import { createApprovalModule } from "../approval/approval.js";
 import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
+import { MAX_REQUIRED_APPROVALS } from "../approval/quorum.js";
+import { captureInputProvenance } from "../audit/provenance.js";
+import { parseInputSources } from "../audit/provenance-wire.js";
 import { recordAuditEvent } from "../audit/record.js";
 import { createAdminModule } from "../auth/admin.js";
 import { createRateLimiter } from "../auth/rate-limiter.js";
@@ -9,9 +12,15 @@ import type { ResolvedUser } from "../auth/types.js";
 import { sha256 } from "../crypto/web-crypto.js";
 import { delegationChains, sessions } from "../db/schema.js";
 import { createDelegationModule } from "../delegation/delegation.js";
+import { databaseHooksFromConfig } from "../hooks/user-update-hooks.js";
+import { revokeDelegationResponse } from "../http/delegation-revoke.js";
 import { json } from "../plugin/helpers.js";
 import type { EndpointContext, PluginEndpoint, TheAuthPlugin } from "../plugin/types.js";
 import { decideApproval, listPendingApprovals } from "./approval-decisions.js";
+import type { ResolveApproverAuth } from "./approver-auth.js";
+import { approverAssertion, decisionFailure } from "./approver-auth.js";
+import { fail, pathId, readObject } from "./request-helpers.js";
+import { registerRevocationRoutes } from "./revocations.js";
 import {
 	AUDIT_MODES,
 	AUDIT_RESULTS,
@@ -44,6 +53,8 @@ export interface AdminApiConfig {
 	allowDisablingAdmins?: boolean;
 	/** Let an admin approve or deny a request it opened itself (default false: four-eyes). */
 	allowSelfApproval?: boolean;
+	/** Reads how the approver signed in, for step-up approvals. Default: the Bearer token's session. */
+	resolveApproverAuth?: ResolveApproverAuth;
 }
 
 type Principal = ResolvedUser;
@@ -54,34 +65,6 @@ type RouteHandler = (
 ) => Promise<Response>;
 
 const MAX_LIST = 500;
-
-function fail(status: number, code: string, message: string): Response {
-	return json({ error: { code, message } }, status);
-}
-
-function lastSegments(request: Request): string[] {
-	return new URL(request.url).pathname.split("/").filter(Boolean);
-}
-
-function pathId(request: Request, fromEnd: number): string | undefined {
-	const seg = lastSegments(request);
-	const raw = seg[seg.length - 1 - fromEnd];
-	if (raw === undefined) return undefined;
-	try {
-		return asId(decodeURIComponent(raw));
-	} catch {
-		return undefined;
-	}
-}
-
-async function readObject(request: Request): Promise<Record<string, unknown> | undefined> {
-	try {
-		const body: unknown = await request.json();
-		return isRecord(body) ? body : undefined;
-	} catch {
-		return undefined;
-	}
-}
 
 /**
  * Opt-in admin HTTP routes used by the admin MCP server (@glinr/theauth-mcp):
@@ -107,9 +90,10 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 				db,
 				ctx.sessionManager,
 				ctx.revocations,
+				databaseHooksFromConfig(ctx.config),
 			);
 			const approvals = createApprovalModule(config.approval ?? {}, db);
-			const delegations = createDelegationModule({ db });
+			const delegations = createDelegationModule({ db, revocations: ctx.revocations });
 			const limiter = createRateLimiter(config.rateLimit ?? { max: 60, window: 60 });
 			const limit = config.rateLimit ?? { max: 60, window: 60 };
 
@@ -193,6 +177,23 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 					args = asParams(body.arguments);
 					if (!args) return fail(400, "INVALID_ARGUMENTS", "arguments too large");
 				}
+				let requiredApprovals: number | undefined;
+				if (body.requiredApprovals !== undefined) {
+					const n = body.requiredApprovals;
+					if (
+						typeof n !== "number" ||
+						!Number.isInteger(n) ||
+						n < 1 ||
+						n > MAX_REQUIRED_APPROVALS
+					) {
+						return fail(
+							400,
+							"INVALID_QUORUM",
+							`requiredApprovals must be an integer from 1 to ${MAX_REQUIRED_APPROVALS}`,
+						);
+					}
+					requiredApprovals = n;
+				}
 				// agentId and userId in the body are labels from the caller and are ignored:
 				// the owner is the authenticated admin and the agent is the configured system agent.
 				const created = await approvals.request({
@@ -201,6 +202,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 					action,
 					resource,
 					arguments: args,
+					requiredApprovals,
 				});
 				return json(
 					{
@@ -209,6 +211,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						action: created.action,
 						resource: created.resource,
 						expiresAt: created.expiresAt.toISOString(),
+						requiredApprovals: created.requiredApprovals,
 					},
 					201,
 				);
@@ -226,7 +229,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 			});
 
 			function decision(verb: "approve" | "deny"): RouteHandler {
-				return async (p, req) => {
+				return async (p, req, endpointCtx) => {
 					const id = pathId(req, 1);
 					if (!id) return fail(400, "INVALID_ID", "Invalid approval id");
 					const result = await decideApproval(db, {
@@ -235,9 +238,16 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						approverId: p.id,
 						systemAgentId,
 						allowSelfApproval: config.allowSelfApproval === true,
+						authContext: await approverAssertion(req, endpointCtx, config.resolveApproverAuth),
 					});
-					if (!result.ok) return fail(result.status, result.code, result.message);
-					return json({ id: result.id, status: result.status, respondedAt: result.respondedAt });
+					if (!result.ok) return decisionFailure(result);
+					return json({
+						id: result.id,
+						status: result.status,
+						respondedAt: result.respondedAt,
+						requiredApprovals: result.requiredApprovals,
+						approvalsReceived: result.approvalsReceived,
+					});
 				};
 			}
 
@@ -268,6 +278,11 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						resource: found.resource,
 						expiresAt: found.expiresAt.toISOString(),
 						respondedAt: found.respondedAt?.toISOString(),
+						requiredAcr: found.requiredAcr,
+						maxAuthAge: found.maxAuthAge,
+						requiredApprovals: found.requiredApprovals,
+						approvalsReceived: found.approvers?.length ?? (found.respondedAt ? 1 : 0),
+						approvers: found.approvers,
 					});
 				},
 			);
@@ -340,6 +355,8 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						return fail(400, "INVALID_BODY", "approvalId is invalid");
 					}
 					const allowed = ["ok", "requested", "pending", "executed"].includes(result);
+					// Optional caller claim of what was in context for this admin call (see provenance-wire.ts).
+					const inputProvenance = await captureInputProvenance(db, parseInputSources(body.inputs));
 					const stored = await recordAuditEvent(db, {
 						agentId: systemAgentId,
 						userId: p.id,
@@ -349,6 +366,7 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						result: allowed ? "allowed" : "denied",
 						reason: allowed ? undefined : result,
 						parameters: { actor, source, mode, result, approvalId, params },
+						...(inputProvenance ? { inputProvenance: { ...inputProvenance } } : {}),
 					});
 					if (!stored) return fail(503, "AUDIT_UNAVAILABLE", "Audit event could not be stored");
 					return json({ recorded: true }, 201);
@@ -379,7 +397,9 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 					: base
 				)
 					.orderBy(desc(delegationChains.createdAt))
-					.limit(MAX_LIST);
+					// Without a status filter only the first `max` rows are ever returned, so only read those.
+					// With one, the filter runs over the newest MAX_LIST rows as before.
+					.limit(status ? MAX_LIST : max);
 				const now = Date.now();
 				const effective = (r: (typeof rows)[number]): "active" | "revoked" | "expired" =>
 					r.status === "active" && r.expiresAt.getTime() <= now ? "expired" : r.status;
@@ -415,9 +435,14 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 						.where(eq(delegationChains.id, id))
 						.limit(1);
 					if (!row) return fail(404, "NOT_FOUND", "Delegation not found");
-					const revoked = await delegations.revokeDelegation(id);
-					await audit(p, "admin_api.delegation.revoke", `delegation:${id}`, "allowed", { revoked });
-					return json({ revoked });
+					return revokeDelegationResponse(
+						() => delegations.revokeDelegation(id),
+						async (revoked) => {
+							await audit(p, "admin_api.delegation.revoke", `delegation:${id}`, "allowed", {
+								revoked,
+							});
+						},
+					);
 				},
 			);
 
@@ -475,6 +500,15 @@ export function adminApi(config: AdminApiConfig): TheAuthPlugin {
 					);
 				},
 			);
+
+			registerRevocationRoutes({
+				db,
+				revocations: ctx.revocations,
+				add,
+				audit,
+				fail,
+				revokeDelegation: delegations.revokeDelegation,
+			});
 
 			return undefined;
 		},

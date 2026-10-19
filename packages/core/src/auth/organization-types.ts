@@ -1,6 +1,7 @@
 import type { Database } from "../db/database.js";
+import type { HandlerGuardConfig } from "./handler-guard.js";
 
-export interface OrgConfig {
+export interface OrgConfig extends HandlerGuardConfig {
 	/** Default roles for new organizations */
 	defaultRoles?: OrgRole[];
 	/** Max members per org (default: 100) */

@@ -9,7 +9,8 @@ import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { auditLogs } from "../db/schema.js";
 import { isDecisionCode } from "../permission/codes.js";
-import type { AuditEntry, AuditFilter, AuditPage } from "../types.js";
+import type { AuditEntry, AuditFilter, AuditInputRef, AuditPage } from "../types.js";
+import { isInputSourceKind, provenanceContentHashes, provenanceNeedles } from "./provenance.js";
 
 const CURSOR_PREFIX = "c1.";
 const LIKE_ESCAPE = "!";
@@ -68,7 +69,17 @@ function escapeLike(text: string): string {
 	return text.replace(/[!%_]/g, (c) => `${LIKE_ESCAPE}${c}`);
 }
 
-function buildConditions(filter: AuditFilter, cursor: CursorPosition | null): SQL[] {
+function isMysql(db: Database): boolean {
+	const dialect = (db as unknown as { dialect?: { constructor?: { name?: string } } }).dialect;
+	return dialect?.constructor?.name === "MySqlDialect";
+}
+
+function buildConditions(
+	filter: AuditFilter,
+	cursor: CursorPosition | null,
+	contentHashes: readonly string[] = [],
+	textType: "TEXT" | "CHAR" = "TEXT",
+): SQL[] {
 	const conditions: SQL[] = [];
 	if (filter.agentId) conditions.push(eq(auditLogs.agentId, filter.agentId));
 	if (filter.userId) conditions.push(eq(auditLogs.userId, filter.userId));
@@ -91,6 +102,17 @@ function buildConditions(filter: AuditFilter, cursor: CursorPosition | null): SQ
 		} else {
 			conditions.push(eq(auditLogs.resource, filter.resource));
 		}
+	}
+	if (filter.provenance) {
+		const needles = provenanceNeedles(filter.provenance, contentHashes);
+		// The column is JSON on every dialect. Casting to text keeps the match portable; the needles have no LIKE wildcards.
+		// MySQL has no CAST AS TEXT, its string target is CHAR.
+		const matches = needles.map(
+			(needle) =>
+				sql`CAST(${auditLogs.inputProvenance} AS ${sql.raw(textType)}) LIKE ${`%${needle}%`}`,
+		);
+		const any = matches.length > 1 ? or(...matches) : matches[0];
+		if (any) conditions.push(any);
 	}
 	if (cursor) {
 		const desc_ = (filter.order ?? "desc") === "desc";
@@ -120,7 +142,10 @@ async function selectRows(
 		.from(auditLogs)
 		.orderBy(dir(auditLogs.recordedAtMs), dir(auditLogs.id))
 		.$dynamic();
-	const conditions = buildConditions(filter, cursor);
+	const contentHashes = filter.provenance
+		? await provenanceContentHashes(db, filter.provenance)
+		: [];
+	const conditions = buildConditions(filter, cursor, contentHashes, isMysql(db) ? "CHAR" : "TEXT");
 	if (conditions.length > 0) q = q.where(and(...conditions));
 	if (limit) q = q.limit(limit);
 	if (offset) q = q.offset(offset);
@@ -159,6 +184,24 @@ export async function pageAuditEntries(db: Database, filter: AuditFilter): Promi
 	return { entries: kept.map(toAuditEntry), nextCursor };
 }
 
+function inputsOf(raw: unknown): AuditInputRef[] | undefined {
+	const sources = (raw as { sources?: unknown } | null)?.sources;
+	if (!Array.isArray(sources)) return undefined;
+	const out: AuditInputRef[] = [];
+	for (const s of sources) {
+		if (typeof s !== "object" || s === null) continue;
+		const { kind, id, hash, hv } = s as Record<string, unknown>;
+		if (!isInputSourceKind(kind) || typeof hash !== "string") continue;
+		out.push({
+			kind,
+			...(typeof id === "string" ? { id } : {}),
+			hash,
+			...(hv === 2 ? { hv: 2 as const } : {}),
+		});
+	}
+	return out.length > 0 ? out : undefined;
+}
+
 export function toAuditEntry(row: typeof auditLogs.$inferSelect): AuditEntry {
 	return {
 		id: row.id,
@@ -173,6 +216,7 @@ export function toAuditEntry(row: typeof auditLogs.$inferSelect): AuditEntry {
 		event: row.event ?? null,
 		durationMs: row.durationMs,
 		tokensCost: row.tokensCost ?? undefined,
+		...(inputsOf(row.inputProvenance) ? { inputs: inputsOf(row.inputProvenance) } : {}),
 		timestamp: row.timestamp,
 	};
 }

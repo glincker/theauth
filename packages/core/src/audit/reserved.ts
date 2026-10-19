@@ -1,8 +1,8 @@
 /**
- * Keys the SDK itself writes into audit `parameters`. Caller supplied tool arguments are merged into the same object, so a tool argument named `theauthHook` or `approvalId` would otherwise read as a guard verdict or a consumed approval. Every key starting with `theauth` (any case) is reserved for the SDK, plus `approvalId`.
+ * Keys the SDK itself writes into audit `parameters`. Caller supplied tool arguments are merged into the same object, so a tool argument named `theauthHook` or `approvalId` would otherwise read as a guard verdict or a consumed approval. Every key starting with `theauth` (any case) is reserved for the SDK, plus `approvalId` and `inputProvenance`. Input provenance is captured only from the trusted request context (`context.inputs`), never from tool arguments, so an argument cannot plant or forge a source.
  */
 
-const RESERVED_EXACT = new Set(["approvalId"]);
+const RESERVED_EXACT = new Set(["approvalId", "inputProvenance"]);
 const RESERVED_PREFIX = "theauth";
 
 export function isReservedAuditKey(key: string): boolean {

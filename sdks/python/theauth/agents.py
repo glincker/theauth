@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
 from theauth._http import AsyncTransport, SyncTransport
+from theauth.decisions import ExplainRequest, ExplainResult
 from theauth.types import (
     Agent,
     AgentFilters,
@@ -15,6 +16,21 @@ from theauth.types import (
     Permission,
     UpdateAgentInput,
 )
+
+
+class _Unset:
+    """Marks "leave the binding alone" for ``rotate(cnf=...)``, since ``None`` means "unbind"."""
+
+    def __repr__(self) -> str:
+        return "UNSET"
+
+
+UNSET = _Unset()
+CnfArg = Union[Dict[str, str], None, _Unset]
+
+
+def _rotate_body(cnf: CnfArg) -> Optional[Dict[str, Any]]:
+    return None if isinstance(cnf, _Unset) else {"cnf": cnf}
 
 
 class AsyncAgentsResource:
@@ -87,18 +103,25 @@ class AsyncAgentsResource:
         """
         await self._http.request("DELETE", f"/agents/{quote(agent_id)}")
 
-    async def rotate(self, agent_id: str) -> Agent:
+    async def rotate(self, agent_id: str, cnf: CnfArg = UNSET) -> Agent:
         """Rotate an agent's bearer token.
 
-        Issues a new cryptographic token and invalidates the previous one.
+        Issues a new cryptographic token and invalidates the previous one. The
+        new token keeps the old ``cnf`` binding, so a stolen token is replaced by
+        one the thief cannot use either.
 
         Args:
             agent_id: The agent's unique identifier.
+            cnf: Bind the new token to another key or certificate (see
+                :mod:`theauth.confirmation`), or pass ``None`` to make it a plain
+                bearer token again. Leave out to keep the current binding.
 
         Returns:
             The updated :class:`~theauth.types.Agent` with a fresh token.
         """
-        data = await self._http.request("POST", f"/agents/{quote(agent_id)}/rotate")
+        data = await self._http.request(
+            "POST", f"/agents/{quote(agent_id)}/rotate", json=_rotate_body(cnf)
+        )
         return Agent.from_dict(data)
 
     async def authorize(self, agent_id: str, request: AuthorizeRequest) -> AuthorizeResult:
@@ -109,14 +132,23 @@ class AsyncAgentsResource:
             request: The action and resource to check.
 
         Returns:
-            :class:`~theauth.types.AuthorizeResult` with ``allowed`` flag and audit ID.
+            :class:`~theauth.types.AuthorizeResult` with ``allowed``, ``code`` and audit ID.
+            A denial is a normal result, not an exception.
         """
-        data = await self._http.request(
-            "POST",
-            f"/agents/{quote(agent_id)}/authorize",
-            json=request.to_dict(),
+        data = await self._http.request_decision(
+            "/authorize",
+            json={"agentId": agent_id, **request.to_dict()},
         )
         return AuthorizeResult.from_dict(data)
+
+    async def explain(self, request: ExplainRequest) -> ExplainResult:
+        """Explain an authorization decision without recording it.
+
+        Returns the decision, the delegation chain behind the agent, the
+        constraint checks and the closest grants that did not match.
+        """
+        data = await self._http.request("POST", "/explain", json=request.to_dict())
+        return ExplainResult.from_dict(data)
 
     async def get_effective_permissions(self, agent_id: str) -> List[Permission]:
         """Get the effective permissions for an agent, including delegated ones.
@@ -174,19 +206,25 @@ class SyncAgentsResource:
         """Revoke (delete) an agent identity."""
         self._http.request("DELETE", f"/agents/{quote(agent_id)}")
 
-    def rotate(self, agent_id: str) -> Agent:
-        """Rotate an agent's bearer token."""
-        data = self._http.request("POST", f"/agents/{quote(agent_id)}/rotate")
+    def rotate(self, agent_id: str, cnf: CnfArg = UNSET) -> Agent:
+        """Rotate an agent's bearer token. See the async version for ``cnf``."""
+        data = self._http.request(
+            "POST", f"/agents/{quote(agent_id)}/rotate", json=_rotate_body(cnf)
+        )
         return Agent.from_dict(data)
 
     def authorize(self, agent_id: str, request: AuthorizeRequest) -> AuthorizeResult:
         """Check whether an agent is authorized to perform an action."""
-        data = self._http.request(
-            "POST",
-            f"/agents/{quote(agent_id)}/authorize",
-            json=request.to_dict(),
+        data = self._http.request_decision(
+            "/authorize",
+            json={"agentId": agent_id, **request.to_dict()},
         )
         return AuthorizeResult.from_dict(data)
+
+    def explain(self, request: ExplainRequest) -> ExplainResult:
+        """Explain an authorization decision without recording it."""
+        data = self._http.request("POST", "/explain", json=request.to_dict())
+        return ExplainResult.from_dict(data)
 
     def get_effective_permissions(self, agent_id: str) -> List[Permission]:
         """Get the effective permissions for an agent, including delegated ones."""

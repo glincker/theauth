@@ -208,7 +208,18 @@ const result = await signIn(email, password);
 ```tsx
 const { signUp, isLoading, error } = useSignUp();
 const result = await signUp(email, password, name);
+// result.data.verificationRequired is true when the account needs email verification first
 ```
+
+### Email and password
+
+By default `signIn` and `signUp` call the username routes. Set `emailPassword: true` in the provider config to call the core email and password routes instead (`POST {basePath}/auth/email/sign-in` and `/auth/email/sign-up`, body field `email`), served when the server sets the `emailPassword` config (see [Email and password](/auth/email-password)).
+
+```tsx
+<TheAuthExpoProvider config={{ basePath: 'https://api.myapp.com/api/theauth', emailPassword: true }}>
+```
+
+With email verification on (the default) `signUp` resolves to `data.verificationRequired === true` and the user stays signed out. A sign-in before verification fails with `code: "EMAIL_NOT_VERIFIED"`. The verify and reset steps are plain `POST` calls to `/auth/email/verify` and `/auth/email/reset-password`, usually from the web page the emailed link opens, so the Expo provider does not wrap them.
 
 ### `useSignOut`
 

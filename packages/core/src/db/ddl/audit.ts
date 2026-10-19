@@ -2,7 +2,7 @@ import type { DdlTypes, TaggedStatement } from "./types.js";
 
 /** Baseline DDL for the "audit" domain. Columns added by migrations 0001, 0002, 0004 and 0005 (cache_hit, decision_code, recorded_at_ms, event) are not here: the migrations add them. */
 export function auditDdl(t: DdlTypes): TaggedStatement[] {
-	const { isMysql, ts, big, json, ifne } = t;
+	const { ts, big, json, ifne } = t;
 
 	return [
 		{
@@ -46,12 +46,10 @@ export function auditDdl(t: DdlTypes): TaggedStatement[] {
 
 		// Fork guard for the audit hash chain: two writers racing for the same
 		// (agent, seq) slot cannot both win. NULL seq rows (legacy) never collide.
-		// MySQL has no CREATE INDEX IF NOT EXISTS: the runner tolerates "duplicate key name".
+		// On MySQL the baseline converter drops IF NOT EXISTS: the runner tolerates "duplicate key name".
 		{
 			feature: "audit",
-			sql: isMysql
-				? "CREATE UNIQUE INDEX theauth_audit_logs_chain ON theauth_audit_logs (agent_id(191), chain_seq)"
-				: `CREATE UNIQUE INDEX ${ifne} theauth_audit_logs_chain
+			sql: `CREATE UNIQUE INDEX ${ifne} theauth_audit_logs_chain
   ON theauth_audit_logs (agent_id, chain_seq)`,
 		},
 

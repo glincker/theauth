@@ -36,6 +36,10 @@ export interface TaintRule extends TaintLabelRule {
 }
 
 export interface TaintConfig {
+	/**
+	 * Turn the kinds of `context.inputs` into call level labels `input:<kind>` (for example `input:retrieved_document`), so a rule can forbid them: `{ resource: "tool:exec", forbid: ["input:retrieved_document"] }`. The escalation is the human approval, and an approved retry passes. Default off, so existing rules see the same labels as before. The inputs are a caller claim (see the input provenance docs), so this narrows risk, it is not a boundary against a caller that hides an input.
+	 */
+	inputLabels?: boolean;
 	rules: TaintRule[];
 }
 

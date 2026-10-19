@@ -27,7 +27,10 @@ export type RegistrationResult<T> =
 	| { success: true; data: T }
 	| { success: false; error: TheAuthError };
 
-export type AgentType = CreateAgentInput["type"];
+/** Types a registration token may mint. `device` agents come from `theauth.device` only. */
+export type AgentType = Exclude<CreateAgentInput["type"], "device">;
+
+export const REGISTRABLE_AGENT_TYPES: readonly AgentType[] = ["autonomous", "delegated", "service"];
 
 export interface AgentRegistrationConfig {
 	db: Database;
@@ -161,6 +164,12 @@ export function createAgentRegistrationModule(
 		}
 		if (input.permissions.length === 0) {
 			return fail("INVALID_PERMISSIONS", "A registration token must grant at least one permission");
+		}
+		if (input.agentType !== undefined && !REGISTRABLE_AGENT_TYPES.includes(input.agentType)) {
+			return fail(
+				"INVALID_AGENT_TYPE",
+				`agentType must be one of ${REGISTRABLE_AGENT_TYPES.join(", ")}`,
+			);
 		}
 
 		const token = `${TOKEN_PREFIX}${toBase64Url(randomBytes(32))}`;

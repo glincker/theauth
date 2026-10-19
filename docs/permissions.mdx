@@ -72,6 +72,36 @@ Common actions in MCP contexts:
 
 An authorization check passes when an agent has a permission with: a matching resource pattern, the requested action in that permission's `actions` array, and all constraints satisfied. Only the first permission whose resource and action match is evaluated: if its constraints fail, later matching permissions are not tried.
 
+## Path matching (opt in)
+
+Resources that are paths, such as ROS 2 names (`ros2:/fleet/robot1/cmd_vel`), have no way to say "one level" or "anything below" with the colon rules, because a `*` inside a segment is plain text. Turn on path matching and `/` becomes a separator inside each colon segment:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  resourceMatching: "path", // default is "colon"
+});
+```
+
+| Pattern | Matches | Does not match |
+| --- | --- | --- |
+| `ros2:/fleet/*` | `ros2:/fleet/r1` | `ros2:/fleet/r1/cmd`, `ros2:/fleet` |
+| `ros2:/fleet/**` | `ros2:/fleet/r1`, `ros2:/fleet/r1/cmd` | `ros2:/fleet`, `ros2:/fleetx/a` |
+| `ros2:/fleet/*/cmd` | `ros2:/fleet/r1/cmd` | `ros2:/fleet/r1/x/cmd` |
+| `mqtt:a:*:b` | `mqtt:a:x:b` | `mqtt:a:x:c`, `mqtt:a:x:y:z` |
+
+The rules, in full:
+
+- `*` matches exactly one path segment, `**` matches one or more. Only a whole segment is a wildcard, `r*` is literal text.
+- A wildcard never matches an empty segment, `.` or `..`, so `ros2:/fleet/a/../../admin` cannot slip through `ros2:/fleet/**`.
+- A path wildcard never crosses a `:`. Matching is case sensitive and nothing is percent decoded.
+- A colon segment that is exactly `*` and comes last keeps its old meaning (it covers the rest). Before the last segment it now matches exactly one segment, so `mqtt:a:*:b` no longer grants `mqtt:a:x:anything`.
+- MQTT `+` and `#` are not aliases. A topic level is a colon segment, see the device resource names in [IoT devices](/iot-devices).
+
+The mode applies to `authorize()`, delegation checks, the policy engine and its taint rules, `simulate`, `explain`, device bundles (the signed bundle carries the mode, so an offline device decides like the server) and the token vault. `policy.resourceMatching` overrides the top level value for the unified policy engine alone. Leave both unset and nothing changes: every existing grant matches exactly as before. Patterns without a `*` or `**` path segment behave the same in both modes.
+
+Delegation uses the same matcher: a child resource is a subset of a parent resource when the parent pattern matches it, so `ros2:/fleet/*` can delegate `ros2:/fleet/r1` but not `ros2:/fleet/**`.
+
 ## Constraints
 
 Constraints add conditions to a permission. All conditions must be met for the permission to apply.

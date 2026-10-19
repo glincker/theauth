@@ -32,7 +32,9 @@ export type WebhookEvent =
 	| "auth.sign-in"
 	| "auth.sign-up"
 	| "auth.password-reset"
-	| "auth.email-verified";
+	| "auth.email-verified"
+	| "approval.pending"
+	| "approval.vote";
 
 export interface WebhookConfig {
 	/** Destination URL for the webhook POST request. */

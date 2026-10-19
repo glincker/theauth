@@ -3,7 +3,7 @@ import type { JWK } from "jose";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { agents, oauthAccessTokens, oauthAuthorizationCodes, oauthClients } from "../db/schema.js";
-import { isUniqueViolation } from "../db/unique-violation.js";
+import { toStoreConflict } from "../db/store-conflict.js";
 import type { McpClient } from "./types.js";
 
 const toSec = (d: Date): number => Math.floor(d.getTime() / 1000);
@@ -190,7 +190,7 @@ export function createDbClientStore(db: Database): McpClientStore {
 				});
 			} catch (error) {
 				// A concurrent boot stored the same client first.
-				if (!isUniqueViolation(error)) throw error;
+				if (!toStoreConflict(error, "oauth_clients")) throw error;
 				const raced = await db
 					.select({ id: oauthClients.id, clientId: oauthClients.clientId })
 					.from(oauthClients)

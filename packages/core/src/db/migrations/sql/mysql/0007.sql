@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS theauth_mcp_revocations (
   reason        TEXT NOT NULL,
   source_id     TEXT,
   PRIMARY KEY (kind, id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 CREATE INDEX theauth_mcp_revocations_exp ON theauth_mcp_revocations (expires_at);
 
@@ -18,4 +18,4 @@ CREATE INDEX theauth_delegation_chains_to ON theauth_delegation_chains (to_agent
 
 CREATE INDEX theauth_delegation_chains_from ON theauth_delegation_chains (from_agent_id(191), status(16));
 
-INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0007', 'mcp-revocation', '6acc02d1601c4168c35ccf9c3d23960ef3fc87a1da53c55a7b76c17987d3e584', NOW(3));
+INSERT INTO theauth_schema_migrations (id, name, checksum, applied_at) VALUES ('0007', 'mcp-revocation', 'a027b3fd5f6be498d798b72c32ec31cfaa07a26f6451eca73bbbea0b30b9f194', UTC_TIMESTAMP(3));

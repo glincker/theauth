@@ -136,7 +136,7 @@ async function loadConfig(file: string): Promise<TheAuthConfig | string> {
 }
 
 interface Target {
-	provider: Provider | "postgres" | "mysql" | "sqlite" | "d1";
+	provider: Provider | "postgres" | "mysql" | "sqlite" | "d1" | "libsql";
 	url: string;
 	config?: TheAuthConfig;
 }

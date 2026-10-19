@@ -124,6 +124,23 @@ export const queryAudit = defineTool({
 			.min(1)
 			.optional()
 			.describe("Exact resource, or a prefix when it ends with *"),
+		provenanceKind: z
+			.enum(["user_message", "tool_output", "retrieved_document", "agent"])
+			.optional()
+			.describe("Only calls that recorded an input of this kind"),
+		provenanceContent: z
+			.string()
+			.min(1)
+			.max(4096)
+			.optional()
+			.describe(
+				"Only calls that recorded this exact content as an input. The server hashes it, use it to trace a suspect message or document to the calls it was in context for",
+			),
+		provenanceHash: z
+			.string()
+			.regex(/^[0-9a-f]{64}$/)
+			.optional()
+			.describe("Only calls that recorded an input with this stored hash"),
 		order: z.enum(["asc", "desc"]).default("desc").describe("desc is newest first"),
 		cursor: z.string().min(1).optional().describe("nextCursor from the previous page"),
 		limit: z.number().int().min(1).max(500).default(50),
@@ -139,6 +156,9 @@ export const queryAudit = defineTool({
 				actions: args.actions?.join(","),
 				events: args.events?.join(","),
 				resource: args.resource,
+				provenanceKind: args.provenanceKind,
+				provenanceContent: args.provenanceContent,
+				provenanceHash: args.provenanceHash,
 				order: args.order,
 				cursor: args.cursor,
 				limit: args.limit,

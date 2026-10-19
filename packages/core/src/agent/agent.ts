@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { recordAuditEvent } from "../audit/record.js";
 import { generateId, randomBytes, sha256, toBase64Url } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
@@ -6,6 +6,7 @@ import { agents, permissions } from "../db/schema.js";
 import { createDelegationModule } from "../delegation/delegation.js";
 import { revocationRowExpiry } from "../mcp/revocation-bus.js";
 import type { McpRevocationBus } from "../mcp/revocation-types.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type {
 	AgentFilter,
 	AgentIdentity,
@@ -14,6 +15,8 @@ import type {
 	UpdateAgentInput,
 } from "../types.js";
 import { assertValidExpiry } from "../validation.js";
+import type { AgentConfirmation } from "./confirmation.js";
+import { parseConfirmation, readStoredConfirmation } from "./confirmation.js";
 import { AGENT_TOKEN_PREFIX, agentTokenLookupPrefix, isAgentToken } from "./token-format.js";
 
 interface AgentModuleConfig {
@@ -23,6 +26,8 @@ interface AgentModuleConfig {
 	tokenExpiry: string;
 	/** Receives agent and cascaded delegation revocations for the shared MCP denylist. Optional. */
 	revocations?: McpRevocationBus;
+	/** Top level `resourceMatching`, used by delegation subset checks. */
+	resourceMatching?: ResourceMatching;
 }
 
 /**
@@ -59,15 +64,29 @@ function parseTokenExpiry(expiry: string): Date {
 /** Create the agent identity module. Handles CRUD operations for AI agent identities. */
 export function createAgentModule(config: AgentModuleConfig) {
 	const { db, maxPerUser, tokenExpiry, revocations } = config;
-	const delegation = createDelegationModule({ db, revocations });
+	const delegation = createDelegationModule({
+		db,
+		revocations,
+		resourceMatching: config.resourceMatching,
+	});
 
 	async function create(input: CreateAgentInput): Promise<AgentIdentity & { token: string }> {
 		assertValidExpiry(input.expiresAt);
+		if (input.type === "device") {
+			throw new Error('Agents of type "device" are created with theauth.device.register().');
+		}
 		// Check max agents per user
 		const existing = await db
 			.select()
 			.from(agents)
-			.where(and(eq(agents.ownerId, input.ownerId), eq(agents.status, "active")));
+			.where(
+				and(
+					eq(agents.ownerId, input.ownerId),
+					eq(agents.status, "active"),
+					// Device backing agents have their own cap (devices.maxPerOwner).
+					ne(agents.type, "device"),
+				),
+			);
 
 		if (existing.length >= maxPerUser) {
 			throw new Error(
@@ -75,6 +94,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 			);
 		}
 
+		const cnf = input.cnf === undefined ? undefined : parseConfirmation(input.cnf);
 		const id = generateId();
 		const { token, hash, prefix } = await generateAgentToken();
 		const now = new Date();
@@ -89,6 +109,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 			status: "active",
 			tokenHash: hash,
 			tokenPrefix: prefix,
+			cnf: cnf ?? null,
 			expiresAt: expires,
 			metadata: input.metadata ?? {},
 			createdAt: now,
@@ -118,17 +139,20 @@ export function createAgentModule(config: AgentModuleConfig) {
 			permissions: input.permissions,
 			status: "active",
 			expiresAt: expires,
+			...(cnf ? { cnf } : {}),
 			createdAt: now,
 			updatedAt: now,
 		};
 	}
 
 	async function get(agentId: string): Promise<AgentIdentity | null> {
-		const rows = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1);
+		// Both reads are independent of each other, so they overlap on a driver with network latency.
+		const [rows, perms] = await Promise.all([
+			db.select().from(agents).where(eq(agents.id, agentId)).limit(1),
+			db.select().from(permissions).where(eq(permissions.agentId, agentId)),
+		]);
 		const agent = rows[0];
 		if (!agent) return null;
-
-		const perms = await db.select().from(permissions).where(eq(permissions.agentId, agentId));
 
 		return {
 			id: agent.id,
@@ -140,6 +164,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 			permissions: perms.map(toPermission),
 			status: agent.status as AgentIdentity["status"],
 			expiresAt: agent.expiresAt,
+			...cnfField(agent.cnf),
 			createdAt: agent.createdAt,
 			updatedAt: agent.updatedAt,
 		};
@@ -152,11 +177,11 @@ export function createAgentModule(config: AgentModuleConfig) {
 		if (filter?.userId) conditions.push(eq(agents.ownerId, filter.userId));
 		if (filter?.tenantId) conditions.push(eq(agents.tenantId, filter.tenantId));
 		if (filter?.status) conditions.push(eq(agents.status, filter.status));
+		// Device backing agents are listed only when asked for: they are managed through `device.*`.
 		if (filter?.type) conditions.push(eq(agents.type, filter.type));
+		else conditions.push(ne(agents.type, "device"));
 
-		if (conditions.length > 0) {
-			query = query.where(and(...conditions));
-		}
+		query = query.where(and(...conditions));
 
 		const rows = await query;
 
@@ -178,6 +203,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 			permissions: permsByAgent.get(agent.id) ?? [],
 			status: agent.status as AgentIdentity["status"],
 			expiresAt: agent.expiresAt,
+			...cnfField(agent.cnf),
 			createdAt: agent.createdAt,
 			updatedAt: agent.updatedAt,
 		}));
@@ -277,21 +303,43 @@ export function createAgentModule(config: AgentModuleConfig) {
 		return { revokedDelegations };
 	}
 
-	async function rotate(agentId: string): Promise<AgentIdentity & { token: string }> {
+	/**
+	 * Replace the agent token. The new token keeps the old `cnf` binding, so a stolen token is replaced by one the thief cannot use either. Pass `cnf` to bind to a new key or certificate, or `null` to make the token a plain bearer token again.
+	 */
+	async function rotate(
+		agentId: string,
+		options: { cnf?: AgentConfirmation | null } = {},
+	): Promise<AgentIdentity & { token: string }> {
 		const existing = await get(agentId);
 		if (!existing) throw new Error(`Agent ${agentId} not found.`);
 		if (existing.status !== "active")
 			throw new Error(`Cannot rotate token for ${existing.status} agent.`);
+		// A device backing agent has no usable bearer token; devices authenticate with device credentials.
+		if (existing.type === "device")
+			throw new Error("Cannot rotate the token of a device agent. Use device credentials instead.");
 
 		const { token, hash, prefix } = await generateAgentToken();
 		const now = new Date();
 
+		const rebind =
+			options.cnf === undefined
+				? undefined
+				: options.cnf === null
+					? null
+					: parseConfirmation(options.cnf);
 		await db
 			.update(agents)
-			.set({ tokenHash: hash, tokenPrefix: prefix, updatedAt: now })
+			.set({
+				tokenHash: hash,
+				tokenPrefix: prefix,
+				updatedAt: now,
+				...(rebind !== undefined && { cnf: rebind }),
+			})
 			.where(eq(agents.id, agentId));
 
-		return { ...existing, token, updatedAt: now };
+		const { cnf: _previous, ...rest } = existing;
+		const cnf = rebind === undefined ? existing.cnf : (rebind ?? undefined);
+		return { ...rest, ...(cnf ? { cnf } : {}), token, updatedAt: now };
 	}
 
 	/**
@@ -345,6 +393,7 @@ export function createAgentModule(config: AgentModuleConfig) {
 				permissions: perms.map(toPermission),
 				status: "active",
 				expiresAt: agent.expiresAt,
+				...cnfField(agent.cnf),
 				createdAt: agent.createdAt,
 				updatedAt: agent.updatedAt,
 			},
@@ -357,6 +406,12 @@ export function createAgentModule(config: AgentModuleConfig) {
 	}
 
 	return { create, get, list, update, revoke, rotate, validateToken, resolveToken };
+}
+
+/** The `cnf` member of an identity, or nothing for a plain bearer token. */
+function cnfField(raw: unknown): { cnf?: AgentConfirmation } {
+	const cnf = readStoredConfirmation(raw);
+	return cnf ? { cnf } : {};
 }
 
 function toPermission(row: {

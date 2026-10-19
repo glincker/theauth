@@ -24,8 +24,20 @@ export * from "./crypto/web-crypto.js";
 // conflict with the `apiKeys` plugin factory exported from auth/index. Resolve
 // by exporting db exports explicitly, letting the auth plugin name win.
 // (DatabaseConfig is already exported below from types.ts, skip it here.)
-export type { D1DatabaseBinding, Database } from "./db/database.js";
+export type {
+	D1DatabaseBinding,
+	Database,
+	DatabaseDialect,
+	DrizzleDatabaseConfig,
+} from "./db/database.js";
 export { createDatabase, createDatabaseSync } from "./db/database.js";
+export type {
+	IdGeneratorContext,
+	IdGeneratorFn,
+	IdGeneratorOption,
+	IdModel,
+} from "./db/id-generation.js";
+export { generateUuidV7, IdGenerationError } from "./db/id-generation.js";
 export type {
 	Dialect as SchemaDialect,
 	Migration as SchemaMigration,
@@ -72,7 +84,9 @@ export {
 	trustScores,
 	users,
 } from "./db/schema.js";
+export { StoreConflictError } from "./db/store-conflict.js";
 export * from "./delegation/index.js";
+export * from "./device/index.js";
 export * from "./did/index.js";
 export type {
 	EmailTemplate,
@@ -95,6 +109,8 @@ export { generateOpenAPISpec } from "./openapi.js";
 export * from "./permission/index.js";
 export * from "./plugin/index.js";
 export * from "./policies/index.js";
+export type { ResourceMatching } from "./policy/resource-match.js";
+export { matchPathResource, resolveResourceMatching } from "./policy/resource-match.js";
 export type { PolicyEngineConfig } from "./policy/types.js";
 export type {
 	AnalyzeOptions,
@@ -135,6 +151,7 @@ export * from "./trust/index.js";
 export type {
 	AgentFilter,
 	AgentIdentity,
+	AgentType,
 	AuthConfig,
 	AuthInstance,
 	AuthorizeRequest,

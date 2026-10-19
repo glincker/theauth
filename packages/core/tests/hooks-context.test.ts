@@ -325,7 +325,7 @@ describe("escalate verdict", () => {
 		const allowed = await theauth.policy.evaluate(input);
 		expect(allowed.allowed).toBe(true);
 		const replay = await theauth.policy.evaluate(input);
-		expect(replay).toMatchObject({ allowed: false, code: "approval_invalid" });
+		expect(replay).toMatchObject({ allowed: false, code: "approval_already_used" });
 	});
 
 	it("an approval never grants more than the agent's own permissions", async () => {

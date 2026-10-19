@@ -12,12 +12,35 @@ export const DECISION_CODES = {
 	TIME_RESTRICTED: "time_restricted",
 	ARGUMENT_REJECTED: "argument_rejected",
 	APPROVAL_REQUIRED: "approval_required",
+	/** Generic fallback. The approval paths now emit one of the specific `approval_*` codes below. */
 	APPROVAL_INVALID: "approval_invalid",
+	APPROVAL_NOT_FOUND: "approval_not_found",
+	APPROVAL_PENDING: "approval_pending",
+	APPROVAL_DENIED: "approval_denied",
+	APPROVAL_EXPIRED: "approval_expired",
+	APPROVAL_ALREADY_USED: "approval_already_used",
+	APPROVAL_MISMATCH: "approval_mismatch",
+	APPROVAL_ARGUMENTS_MISMATCH: "approval_arguments_mismatch",
+	/** The approval was granted under a weaker step-up rule than the policy demands now. */
+	APPROVAL_STEP_UP_INSUFFICIENT: "approval_step_up_insufficient",
+	/** Lifecycle only: a human approved a request. Never returned by authorize. */
+	APPROVAL_GRANTED: "approval_granted",
 	AGENT_NOT_FOUND: "agent_not_found",
 	AGENT_REVOKED: "agent_revoked",
 	AGENT_EXPIRED: "agent_expired",
 	INVALID_TOKEN: "invalid_token",
+	/** The agent token is sender constrained (DPoP or mTLS, RFC 7800) and the request carried no proof of the key. */
+	CONFIRMATION_REQUIRED: "confirmation_required",
+	/** The proof of possession does not match the key or certificate the token is bound to. */
+	CONFIRMATION_FAILED: "confirmation_failed",
+	/** IoT device codes (theauth.device). Not found means no row; the others are device level states. */
+	DEVICE_NOT_FOUND: "device_not_found",
+	DEVICE_SUSPENDED: "device_suspended",
+	DEVICE_REVOKED: "device_revoked",
+	DEVICE_EXPIRED: "device_expired",
 	OWNER_MISMATCH: "owner_mismatch",
+	/** The permission needs a hardware attested device and the caller's attestation is missing or too weak. */
+	ATTESTATION_REQUIRED: "attestation_required",
 	HOOK_DENIED: "hook_denied",
 	HOOK_TIMEOUT: "hook_timeout",
 	HOOK_ERROR: "hook_error",
@@ -28,8 +51,11 @@ export const DECISION_CODES = {
 
 export type DecisionCode = (typeof DECISION_CODES)[keyof typeof DECISION_CODES];
 
-/** Every code except the two that mean the call went through. */
-export type DenialCode = Exclude<DecisionCode, "allowed" | "approval_consumed">;
+/** Every code except the ones that mean the call went through or a human said yes. */
+export type DenialCode = Exclude<
+	DecisionCode,
+	"allowed" | "approval_consumed" | "approval_granted"
+>;
 
 /** Coarse grouping reported as `onViolation.type`. */
 export type ViolationType =
@@ -45,6 +71,11 @@ export function isDecisionCode(value: unknown): value is DecisionCode {
 	return typeof value === "string" && CODE_VALUES.has(value);
 }
 
+/** True for approval_required and every code that explains why an approval could not be spent. */
+export function isApprovalDenial(code: DecisionCode | undefined): boolean {
+	return code !== undefined && violationTypeOf(code) === "approval_required";
+}
+
 /** Map a decision code to the coarse `onViolation.type` grouping. */
 export function violationTypeOf(code: DecisionCode): ViolationType {
 	switch (code) {
@@ -56,6 +87,14 @@ export function violationTypeOf(code: DecisionCode): ViolationType {
 			return "time_restricted";
 		case "approval_required":
 		case "approval_invalid":
+		case "approval_not_found":
+		case "approval_pending":
+		case "approval_denied":
+		case "approval_expired":
+		case "approval_already_used":
+		case "approval_mismatch":
+		case "approval_arguments_mismatch":
+		case "approval_step_up_insufficient":
 			return "approval_required";
 		default:
 			return "permission_denied";
@@ -68,6 +107,7 @@ const CONSTRAINT_CODES: Record<ConstraintName, DenialCode> = {
 	requireApproval: "approval_required",
 	timeWindow: "time_restricted",
 	ipAllowlist: "ip_not_allowed",
+	attestation: "attestation_required",
 };
 
 /** Map a constraint name to the code its failure carries. */

@@ -1,6 +1,14 @@
-import type { App, InjectionKey, Ref } from "vue";
-import { inject, ref } from "vue";
-import type { ActionResult, TheAuthContextValue, TheAuthSession, TheAuthUser } from "./types.js";
+import type {
+	HydrateInput,
+	RefetchOptions,
+	SessionState,
+	SessionStorageLike,
+	StoreActionResult,
+} from "@glinr/theauth-client";
+import { createSessionStore } from "@glinr/theauth-client";
+import type { App, InjectionKey } from "vue";
+import { inject, shallowRef } from "vue";
+import type { ActionResult, SignUpData, TheAuthContextValue, TheAuthUser } from "./types.js";
 
 export const THEAUTH_KEY: InjectionKey<TheAuthContextValue> = Symbol("theauth");
 
@@ -19,151 +27,110 @@ export function useRequiredContext(composableName: string): TheAuthContextValue 
 
 export interface TheAuthPluginOptions {
 	basePath?: string;
+	/** Refetch the session on focus, reconnect or an interval. Off unless set. */
+	refetch?: RefetchOptions;
+	/** Session the server already resolved (SSR). Skips the first request. `null` means signed out. */
+	initialSession?: HydrateInput | null;
+	/**
+	 * Use the core email and password routes (`/auth/email/*`, served when the server sets the
+	 * `emailPassword` config). Explicit `signInPath`, `signUpPath` and `identifierField` still win.
+	 */
+	emailPassword?: boolean;
+	/** Default `/auth/username/sign-in`, or `/auth/email/sign-in` with `emailPassword`. */
+	signInPath?: string;
+	/** Default `/auth/username/sign-up`, or `/auth/email/sign-up` with `emailPassword`. */
+	signUpPath?: string;
+	/** Body field for the sign-in identifier. Default `username`, or `email` with `emailPassword`. */
+	identifierField?: string;
+	/** Defaults to `window.localStorage` when the browser allows it. */
+	storage?: SessionStorageLike;
+	fetch?: typeof fetch;
 }
 
 /** @deprecated Use `TheAuthPluginOptions` instead. Will be removed in a future major version. */
 export type AuthPluginOptions = TheAuthPluginOptions;
 
+function browserStorage(): SessionStorageLike | undefined {
+	try {
+		return typeof window === "undefined" ? undefined : window.localStorage;
+	} catch {
+		return undefined;
+	}
+}
+
+function toActionResult(r: StoreActionResult): ActionResult {
+	return r.success
+		? { success: true, data: undefined }
+		: { success: false, error: r.error, ...(r.code !== undefined && { code: r.code }) };
+}
+
+function toSignUpResult(r: StoreActionResult): ActionResult<SignUpData> {
+	if (!r.success) return toActionResult(r) as ActionResult<SignUpData>;
+	return { success: true, data: { verificationRequired: r.verificationRequired === true } };
+}
+
 export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 	return {
 		install(app: App) {
 			const base = (options.basePath ?? "/api/theauth").replace(/\/$/, "");
-			const STORAGE_KEY = "theauth_session";
-
-			const session: Ref<TheAuthSession | null> = ref(null);
-			const isLoading: Ref<boolean> = ref(true);
-
-			async function fetchSession(): Promise<void> {
-				if (typeof window === "undefined") {
-					isLoading.value = false;
-					return;
-				}
-				try {
-					const raw = window.localStorage.getItem(STORAGE_KEY);
-					if (raw) {
-						session.value = JSON.parse(raw) as TheAuthSession;
-					} else {
-						session.value = null;
-					}
-				} catch {
-					session.value = null;
-				}
-			}
-
-			async function refresh(): Promise<void> {
-				await fetchSession();
-			}
-
-			async function signIn(email: string, password: string): Promise<ActionResult> {
-				try {
-					const res = await fetch(`${base}/auth/sign-in`, {
-						method: "POST",
-						credentials: "include",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ email, password }),
-					});
-					const json = (await res.json()) as
-						| { user: TheAuthUser; session: { token: string; expiresAt: string } }
-						| { error: { code: string; message: string } };
-
-					if (!res.ok) {
-						const errBody = json as { error: { code: string; message: string } };
-						return {
-							success: false,
-							error: errBody.error?.message ?? `Sign-in failed (${res.status})`,
-						};
-					}
-
-					const okBody = json as {
-						user: TheAuthUser;
-						session: { token: string; expiresAt: string };
-					};
-					const sessionData: TheAuthSession = {
-						token: okBody.session.token,
-						user: okBody.user,
-						expiresAt: okBody.session.expiresAt,
-					};
-					session.value = sessionData;
-					if (typeof window !== "undefined") {
-						window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
-					}
-					return { success: true, data: undefined };
-				} catch (err) {
-					return {
-						success: false,
-						error: err instanceof Error ? err.message : "Network error",
-					};
-				}
-			}
-
-			async function signUp(email: string, password: string, name?: string): Promise<ActionResult> {
-				try {
-					const res = await fetch(`${base}/auth/sign-up`, {
-						method: "POST",
-						credentials: "include",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ email, password, name }),
-					});
-					const json = (await res.json()) as
-						| { user: TheAuthUser; token: string }
-						| { error: { code: string; message: string } };
-
-					if (!res.ok) {
-						const errBody = json as { error: { code: string; message: string } };
-						return {
-							success: false,
-							error: errBody.error?.message ?? `Sign-up failed (${res.status})`,
-						};
-					}
-
-					const okBody = json as { user: TheAuthUser; token: string };
-					const sessionData: TheAuthSession = {
-						token: okBody.token,
-						user: okBody.user,
-					};
-					session.value = sessionData;
-					if (typeof window !== "undefined") {
-						window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
-					}
-					return { success: true, data: undefined };
-				} catch (err) {
-					return {
-						success: false,
-						error: err instanceof Error ? err.message : "Network error",
-					};
-				}
-			}
-
-			async function signOut(): Promise<void> {
-				session.value = null;
-				if (typeof window !== "undefined") {
-					window.localStorage.removeItem(STORAGE_KEY);
-				}
-			}
-
-			isLoading.value = true;
-			void fetchSession().finally(() => {
-				isLoading.value = false;
+			const store = createSessionStore({
+				basePath: base,
+				storage: options.storage ?? browserStorage(),
+				fetch: options.fetch,
+				emailPassword: options.emailPassword,
+				signInPath: options.signInPath,
+				signUpPath: options.signUpPath,
+				identifierField: options.identifierField,
+				refetch: options.refetch,
 			});
+			const state = shallowRef<SessionState>(store.getState());
+			// One subscription for the life of the app keeps the refetch triggers attached.
+			const unsubscribe = store.subscribe((next) => {
+				state.value = next;
+			});
+
+			if (options.initialSession !== undefined) {
+				store.hydrateSession(options.initialSession);
+			} else if (typeof window === "undefined") {
+				store.destroy();
+			} else {
+				void store.refresh();
+			}
+
+			const unmount = app.unmount.bind(app);
+			app.unmount = () => {
+				unsubscribe();
+				store.destroy();
+				unmount();
+			};
 
 			const context: TheAuthContextValue = {
 				get session() {
-					return session.value;
+					return state.value.session;
 				},
 				get user(): TheAuthUser | null {
-					return session.value?.user ?? null;
+					return state.value.session?.user ?? null;
 				},
 				get isLoading() {
-					return isLoading.value;
+					return state.value.isLoading;
 				},
 				get isAuthenticated() {
-					return session.value !== null;
+					return state.value.session !== null;
 				},
 				basePath: base,
-				signIn,
-				signUp,
-				signOut,
-				refresh,
+				signIn: async (email, password) => toActionResult(await store.signIn(email, password)),
+				signUp: async (email, password, name) =>
+					toSignUpResult(await store.signUp(email, password, name)),
+				verifyEmail: async (token) => toActionResult(await store.verifyEmail(token)),
+				resendVerification: async (email) => toActionResult(await store.resendVerification(email)),
+				requestPasswordReset: async (email) =>
+					toActionResult(await store.requestPasswordReset(email)),
+				resetPassword: async (token, password) =>
+					toActionResult(await store.resetPassword(token, password)),
+				signOut: async () => {
+					await store.signOut();
+				},
+				refresh: () => store.refresh(),
 			};
 
 			app.provide(THEAUTH_KEY, context);

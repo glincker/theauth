@@ -1,0 +1,53 @@
+---
+title: Elysia
+description: Serve theAuth routes from an Elysia app with `createTheAuthHandler` and `app.mount`. No extra package, runs on Bun and any runtime Elysia supports.
+icon: code
+---
+
+Elysia mounts any function of the shape `(request: Request) => Response | Promise<Response>`, which is what `createTheAuthHandler` from `@glinr/theauth/http` returns. So there is no Elysia package: you use the core handler directly.
+
+## Install
+
+```bash
+pnpm add @glinr/theauth elysia
+```
+
+## Mount the handler
+
+`app.mount(prefix, handler)` strips the prefix before calling the handler, so pass `basePath: ""`.
+
+```typescript
+import { Elysia } from "elysia";
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler, requireAgent } from "@glinr/theauth/http";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+});
+
+const handler = createTheAuthHandler(theauth, {
+  basePath: "",
+  // Who may call the management routes. Return { id } to allow, null for a 401.
+  authenticate: async (request) => {
+    const user = await theauth.auth.resolveUser(request);
+    return user ? { id: user.id } : null;
+  },
+});
+
+const app = new Elysia()
+  .mount("/api/theauth", handler)
+  .get("/docs", async ({ request }) => {
+    const result = await requireAgent(theauth, request, { action: "read", resource: "docs" });
+    if (!result.ok) return result.response; // 401 or 403 with { error: { code, message } }
+    return { agentId: result.agent.id };
+  });
+
+export default app;
+```
+
+`requireAgent` is the same decision logic the Hono, Express and Fastify `requireScope` helpers use.
+
+## What was run
+
+This snippet type checks under `strict` against Elysia 1.4 and was run with `app.handle`: `GET /api/theauth/agents` answered 200 with an authenticated caller, `GET /docs` without a token answered 401, and an unknown path under the mount answered 404.

@@ -1,28 +1,24 @@
-import { and, eq, or, sql } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { sessions, users } from "../db/schema.js";
-import type { FilterAst } from "./scim-filter.js";
-import { evaluateFilter, ScimFilterError } from "./scim-filter.js";
-import type { FilterClause } from "./scim-helpers.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
+import { withUserUpdate } from "../hooks/user-update-hooks.js";
 import {
-	buildUserSqlConditions,
 	generateId,
 	getBaseUrl,
-	parseScimFilter,
-	parseSortSpec,
 	SCHEMA_ENTERPRISE,
-	SCHEMA_LIST,
 	SCHEMA_PATCH,
 	scimError,
 	scimResponse,
-	sortResources,
 	userRowToScim,
 } from "./scim-helpers.js";
 import { applyPatchOps, ScimPatchError } from "./scim-patch.js";
 import type { PatchBody, ScimHandlerContext, ScimUser, UserRow } from "./scim-types.js";
+import { createScimListHandler } from "./scim-users-list.js";
 import { revokeUserMcpAccess } from "./user-revocation.js";
 
 export function createScimUserHandlers(ctx: ScimHandlerContext) {
 	const { db, writeScimAudit, config, revocations } = ctx;
+	const databaseHooks = ctx.databaseHooks ?? createDatabaseHookRunner(undefined);
 	const {
 		autoCreateUsers = true,
 		autoDeactivateUsers = true,
@@ -31,75 +27,7 @@ export function createScimUserHandlers(ctx: ScimHandlerContext) {
 		resolveSelf,
 	} = config;
 
-	async function handleListUsers(request: Request): Promise<Response> {
-		const url = new URL(request.url);
-		const filterParam = url.searchParams.get("filter") ?? "";
-		const startIndex = Math.max(1, parseInt(url.searchParams.get("startIndex") ?? "1", 10));
-		const count = Math.min(200, parseInt(url.searchParams.get("count") ?? "100", 10));
-		const baseUrl = getBaseUrl(request);
-		const sortSpec = parseSortSpec(url);
-
-		// Simple AND-of-clauses filters take the SQL fast path; complex ones fall back to in-memory evaluation.
-		let ast: FilterAst | null = null;
-		let clauses: FilterClause[] | null = null;
-		if (filterParam) {
-			try {
-				const parsed = parseScimFilter(filterParam);
-				ast = parsed.ast;
-				clauses = parsed.clauses;
-			} catch (err) {
-				if (err instanceof ScimFilterError) {
-					return scimError(err.message, 400, "invalidFilter");
-				}
-				throw err;
-			}
-		}
-
-		const conditions = clauses ? buildUserSqlConditions(clauses) : null;
-		const whereClause = conditions && conditions.length > 0 ? and(...conditions) : undefined;
-
-		// Sorting needs the full filtered set before pagination, and SQL ORDER BY cannot reach JSON metadata.
-		if (conditions !== null && !sortSpec) {
-			const countRows = await db
-				.select({ count: sql<number>`count(*)`.mapWith(Number) })
-				.from(users)
-				.where(whereClause);
-			const totalResults = Number(countRows[0]?.count ?? 0);
-
-			const offset = startIndex - 1;
-			const rows = (await db
-				.select()
-				.from(users)
-				.where(whereClause)
-				.limit(count)
-				.offset(offset)) as UserRow[];
-
-			return scimResponse({
-				schemas: [SCHEMA_LIST],
-				totalResults,
-				startIndex,
-				itemsPerPage: rows.length,
-				Resources: rows.map((r) => userRowToScim(r, baseUrl)),
-			});
-		}
-
-		const allRows = (await db.select().from(users)) as UserRow[];
-		const mapped = allRows.map((r) => ({ row: r, scim: userRowToScim(r, baseUrl) }));
-		const matched = ast
-			? mapped.filter(({ scim }) => evaluateFilter(ast as FilterAst, scim))
-			: mapped;
-		const sorted = sortSpec ? sortResources(matched, sortSpec) : matched;
-		const totalResults = sorted.length;
-		const page = sorted.slice(startIndex - 1, startIndex - 1 + count);
-
-		return scimResponse({
-			schemas: [SCHEMA_LIST],
-			totalResults,
-			startIndex,
-			itemsPerPage: page.length,
-			Resources: page.map((p) => p.scim),
-		});
-	}
+	const handleListUsers = createScimListHandler(ctx);
 
 	async function handleGetUser(request: Request, userId: string): Promise<Response> {
 		const baseUrl = getBaseUrl(request);
@@ -167,15 +95,35 @@ export function createScimUserHandlers(ctx: ScimHandlerContext) {
 			metadata["scim:enterprise"] = enterpriseExt;
 		}
 
+		let storedEmail = primaryEmail;
+		let storedName = displayName;
+		let storedMetadata = metadata;
+		if (databaseHooks.has("user", "create")) {
+			// Runs ahead of the insert. A DatabaseHookError aborts provisioning.
+			const hooked = await databaseHooks.before("user", "create", {
+				id,
+				email: primaryEmail,
+				name: displayName,
+				metadata,
+			});
+			storedEmail = hooked.email;
+			storedName = hooked.name;
+			storedMetadata = hooked.metadata ?? {};
+			if (storedEmail !== primaryEmail) {
+				const clash = await db.select().from(users).where(eq(users.email, storedEmail)).limit(1);
+				if (clash.length > 0) return scimError("User already exists", 409, "uniqueness");
+			}
+		}
+
 		await db.insert(users).values({
 			id,
-			email: primaryEmail,
-			name: displayName,
+			email: storedEmail,
+			name: storedName,
 			username: userName !== primaryEmail ? userName : null,
 			externalId,
 			externalProvider: "scim",
 			banned: active ? 0 : 1,
-			metadata,
+			metadata: storedMetadata,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -186,6 +134,12 @@ export function createScimUserHandlers(ctx: ScimHandlerContext) {
 			.where(eq(users.id, id))
 			.limit(1)) as UserRow[];
 		const created = createdRows[0] as UserRow;
+		await databaseHooks.after("user", "create", {
+			id,
+			email: created.email,
+			name: created.name ?? null,
+			metadata: created.metadata ?? null,
+		});
 
 		const scimUser: ScimUser = {
 			id,
@@ -253,18 +207,24 @@ export function createScimUserHandlers(ctx: ScimHandlerContext) {
 		}
 
 		const now = new Date();
-		await db
-			.update(users)
-			.set({
-				email: primaryEmail,
-				name: displayName ?? null,
-				username: userName !== primaryEmail ? userName : existing.username,
-				externalId,
-				banned: active ? 0 : 1,
-				metadata,
-				updatedAt: now,
-			})
-			.where(eq(users.id, userId));
+		await withUserUpdate(
+			databaseHooks,
+			db,
+			userId,
+			{ email: primaryEmail, name: displayName ?? null, metadata },
+			async (hooked) => {
+				await db
+					.update(users)
+					.set({
+						username: userName !== primaryEmail ? userName : existing.username,
+						externalId,
+						banned: active ? 0 : 1,
+						updatedAt: now,
+						...hooked,
+					})
+					.where(eq(users.id, userId));
+			},
+		);
 		// A deactivated user must not keep a live session.
 		if (!active) {
 			await db.delete(sessions).where(eq(sessions.userId, userId));
@@ -376,10 +336,18 @@ export function createScimUserHandlers(ctx: ScimHandlerContext) {
 		}
 
 		const now = new Date();
-		await db
-			.update(users)
-			.set({ email, name, username, banned, externalId, metadata: updatedMeta, updatedAt: now })
-			.where(eq(users.id, userId));
+		await withUserUpdate(
+			databaseHooks,
+			db,
+			userId,
+			{ email, name, metadata: updatedMeta },
+			async (hooked) => {
+				await db
+					.update(users)
+					.set({ username, banned, externalId, updatedAt: now, ...hooked })
+					.where(eq(users.id, userId));
+			},
+		);
 		// SCIM active=false ends sessions even when autoDeactivateUsers leaves the ban flag off.
 		if (scimActive === false || banned === 1) {
 			await db.delete(sessions).where(eq(sessions.userId, userId));
@@ -411,10 +379,12 @@ export function createScimUserHandlers(ctx: ScimHandlerContext) {
 		if (autoDeactivateUsers) {
 			const now = new Date();
 			const meta = { ...(row.metadata ?? {}), "scim:active": false, "scim:deprovisioned": true };
-			await db
-				.update(users)
-				.set({ banned: 1, metadata: meta, updatedAt: now })
-				.where(eq(users.id, userId));
+			await withUserUpdate(databaseHooks, db, userId, { metadata: meta }, async (hooked) => {
+				await db
+					.update(users)
+					.set({ banned: 1, updatedAt: now, ...hooked })
+					.where(eq(users.id, userId));
+			});
 		} else {
 			await db.delete(users).where(eq(users.id, userId));
 		}

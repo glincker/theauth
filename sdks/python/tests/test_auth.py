@@ -175,7 +175,7 @@ class TestAsyncAuthorizeByToken:
     @pytest.mark.asyncio
     async def test_authorize_by_token(self, async_client: TheAuthClient) -> None:
         with respx.mock:
-            route = respx.post(f"{BASE_URL}/authorize").mock(
+            route = respx.post(f"{BASE_URL}/authorize/token").mock(
                 return_value=httpx.Response(200, json=AUTHORIZE_RESULT_FIXTURE)
             )
             result = await async_client.auth.authorize_by_token(

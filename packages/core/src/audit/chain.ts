@@ -3,14 +3,18 @@
  * Per agent (rather than per tenant or global) because writers for different agents never contend, a replay is exactly one chain, and the unique index on (agent_id, chain_seq) is enough to stop a fork. If another writer took the same seq first, the unique index rejects the insert and the writer re-reads the head and retries. With `hmacKey`, hashes are HMAC-SHA256, so someone with database write access but not the key cannot recompute a valid chain after editing rows.
  */
 
-import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { compareCodeUnits } from "../compare.js";
 import { hmacSha256, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
-import { auditLogs } from "../db/schema.js";
-import { errorText, isUniqueViolation } from "../db/unique-violation.js";
+import type { auditLogs } from "../db/schema.js";
+import type { AuditLogRepo } from "../db/store/index.js";
+import { storesFor } from "../db/store/index.js";
+import { errorText, StoreConflictError } from "../db/store-conflict.js";
 import { eventForAction } from "./events.js";
 import { computePseudonyms, resolvePseudonymKey } from "./pseudonym.js";
+import type { PseudonymRotation } from "./pseudonym-rotation.js";
+import { pseudonymsForWrite } from "./pseudonym-rotation.js";
+import { scrubNul } from "./scrub.js";
 
 export type AuditInsert = typeof auditLogs.$inferInsert;
 export type AuditRow = typeof auditLogs.$inferSelect;
@@ -18,6 +22,8 @@ export type AuditRow = typeof auditLogs.$inferSelect;
 export interface AuditChainConfig {
 	/** Secret for HMAC-SHA256 hashing. Without it hashes are plain SHA-256. */
 	hmacKey?: string;
+	/** Per-period pseudonym secrets instead of one stable pseudonym per subject. */
+	pseudonymRotation?: PseudonymRotation;
 }
 
 /** Version stamped on rows this code writes. Rows with a NULL hash_version are version 1. */
@@ -29,9 +35,6 @@ export const ERASURE_ACTION = "audit.erasure";
 const MAX_APPEND_ATTEMPTS = 30;
 
 const registry = new WeakMap<object, AuditChainConfig>();
-// Same-process writers for one agent queue up instead of racing. The unique
-// index still guards against other processes.
-const queues = new WeakMap<object, Map<string, Promise<unknown>>>();
 
 /** Turn the chain on for a database handle. Called by createTheAuth when `audit.tamperEvident` is set. */
 export function enableAuditChain(db: Database, config: AuditChainConfig = {}): void {
@@ -144,51 +147,29 @@ export function nextRecordedAtMs(floor = 0): number {
 	return lastRecordedMs;
 }
 
-async function readHead(
-	db: Database,
-	agentId: string,
-): Promise<{ seq: number; hash: string; recordedAtMs: number } | null> {
-	const rows = await db
-		.select({ seq: auditLogs.chainSeq, hash: auditLogs.hash, ms: auditLogs.recordedAtMs })
-		.from(auditLogs)
-		.where(and(eq(auditLogs.agentId, agentId), isNotNull(auditLogs.chainSeq)))
-		.orderBy(desc(auditLogs.chainSeq))
-		.limit(1);
-	const head = rows[0];
-	if (!head || head.seq === null || head.hash === null) return null;
-	return { seq: head.seq, hash: head.hash, recordedAtMs: head.ms ?? 0 };
-}
-
 /** Insert an audit row. Plain insert unless the chain is enabled for this database, in which case the row is linked to its agent's chain. */
 export async function insertAuditRow(db: Database, input: AuditInsert): Promise<void> {
 	// `event` is stored beside the row and is not hashed.
-	const values: AuditInsert = { ...input, event: input.event ?? eventForAction(input.action) };
+	const values: AuditInsert = scrubNul({
+		...input,
+		event: input.event ?? eventForAction(input.action),
+	});
 	const config = registry.get(db);
+	const audit = storesFor(db).audit;
 	if (!config) {
-		await db
-			.insert(auditLogs)
-			.values({ ...values, recordedAtMs: values.recordedAtMs ?? nextRecordedAtMs() });
+		await audit.insertUnchained({
+			...values,
+			recordedAtMs: values.recordedAtMs ?? nextRecordedAtMs(),
+		});
 		return;
 	}
-
-	let byAgent = queues.get(db);
-	if (!byAgent) {
-		byAgent = new Map();
-		queues.set(db, byAgent);
-	}
-	const previous = byAgent.get(values.agentId) ?? Promise.resolve();
-	const run = previous.then(() => appendChained(db, values, config));
-	const tail = run.catch(() => undefined);
-	byAgent.set(values.agentId, tail);
-	try {
-		await run;
-	} finally {
-		if (byAgent.get(values.agentId) === tail) byAgent.delete(values.agentId);
-	}
+	// Same-process writers for one agent queue up. The unique index guards against other processes.
+	await audit.exclusive(values.agentId, () => appendChained(db, audit, values, config));
 }
 
 async function appendChained(
 	db: Database,
+	audit: AuditLogRepo,
 	values: AuditInsert,
 	config: AuditChainConfig,
 ): Promise<void> {
@@ -201,16 +182,28 @@ async function appendChained(
 	};
 	const pseudonymKey = await resolvePseudonymKey(db, config.hmacKey, true);
 	if (!pseudonymKey) throw new Error("no audit pseudonym key available");
-	stamped.idPseudonyms = await computePseudonyms(stamped, pseudonymKey);
+	stamped.idPseudonyms = config.pseudonymRotation
+		? await pseudonymsForWrite(db, stamped, config.pseudonymRotation)
+		: await computePseudonyms(stamped, pseudonymKey);
+	await linkAndAppend(audit, stamped, config.hmacKey);
+}
 
+/**
+ * Links a fully stamped row (hash version, whole second timestamp, pseudonyms) to its agent's chain and inserts it, retrying while another writer takes the seq. Runs on a repository alone, so any backend that implements `AuditLogRepo` gets the same algorithm. Call it inside `audit.exclusive`.
+ */
+export async function linkAndAppend(
+	audit: AuditLogRepo,
+	stamped: AuditInsert,
+	hmacKey: string | undefined,
+): Promise<void> {
 	let lastError: unknown;
 	for (let attempt = 0; attempt < MAX_APPEND_ATTEMPTS; attempt++) {
-		const head = await readHead(db, stamped.agentId);
+		const head = await audit.readHead(stamped.agentId);
 		const chainSeq = head ? head.seq + 1 : 1;
 		const prevHash = head ? head.hash : null;
-		const hash = await computeRowHash(stamped, chainSeq, prevHash, config.hmacKey);
+		const hash = await computeRowHash(stamped, chainSeq, prevHash, hmacKey);
 		try {
-			await db.insert(auditLogs).values({
+			await audit.appendAt({
 				...stamped,
 				chainSeq,
 				prevHash,
@@ -219,8 +212,8 @@ async function appendChained(
 			});
 			return;
 		} catch (err) {
-			if (!isUniqueViolation(err)) throw err;
-			lastError = err;
+			if (!(err instanceof StoreConflictError)) throw err;
+			lastError = err.cause;
 			// Another process took this seq. Back off a little so racing writers spread out.
 			await new Promise((resolve) => setTimeout(resolve, Math.random() * 4 * (attempt + 1)));
 		}

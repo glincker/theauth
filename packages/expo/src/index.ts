@@ -37,6 +37,7 @@ export type {
 	AuthUser,
 	CreateAgentInput,
 	PasskeyAuthenticator,
+	SignUpData,
 	SocialSignInConfig,
 	TheAuthAgent,
 	TheAuthContextValue,

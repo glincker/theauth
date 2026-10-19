@@ -1,14 +1,17 @@
 ---
 title: Compare theAuth
-description: Side-by-side breakdowns of theAuth against better-auth, Hanko, Casdoor, and paid platforms. Covers agent identity, MCP OAuth, RBAC, and deployment model.
+description: Side-by-side breakdowns of theAuth against better-auth, Keycloak, Hanko, Casdoor, and paid platforms. Covers agent identity, MCP OAuth, RBAC, and deployment model.
 icon: scale-balanced
 ---
 
-Auth is a crowded space. These pages are meant to help you pick the right tool, not sell you on any particular one. If a competitor does something better, we say so.
+Auth is a crowded space. Every fact on these pages was checked on 2026-10-18, and a row that says "we did not find X" means we did not find it on the pages we fetched that day. These pages are meant to help you pick the right tool, not sell you on any particular one. If a competitor does something better, we say so.
 
 <CardGroup cols={2}>
   <Card title="theAuth vs better-auth" icon="code-compare" href="/compare/vs-ba">
-    Both are MIT TypeScript libraries with a broad OAuth provider list. The split is agent primitives: better-auth treats agents as OAuth clients; theAuth makes them first-class entities with delegation, ephemeral sessions, trust scoring, and compliance exports.
+    Both are MIT TypeScript libraries and both ship an MCP OAuth 2.1 server and an agent plugin or module. better-auth is the larger project with the larger community. theAuth adds delegation chains, approvals bound to arguments, an audit chain, devices and a Go library, some of which are on the release branch and not yet in a published release (npm `@glinr/theauth` is 1.2.0). The page lists each row with its source.
+  </Card>
+  <Card title="theAuth vs Keycloak" icon="key" href="/compare/vs-keycloak">
+    Keycloak is the closest rival on devices and delegation: CIBA, Device Grant, DPoP and RFC 8693 are supported, with delegation and SPIFFE in Preview. It is a server you deploy, not a library. The page shows where its own docs stop.
   </Card>
   <Card title="theAuth vs Hanko" icon="fingerprint" href="/compare/vs-hanko">
     Hanko is a passkey-first library with an AGPL backend. If passkeys are your entire auth story and you have no agent workloads, it's worth a look. If you need any agent identity or RBAC, you'll be building on top of it yourself.
@@ -17,6 +20,6 @@ Auth is a crowded space. These pages are meant to help you pick the right tool, 
     Casdoor is a deployed Go IAM service with LDAP, CAS, and RADIUS support. It targets employee SSO in Go shops. theAuth is a library, not a service, and it's built for agent-native TypeScript apps.
   </Card>
   <Card title="theAuth vs paid options" icon="building" href="/compare/vs-paid">
-    Clerk and Auth0 are polished, fast to start, and expensive at scale. They're also closed-source. This page covers the open-source vs. managed tradeoff without reproducing any pricing tables.
+    Clerk and Auth0 are polished, fast to start, and expensive at scale. Both are proprietary hosted services with MIT licensed SDKs, and Auth0 sells a private deployment add-on on Enterprise. This page covers the open-source vs. managed tradeoff without reproducing any pricing tables.
   </Card>
 </CardGroup>

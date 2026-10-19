@@ -65,7 +65,26 @@ State lives in a [secondary storage](/secondary-storage). The default is in memo
 |--------|---------|-------|
 | `emailOtpSender(provider)` | email | Wraps any email provider: `resend`, `ses`, `postmark`, `sendgrid`, `smtp` |
 | `twilioOtpSender(config)` | sms | Raw `fetch`, give `from` or `messagingServiceSid` |
+| `vonageOtpSender(config)` | sms | Vonage Messages API, Basic auth. Needs `apiKey`, `apiSecret`, `from`. Optional `region` |
+| `plivoOtpSender(config)` | sms | Plivo Message API. Needs `authId`, `authToken` and `from` or `powerpackUuid` |
 | `consoleOtpSender()` | either | Prints the code. Development only |
+
+All three SMS senders use `fetch` with no SDK, time out after 10 seconds (`timeoutMs`), accept only the `sms` channel, and throw on a non-2xx answer. The error carries the HTTP status and the vendor's short error code, never the response body, credentials, phone number or code, so it is safe to log. A 2xx answer means the vendor accepted the message, not that the phone received it: delivery receipts are a vendor webhook and are not handled here.
+
+```typescript
+import { createOtpService, plivoOtpSender, vonageOtpSender } from '@glinr/theauth/auth';
+
+const sms = vonageOtpSender({
+  apiKey: process.env.VONAGE_API_KEY!,
+  apiSecret: process.env.VONAGE_API_SECRET!,
+  from: process.env.VONAGE_FROM!, // E.164 number, or an alphanumeric ID where the country allows it
+});
+// or: plivoOtpSender({ authId: process.env.PLIVO_AUTH_ID!, authToken: process.env.PLIVO_AUTH_TOKEN!, from: process.env.PLIVO_FROM! })
+
+export const otp = createOtpService({ secret: process.env.OTP_SECRET!, senders: { sms } });
+```
+
+Vonage wants the recipient without the leading `+`, and the sender strips it for you. Request shapes follow the vendors' docs: [Twilio Messages](https://www.twilio.com/docs/messaging/api/message-resource), [Vonage Messages API](https://developer.vonage.com/en/api/messages), [Plivo Message API](https://www.plivo.com/docs/messaging/api/message/send-a-message). Look at the sender cost and sender registration rules (10DLC in the US, sender ID rules elsewhere) of the vendor you pick, they differ by country.
 
 A sender is `{ send(message): Promise<void> }`, so adding another provider takes a few lines. `emailOtpSender` accepts `subject` and `render` to change the message text.
 

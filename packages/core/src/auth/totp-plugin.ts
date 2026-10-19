@@ -1,6 +1,7 @@
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { OtpService } from "./otp.js";
 import type { OtpChannel } from "./otp-senders.js";
+import { recordStepUp } from "./record-step-up.js";
 import type { TotpConfig } from "./totp.js";
 import { createTotpModule } from "./totp.js";
 
@@ -92,6 +93,7 @@ export function twoFactor(config?: TwoFactorConfig): TheAuthPlugin {
 								locked ? 429 : 400,
 							);
 						}
+						await recordStepUp(ctx, request, "otp");
 						return jsonResponse({ valid: true });
 					},
 				});
@@ -160,6 +162,9 @@ export function twoFactor(config?: TwoFactorConfig): TheAuthPlugin {
 					}
 
 					const result = await module.verify(user.id, code);
+					if (result.valid) {
+						await recordStepUp(ctx, request, result.usedBackupCode ? "otp" : "totp");
+					}
 					return jsonResponse(result);
 				},
 			});

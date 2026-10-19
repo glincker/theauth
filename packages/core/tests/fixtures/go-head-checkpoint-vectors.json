@@ -1,0 +1,1537 @@
+{
+  "cases": [
+    {
+      "name": "ok_three_chains",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "rows": [
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "",
+          "chainSeq": 1,
+          "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "",
+          "chainSeq": 2,
+          "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "",
+          "chainSeq": 3,
+          "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 1,
+          "hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 2,
+          "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 1,
+          "hash": "f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 2,
+          "hash": "6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 3,
+          "hash": "def0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc"
+        },
+        {
+          "id": "00000000ZC0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 4,
+          "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+        }
+      ],
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "name": "ok_signature_only",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "name": "ok_rows_appended_after_signing",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "rows": [
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "",
+          "chainSeq": 1,
+          "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "",
+          "chainSeq": 2,
+          "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "",
+          "chainSeq": 3,
+          "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 1,
+          "hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 2,
+          "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 1,
+          "hash": "f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 2,
+          "hash": "6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 3,
+          "hash": "def0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc"
+        },
+        {
+          "id": "00000000ZC0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 4,
+          "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+        },
+        {
+          "id": "00000000ZC0000000000000000",
+          "organizationId": "",
+          "chainSeq": 4,
+          "hash": "cdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789ab"
+        },
+        {
+          "id": "00000000ZD0000000000000000",
+          "organizationId": "",
+          "chainSeq": 5,
+          "hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012"
+        },
+        {
+          "id": "00000000ZE0000000000000000",
+          "organizationId": "",
+          "chainSeq": 6,
+          "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 3,
+          "hash": "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0"
+        }
+      ],
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "name": "ok_new_chain_after_signing",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "rows": [
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "",
+          "chainSeq": 1,
+          "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "",
+          "chainSeq": 2,
+          "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "",
+          "chainSeq": 3,
+          "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 1,
+          "hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 2,
+          "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 1,
+          "hash": "f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 2,
+          "hash": "6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 3,
+          "hash": "def0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc"
+        },
+        {
+          "id": "00000000ZC0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 4,
+          "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JC0000000000000000000C00",
+          "chainSeq": 1,
+          "hash": "bcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789a"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JC0000000000000000000C00",
+          "chainSeq": 2,
+          "hash": "23456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01"
+        }
+      ],
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "name": "ok_empty_heads",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [],
+        "signature": "qo92TvG9d-zNzEyMYBuRKkqP-kDtGTzEUnxO5Y2IQK60ibzO8dDWjr7EOjl4wjPflpY7WAa9c6BC-6cWeQFWAw"
+      },
+      "rows": [
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "",
+          "chainSeq": 1,
+          "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "",
+          "chainSeq": 2,
+          "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        }
+      ],
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "name": "ok_rotated_key_list",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "rows": [
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "",
+          "chainSeq": 1,
+          "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "",
+          "chainSeq": 2,
+          "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "",
+          "chainSeq": 3,
+          "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 1,
+          "hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 2,
+          "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 1,
+          "hash": "f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 2,
+          "hash": "6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 3,
+          "hash": "def0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc"
+        },
+        {
+          "id": "00000000ZC0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 4,
+          "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+        }
+      ],
+      "keys": [
+        {
+          "keyId": "other",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg"
+          }
+        },
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "name": "ok_max_safe_seq_signature_only",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 9007199254740991,
+            "hash": "f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+          }
+        ],
+        "signature": "VrW1DkYyi7riuK7hkWDLVW8F7qgz1nAST8xz-eXAkiKkddOuvUqBLc_BINy-JEQuwxyf7RhGw-y_8_y2e_cXAQ"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "name": "chain_truncated_tail_cut",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "rows": [
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "",
+          "chainSeq": 1,
+          "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "",
+          "chainSeq": 2,
+          "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 1,
+          "hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 2,
+          "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 1,
+          "hash": "f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 2,
+          "hash": "6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 3,
+          "hash": "def0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc"
+        },
+        {
+          "id": "00000000ZC0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 4,
+          "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+        }
+      ],
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "chain_truncated"
+      }
+    },
+    {
+      "name": "chain_truncated_org_chain_missing",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "rows": [
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "",
+          "chainSeq": 1,
+          "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "",
+          "chainSeq": 2,
+          "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "",
+          "chainSeq": 3,
+          "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 1,
+          "hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 2,
+          "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        }
+      ],
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "chain_truncated",
+        "chainKey": "01JB0000000000000000000B00"
+      }
+    },
+    {
+      "name": "chain_truncated_no_rows_at_all",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "chain_truncated"
+      }
+    },
+    {
+      "name": "chain_truncated_second_chain_reported",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "rows": [
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "",
+          "chainSeq": 1,
+          "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "",
+          "chainSeq": 2,
+          "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "",
+          "chainSeq": 3,
+          "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 1,
+          "hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 1,
+          "hash": "f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 2,
+          "hash": "6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 3,
+          "hash": "def0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc"
+        },
+        {
+          "id": "00000000ZC0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 4,
+          "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+        }
+      ],
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "chain_truncated",
+        "chainKey": "01JA0000000000000000000A00"
+      }
+    },
+    {
+      "name": "head_mismatch_rewritten_tail",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "rows": [
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "",
+          "chainSeq": 1,
+          "hash": "bcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789a"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "",
+          "chainSeq": 2,
+          "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "",
+          "chainSeq": 3,
+          "hash": "23456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 1,
+          "hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 2,
+          "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 1,
+          "hash": "f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 2,
+          "hash": "6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 3,
+          "hash": "def0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc"
+        },
+        {
+          "id": "00000000ZC0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 4,
+          "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+        }
+      ],
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "head_mismatch"
+      }
+    },
+    {
+      "name": "head_mismatch_seq_skipped",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "rows": [
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "",
+          "chainSeq": 1,
+          "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "",
+          "chainSeq": 2,
+          "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        },
+        {
+          "id": "00000000ZC0000000000000000",
+          "organizationId": "",
+          "chainSeq": 4,
+          "hash": "cdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789ab"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 1,
+          "hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 2,
+          "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 1,
+          "hash": "f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 2,
+          "hash": "6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 3,
+          "hash": "def0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc"
+        },
+        {
+          "id": "00000000ZC0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 4,
+          "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+        }
+      ],
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "head_mismatch"
+      }
+    },
+    {
+      "name": "bad_signature_head_edited",
+      "mode": "live",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 2,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "rows": [
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "",
+          "chainSeq": 1,
+          "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "",
+          "chainSeq": 2,
+          "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "",
+          "chainSeq": 3,
+          "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 1,
+          "hash": "3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JA0000000000000000000A00",
+          "chainSeq": 2,
+          "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        },
+        {
+          "id": "00000000Z90000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 1,
+          "hash": "f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde"
+        },
+        {
+          "id": "00000000ZA0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 2,
+          "hash": "6789abcdef0123456789abcdef0123456789abcdef0123456789abcdef012345"
+        },
+        {
+          "id": "00000000ZB0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 3,
+          "hash": "def0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc"
+        },
+        {
+          "id": "00000000ZC0000000000000000",
+          "organizationId": "01JB0000000000000000000B00",
+          "chainSeq": 4,
+          "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+        }
+      ],
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "bad_signature"
+      }
+    },
+    {
+      "name": "bad_signature_wrong_key",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "other",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 1,
+            "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+          }
+        ],
+        "signature": "WeAPzgreuHdaWAxWz-LPpVPQ9f_Ek_SGC2l4pTfswG3S6rJZ4EVuER5fmdizSBhDdnvngIzmUQRMCrH1TKOlBg"
+      },
+      "keys": [
+        {
+          "keyId": "other",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "bad_signature"
+      }
+    },
+    {
+      "name": "unknown_key",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "other",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 1,
+            "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+          }
+        ],
+        "signature": "WeAPzgreuHdaWAxWz-LPpVPQ9f_Ek_SGC2l4pTfswG3S6rJZ4EVuER5fmdizSBhDdnvngIzmUQRMCrH1TKOlBg"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unknown_key"
+      }
+    },
+    {
+      "name": "unsupported_alg",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "RS256",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "yjyoURg6kACXiEmR6X5EBwdtTr0ZSFry7dZ3csSyYJB-EVmoV8qRvpWwjNiR2IvwhY0uix1Ynp6v2qdlXowTBw"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "unsupported_alg"
+      }
+    },
+    {
+      "name": "malformed_version_2",
+      "mode": "signature",
+      "head": {
+        "version": 2,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 1,
+            "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+          }
+        ],
+        "signature": "LM_A9CyDZR_kkbV6arK3OrkCNQMD2Us6c56kWDu2YJC7hOjvRsGpjekuQEqtR2u4XJEFxjoHRQ9wLPRADGi7Ag"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "malformed_seq_zero",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 0,
+            "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+          }
+        ],
+        "signature": "15VqGUdDPQg9dTB1tqD8ZweJC0AjXVQKxK9BYATJ3RbECVLPH3xi4w7HalhmXk0RWpMRxpgO7Tz_doXpzg2GAw"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "malformed_uppercase_hash",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 1,
+            "hash": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"
+          }
+        ],
+        "signature": "DpGGFIVShdL0OdAY7a1ixQBDMlEqFJHFwiskhd27j3WQsdJzQm-mc3E6e57BrS3nx8feqSowWwwTw6L4lEipAg"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "malformed_unsorted_heads",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 1,
+            "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 1,
+            "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+          }
+        ],
+        "signature": "Azrl2ACY-ybZCXVluieAyY2Hi407fwPdRcSgA1PVnBWeYn2hMGFJGhjJtImsB-jg4k8wkAUi2qD8v5hR1VtYAw"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "malformed_duplicate_chain",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 1,
+            "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          }
+        ],
+        "signature": "n1ibPTorp6WX1qGBE3Hs41J3H3dMBOgnS_dW5n_XKP22uKZdrNbj_sxoLACO1tSYrsUN1qCv_kUHWsl2YxxHDw"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "ok_utf8_byte_order_of_keys",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "￿",
+            "seq": 1,
+            "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+          },
+          {
+            "chainKey": "😀",
+            "seq": 1,
+            "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+          }
+        ],
+        "signature": "PVzlE6kSNczA9tUK1ksX1Xa1-77SIjGzpQIrpuxwMoRbwX498u2_z9iJ6ACGr-GLZT4VfFEZnkVwjZvFsC5fAw"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "name": "malformed_utf16_order_of_keys",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "😀",
+            "seq": 1,
+            "hash": "789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456"
+          },
+          {
+            "chainKey": "￿",
+            "seq": 1,
+            "hash": "ef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+          }
+        ],
+        "signature": "_hjeDkX1asGXatBCW3X82uv1bqVVEJ1UsA8QuyMK8k4xTX1_QSCTeS2DQwAy1se0WmAuQkh8POi8iZHlsDrFAw"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "malformed"
+      }
+    },
+    {
+      "name": "bad_signature_zero_signature",
+      "mode": "signature",
+      "head": {
+        "version": 1,
+        "alg": "Ed25519",
+        "keyId": "rfc8032-1",
+        "timestamp": 1760000000000,
+        "heads": [
+          {
+            "chainKey": "",
+            "seq": 3,
+            "hash": "56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234"
+          },
+          {
+            "chainKey": "01JA0000000000000000000A00",
+            "seq": 2,
+            "hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          },
+          {
+            "chainKey": "01JB0000000000000000000B00",
+            "seq": 4,
+            "hash": "456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123"
+          }
+        ],
+        "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "keys": [
+        {
+          "keyId": "rfc8032-1",
+          "publicKey": {
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+          }
+        }
+      ],
+      "expected": {
+        "valid": false,
+        "reason": "bad_signature"
+      }
+    }
+  ],
+  "keyId": "rfc8032-1",
+  "note": "Signed with the RFC 8032 section 7.1 test 1 secret key. Expected results come from the Go VerifyHeadCheckpoint and CheckHeadCheckpoint.",
+  "producer": "theauth-go audit/checkpoint HeadCheckpoint (headSignDomain theauth.audit.head.v1)"
+}

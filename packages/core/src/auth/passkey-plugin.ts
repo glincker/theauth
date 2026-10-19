@@ -2,6 +2,7 @@ import { buildSessionSetCookie, parseRememberMe } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { PasskeyConfig } from "./passkey.js";
 import { createPasskeyModule } from "./passkey.js";
+import { recordStepUp } from "./record-step-up.js";
 import { SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
 export type { PasskeyConfig };
@@ -162,11 +163,10 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 								}
 							}
 							const rememberMe = parseRememberMe(body.rememberMe);
-							const { session, token } = await ctx.sessionManager.create(
-								result.userId,
-								undefined,
-								rememberMe === undefined ? undefined : { rememberMe },
-							);
+							const { session, token } = await ctx.sessionManager.create(result.userId, undefined, {
+								authMethods: [result.userVerified ? "passkey" : "passkey_presence"],
+								...(rememberMe !== undefined && { rememberMe }),
+							});
 
 							return new Response(
 								JSON.stringify({
@@ -179,7 +179,7 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 									headers: {
 										"Content-Type": "application/json",
 										"Set-Cookie": buildSessionSetCookie(
-											"theauth_session",
+											ctx.sessionManager.cookieName ?? "theauth_session",
 											token,
 											session,
 											(ctx.config.baseUrl ?? "").startsWith("https://"),
@@ -191,6 +191,68 @@ export function passkey(config: PasskeyConfig): TheAuthPlugin {
 
 						// Fallback: no session manager, return raw result
 						return jsonResponse(result);
+					} catch (err) {
+						return jsonResponse(
+							{ error: err instanceof Error ? err.message : "Authentication failed" },
+							401,
+						);
+					}
+				},
+			});
+
+			// POST /auth/passkey/step-up/options
+			// Authentication options limited to the signed-in user's own credentials.
+			ctx.addEndpoint({
+				method: "POST",
+				path: "/auth/passkey/step-up/options",
+				metadata: {
+					requireAuth: true,
+					description: "Get WebAuthn options to re-authenticate the current session",
+				},
+				async handler(request, endpointCtx) {
+					const user = await endpointCtx.getUser(request);
+					if (!user) return jsonResponse({ error: "Authentication required" }, 401);
+					try {
+						return jsonResponse(await module.getAuthenticationOptions(user.id));
+					} catch (err) {
+						return jsonResponse(
+							{ error: err instanceof Error ? err.message : "Failed to generate options" },
+							500,
+						);
+					}
+				},
+			});
+
+			// POST /auth/passkey/step-up/verify
+			// Verifies an assertion and records it on the CURRENT session (RFC 9470), so no second
+			// sign-in and no second session. The credential must belong to the signed-in user.
+			ctx.addEndpoint({
+				method: "POST",
+				path: "/auth/passkey/step-up/verify",
+				metadata: {
+					requireAuth: true,
+					description: "Verify a WebAuthn assertion and record it on the current session",
+				},
+				async handler(request, endpointCtx) {
+					const user = await endpointCtx.getUser(request);
+					if (!user) return jsonResponse({ error: "Authentication required" }, 401);
+					const body = await parseBody(request);
+					const response = body.response as
+						| Parameters<typeof module.verifyAuthentication>[0]
+						| undefined;
+					if (!response) return jsonResponse({ error: "Missing required field: response" }, 400);
+					try {
+						const result = await module.verifyAuthentication(response);
+						if (result.userId !== user.id) {
+							return jsonResponse({ error: "Authentication failed" }, 401);
+						}
+						const recorded = await recordStepUp(
+							ctx,
+							request,
+							result.userVerified ? "passkey" : "passkey_presence",
+							user.id,
+						);
+						return jsonResponse({ verified: true, recorded, userVerified: result.userVerified });
 					} catch (err) {
 						return jsonResponse(
 							{ error: err instanceof Error ? err.message : "Authentication failed" },

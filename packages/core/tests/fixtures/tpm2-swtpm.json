@@ -1,0 +1,59 @@
+{
+  "_comment": "Generated with swtpm 0.7.3 (libtpms, a software TPM 2.0) and tpm2-tools 5.7 / tpm2-pytss 2.3.0 by docs-local/tpm2/gen.sh. Not a hardware TPM. makeCredentialKat: output of the TypeScript tpm2MakeCredential with pinned randomness (RSA seed, ECC ephemeral key), accepted by TPM2_ActivateCredential on the same swtpm, which recovered the credential (recoveredByTpm). docs-local/tpm2/check.sh repeats that check for any implementation.",
+  "rsa": {
+    "ekPublic": "AToAAQALAAMAsgAgg3GXZ0SEs_gakMyNRqXXJP1S124GUgtk8qHaGzMUaaoABgCAAEMAEAgAAAAAAAEAocGw9Y8bmaE6Yy4CVe0YOKtprLMa4kZzJJ9wE3K6N5C6M26okkhmaXPnjS6w7JT6m70UfT5LHSHPrGi-AiMHyk5PpagkAFhK2mZatiOpNuXnXrDsZltu9sNW9fDpNJB2NMCj6nwSeDe7tbwB4Nl6c4mv_9DkIRSFS9zfEhSGUrGeTl7DSRRKXGi91Pf9mEf2DjbFRlaK6ZIhAMTivEU25h05ZLK33bJXzDylFlzoAo9Ib0sJTgNkPjk-bLYSgbLRWnGMIrY10E9-mnn98F6titQpHVTsnp51GlGcReAvaegzymB80jsPzIoRhMLdkXeoe9S-uq5oQ2uO_Z3TJBCCNQ",
+    "akPublic": "ARgAAQALAAUAcgAAABAAFAALCAAAAAAAAQCz6b0Xy1PB0MosbyPOqBwn5GHZu8RmpJ79LFJi7u8DMYj_-ZK2UBoWeJhBDnfqeJUBp1g1UZ7vOlq2iE0dxSPCypuioxyp_iwmkgJL_OaNs0TgH7iHaE4FmiL-99F6bRKEzPAQ5nQmmECvUgPeyBBBUXYWK72ptiiiY4ur7nR_7e5alvQiZwuzA0UPWmgQiSZsCekfSdwK_DtGC1SHOblX25lIO6IF6PDuuK0TTfQMQSLQ_McYFgWf59lHAS9upO6rsX0zHwXoOK71Mf8CmugmQUs5U_wq07wdmw2CfrRrBzR9eUMqXMivr9jL4iv6ONNOhjgjXuSUf9-at9uizGi1",
+    "akName": "000bdfa3d8195174f38830cec4078f15c147e753498f5821db7a8a9b15603a758475",
+    "keyPublic": "ARgAAQALAAQAcgAAABAAFAALCAAAAAAAAQDCptjqYrW52UiHapnRj1GuPtiCXmSdX6_uajURfH4clC6Dfv7OwW15TsXXv3fR8OZLN_Tjo3hXVxP7sQjEeTPUQwyslRQXKYw9ZzzNukkqTzSP9VtsbdvoteZfbpTBNWiZt1gZ-XTQt3FGVwrGlxk4EkVd8uZ2BkUh6nmWs1o5_BH4ltt9d3xL0ifTJdFMNsfNGIV1GcMLcLwlQ1v8VBqRfn_kC3QXc0J4l_z3_GzN-5m4kRAEmXT_vSQrODU8STOUMT6UV-RC-7V-hVJiiMSZowQaEAdvroXjqPKOo_Tkkg6Em-GalrwLvcbBZCj0Pr-M57oP5pGOZM_AR1YWDzKV",
+    "keyName": "000bbf5fd2bc1ed997c8858dbdbd52294270d0d4dc97b19bda7e2886c25e8bea3684",
+    "qualifyingData": "6162636465666768696a6b6c6d6e6f70",
+    "certifyInfo": "_1RDR4AXACIAC6P7p24ORYLzm2yh7nn4GgSB72uwgma3W_rSpfmZLRf3ABBhYmNkZWZnaGlqa2xtbm9wAAAAAAAABTYAAAABAAAAAAEgGRAjABY2NgAiAAu_X9K8HtmXyIWNvb1SKUJw0NTcl7Gb2n4ohsJei-o2hAAiAAsXJLCgWsX7Lg8pPlTtQ7lz_yUD7zltIsP6Hg9_VA9XrA",
+    "certifySignature": "ABQACwEArrmmfNbvP8RwGFo7gI6DhEXKK9XBEtbOCwCx0hiYoHQiVZrC5z2gD-MSvW-SawmVtAXwbt8adi6qVKgv8tXeeGS6T9bPvKlhA6yWXrXh1cVuW-PL5_n9UQteKt6-WVqfZpE92DkXOrehpFk_Kwoew385_QCpPxtONxqUfJbseIC3FP8Ir2nyoA92oPm2LhEqJPJG-GJ179eAapwzQDlagMo7mcBMY70KfHcbHdqRwIjqINOslDcwa57bpD-5GkywLHCd8najG7d2XN_sY0JLq0AZKTiuE1ddjp4a9de7HruFd9sJ2nfCOhUUoKtejyytPzv3PWCDh766SIejOR0e-A",
+    "tpmMakeCredential": {
+      "credential": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+      "credentialBlob": "AEQAIFGJ3kYRb0_oaFJrNZkMZpOPPajB9Rq3kfrStobnpzebg1FL-0KvAdeou9ZKQViUEFdt4C18UrkaNYWWi8LcivjD6Q",
+      "encryptedSecret": "AQAZJTBI9Xageqz2DWuxLWx9-rtSLj8vO8wtgdCTJcrBEYuGcCWkGTVYhjR9TUwox0sMSYUW1kSP8XKZ8qgupb8wqagbJhLh10Dj0Vt2hkNYl3lWcxDXaiLWNB0JofnfItf_Agq7F9QO2qzykpfROidSc6_73UY03r9wgM8-hdAdJQPfwsdRSbUzh53ZEZThcyDrHyFnpOMzgmwt4SaUNXTqBoVtr9txMvUE2LBWd8vjsGxTtZLfv-RwnFDE01tQDCjAZ-7QN_XX_l3L4Broh3LaZy1cganjYdV22aSdKRbtAQMjQOugWChWfzczDZIA6OZqD3ZDflwrF3JV8jdT07Jp",
+      "recovered": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+    }
+  },
+  "ecc": {
+    "ekPublic": "AHoAIwALAAMAsgAgg3GXZ0SEs_gakMyNRqXXJP1S124GUgtk8qHaGzMUaaoABgCAAEMAEAADABAAIBftKJWZWO5mydMFhcFnnY_vDLhVY3tg0tGWVnrPh6wZACB0VC4pIeRivGgJQiBsHm8N_iZM-ux65PIxvAaKZ52Tnw",
+    "akPublic": "AFgAIwALAAUAcgAAABAAGAALAAMAEAAgDBjVFE48lSV00rsW6O3WInkm0OyBYGFMD_3Yix9YCH8AIHS9lYf3efLYCXVrfIDMarf2LUgYQhoH35WzRJ1gtCtN",
+    "akName": "000b9891d6d245f24aa66eadcfb820f529ea7825bdb7eaeca3f5c706b9e454f039c7",
+    "keyPublic": "AFgAIwALAAQAcgAAABAAGAALAAMAEAAgA8qO_30FlS5GGTn0ENpjAI5PZZ3IXziC-a9fuQlmUggAIPw4gVI_JQzVnrUB5TgBxh8jBLPNwZb1ucgh8g7e53Jf",
+    "keyName": "000b08859bfe6d366e39459daf8cd939fe2a6424b67d4a7ba79a991604070d1ada0f",
+    "qualifyingData": "6162636465666768696a6b6c6d6e6f70",
+    "certifyInfo": "_1RDR4AXACIAC38IYzUFI-DanH5csijYOiLMkWvGJMJ53Q8hGlzvN1jYABBhYmNkZWZnaGlqa2xtbm9wAAAAAAAABUMAAAABAAAAAAEgGRAjABY2NgAiAAsIhZv-bTZuOUWdr4zZOf4qZCS2fUp7p5qZFgQHDRraDwAiAAsYbq0Bs_AzKBd0-F8amxnecmusS98T2iE_plEil9s-zA",
+    "certifySignature": "ABgACwAgrDvuoK7OK-G4dv1sG0jdCNJk89O-CS62IG3bDs926GgAIDhXeUK1uY2RNij-tf7fkg8eHPf92FKwSZZHUf_0h03J",
+    "tpmMakeCredential": {
+      "credential": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+      "credentialBlob": "AEQAIHVILyAdX5irDphXqfe9a7DO0ZoXg9zGuRJ56rg7ZbS7Wc2OlNV9soMAab1AkxnPb_HJJ8_09Q2jTGX82u4PzUGcjA",
+      "encryptedSecret": "AEQAIKpFONvA3pFLlYDr75OfGCp97uNR1HXFTfbM5QM6CNY4ACBZSAJY-_oQfSnHYiQ5zjqBKgJujHDDPLdXiUfQvdaWag",
+      "recovered": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+    }
+  },
+  "makeCredentialKat": {
+    "rsa": {
+      "seed": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+      "credential": "a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0",
+      "credentialBlob": "AEQAIILYctjh7MiU7UBIPkQ428YDMMNn0WTRhbJ_UlEEU0MjP6H6fqn5TlPcGmP2Rm4JmNF2kQg9OjqawV6eYMW0Z9Q-ew",
+      "encryptedSecret": "AQBiOVvK-AdsQd-aEggmDVCPMWJQXAtetji_rPkv3kbn703SDYUA-EuaQg3s6ZfN1Lmm4L9foOElEKFjjW7J1aPQgFe8poMqtuPC1d_9lmBSIxdewgscf8_dEiQLh_AZLOdX3XT8hhuLM9Z8dduL45z874DWeoMZfu1_3Yb7coEXsIVq7bYom1P05j5m8zjhPyr5J69DixfdSmp5ftBLnA-OzdKb83RbWzPAm2ThGTN40O-sPJNz5Y7VAuEUDqpYkuCSDChvfdcEYZZKEUqnaDTypwd2RKBzepxKSgYloDIdTeeu09amtrTz-Nk9HKtdZwYv86Bw5UPZHe28xV2nkmsY",
+      "recoveredByTpm": "a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0"
+    },
+    "ecc": {
+      "ephemeralPrivateJwk": {
+        "key_ops": ["deriveBits"],
+        "ext": true,
+        "kty": "EC",
+        "x": "ngZa_22L0yPPM3c0krPPQpklim8xt8tJiF4eFGtdIYg",
+        "y": "lLiN520qpKlbOcrAg3H--U3esWNKRFG037gBgMziehk",
+        "crv": "P-256",
+        "d": "eLue52zkyjdKoZ2GMgWu__ydNwcMERnE1qxXehOLGX0"
+      },
+      "credential": "a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0",
+      "credentialBlob": "AEQAIJADNaV6TyGEFlVax-7AJLpmP_ufvR2Ac3zuscnpCxo6xtsnkOcd32lnjkEjISzH35w9hfCUir8gfUCuIqIi01ECPw",
+      "encryptedSecret": "AEQAIJ4GWv9ti9MjzzN3NJKzz0KZJYpvMbfLSYheHhRrXSGIACCUuI3nbSqkqVs5ysCDcf75Td6xY0pEUbTfuAGAzOJ6GQ",
+      "recoveredByTpm": "a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0"
+    }
+  }
+}

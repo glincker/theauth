@@ -223,6 +223,45 @@ export interface PrismaApprovalRequest {
 	respondedAt: Date | null;
 	respondedBy: string | null;
 	createdAt: Date;
+	/** Distinct approvers needed. Null on rows written before quorum approvals, which means one. */
+	requiredApprovals?: number | null;
+}
+
+/** One approver's counted approval on a request. */
+export interface PrismaApprovalVote {
+	approvalId: string;
+	approverId: string;
+	/** Epoch milliseconds. The column is BIGINT, so Prisma may hand it back as a bigint. */
+	decidedAt: number | bigint;
+	approverAcr: string | null;
+}
+
+/** Why a vote was refused before it was counted. */
+export type ApprovalVoteErrorCode = "SELF_APPROVAL" | "DUPLICATE_APPROVER" | "NOT_FOUND";
+
+/** Thrown by `castApprovalVote` when the vote breaks the distinct approver rule. */
+export class ApprovalVoteError extends Error {
+	readonly code: ApprovalVoteErrorCode;
+	constructor(code: ApprovalVoteErrorCode, message: string) {
+		super(message);
+		this.name = "ApprovalVoteError";
+		this.code = code;
+	}
+}
+
+export type CastApprovalVoteResult =
+	/** The vote counted and the quorum is not complete. */
+	| { kind: "pending"; approvers: string[] }
+	/** The vote completed the quorum and the request is now approved. */
+	| { kind: "approved"; approvers: string[] }
+	/** The request was decided or expired first. The vote was withdrawn. */
+	| { kind: "lost" };
+
+export interface CastApprovalVoteInput {
+	approvalId: string;
+	approverId: string;
+	now: Date;
+	approverAcr?: string;
 }
 
 export interface AgentFilter {
@@ -414,6 +453,14 @@ export interface TheAuthPrismaAdapter {
 		id: string,
 		data: Partial<PrismaApprovalRequest>,
 	): Promise<PrismaApprovalRequest>;
+	/** Approvers counted so far, oldest first. */
+	listApprovalVotes(approvalId: string): Promise<PrismaApprovalVote[]>;
+	/**
+	 * Count one approver on a quorum request. The composite primary key stops a repeat approver,
+	 * and the request flips to approved with one conditional update on pending and unexpired, so
+	 * only one caller completes the quorum. Throws `ApprovalVoteError`.
+	 */
+	castApprovalVote(input: CastApprovalVoteInput): Promise<CastApprovalVoteResult>;
 
 	transaction<T>(fn: (adapter: TheAuthPrismaAdapter) => Promise<T>): Promise<T>;
 }

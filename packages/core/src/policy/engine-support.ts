@@ -1,28 +1,34 @@
 // Pure helpers and small queries used by the policy engine, split out to keep engine.ts under 500 lines.
 
 import { eq } from "drizzle-orm";
+import { captureInputProvenance, withInputSources } from "../audit/provenance.js";
 import type { Database } from "../db/database.js";
 import { permissions as permissionsTable } from "../db/schema.js";
 import { getDelegatedPermissions } from "../delegation/delegation.js";
 import type { Permission } from "../types.js";
 import type { createRbacResolver } from "./rbac.js";
+import type { ResourceMatching } from "./resource-match.js";
 import { normalizeProvenance } from "./taint.js";
 import type { EvaluateInput, PolicyDecision } from "./types.js";
 import { POLICY_ERROR_CODES } from "./types.js";
 
-/** The input_provenance value for the audit row: labels and the taint verdict, or undefined. */
-export function provenanceRecord(
+/** The input_provenance value for the audit row: labels, the taint verdict and the captured input sources (hashes only), or undefined. */
+export async function provenanceRecord(
+	db: Database,
 	input: EvaluateInput,
 	decision: PolicyDecision,
-): Record<string, unknown> | undefined {
+): Promise<Record<string, unknown> | undefined> {
 	const labels = normalizeProvenance(input.context?.provenance);
-	if (!labels && !decision.taint) return undefined;
-	return {
-		labels: labels ?? {},
-		...(decision.taint
-			? { taint: { verdict: decision.taint.verdict, matches: decision.taint.matches } }
-			: {}),
-	};
+	const base =
+		!labels && !decision.taint
+			? undefined
+			: {
+					labels: labels ?? {},
+					...(decision.taint
+						? { taint: { verdict: decision.taint.verdict, matches: decision.taint.matches } }
+						: {}),
+				};
+	return withInputSources(base, await captureInputProvenance(db, input.context?.inputs));
 }
 
 export function buildCacheKey(input: EvaluateInput): string {
@@ -64,12 +70,13 @@ export async function resolveEffectivePermissions(
 	db: Database,
 	rbac: ReturnType<typeof createRbacResolver>,
 	input: EvaluateInput,
+	matching: ResourceMatching = "colon",
 ): Promise<Permission[]> {
 	const direct = input.subject.agentId
 		? await fetchDirectPermissions(db, input.subject.agentId)
 		: [];
 	const delegated = input.subject.agentId
-		? await getDelegatedPermissions(db, input.subject.agentId)
+		? await getDelegatedPermissions(db, input.subject.agentId, matching)
 		: [];
 	const roles = input.subject.userId
 		? await rbac.resolveRolePermissions({

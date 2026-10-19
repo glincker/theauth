@@ -1,5 +1,6 @@
 import type { ApiClient } from "../client.js";
 import type { Logger } from "../logger.js";
+import type { InputSource } from "../provenance.js";
 import { redact } from "../redact.js";
 
 export interface AuditEntry {
@@ -9,6 +10,8 @@ export interface AuditEntry {
 	result: "ok" | "error" | "requested" | "pending" | "denied" | "executed" | "failed";
 	params?: unknown;
 	approvalId?: string;
+	/** Caller claimed inputs of this call, from the request `_meta`. */
+	inputs?: InputSource[];
 }
 
 export interface AuditRecorder {
@@ -36,6 +39,7 @@ export function createAuditRecorder(
 					result: entry.result,
 					approvalId: entry.approvalId,
 					params: redact(entry.params ?? {}),
+					...(entry.inputs ? { inputs: entry.inputs } : {}),
 				},
 			});
 			if (!r.ok) logger.error(`audit write failed for ${entry.tool}: ${r.error.code}`);

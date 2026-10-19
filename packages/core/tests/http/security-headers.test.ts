@@ -41,7 +41,7 @@ describe("default Cache-Control no-store", () => {
 		for (const route of routes) {
 			const res = await handler(callOf(route.method, route.path));
 			const label = `${route.method} ${route.path} -> ${res.status}`;
-			if (route.path === "/mcp/jwks") {
+			if (route.path === "/mcp/jwks" || route.path === "/device/jwks") {
 				// Public signing keys keep their own cacheable value.
 				expect(res.headers.get("cache-control"), label).toMatch(/^public/);
 				continue;

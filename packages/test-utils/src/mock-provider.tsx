@@ -4,6 +4,7 @@
 
 import type {
 	ActionResult,
+	SignUpData,
 	TheAuthContextValue,
 	TheAuthSession,
 	TheAuthUser,
@@ -44,9 +45,13 @@ function makeDefaultSignIn(): TheAuthContextValue["signIn"] {
 
 function makeDefaultSignUp(): TheAuthContextValue["signUp"] {
 	const spy = vi.fn(
-		async (_email: string, _password: string, _name?: string): Promise<ActionResult> => ({
+		async (
+			_email: string,
+			_password: string,
+			_name?: string,
+		): Promise<ActionResult<SignUpData>> => ({
 			success: true,
-			data: undefined,
+			data: { verificationRequired: false },
 		}),
 	);
 	return spy;
@@ -96,6 +101,10 @@ export function MockTheAuthProvider({
 		signUp: signUp ?? makeDefaultSignUp(),
 		signOut: signOut ?? makeDefaultSignOut(),
 		refresh: refresh ?? makeDefaultRefresh(),
+		verifyEmail: async () => ({ success: true, data: undefined }),
+		resendVerification: async () => ({ success: true, data: undefined }),
+		requestPasswordReset: async () => ({ success: true, data: undefined }),
+		resetPassword: async () => ({ success: true, data: undefined }),
 		// Rotation surface: managed-mode no-ops in tests by default.
 		rotateSession: async () => ({
 			success: false,

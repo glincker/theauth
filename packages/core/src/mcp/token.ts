@@ -1,4 +1,5 @@
 import { bindingStoreOf, resolveAgentBinding } from "./binding.js";
+import { checkClientAgentOwner } from "./client-agent-owner.js";
 import { verifyClientAssertion } from "./client-assertion.js";
 import { readDpopHeader, verifyDpopProof } from "./dpop.js";
 import { handleClientCredentialsGrant } from "./grant-client-credentials.js";
@@ -278,6 +279,15 @@ async function handleAuthorizationCodeGrant(
 
 	const resource = authCode.resource;
 
+	// The code's user must own the agent an admin bound this client to. Checked here too because the
+	// code (and so the user) is only known once it is consumed, and codes can be stored by other paths.
+	const ownerCheck = await checkClientAgentOwner(
+		ctx,
+		{ clientId: data.client_id, agentId: resolved.data.agentId, userId: authCode.userId },
+		"INVALID_GRANT",
+	);
+	if (!ownerCheck.success) return ownerCheck;
+
 	// A code issued before a sign out everywhere, ban or client block must not mint after it.
 	const live = await checkGrantLive(ctx, {
 		jti: authCode.code,
@@ -301,6 +311,7 @@ async function handleAuthorizationCodeGrant(
 		authCode.scope,
 		resource,
 		dpopJkt,
+		authCode.auth ? { auth: authCode.auth } : {},
 	);
 
 	const includeRefreshToken = authCode.scope.includes("offline_access");
@@ -319,6 +330,7 @@ async function handleAuthorizationCodeGrant(
 		...(familyId ? { familyId } : {}),
 		tokenType: dpopJkt ? "DPoP" : "Bearer",
 		...(dpopJkt ? { dpopJkt } : {}),
+		...(authCode.auth ? { auth: authCode.auth } : {}),
 		expiresIn: ttlSeconds,
 		scope: authCode.scope,
 		clientId: data.client_id,

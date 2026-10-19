@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Users } from "lucide-react";
 import type { TheAuthApiClient } from "../api/client.js";
+import { ApiErrorNotice } from "../components/api-error.js";
 import { Badge } from "../components/badge.js";
 import { PageHeader } from "../components/layout.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
@@ -24,6 +25,8 @@ export function UsersPage({ client, onNavigate }: UsersPageProps) {
 	return (
 		<div>
 			<PageHeader title="Users" description="Users who own agent identities in this system." />
+
+			<ApiErrorNotice result={usersResult} />
 
 			{isLoading ? (
 				<div className="flex items-center justify-center py-16">

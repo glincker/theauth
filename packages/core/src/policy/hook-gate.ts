@@ -1,7 +1,7 @@
 // beforeAuthorize for policy.evaluate(): agent subjects only. The verdict is never cached;
 // the caller runs this ahead of the cache lookup on every evaluation.
 
-import { consumeApproval } from "../approval/consume.js";
+import { consumeApproval, decisionCodeOfApproval } from "../approval/consume.js";
 import { hookAuditDetail, isHookBlock } from "../authorize/hook-outcome.js";
 import type { Database } from "../db/database.js";
 import type { agents } from "../db/schema.js";
@@ -136,7 +136,7 @@ export async function runPolicyHook(
 		return {
 			kind: "blocked",
 			effect: "deny",
-			code: "approval_invalid",
+			code: decisionCodeOfApproval(spent.code),
 			reason: spent.code,
 			principal,
 			trace: { detail, outcome },

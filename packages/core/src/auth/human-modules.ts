@@ -1,4 +1,5 @@
 import type { Database } from "../db/database.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { RevocationBus } from "../mcp/revocation-bus.js";
 import { createObservability } from "../observability/index.js";
 import type { SessionManager } from "../session/session.js";
@@ -8,10 +9,13 @@ import type { AdminModule } from "./admin.js";
 import { createAdminModule } from "./admin.js";
 import type { ApiKeyManagerModule } from "./api-key-manager.js";
 import { createApiKeyManagerModule } from "./api-key-manager.js";
+import { orgPermissionCheck } from "./api-key-scope.js";
 import type { CaptchaModule } from "./captcha.js";
 import { createCaptchaModule } from "./captcha.js";
 import type { EmailOtpModule } from "./email-otp.js";
 import { createEmailOtpModule } from "./email-otp.js";
+import type { EmailPasswordModule } from "./email-password.js";
+import { createEmailPasswordModule } from "./email-password.js";
 import type { EmailVerificationModule } from "./email-verification.js";
 import { createEmailVerificationModule } from "./email-verification.js";
 import type { MagicLinkModule } from "./magic-link.js";
@@ -25,6 +29,8 @@ import type { PasswordResetModule } from "./password-reset.js";
 import { createPasswordResetModule } from "./password-reset.js";
 import type { PhoneAuthModule } from "./phone.js";
 import { createPhoneAuthModule } from "./phone.js";
+import { recordStepUpOnSession } from "./record-step-up.js";
+import type { ModuleRequestDeps } from "./request-user.js";
 import { createRequestUserResolver } from "./request-user.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import type { SsoModule } from "./sso.js";
@@ -47,19 +53,32 @@ export function createHumanAuthModules(
 	signInGate: SignInGate,
 	revocations?: RevocationBus,
 ) {
+	const databaseHooks = createDatabaseHookRunner(config.databaseHooks, {
+		logger: config.logger,
+		hookSafety: config.hookSafety,
+		generateId: config.advanced?.database?.generateId,
+	});
 	const magicLinkModule: MagicLinkModule | null =
 		config.magicLink && sessionManager
-			? createMagicLinkModule(config.magicLink, db, sessionManager, signInGate)
+			? createMagicLinkModule(config.magicLink, db, sessionManager, signInGate, databaseHooks)
 			: null;
 
 	const emailOtpModule: EmailOtpModule | null =
 		config.emailOtp && sessionManager
-			? createEmailOtpModule(config.emailOtp, db, sessionManager, signInGate)
+			? createEmailOtpModule(config.emailOtp, db, sessionManager, signInGate, databaseHooks)
 			: null;
 
 	// Module handlers act on the signed-in user from the auth adapter or session, never a body userId.
-	const moduleDeps = {
+	const moduleDeps: ModuleRequestDeps = {
 		resolveUser: createRequestUserResolver(db, sessionManager, config.auth?.adapter),
+		recordStepUp: (request, method, userId) =>
+			recordStepUpOnSession(
+				sessionManager,
+				config.auth?.session?.cookieName,
+				request,
+				method,
+				userId,
+			),
 	};
 
 	const totpModule: TotpModule | null = config.totp
@@ -70,7 +89,9 @@ export function createHumanAuthModules(
 		? createPasskeyModule(config.passkey, db, moduleDeps)
 		: null;
 
-	const orgModule: OrgModule | null = config.org ? createOrgModule(config.org, db) : null;
+	const orgModule: OrgModule | null = config.org
+		? createOrgModule(config.org, db, moduleDeps)
+		: null;
 
 	// SAML request ids and the assertion replay cache live in secondary storage (feature "nonces").
 	const ssoModule: SsoModule | null = config.sso
@@ -90,7 +111,13 @@ export function createHumanAuthModules(
 		: null;
 
 	const apiKeyManagerModule: ApiKeyManagerModule | null = config.apiKeys
-		? createApiKeyManagerModule(config.apiKeys, db)
+		? createApiKeyManagerModule(
+				orgModule && !config.apiKeys.grantablePermissions && !config.apiKeys.canGrant
+					? { ...config.apiKeys, canGrant: orgPermissionCheck(orgModule) }
+					: config.apiKeys,
+				db,
+				moduleDeps,
+			)
 		: null;
 
 	const usernameModule: UsernameAuthModule | null =
@@ -98,6 +125,8 @@ export function createHumanAuthModules(
 			? createUsernameAuthModule(config.username, db, sessionManager, signInGate, {
 					storage: createSecondaryStorageResolver(config.secondaryStorage, db).for("rateLimit"),
 					logger: createObservability(config.observability, config.logger).logger,
+					ids: databaseHooks,
+					databaseHooks,
 				})
 			: null;
 
@@ -114,12 +143,29 @@ export function createHumanAuthModules(
 			: null;
 
 	const emailVerificationModule: EmailVerificationModule | null = config.emailVerification
-		? createEmailVerificationModule(config.emailVerification, db, oneTimeTokenModule, moduleDeps)
+		? createEmailVerificationModule(
+				config.emailVerification,
+				db,
+				oneTimeTokenModule,
+				moduleDeps,
+				databaseHooks,
+			)
 		: null;
+
+	const emailPasswordModule: EmailPasswordModule | null =
+		config.emailPassword && sessionManager
+			? createEmailPasswordModule(config.emailPassword, db, sessionManager, signInGate, {
+					storage: createSecondaryStorageResolver(config.secondaryStorage, db).for("rateLimit"),
+					logger: createObservability(config.observability, config.logger).logger,
+					ids: databaseHooks,
+					databaseHooks,
+					emailVerification: emailVerificationModule,
+				})
+			: null;
 
 	const phoneModule: PhoneAuthModule | null =
 		config.phone && sessionManager
-			? createPhoneAuthModule(config.phone, db, sessionManager, signInGate)
+			? createPhoneAuthModule(config.phone, db, sessionManager, signInGate, databaseHooks)
 			: null;
 
 	const captchaModule: CaptchaModule | null = config.captcha
@@ -139,6 +185,7 @@ export function createHumanAuthModules(
 		adminModule,
 		apiKeyManagerModule,
 		usernameModule,
+		emailPasswordModule,
 		oneTimeTokenModule,
 		passwordResetModule,
 		emailVerificationModule,

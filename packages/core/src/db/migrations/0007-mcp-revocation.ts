@@ -1,3 +1,4 @@
+import { MYSQL_TABLE_OPTIONS } from "../ddl/mysql.js";
 import { ddlTypes } from "../ddl/types.js";
 import type { Dialect, Migration } from "../migrate/types.js";
 
@@ -23,7 +24,7 @@ function statements(dialect: Dialect, withAgents: boolean): string[] {
   reason        TEXT NOT NULL,
   source_id     TEXT,
   PRIMARY KEY (kind, id)
-)`,
+)${my ? ` ${MYSQL_TABLE_OPTIONS}` : ""}`,
 		idx("theauth_mcp_revocations_exp", "theauth_mcp_revocations", "expires_at", "expires_at"),
 		idx("theauth_mcp_revocations_ms", "theauth_mcp_revocations", "revoked_at_ms", "revoked_at_ms"),
 	];

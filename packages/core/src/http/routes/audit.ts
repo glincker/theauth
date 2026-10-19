@@ -1,3 +1,4 @@
+import { INPUT_SOURCE_KINDS, isInputSourceKind } from "../../audit/provenance.js";
 import { isInvalidAuditCursor } from "../../audit/query.js";
 import type { AuditExportOptions, AuditFilter } from "../../types.js";
 import { badRequest, failure, ok, scopeDenied, scopeUnavailable } from "../respond.js";
@@ -8,6 +9,31 @@ function parseDate(value: string | null): Date | undefined {
 	if (!value) return undefined;
 	const d = new Date(value);
 	return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+/** `provenanceKind`, `provenanceHash` and `provenanceContent` narrow to rows that recorded a matching input. Undefined when none is given or a value is malformed (the caller gets a 400 from `invalidProvenance`). */
+function parseProvenance(q: URLSearchParams): AuditFilter["provenance"] {
+	const kind = q.get("provenanceKind");
+	const hash = q.get("provenanceHash");
+	const content = q.get("provenanceContent");
+	if (!kind && !hash && !content) return undefined;
+	return {
+		...(kind && isInputSourceKind(kind) ? { kind } : {}),
+		...(hash ? { hash } : {}),
+		...(content ? { content } : {}),
+	};
+}
+
+function invalidProvenance(q: URLSearchParams): string | undefined {
+	const kind = q.get("provenanceKind");
+	if (kind && !isInputSourceKind(kind)) {
+		return `provenanceKind must be one of ${INPUT_SOURCE_KINDS.join(", ")}`;
+	}
+	const hash = q.get("provenanceHash");
+	if (hash && !/^[0-9a-f]{64}$/.test(hash)) {
+		return "provenanceHash must be 64 lowercase hex characters";
+	}
+	return undefined;
 }
 
 function buildAuditFilter(url: URL): AuditFilter {
@@ -43,6 +69,8 @@ function buildAuditFilter(url: URL): AuditFilter {
 	if (cursor) filter.cursor = cursor;
 	if (events) filter.events = events.split(",").map((e) => e.trim());
 	if (resource) filter.resource = resource;
+	const provenance = parseProvenance(q);
+	if (provenance) filter.provenance = provenance;
 	if (limit) {
 		const n = Number.parseInt(limit, 10);
 		if (!Number.isNaN(n) && n > 0) filter.limit = n;
@@ -56,6 +84,8 @@ function buildAuditFilter(url: URL): AuditFilter {
 
 async function queryAudit(ctx: RouteContext): Promise<Response> {
 	if (!ctx.scope) return scopeUnavailable();
+	const badProvenance = invalidProvenance(ctx.url.searchParams);
+	if (badProvenance) return badRequest(badProvenance);
 	const scoped = ctx.scope.scopeAuditFilter(buildAuditFilter(ctx.url));
 	if (!scoped.ok) return scopeDenied(scoped.denial);
 	// Without `paged` or `cursor` the body stays a bare array (newest first). With either, it is

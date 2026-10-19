@@ -78,9 +78,10 @@ export function suggestShrink(analysis: UsageAnalysis, opts: ShrinkOptions = {})
 			const to: Permission = { resource: `${g.parent}:*`, actions: [g.action] };
 			if (g.extras.constraints) to.constraints = g.extras.constraints;
 			if (g.extras.relation) to.relation = g.extras.relation;
-			if (!analysis.granted.some((granted) => covers(granted, to))) continue;
+			if (!analysis.granted.some((granted) => covers(granted, to, opts.resourceMatching))) continue;
 			const widensDenied = analysis.deniedNoGrant.some(
-				(d) => d.action === g.action && matchResource(to.resource, d.resource),
+				(d) =>
+					d.action === g.action && matchResource(to.resource, d.resource, opts.resourceMatching),
 			);
 			if (widensDenied) continue;
 			const [first, ...rest] = g.indexes;

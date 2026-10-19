@@ -25,6 +25,7 @@ let latest: Snapshot | null = null;
 let fetchMock: ReturnType<typeof vi.fn>;
 let storage = createMemoryStorage();
 let agentsState: TheAuthAgent[] = [];
+let signInBody: unknown = null;
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(body === null ? null : JSON.stringify(body), {
@@ -88,48 +89,33 @@ beforeEach(async () => {
 		const parsed = new URL(url, "http://localhost");
 		const authHeader = new Headers(init?.headers).get("Authorization");
 
-		if (parsed.pathname === "/api/theauth/session" && authHeader === "Bearer stored-token") {
+		if (parsed.pathname === "/api/theauth/auth/session" && authHeader === "Bearer stored-token") {
+			// Same shape as core-wiring.ts: no token in the body.
 			return jsonResponse({
-				data: {
-					token: "stored-token",
-					user: {
-						id: "user-1",
-						email: "ada@example.com",
-						name: "Ada",
-					},
-					expiresAt: "2026-04-01T00:00:00.000Z",
-				},
+				user: { id: "user-1", email: "ada@example.com", name: "Ada" },
+				session: { id: "s1", expiresAt: "2026-04-01T00:00:00.000Z" },
 			});
 		}
 
-		if (parsed.pathname === "/api/theauth/sign-in/email" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/auth/username/sign-in" && init?.method === "POST") {
+			signInBody = JSON.parse(String(init.body));
 			return jsonResponse({
-				data: {
-					token: "signin-token",
-					user: {
-						id: "user-1",
-						email: "ada@example.com",
-						name: "Ada",
-					},
-					expiresAt: "2026-04-01T00:00:00.000Z",
-				},
+				user: { id: "user-1", username: "ada@example.com", name: "Ada" },
+				session: { token: "signin-token", expiresAt: "2026-04-01T00:00:00.000Z" },
 			});
 		}
 
-		if (parsed.pathname === "/api/theauth/sign-up/email" && init?.method === "POST") {
-			return jsonResponse({
-				data: {
-					token: "signup-token",
-					user: {
-						id: "user-2",
-						email: "new@example.com",
-						name: "New User",
-					},
+		if (parsed.pathname === "/api/theauth/auth/username/sign-up" && init?.method === "POST") {
+			return jsonResponse(
+				{
+					user: { id: "user-2", email: "new@example.com", name: "New User" },
+					session: { token: "signup-token" },
 				},
-			});
+				201,
+			);
 		}
 
-		if (parsed.pathname === "/api/theauth/sign-out" && init?.method === "POST") {
+		if (parsed.pathname === "/api/theauth/auth/sign-out" && init?.method === "POST") {
 			return new Response(null, { status: 204 });
 		}
 
@@ -227,7 +213,7 @@ describe("@glinr/theauth-expo runtime smoke", () => {
 		expect(
 			fetchMock.mock.calls.some(
 				([input, init]) =>
-					String(input).includes("/api/theauth/session") &&
+					String(input).includes("/api/theauth/auth/session") &&
 					new Headers(init?.headers).get("Authorization") === "Bearer stored-token",
 			),
 		).toBe(true);
@@ -257,6 +243,7 @@ describe("@glinr/theauth-expo runtime smoke", () => {
 		expect(signInResult).toEqual({ success: true, data: undefined });
 		expect(await storage.getItem(SESSION_KEY)).toBe("signin-token");
 		expect(latest?.context.isAuthenticated).toBe(true);
+		expect(signInBody).toEqual({ username: "ada@example.com", password: "secret123" });
 
 		let created: ActionResult<TheAuthAgent> | undefined;
 		await act(async () => {
@@ -302,5 +289,53 @@ describe("@glinr/theauth-expo runtime smoke", () => {
 
 		expect(await storage.getItem(SESSION_KEY)).toBeNull();
 		expect(latest?.context.session).toBeNull();
+	});
+
+	it("emailPassword targets the email routes, reports verificationRequired and the error code", async () => {
+		const seen: string[] = [];
+		const emailFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+			const path = new URL(String(input), "http://localhost").pathname;
+			seen.push(`${init?.method ?? "GET"} ${path}`);
+			if (path.endsWith("/auth/email/sign-up")) {
+				return jsonResponse({ verificationRequired: true }, 201);
+			}
+			if (path.endsWith("/auth/email/sign-in")) {
+				signInBody = JSON.parse(String(init?.body));
+				return jsonResponse(
+					{ error: { code: "EMAIL_NOT_VERIFIED", message: "Verify your email address" } },
+					403,
+				);
+			}
+			return jsonResponse({ error: "Not authenticated" }, 401);
+		}) as typeof fetch;
+
+		render(
+			<TheAuthExpoProvider
+				config={{ basePath: "/api/theauth", storage, fetch: emailFetch, emailPassword: true }}
+			>
+				<Probe />
+			</TheAuthExpoProvider>,
+		);
+		await flush();
+
+		let up: ActionResult<{ verificationRequired: boolean }> | undefined;
+		await act(async () => {
+			up = await latest!.signUp.signUp("ada@example.com", "secret123", "Ada");
+		});
+		expect(up).toEqual({ success: true, data: { verificationRequired: true } });
+		expect(latest?.context.isAuthenticated).toBe(false);
+
+		let inn: ActionResult | undefined;
+		await act(async () => {
+			inn = await latest!.signIn.signIn("ada@example.com", "secret123");
+		});
+		expect(inn).toEqual({
+			success: false,
+			error: "Verify your email address",
+			code: "EMAIL_NOT_VERIFIED",
+		});
+		expect(signInBody).toEqual({ email: "ada@example.com", password: "secret123" });
+		expect(seen).toContain("POST /api/theauth/auth/email/sign-up");
+		expect(seen).toContain("POST /api/theauth/auth/email/sign-in");
 	});
 });

@@ -1,4 +1,5 @@
 import type { createAgentModule } from "../agent/agent.js";
+import { confirmationVerdict } from "../agent/confirmation.js";
 import { stripReservedAuditKeys } from "../audit/reserved.js";
 import type { Database } from "../db/database.js";
 import type { createDelegationModule } from "../delegation/delegation.js";
@@ -8,8 +9,9 @@ import type { BeforeAuthorizeRunner, HookOutcome } from "../hooks/run.js";
 import { depthOfPath, hookFieldsOf } from "../observability/events.js";
 import type { Observability } from "../observability/index.js";
 import type { DecisionEvent } from "../observability/types.js";
-import { DECISION_CODES, violationTypeOf } from "../permission/codes.js";
+import { DECISION_CODES, isApprovalDenial, violationTypeOf } from "../permission/codes.js";
 import type { createPermissionEngine } from "../permission/engine.js";
+import type { AttestationFacts } from "../policy/attestation-constraint.js";
 import type { AgentIdentity, AuthorizeRequest, AuthorizeResult, RequestContext } from "../types.js";
 import type { HookBlock } from "./hook-outcome.js";
 import { hookAuditDetail, isHookBlock, withHookDetail } from "./hook-outcome.js";
@@ -24,6 +26,16 @@ export interface AuthorizePipelineDeps {
 	runBeforeAuthorize: BeforeAuthorizeRunner;
 	/** Receives one decision event per call. Omitted, nothing is emitted. */
 	observability?: Observability;
+	/** Refuse agent tokens that carry no `cnf` binding (`agents.confirmation.required`). */
+	requireConfirmation?: boolean;
+}
+
+/** Internal options for callers that authorize on behalf of another principal (devices). */
+export interface PipelineAuthorizeOptions {
+	/** Merged into the `parameters` of every audit row this call writes, for example `theauthPrincipal`. Keys must be reserved (`theauth*`). */
+	auditParameters?: Record<string, unknown>;
+	/** Verified attestation facts of the calling device, for `attestation` constraints. Set by the device module only. */
+	attestation?: AttestationFacts;
 }
 
 export interface AuthorizePipeline {
@@ -31,6 +43,7 @@ export interface AuthorizePipeline {
 		agentId: string,
 		request: AuthorizeRequest,
 		context?: RequestContext,
+		options?: PipelineAuthorizeOptions,
 	): Promise<AuthorizeResult>;
 	authorizeByToken(
 		token: string,
@@ -100,8 +113,10 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 		agentId: string,
 		request: AuthorizeRequest,
 		context?: RequestContext,
+		options?: PipelineAuthorizeOptions,
 	): Promise<AuthorizeResult> {
 		const startedAt = performance.now();
+		const extra = options?.auditParameters;
 		const agent = await agentModule.get(agentId);
 		if (!agent) {
 			return notify({
@@ -128,6 +143,9 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 				{ agentId: agent.id, ownerId: agent.ownerId },
 				context ? { ...request, context } : request,
 				code,
+				extra
+					? { parameters: { ...(stripReservedAuditKeys(request.arguments) ?? {}), ...extra } }
+					: undefined,
 			);
 			return notify({
 				source: "authorize",
@@ -144,7 +162,15 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 			});
 		}
 
-		return authorizeResolved(agent, request, context, "authorize", startedAt);
+		return authorizeResolved(
+			agent,
+			request,
+			context,
+			"authorize",
+			startedAt,
+			extra,
+			options?.attestation,
+		);
 	}
 
 	/** Everything after the agent is resolved and active: hook, own permissions, delegated fallback, audit, notifications. */
@@ -154,6 +180,8 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 		context: RequestContext | undefined,
 		source: AuthorizeSource,
 		startedAt: number,
+		extra?: Record<string, unknown>,
+		attestation?: AttestationFacts,
 	): Promise<AuthorizeResult> {
 		const agentId = agent.id;
 		const enrichedRequest: AuthorizeRequest = context ? { ...request, context } : request;
@@ -177,16 +205,28 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 			delegation: loadChain,
 		});
 		if (isHookBlock(outcome)) {
-			return blockedByHook(agent, enrichedRequest, outcome, source, await loadChain(), startedAt);
+			return blockedByHook(
+				agent,
+				enrichedRequest,
+				outcome,
+				source,
+				await loadChain(),
+				startedAt,
+				extra,
+			);
 		}
 		const hookDetail = hookAuditDetail(outcome);
-		const auditParameters = hookDetail ? { theauthHook: hookDetail } : undefined;
+		const auditParameters =
+			hookDetail || extra
+				? { ...(hookDetail ? { theauthHook: hookDetail } : {}), ...extra }
+				: undefined;
 
 		// Denial rows are deferred: a delegated fallback may overturn this denial,
 		// and writing one row per path would orphan the first auditId.
 		const ownResult = await permissionEngine.authorize(agent, enrichedRequest, {
 			deferDenialAudit: true,
 			auditParameters,
+			attestation,
 		});
 
 		let finalResult: AuthorizeResult;
@@ -205,12 +245,10 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 				const delegatedResult = await permissionEngine.authorize(
 					agentWithDelegated,
 					enrichedRequest,
-					{ deferDenialAudit: true, auditParameters },
+					{ deferDenialAudit: true, auditParameters, attestation },
 				);
 				// Both denied: keep the original denial, unless an approval failure is more specific.
-				const approvalDenied =
-					delegatedResult.code === DECISION_CODES.APPROVAL_INVALID ||
-					delegatedResult.code === DECISION_CODES.APPROVAL_REQUIRED;
+				const approvalDenied = isApprovalDenial(delegatedResult.code);
 				finalResult = delegatedResult.allowed || approvalDenied ? delegatedResult : ownResult;
 			}
 		}
@@ -281,16 +319,17 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 		source: AuthorizeSource,
 		chain: HookDelegationChain,
 		startedAt: number,
+		extra?: Record<string, unknown>,
 	): Promise<AuthorizeResult> {
 		const auditId = await permissionEngine.recordDenial(
 			{ agentId: agent.id, ownerId: agent.ownerId },
 			request,
 			outcome.code,
 			{
-				parameters: withHookDetail(
-					stripReservedAuditKeys(request.arguments),
-					hookAuditDetail(outcome),
-				),
+				parameters: {
+					...withHookDetail(stripReservedAuditKeys(request.arguments), hookAuditDetail(outcome)),
+					...extra,
+				},
 				durationMs: outcome.elapsedMs,
 				subjectId: chain.rootOwnerId,
 				actorId: agent.id,
@@ -354,6 +393,39 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 					reason: "Invalid or expired agent token",
 					auditId,
 					code: DECISION_CODES.INVALID_TOKEN,
+				},
+			});
+		}
+		// Sender constraint (RFC 7800, RFC 9449): a bound token is useless without a verified proof of its key.
+		// This lives here, not only in the HTTP layer, so a caller that skips the HTTP handler still fails closed.
+		const unbound = deps.requireConfirmation === true && !agent.cnf;
+		const verdict = unbound ? "required" : confirmationVerdict(agent.cnf, context?.confirmation);
+		if (verdict !== "ok") {
+			const code =
+				verdict === "required"
+					? DECISION_CODES.CONFIRMATION_REQUIRED
+					: DECISION_CODES.CONFIRMATION_FAILED;
+			const auditId = await permissionEngine.recordDenial(
+				{ agentId: agent.id, ownerId: agent.ownerId },
+				context ? { ...request, context } : request,
+				code,
+			);
+			return notify({
+				source: "authorizeByToken",
+				startedAt,
+				agentId: agent.id,
+				ownerId: agent.ownerId,
+				request,
+				result: {
+					allowed: false,
+					reason:
+						verdict === "required"
+							? unbound
+								? "This deployment only accepts agent tokens that are bound to a key"
+								: "This agent token is bound to a key and needs a proof of possession"
+							: "The proof of possession does not match the key this token is bound to",
+					auditId,
+					code,
 				},
 			});
 		}

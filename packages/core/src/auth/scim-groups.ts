@@ -1,5 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { organizations, orgMembers, users } from "../db/schema.js";
+import { createDrizzleKernel } from "../db/store/drizzle-kernel.js";
+import type { Where, WriteOp } from "../db/store/types.js";
 import type { FilterAst } from "./scim-filter.js";
 import { evaluateFilter, ScimFilterError } from "./scim-filter.js";
 import type { FilterClause } from "./scim-helpers.js";
@@ -192,26 +194,41 @@ export function createScimGroupHandlers(ctx: ScimHandlerContext) {
 		const metadata: Record<string, unknown> = { "scim:provisioned": true };
 		if (externalId) metadata["scim:externalId"] = externalId;
 
-		await db.insert(organizations).values({
-			id,
-			name: displayName,
-			slug: finalSlug,
-			ownerId,
-			metadata,
-			createdAt: now,
-			updatedAt: now,
-		});
-
-		if (membersRaw && membersRaw.length > 0) {
-			const memberInserts = membersRaw.map((m) => ({
-				id: `om_scim_${generateId()}`,
-				orgId: id,
-				userId: m.value,
-				role: "member",
-				joinedAt: now,
-			}));
-			await db.insert(orgMembers).values(memberInserts);
+		// An unknown member id is a client error. The batch below is still all or nothing, so a user
+		// deleted between this check and the write cannot leave an org without its members.
+		const memberIds = [...new Set((membersRaw ?? []).map((m) => m.value))];
+		if (memberIds.length > 0) {
+			const known = await db
+				.select({ id: users.id })
+				.from(users)
+				.where(inArray(users.id, memberIds));
+			if (known.length !== memberIds.length) {
+				return scimError("members contains an unknown user", 400, "invalidValue");
+			}
 		}
+
+		await createDrizzleKernel(db).batch([
+			{
+				op: "insert",
+				model: "organizations",
+				row: {
+					id,
+					name: displayName,
+					slug: finalSlug,
+					ownerId,
+					metadata,
+					createdAt: now,
+					updatedAt: now,
+				},
+			},
+			...memberIds.map(
+				(userId): WriteOp => ({
+					op: "insert",
+					model: "orgMembers",
+					row: { id: `om_scim_${generateId()}`, orgId: id, userId, role: "member", joinedAt: now },
+				}),
+			),
+		]);
 
 		const orgRows = (await db
 			.select()
@@ -266,16 +283,30 @@ export function createScimGroupHandlers(ctx: ScimHandlerContext) {
 			.where(eq(organizations.id, groupId));
 
 		if (membersRaw !== undefined) {
-			await db.delete(orgMembers).where(eq(orgMembers.orgId, groupId));
-			if (membersRaw.length > 0) {
-				const memberInserts = membersRaw.map((m) => ({
-					id: `om_scim_${generateId()}`,
-					orgId: groupId,
-					userId: m.value,
-					role: "member",
-					joinedAt: now,
-				}));
-				await db.insert(orgMembers).values(memberInserts);
+			// Diff against the current members instead of deleting all and re-inserting. A member who stays is
+			// never absent from the group, keeps the row id and the role it already had, and a concurrent
+			// PUT cannot interleave into the union of two lists.
+			const wanted = new Set(membersRaw.map((m) => m.value));
+			const current = await db
+				.select({ id: orgMembers.id, userId: orgMembers.userId })
+				.from(orgMembers)
+				.where(eq(orgMembers.orgId, groupId));
+			const present = new Set(current.map((r) => r.userId));
+			const staleIds = current.filter((r) => !wanted.has(r.userId)).map((r) => r.id);
+			if (staleIds.length > 0) {
+				await db.delete(orgMembers).where(inArray(orgMembers.id, staleIds));
+			}
+			const added = [...wanted].filter((userId) => !present.has(userId));
+			if (added.length > 0) {
+				await db.insert(orgMembers).values(
+					added.map((userId) => ({
+						id: `om_scim_${generateId()}`,
+						orgId: groupId,
+						userId,
+						role: "member",
+						joinedAt: now,
+					})),
+				);
 			}
 		}
 
@@ -415,8 +446,14 @@ export function createScimGroupHandlers(ctx: ScimHandlerContext) {
 		const existing = orgRows[0];
 		if (!existing) return scimError("Group not found", 404, "noTarget");
 
-		await db.delete(orgMembers).where(eq(orgMembers.orgId, groupId));
-		await db.delete(organizations).where(eq(organizations.id, groupId));
+		// Children first, all in one atomic group. Handles without foreign keys do not cascade.
+		const byOrg: Where[] = [{ field: "orgId", op: "eq", value: groupId }];
+		await createDrizzleKernel(db).batch([
+			{ op: "delete", model: "orgMembers", where: byOrg },
+			{ op: "delete", model: "orgInvitations", where: byOrg },
+			{ op: "delete", model: "orgRoles", where: byOrg },
+			{ op: "delete", model: "organizations", where: [{ field: "id", op: "eq", value: groupId }] },
+		]);
 
 		await writeScimAudit(
 			"scim.group.delete",

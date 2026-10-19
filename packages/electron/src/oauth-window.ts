@@ -26,6 +26,11 @@ async function extractSessionCookie(
 	return null;
 }
 
+/** The core's own callback route, `GET /auth/oauth/callback/:provider`. It sets the session cookie. */
+function isServerCallback(url: string, base: string): boolean {
+	return url.includes(`${base.replace(/\/$/, "")}/auth/oauth/callback/`);
+}
+
 function isCallbackUrl(url: string, base: string): boolean {
 	const normalised = base.replace(/\/$/, "");
 	return (
@@ -77,10 +82,13 @@ export async function openOAuthWindow(
 		show: false,
 	});
 
-	const authUrl = `${base}/sign-in/${encodeURIComponent(providerId)}?redirect=electron`;
+	const authUrl = `${base}/auth/oauth/authorize/${encodeURIComponent(providerId)}`;
 
 	return new Promise<OAuthWindowResult>((resolve) => {
 		let settled = false;
+		// Set once the browser reaches the core callback. The provider's redirect to it
+		// carries `code=`, but the server has not set the cookie yet, so we must not stop there.
+		let sawServerCallback = false;
 
 		function settle(result: OAuthWindowResult): void {
 			if (settled) return;
@@ -94,13 +102,17 @@ export async function openOAuthWindow(
 		});
 
 		async function handleNavigate(_event: unknown, url: string): Promise<void> {
-			if (!isCallbackUrl(url, base)) return;
-
-			const oauthError = extractOAuthError(url);
+			const oauthError = isCallbackUrl(url, base) ? extractOAuthError(url) : null;
 			if (oauthError) {
 				settle({ success: false, error: oauthError });
 				return;
 			}
+			if (isServerCallback(url, base)) {
+				sawServerCallback = true;
+				return;
+			}
+			// After the core callback ran, its redirect back to the app means the cookie is set.
+			if (!sawServerCallback && !isCallbackUrl(url, base)) return;
 
 			try {
 				const origin = new URL(url).origin;

@@ -60,7 +60,7 @@ const federation = createFederationModule({
 
 ### Expose the well-known endpoint
 
-Serve the instance identity at `/.well-known/theauth-federation.json` so other instances can discover your public key.
+Serve the instance identity at `/.well-known/theauth-federation.json` so other instances can discover your public key. theAuth fetches this URL from a peer (`discoverInstance`) but registers no route for it: the handler below is yours to add, and so is the `/agents/:id/federate` route in the examples, which is an example app route and not part of the handler.
 
 ```typescript
 // In your HTTP server
@@ -168,7 +168,7 @@ Verification checks:
 4. Audience matches this instance (if audience is set in the token)
 5. Trust level rules are applied to downgrade permissions if needed
 
-## Embedding Verifiable Credentials
+## Embedding verifiable credentials
 
 You can attach a W3C Verifiable Credential to the federation token for offline verification. This is useful when the target instance needs cryptographic proof of the agent's capabilities that does not depend on the source instance's availability.
 

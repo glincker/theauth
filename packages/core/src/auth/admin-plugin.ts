@@ -1,3 +1,4 @@
+import { databaseHooksFromConfig } from "../hooks/user-update-hooks.js";
 import { json, parseBody } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { AdminConfig } from "./admin.js";
@@ -15,6 +16,7 @@ export function admin(config?: AdminConfig): TheAuthPlugin {
 				ctx.db,
 				ctx.sessionManager ?? null,
 				ctx.revocations,
+				databaseHooksFromConfig(ctx.config),
 			);
 
 			// GET /auth/admin/users

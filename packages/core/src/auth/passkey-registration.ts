@@ -3,6 +3,7 @@
 import { and, eq, lt } from "drizzle-orm";
 import { fromBase64Url, randomBytes, toBase64Url, toHex } from "../crypto/web-crypto.js";
 import { passkeyChallenges, passkeyCredentials } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import { decodeCbor } from "./cbor.js";
 import { bytesEqual, COSE_ALG_EDDSA, COSE_ALG_ES256, COSE_ALG_RS256 } from "./passkey-crypto.js";
 import { FLAG_UP, FLAG_UV, isOriginAllowed, parseAuthData } from "./passkey-helpers.js";
@@ -122,7 +123,13 @@ export function createPasskeyRegistration(ctx: PasskeyContext) {
 		}
 
 		// Delete the challenge FIRST (one-time use, prevent replay even if later steps fail)
-		await db.delete(passkeyChallenges).where(eq(passkeyChallenges.id, challengeRow.id));
+		// The delete is the claim: of two concurrent requests with one challenge only one removes the row.
+		if (!(await singleUseFor(db).passkeyChallenges.consume(challengeRow.id))) {
+			throw new PasskeyError(
+				PASSKEY_ERROR.CHALLENGE_NOT_FOUND,
+				"Challenge not found or already used",
+			);
+		}
 
 		if (challengeRow.expiresAt < new Date()) {
 			throw new PasskeyError(PASSKEY_ERROR.CHALLENGE_EXPIRED, "Challenge expired");

@@ -102,6 +102,52 @@ with TheAuthSyncClient(base_url=BASE, token=access_token, auth=auth) as client:
 `DPoPAuth` is a plain `httpx.Auth`, so you can also pass it to your own `httpx.Client` or `httpx.AsyncClient`. The `cryptography` package is imported lazily and a clear error is raised if it is missing.
 </Note>
 
+## Devices
+
+`client.devices` is the registry and needs a user or admin token. `client.device` is what a device calls as itself: enroll, authorize, fetch an offline policy bundle.
+
+```python
+from theauth import (
+    CredentialSpec, DeviceAssertionSigner, RegisterDeviceInput, TheAuthSyncClient,
+)
+from theauth.types import AuthorizeRequest, Permission
+
+signer = DeviceAssertionSigner()  # the key first, the id after registering
+with TheAuthSyncClient(base_url=BASE, token=admin_token) as client:
+    reg = client.devices.register(
+        RegisterDeviceInput(
+            owner_id="user-123",
+            name="Pump 4",
+            permissions=[Permission("mqtt:plant/a/pump4/#", ["publish"])],
+            credential=CredentialSpec.from_jwk(signer.public_jwk),
+        )
+    )
+    signer.bind(reg.device.id)
+    result = client.device.authorize(signer, AuthorizeRequest("publish", "mqtt:plant/a/pump4/temp"))
+    client.devices.suspend(reg.device.id, "stolen")
+```
+
+`DeviceAssertionSigner` signs the `device-assertion+jwt` the server verifies. It makes a new assertion for every call because the server accepts each `jti` once. It needs the `cryptography` extra, like DPoP.
+
+## Step-up
+
+A 401 with `error="insufficient_user_authentication"` (RFC 9470) raises `StepUpRequiredError`, a subclass of `AuthenticationError`. `error.challenge.authorize_params()` gives the `acr_values` and `max_age` for the new authorization request.
+
+```python
+from theauth import StepUpRequiredError
+
+try:
+    client.approvals.approve(approval_id)
+except StepUpRequiredError as err:
+    print(err.challenge.authorize_params() if err.challenge else {})
+```
+
+`acr_satisfies` and `auth_is_fresh` check a token's `acr` and `auth_time` before you call.
+
+## Bound tokens and input provenance
+
+Pass `cnf=dpop_confirmation(prover)` to `CreateAgentInput` to bind an agent token to a DPoP key (RFC 7800). `client.agents.rotate(id)` keeps the binding, `rotate(id, cnf=None)` removes it. `AuthorizeRequest(inputs=[ProvenanceInput("user_message", content=text)])` records what the model had in context; the server hashes the content and does not store it.
+
 ## Errors
 
 All exceptions inherit from `TheAuthError` and carry `code`, `message` and `status_code`.
@@ -109,6 +155,7 @@ All exceptions inherit from `TheAuthError` and carry `code`, `message` and `stat
 | Class | When |
 |---|---|
 | `AuthenticationError` | 401 |
+| `StepUpRequiredError` | 401 with a step-up challenge, has `challenge` |
 | `PermissionError` | 403 |
 | `NotFoundError` | 404 |
 | `ValidationError` | 400 or 422 with `issues` |

@@ -1,5 +1,6 @@
 import { compareStrings } from "../internal-compare.js";
 import { matchAction, matchResource } from "../policy/abac.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import { POLICY_ERROR_CODES } from "../policy/types.js";
 import type { Permission } from "../types.js";
 import type { DecisionRow, RowClass } from "./types.js";
@@ -88,9 +89,13 @@ export function compactPermissions(atoms: Permission[]): Permission[] {
 /**
  * True when `outer` allows every (action, resource) that `inner` allows. Built on the engine's matchResource and matchAction, so a wildcard in `inner` is only covered by an equal or broader wildcard in `outer`.
  */
-export function covers(outer: Permission, inner: Permission): boolean {
+export function covers(
+	outer: Permission,
+	inner: Permission,
+	matching: ResourceMatching = "colon",
+): boolean {
 	return (
-		matchResource(outer.resource, inner.resource) &&
+		matchResource(outer.resource, inner.resource, matching) &&
 		inner.actions.every((a) => matchAction(outer.actions, a))
 	);
 }
@@ -120,6 +125,7 @@ function firstSegment(resource: string): string {
  */
 export function createGrantMatcher(
 	permissions: readonly Permission[],
+	matching: ResourceMatching = "colon",
 ): (action: string, resource: string) => GrantMatch | null {
 	const buckets = new Map<string, number[]>();
 	const open: number[] = [];
@@ -130,7 +136,8 @@ export function createGrantMatcher(
 			return;
 		}
 		const seg = firstSegment(pattern);
-		if (seg === "*") {
+		// In path mode a first segment such as `/fleet/*` can match many first segments, so it cannot be bucketed.
+		if (seg === "*" || (matching === "path" && seg.includes("*"))) {
 			open.push(index);
 			return;
 		}
@@ -151,7 +158,7 @@ export function createGrantMatcher(
 		for (const i of list) {
 			if (i >= below) return -1;
 			const p = permissions[i] as Permission;
-			if (matchResource(p.resource, resource) && matchAction(p.actions, action)) return i;
+			if (matchResource(p.resource, resource, matching) && matchAction(p.actions, action)) return i;
 		}
 		return -1;
 	}

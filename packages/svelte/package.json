@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-svelte",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Svelte stores for TheAuth auth",
   "type": "module",
   "main": "dist/index.js",
@@ -29,6 +29,9 @@
   },
   "peerDependencies": {
     "svelte": ">=4.0.0"
+  },
+  "dependencies": {
+    "@glinr/theauth-client": "workspace:*"
   },
   "devDependencies": {
     "svelte": "^5.56.3",

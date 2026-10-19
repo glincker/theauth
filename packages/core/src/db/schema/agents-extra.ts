@@ -1,5 +1,5 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { json, timestampSec } from "./columns.js";
+import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { bigintNumber, json, timestampSec } from "./columns.js";
 import { agents, tenants, users } from "./core.js";
 
 interface BudgetLimitsRow {
@@ -50,27 +50,52 @@ export const agentCards = sqliteTable("theauth_agent_cards", {
 	updatedAt: timestampSec("updated_at").notNull(),
 });
 
-export const approvalRequests = sqliteTable("theauth_approval_requests", {
-	id: text("id").primaryKey(),
-	agentId: text("agent_id")
-		.notNull()
-		.references(() => agents.id, { onDelete: "cascade" }),
-	userId: text("user_id")
-		.notNull()
-		.references(() => users.id),
-	action: text("action").notNull(),
-	resource: text("resource").notNull(),
-	arguments: json<Record<string, unknown>>("arguments"),
-	status: text("status", { enum: ["pending", "approved", "denied", "expired"] })
-		.notNull()
-		.default("pending"),
-	expiresAt: timestampSec("expires_at").notNull(),
-	respondedAt: timestampSec("responded_at"),
-	respondedBy: text("responded_by"),
-	/** Set once, atomically, when authorize or evaluate spends the approval. */
-	consumedAt: timestampSec("consumed_at"),
-	createdAt: timestampSec("created_at").notNull(),
-});
+export const approvalRequests = sqliteTable(
+	"theauth_approval_requests",
+	{
+		id: text("id").primaryKey(),
+		agentId: text("agent_id")
+			.notNull()
+			.references(() => agents.id, { onDelete: "cascade" }),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id),
+		action: text("action").notNull(),
+		resource: text("resource").notNull(),
+		arguments: json<Record<string, unknown>>("arguments"),
+		status: text("status", { enum: ["pending", "approved", "denied", "expired"] })
+			.notNull()
+			.default("pending"),
+		expiresAt: timestampSec("expires_at").notNull(),
+		respondedAt: timestampSec("responded_at"),
+		respondedBy: text("responded_by"),
+		/** Set once, atomically, when authorize or evaluate spends the approval. */
+		consumedAt: timestampSec("consumed_at"),
+		/** The approver must have reached this acr before approving (RFC 9470). Null: no requirement. */
+		requiredAcr: text("required_acr"),
+		/** The approver's proving event must be at most this many seconds old. Null: no requirement. */
+		maxAuthAge: integer("max_auth_age"),
+		/** Distinct approvers needed before the request is approved (migration 0013). Null reads as 1. */
+		requiredApprovals: integer("required_approvals"),
+		createdAt: timestampSec("created_at").notNull(),
+	},
+	(t) => [index("theauth_approval_requests_status").on(t.status, t.createdAt)],
+);
+
+/**
+ * One row per approver who approved a quorum request (migration 0013). The primary key makes "each approver counts once" a database fact, so two concurrent decisions by the same approver cannot both be counted. Times are epoch ms in a plain integer column.
+ */
+export const approvalVotes = sqliteTable(
+	"theauth_approval_votes",
+	{
+		approvalId: text("approval_id").notNull(),
+		approverId: text("approver_id").notNull(),
+		decidedAt: bigintNumber("decided_at").notNull(),
+		/** The acr the approver proved, when the request had a step-up rule. */
+		approverAcr: text("approver_acr"),
+	},
+	(t) => [primaryKey({ columns: [t.approvalId, t.approverId] })],
+);
 
 export const trustScores = sqliteTable("theauth_trust_scores", {
 	agentId: text("agent_id")

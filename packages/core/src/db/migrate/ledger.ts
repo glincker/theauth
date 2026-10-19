@@ -1,3 +1,4 @@
+import { MYSQL_TABLE_OPTIONS } from "../ddl/mysql.js";
 import { sha256Hex } from "./checksum.js";
 import { tableExists } from "./probe.js";
 import type { Dialect, Migration, SqlExecutor } from "./types.js";
@@ -20,7 +21,7 @@ export function ledgerCreateSql(dialect: Dialect): string {
   name       TEXT      NOT NULL,
   checksum   TEXT      NOT NULL,
   applied_at ${ts}     NOT NULL
-)`;
+)${dialect === "mysql" ? ` ${MYSQL_TABLE_OPTIONS}` : ""}`;
 }
 
 /** Checksum of what a migration does on one dialect. Editing an applied migration changes it. */
@@ -37,7 +38,7 @@ export function ledgerInsertSql(dialect: Dialect, migration: Migration): string 
 		dialect === "postgres"
 			? "NOW()"
 			: dialect === "mysql"
-				? "NOW(3)"
+				? "UTC_TIMESTAMP(3)"
 				: "CAST(strftime('%s', 'now') AS INTEGER)";
 	return `INSERT INTO ${LEDGER_TABLE} (id, name, checksum, applied_at) VALUES (${sqlLiteral(migration.id)}, ${sqlLiteral(migration.name)}, ${sqlLiteral(migrationChecksum(migration, dialect))}, ${now})`;
 }

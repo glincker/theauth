@@ -1,6 +1,6 @@
 import { useCallback, useContext, useState } from "react";
 import { TheAuthContext } from "./context.js";
-import type { ActionResult, CreateAgentInput, TheAuthAgent } from "./types.js";
+import type { ActionResult, CreateAgentInput, SignUpData, TheAuthAgent } from "./types.js";
 
 function useRequiredContext(hookName: string) {
 	const ctx = useContext(TheAuthContext);
@@ -48,7 +48,7 @@ export function useSignUp() {
 	const [error, setError] = useState<string | null>(null);
 
 	const execute = useCallback(
-		async (email: string, password: string, name?: string): Promise<ActionResult> => {
+		async (email: string, password: string, name?: string): Promise<ActionResult<SignUpData>> => {
 			setIsLoading(true);
 			setError(null);
 			const result = await signUp(email, password, name);
@@ -62,6 +62,16 @@ export function useSignUp() {
 	);
 
 	return { signUp: execute, isLoading, error };
+}
+
+/**
+ * Verify, resend, forgot and reset for the email and password routes
+ * (`managed: { emailPassword: true }`). Each result carries the server `code` on failure.
+ */
+export function useEmailPassword() {
+	const { verifyEmail, resendVerification, requestPasswordReset, resetPassword } =
+		useRequiredContext("useEmailPassword");
+	return { verifyEmail, resendVerification, requestPasswordReset, resetPassword };
 }
 
 export function useSignOut() {

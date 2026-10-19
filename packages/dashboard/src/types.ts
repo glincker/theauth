@@ -5,8 +5,11 @@ export type Page =
 	| "permissions"
 	| "delegations"
 	| "mcp-servers"
+	| "devices"
 	| "audit"
 	| "approvals"
+	| "explain"
+	| "revocations"
 	| "security"
 	| "settings";
 

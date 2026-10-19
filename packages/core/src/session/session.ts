@@ -21,16 +21,20 @@
 
 import { and, eq } from "drizzle-orm";
 import { jwtVerify, SignJWT } from "jose";
-import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { sessions } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { SessionActivityConfig, SessionInvalidReason } from "./activity.js";
 import {
+	AUTH_EVENTS_KEY,
 	LAST_ACTIVE_KEY,
 	REMEMBER_ME_KEY,
 	resolveSessionActivity,
 	splitMetadata,
 } from "./activity.js";
+import type { AuthContext, AuthMethod } from "./auth-context.js";
+import { normalizeEvents, recordAuthEvent, resolveAuthContext } from "./auth-context.js";
 import { assertUserNotBanned } from "./banned.js";
 import { MultiSessionLimitError } from "./multi-session.js";
 
@@ -61,6 +65,8 @@ export interface Session {
 	lastActiveAt?: Date;
 	/** Set when the session was created with an explicit `rememberMe` choice. */
 	rememberMe?: boolean;
+	/** How and when the user proved who they are: `amr`, `acr` and `authTime`. See `auth-context.ts`. A session that predates tracking reports `acr: none` and `authTime` of its creation. */
+	auth?: AuthContext;
 }
 
 export type SessionValidation =
@@ -72,9 +78,15 @@ export interface CreateSessionOptions {
 	replacing?: string;
 	/** `true` gives the session the longer `rememberMeMaxAge` lifetime (capped by `rememberMeMaxAgeCap`). `false` keeps the normal lifetime and records that the cookie should be a browser session cookie. Unset keeps the legacy behavior. */
 	rememberMe?: boolean;
+	/** The methods the user just proved, for example `["password"]` or `["passkey"]`. Recorded with the current time. A refresh keeps the stored events and ignores this. */
+	authMethods?: AuthMethod[];
+	/** RFC 8176 `amr` values the identity provider reported, recorded on the `federated` event only. Informational, they never raise the session `acr`. */
+	idpAmr?: string[];
 }
 
 export interface SessionManager {
+	/** Name of the session cookie (`SessionConfig.cookieName`, default `theauth_session`). The built-in handlers read, set and clear this cookie. Optional so custom managers still type check. */
+	readonly cookieName?: string;
 	/** Creates a session for a user, persists it, and returns the record with its token. */
 	create(
 		userId: string,
@@ -96,12 +108,21 @@ export interface SessionManager {
 
 	/** Lists active sessions for a user, newest first. */
 	list(userId: string): Promise<Session[]>;
+
+	/**
+	 * Records that the signed-in user just proved `method` again (a TOTP code, a passkey) and returns the session with its new `auth` context. This is the step-up write (RFC 9470): it refreshes `authTime` and can raise `acr`. Returns null when the session does not exist. Call it only after the proof was verified.
+	 */
+	recordAuth(sessionId: string, method: AuthMethod): Promise<Session | null>;
 }
 
 const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 /** Creates a `SessionManager` backed by the `theauth_sessions` table. */
-export function createSessionManager(config: SessionConfig, db: Database): SessionManager {
+export function createSessionManager(
+	config: SessionConfig,
+	db: Database,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
+): SessionManager {
 	if (!config.secret || config.secret.length < 32) {
 		throw new Error("SessionManager: secret must be at least 32 characters.");
 	}
@@ -131,6 +152,10 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			...(split.metadata !== undefined && { metadata: split.metadata }),
 			...(split.lastActiveAt !== undefined && { lastActiveAt: new Date(split.lastActiveAt) }),
 			...(split.rememberMe !== undefined && { rememberMe: split.rememberMe }),
+			auth: resolveAuthContext(
+				normalizeEvents(split.authEvents),
+				Math.floor(row.createdAt.getTime() / 1000),
+			),
 		};
 	}
 
@@ -241,19 +266,52 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 		options?: CreateSessionOptions,
 	): Promise<{ session: Session; token: string }> {
 		await assertUserNotBanned(db, userId);
-		await enforceLimit(userId, metadata, options?.replacing);
-		const id = generateId();
+		const id = databaseHooks.newId("session");
 		const nowMs = activity.now();
 		const now = new Date(nowMs);
 		const split = splitMetadata(metadata);
 		const rememberMe = options?.rememberMe ?? split.rememberMe;
 		const lifetime = rememberMe === true ? activity.rememberMeSeconds : maxAge;
-		const expiresAt = new Date(nowMs + lifetime * 1000);
-		const stored: Record<string, unknown> = {
+		let expiresAt = new Date(nowMs + lifetime * 1000);
+		// A refresh (`replacing`) passes the old row's metadata back, so its events carry over untouched.
+		// Any other caller starts from an empty history and names its methods in options, so metadata
+		// can never be used to claim a stronger login.
+		const nowSec = Math.floor(nowMs / 1000);
+		let events = options?.replacing ? normalizeEvents(split.authEvents) : [];
+		if (options?.authMethods) {
+			events = [];
+			for (const method of options.authMethods) {
+				const idpAmr = method === "federated" ? options.idpAmr : undefined;
+				events = recordAuthEvent(events, method, nowSec, idpAmr);
+			}
+		}
+		let stored: Record<string, unknown> = {
 			...(split.metadata ?? {}),
 			...(rememberMe !== undefined && { [REMEMBER_ME_KEY]: rememberMe }),
 			...(activity.idleTimeoutMs !== undefined && { [LAST_ACTIVE_KEY]: nowMs }),
+			...(events.length > 0 && { [AUTH_EVENTS_KEY]: events }),
 		};
+
+		// The before hook runs ahead of enforceLimit so an abort never evicts another session.
+		if (databaseHooks.has("session", "create")) {
+			const hooked = await databaseHooks.before("session", "create", {
+				id,
+				userId,
+				expiresAt,
+				metadata: Object.keys(stored).length > 0 ? stored : null,
+			});
+			expiresAt = hooked.expiresAt;
+			// Internal keys (auth events, activity stamp) stay as computed, a hook cannot forge them.
+			const internal = new Set<string>([AUTH_EVENTS_KEY, LAST_ACTIVE_KEY, REMEMBER_ME_KEY]);
+			const hookedMeta: Record<string, unknown> = {};
+			for (const [k, v] of Object.entries(hooked.metadata ?? {})) {
+				if (!internal.has(k)) hookedMeta[k] = v;
+			}
+			const kept: Record<string, unknown> = {};
+			for (const k of internal) if (k in stored) kept[k] = stored[k];
+			stored = { ...hookedMeta, ...kept };
+		}
+		await enforceLimit(userId, metadata, options?.replacing);
 
 		await db.insert(sessions).values({
 			id,
@@ -263,6 +321,15 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			createdAt: now,
 		});
 		await reconcileLimit(userId, id, metadata, options?.replacing);
+		// A refresh fires its after hook itself, once the old session is claimed (see manager.ts).
+		if (!options?.replacing) {
+			await databaseHooks.after("session", "create", {
+				id,
+				userId,
+				expiresAt,
+				metadata: Object.keys(stored).length > 0 ? stored : null,
+			});
+		}
 
 		const token = await new SignJWT({ sub: id })
 			.setProtectedHeader({ alg: "HS256" })
@@ -275,12 +342,17 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			userId,
 			expiresAt,
 			createdAt: now,
-			...(split.metadata !== undefined && { metadata: split.metadata }),
+			...(storedUser(stored) !== undefined && { metadata: storedUser(stored) }),
 			...(activity.idleTimeoutMs !== undefined && { lastActiveAt: now }),
 			...(rememberMe !== undefined && { rememberMe }),
+			auth: resolveAuthContext(events, nowSec),
 		};
 
 		return { session, token };
+	}
+
+	function storedUser(stored: Record<string, unknown>): Record<string, unknown> | undefined {
+		return splitMetadata(stored).metadata;
 	}
 
 	async function validateDetailed(token: string): Promise<SessionValidation> {
@@ -381,5 +453,49 @@ export function createSessionManager(config: SessionConfig, db: Database): Sessi
 			.map(rowToSession);
 	}
 
-	return { create, validate, validateDetailed, revoke, revokeAll, list };
+	async function recordAuth(sessionId: string, method: AuthMethod): Promise<Session | null> {
+		const row = (await db.select().from(sessions).where(eq(sessions.id, sessionId)))[0];
+		if (!row || row.expiresAt.getTime() <= activity.now()) return null;
+		const split = splitMetadata(row.metadata);
+		const events = recordAuthEvent(
+			normalizeEvents(split.authEvents),
+			method,
+			Math.floor(activity.now() / 1000),
+		);
+		let nextMeta: Record<string, unknown> = { ...(row.metadata ?? {}), [AUTH_EVENTS_KEY]: events };
+		let nextExpires = row.expiresAt;
+		if (databaseHooks.has("session", "update")) {
+			const hooked = await databaseHooks.before("session", "update", {
+				id: row.id,
+				userId: row.userId,
+				expiresAt: row.expiresAt,
+				metadata: nextMeta,
+			});
+			nextExpires = hooked.expiresAt;
+			// The step-up proof is what this call writes: a hook cannot replace it.
+			nextMeta = { ...(hooked.metadata ?? {}), [AUTH_EVENTS_KEY]: events };
+		}
+		await db
+			.update(sessions)
+			.set({ metadata: nextMeta, expiresAt: nextExpires })
+			.where(eq(sessions.id, sessionId));
+		await databaseHooks.after("session", "update", {
+			id: row.id,
+			userId: row.userId,
+			expiresAt: nextExpires,
+			metadata: nextMeta,
+		});
+		return rowToSession({ ...row, expiresAt: nextExpires, metadata: nextMeta });
+	}
+
+	return {
+		cookieName: config.cookieName ?? "theauth_session",
+		create,
+		validate,
+		validateDetailed,
+		revoke,
+		revokeAll,
+		list,
+		recordAuth,
+	};
 }

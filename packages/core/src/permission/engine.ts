@@ -1,9 +1,12 @@
-import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
+import { APPROVAL_CODES, consumeApproval, decisionCodeOfApproval } from "../approval/consume.js";
 import { insertAuditRow } from "../audit/chain.js";
+import { captureInputProvenance } from "../audit/provenance.js";
 import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { evaluateConstraints, findMatchingPermission, inspectConstraints } from "../policy/abac.js";
+import type { AttestationFacts } from "../policy/attestation-constraint.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type { AgentIdentity, AuthorizeRequest, AuthorizeResult } from "../types.js";
 import type { DecisionCode } from "./codes.js";
 import { DECISION_CODES } from "./codes.js";
@@ -11,11 +14,13 @@ import { DECISION_CODES } from "./codes.js";
 interface PermissionEngineConfig {
 	db: Database;
 	auditAll: boolean;
+	/** How a permission resource pattern is compared to the requested resource. Default `colon`. */
+	resourceMatching?: ResourceMatching;
 }
 
 /** Create the permission/authorization engine. */
 export function createPermissionEngine(config: PermissionEngineConfig) {
-	const { db, auditAll } = config;
+	const { db, auditAll, resourceMatching = "colon" } = config;
 
 	async function authorize(
 		agent: AgentIdentity,
@@ -32,6 +37,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 			agent.permissions,
 			request.action,
 			request.resource,
+			resourceMatching,
 		)?.permission;
 
 		if (!matchingPermission) {
@@ -64,6 +70,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 				arguments: request.arguments,
 				// Adapters pass the client IP via context; direct callers may set request.ip.
 				ip: request.context?.ip ?? request.ip,
+				attestation: options?.attestation,
 			};
 			let constraintResult = await evaluateConstraints(
 				db,
@@ -98,7 +105,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 						constraintResult = {
 							allowed: false,
 							reason: spent.code,
-							code: DECISION_CODES.APPROVAL_INVALID,
+							code: decisionCodeOfApproval(spent.code),
 						};
 					}
 				} else {
@@ -180,6 +187,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 				subjectId: extra?.subjectId ?? null,
 				actorId: extra?.actorId ?? null,
 				delegationChain: extra?.delegationChain ?? null,
+				inputProvenance: (await captureInputProvenance(db, request.context?.inputs)) ?? null,
 				ip: request.context?.ip ?? request.ip ?? null,
 				userAgent: request.context?.userAgent ?? null,
 			});
@@ -219,6 +227,8 @@ export interface AuthorizeOptions {
 	deferDenialAudit?: boolean;
 	/** Extra keys merged into the `parameters` of the audit row this call writes (for example `theauthHook`). */
 	auditParameters?: Record<string, unknown>;
+	/** Verified attestation facts of the calling device, read from the device record by the device module. Never accept these from a request. */
+	attestation?: AttestationFacts;
 }
 
 /** Optional overrides for a denial row written by `recordDenial`. */
@@ -266,6 +276,7 @@ async function writeAuditLog(
 			reason: result.reason ?? null,
 			decisionCode: result.code ?? null,
 			approverId: consumed?.approverId ?? null,
+			inputProvenance: (await captureInputProvenance(db, request.context?.inputs)) ?? null,
 			durationMs,
 			timestamp: new Date(),
 			ip: request.context?.ip ?? request.ip ?? null,

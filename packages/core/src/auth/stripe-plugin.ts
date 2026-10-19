@@ -1,3 +1,4 @@
+import { databaseHooksFromConfig } from "../hooks/user-update-hooks.js";
 import { json, parseBody } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { StripeConfig } from "./stripe.js";
@@ -10,7 +11,7 @@ export function stripe(config: StripeConfig): TheAuthPlugin {
 		id: "theauth-stripe",
 
 		async init(ctx): Promise<undefined> {
-			const module = createStripeModule(config, ctx.db);
+			const module = createStripeModule(config, ctx.db, databaseHooksFromConfig(ctx.config));
 
 			// POST /auth/stripe/checkout
 			// Creates a Stripe Checkout Session for the authenticated user.

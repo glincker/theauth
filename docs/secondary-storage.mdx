@@ -25,6 +25,9 @@ const theauth = await createTheAuth({
 | `"memory"` (default) | yes | no | Lost on restart. Dev and single process. |
 | `"database"` | yes | yes | Uses the TheAuth database (SQLite, Postgres, MySQL, D1). No new infrastructure. |
 | `redisStorage(client)` | yes | yes | Redis, Valkey, Upstash, Dragonfly. Best throughput. |
+| `mongoStorage(collection)` | yes | yes | MongoDB 4.4+. TTL index cleans up expired rows. |
+| `sqlStorage({ dialect, run })` | yes | yes | Any SQL database, including Microsoft SQL Server. You supply the query runner. |
+| `kyselyStorage(db, { dialect, CompiledQuery })` | yes | yes | `sqlStorage` wired to a Kysely instance: SQLite and D1, Postgres, MySQL, SQL Server. |
 | `cloudflareKvStorage(kv)` | **no** | eventually | See the warning below. |
 | `defineSecondaryStorage({...})` | only if you supply `incr` | depends | Bring your own. |
 
@@ -71,6 +74,50 @@ const storage = redisStorage(client);
 ```
 
 If the process dies between `INCR` and `PEXPIRE`, the next caller notices the missing TTL and repairs it, so a counter can never become permanent.
+
+## MongoDB adapter
+
+`mongoStorage` takes one collection. The official `mongodb` driver (v5 and later) fits as is, and TheAuth does not depend on it.
+
+```ts
+import { MongoClient } from "mongodb";
+import { mongoStorage } from "@glinr/theauth";
+
+const client = await MongoClient.connect(process.env.MONGO_URL);
+const storage = mongoStorage(client.db("app").collection("theauth_secondary_storage"));
+await storage.ensureIndexes(); // TTL index on expiresAt
+```
+
+`incr` is one `findOneAndUpdate` with an aggregation pipeline, so a live counter is bumped and an expired one restarted in a single step. Reads skip rows whose `expiresAt` has passed, because MongoDB's TTL monitor only sweeps about once a minute. This needs MongoDB 4.4 or later (`$isNumber`).
+
+This covers secondary storage only. The main database (users, sessions, agents, audit) is a SQL schema and still runs on SQLite, Postgres or D1. See [Which storage should I pick](/choose-storage).
+
+## Kysely and SQL Server
+
+`sqlStorage` only uses INSERT, UPDATE, DELETE and primary key SELECT, and builds placeholders for the dialect (`?`, `$1`, `@p1`). With Kysely, pass its `CompiledQuery` class so TheAuth can run parameterised statements without importing Kysely:
+
+```ts
+import { CompiledQuery, Kysely, MssqlDialect } from "kysely";
+import { kyselyStorage } from "@glinr/theauth";
+
+const db = new Kysely({ dialect: new MssqlDialect({ /* tarn + tedious */ }) });
+const storage = kyselyStorage(db, { dialect: "mssql", CompiledQuery });
+await storage.ensureTable(); // creates theauth_secondary_storage if missing
+```
+
+Without Kysely, give `sqlStorage` any function that runs one statement and reports `affectedRows`:
+
+```ts
+const storage = sqlStorage({
+  dialect: "postgres",
+  run: async (text, params) => {
+    const r = await pool.query(text, params);
+    return { rows: r.rows, affectedRows: r.rowCount ?? 0 };
+  },
+});
+```
+
+Counters are exact per key. The value `incr` returns is read back after the update, so under heavy contention it may include callers that landed just after you, which only errs toward limiting more. Call `purgeExpired()` from a cron on large keyspaces. The SQL Server statements are generated but have not been run against a real SQL Server; SQLite and Postgres are tested.
 
 ## Custom store
 

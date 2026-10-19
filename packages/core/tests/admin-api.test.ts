@@ -143,6 +143,9 @@ describe("admin api: authentication and authorization", () => {
 		["DELETE", "/delegations/d1"],
 		["POST", "/users/user_target/disable"],
 		["GET", "/sessions"],
+		["GET", "/revocations"],
+		["GET", "/revocations/delegations"],
+		["POST", "/revocations"],
 	];
 
 	it("registers every route", () => {
@@ -273,6 +276,34 @@ describe("admin api: audit, delegations, users, sessions", () => {
 		expect(rows[0]?.userId).toBe(ADMIN);
 	});
 
+	it("records caller claimed inputs as hashes and drops malformed ones", async () => {
+		const body = {
+			actor: "ops-bot",
+			action: "admin_mcp.list_agents",
+			mode: "read",
+			result: "ok",
+			inputs: [{ kind: "retrieved_document", id: "d1", content: "secret page text" }],
+		};
+		expect((await h.call("POST", "/audit/events", { token: "admin-token", body })).status).toBe(
+			201,
+		);
+		const bad = { ...body, inputs: [{ kind: "nope", content: "x" }] };
+		expect(
+			(await h.call("POST", "/audit/events", { token: "admin-token", body: bad })).status,
+		).toBe(201);
+		const rows = await h.db
+			.select()
+			.from(auditLogs)
+			.where(eq(auditLogs.action, "admin_mcp.list_agents"));
+		expect(rows).toHaveLength(2);
+		const withInputs = rows.filter((r) => r.inputProvenance !== null);
+		expect(withInputs).toHaveLength(1);
+		expect(JSON.stringify(rows)).not.toContain("secret page text");
+		const sources = (withInputs[0]?.inputProvenance as { sources: { kind: string; hv?: number }[] })
+			.sources;
+		expect(sources[0]).toMatchObject({ kind: "retrieved_document", hv: 2 });
+	});
+
 	it("rejects malformed audit events", async () => {
 		const base = {
 			actor: "a",
@@ -320,7 +351,7 @@ describe("admin api: audit, delegations, users, sessions", () => {
 		expect((await h.call("DELETE", "/delegations/nope", { token: "admin-token" })).status).toBe(
 			404,
 		);
-		expect((await h.call("DELETE", "/delegations/d1", { token: "admin-token" })).status).toBe(200);
+		expect((await h.call("DELETE", "/delegations/d1", { token: "admin-token" })).status).toBe(204);
 		const [row] = await h.db.select().from(delegationChains).where(eq(delegationChains.id, "d1"));
 		expect(row?.status).toBe("revoked");
 	});

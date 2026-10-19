@@ -326,6 +326,7 @@ function resultVariant(result: AuditResult): "green" | "red" | "yellow" {
 		case "denied":
 			return "red";
 		case "rate_limited":
+		case "escalated":
 			return "yellow";
 	}
 }

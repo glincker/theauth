@@ -89,6 +89,45 @@ Rows written before this format (`hash_version` null or 1) hash the raw ids, so 
 
 A pseudonym is linkable by whoever holds the key, so this is pseudonymization, not anonymization. Destroying the key is not implemented. The erasure path rewrites rows with SQLite-specific statements.
 
+### Input provenance
+
+Each audit row can say where the inputs of the call came from. Declare the sources on the request context and `authorize`, `authorizeByToken` and `policy.evaluate` record them in `input_provenance`:
+
+```ts
+await theauth.authorize(agent.id, { action: "execute", resource: "mcp:github:create_issue" }, {
+  inputs: [
+    { kind: "user_message", id: "msg_123", content: userText },
+    { kind: "retrieved_document", id: "doc_9", content: documentText },
+  ],
+});
+```
+
+The kinds are `user_message`, `tool_output`, `retrieved_document` and `agent`. Only a hash of the content is stored: an HMAC-SHA-256 under a subkey derived from the audit key (pass `content` and it is hashed and dropped, or pass a `hash` you computed), plus the optional `id`. The record is `{ sources: [{ kind, id?, hash, hv? }], keys: ["<kind>:<hash>"] }`, where `hv` is 2 for the keyed hash and absent on older rows with a plain SHA-256 and merges with the taint labels when a policy supplies them. On version 2 rows it is covered by the chain hash. For tools, `guardTool(theauth, { inputs: (args) => [...] }, tool)` does the same on every call.
+
+Provenance is read only from the trusted context, never from tool arguments. The argument name `inputProvenance` is reserved (see the reserved key rules in `src/audit/reserved.ts`), so an argument cannot plant or forge a source.
+
+Filter on it with the audit query:
+
+```ts
+const rows = await theauth.audit.query({
+  provenance: { kind: "retrieved_document", content: documentText },
+});
+```
+
+`kind`, `hash` and `content` can be combined or used alone. `content` is hashed by the server with the audit key and matches both keyed and older plain hashes. `hash` must be 64 lowercase hex characters, exactly as stored. See [input provenance](/input-provenance) for the HTTP header, gateway, MCP and CLI forms. Verification, replay and export carry the record unchanged.
+
+### Rotating pseudonyms
+
+By default a subject has one stable pseudonym, which the key holder can link across all time. Set `audit.pseudonymRotation` to change that:
+
+```ts
+audit: { tamperEvident: true, pseudonymRotation: { periodDays: 30, retainPeriods: 1 } }
+```
+
+Each period (whole days since the epoch) gets its own random secret in `theauth_audit_secrets`, and the pseudonyms on a row are keyed by that secret and stamped with the period number. One subject therefore has a different pseudonym in every period. The period secret is not derived from `audit.hmacKey`, because that would let the key holder recompute every period. The first write of a new period deletes the secrets older than `retainPeriods` periods behind it (default 1). After that nobody, the operator included, can link a subject across those periods. `shredPseudonymPeriods(db, currentPeriod, retainPeriods)` does the same on demand.
+
+The chain hash covers the stored pseudonyms, not the secrets, so shredding keeps the chain valid, and `verifyAuditChain` and exports work as before. The tradeoff is that a raw id still present on a row of a shredded period can no longer be compared with its pseudonym. Rows written before rotation was turned on keep their stable pseudonym.
+
 ### Migration
 
 `createTables` adds the three nullable columns and the unique index to an existing `theauth_audit_logs` table. The statements are idempotent (Postgres uses `ADD COLUMN IF NOT EXISTS`, SQLite and MySQL tolerate "already exists"). If you run with `skipMigrations: true`, apply this yourself:
@@ -186,7 +225,8 @@ Both exit 1 when the chain is broken. `--db <url>` overrides `DATABASE_URL`. The
 - Anyone holding `hmacKey` and database write access can forge a chain. Keep the key outside the database host.
 - Retention cleanup and GDPR erasure remove or rewrite rows. Cleanup leaves a checkpoint row and erasure leaves an `audit.erasure` record. Rewriting a row in the middle by other means is flagged.
 - A pseudonym is linkable by whoever holds the key (`audit.hmacKey` or the stored secret).
-- `input_provenance` comes from labels you supply. The SDK does not infer it.
+- `input_provenance` records the sources you declare (`context.inputs`, or the `inputs` option of `guardTool`) as kind, id and content hash. The SDK does not infer where an input came from. Hashes written before the keyed hash are plain SHA-256, so short or guessable text in those rows can be confirmed by anyone who guesses it.
+- Under pseudonym rotation, a raw id that is still present in a period whose secret was shredded cannot be checked against its pseudonym. The chain hash is still verified.
 - Audit writes for policy decisions, delegation, approval and SCIM events are best effort. Failures are counted and followed by an `audit.write_failed` row (with the count and the first and last failure times), but a write that fails is not retried.
 
 ## Related

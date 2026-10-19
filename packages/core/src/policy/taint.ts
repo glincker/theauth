@@ -2,6 +2,7 @@
 // Applied after permission matching and risk tiers, before an approval is spent,
 // so a tainted call that was permitted becomes an escalate (or a deny).
 
+import { isInputSourceKind } from "../audit/provenance.js";
 import { compareStrings } from "../internal-compare.js";
 import { matchLabel, setOwn } from "../taint/labels.js";
 import type {
@@ -16,6 +17,7 @@ import type {
 import { CALL_LABELS_KEY } from "../taint/types.js";
 import { matchAction, matchResource } from "./abac.js";
 import { withEffect } from "./decision.js";
+import type { ResourceMatching } from "./resource-match.js";
 import type { EscalationInfo, PolicyDecision } from "./types.js";
 import { POLICY_ERROR_CODES } from "./types.js";
 
@@ -31,6 +33,24 @@ export function normalizeProvenance(raw: unknown): ProvenanceMap | undefined {
 		if (clean.length > 0) setOwn(out, arg, clean.sort(compareStrings));
 	}
 	return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** Add `input:<kind>` call labels for the kinds in `inputs` to the supplied labels. Only used when `TaintConfig.inputLabels` is on. */
+export function withInputLabels(
+	provenance: ProvenanceMap | undefined,
+	inputs: unknown,
+): ProvenanceMap | undefined {
+	if (!Array.isArray(inputs)) return provenance;
+	const kinds = new Set<string>();
+	for (const input of inputs) {
+		const kind = (input as { kind?: unknown } | null)?.kind;
+		if (isInputSourceKind(kind)) kinds.add(`input:${kind}`);
+	}
+	if (kinds.size === 0) return provenance;
+	return normalizeProvenance({
+		...(provenance ?? {}),
+		[CALL_LABELS_KEY]: [...(provenance?.[CALL_LABELS_KEY] ?? []), ...kinds],
+	});
 }
 
 /** Record which rule produced a match. The index is non-enumerable so the verdict that is stored in the audit row (and hashed into it) keeps its exact shape. */
@@ -66,6 +86,7 @@ function check(
 export function evaluateTaint(
 	config: TaintConfig | undefined,
 	call: { resource: string; action: string; provenance: ProvenanceMap | undefined },
+	matching: ResourceMatching = "colon",
 ): TaintVerdict | undefined {
 	const provenance = call.provenance;
 	const matches: TaintMatch[] = [];
@@ -76,7 +97,7 @@ export function evaluateTaint(
 	const all = provenance ? [...new Set(Object.values(provenance).flat())] : [];
 
 	for (const [index, rule] of (config?.rules ?? []).entries()) {
-		if (!matchResource(rule.resource, call.resource)) continue;
+		if (!matchResource(rule.resource, call.resource, matching)) continue;
 		if (rule.actions && !matchAction(rule.actions, call.action)) continue;
 		if (!provenance && rule.unlabeled !== "violate") continue;
 		const ruleId = rule.id ?? String(index);
@@ -118,9 +139,10 @@ export function applyTaint(
 	decision: PolicyDecision,
 	config: TaintConfig | undefined,
 	call: { resource: string; action: string; provenance: ProvenanceMap | undefined },
+	matching: ResourceMatching = "colon",
 ): PolicyDecision {
 	if (decision.decision === "deny") return decision;
-	const verdict = evaluateTaint(config, call);
+	const verdict = evaluateTaint(config, call, matching);
 	if (!verdict) return decision;
 	const withVerdict = { ...decision, taint: verdict };
 	if (verdict.verdict === "clean") return withVerdict;

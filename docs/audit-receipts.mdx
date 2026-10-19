@@ -186,11 +186,60 @@ Erasure works as in Go: a row whose raw id is blank while its pseudonym is set c
 
 What is not checked:
 
-- **Truncation.** A chain cut at its tail still verifies. Only a signed checkpoint or an externally kept head detects that.
+- **Truncation by the chain check alone.** A chain cut at its tail still verifies, since every remaining row links to the one before it. Pair it with a signed head checkpoint, described next.
 - **Keys.** The Go chain is plain SHA-256, with no HMAC mode, so anyone who can write the table can rewrite a suffix and recompute every hash. This verifier cannot change that, and it has no HMAC support because there is nothing to support. Without `pseudonymSecret` the pseudonyms are trusted as exported (`pseudonymsUnchecked` counts those rows).
 - **Fields outside the hash.** `event`, `recordedAtUs` and the native columns of a database are not hashed.
 - **Numbers beyond 2^53** inside `metadata` or `inputProvenance`: JavaScript parses them as floats, so the rebuilt text can differ from Go's. Metadata with such values reports `hash_mismatch`.
 - **Storage.** It checks an export, not that the export matches the database.
+
+### Rotating pseudonyms
+
+When theauth-go runs with audit pseudonym rotation, a row's pseudonyms look like `r1:<period>:<hex>` instead of plain hex. The period is a whole number of days since the Unix epoch, and the hex is `HMAC-SHA256(periodSecret, "theauth.audit.pseudonym.v2:p<period>:" + id)`. The chain hash covers the stored text, so the hash check needs no secret. To also compare the raw ids still on a row with their pseudonyms, pass the secret of each period:
+
+```ts
+const result = await verifyGoAuditChain(rows, {
+  pseudonymSecret: stableSecretHex,
+  periodSecrets: { "20370": hexOfPeriod20370, "20371": hexOfPeriod20371 },
+});
+```
+
+`periodSecrets` is an object or a `Map` keyed by period number, with raw bytes or hex values. A rotated pseudonym is never compared under `pseudonymSecret`. If its period has no entry (the secret was shredded, or you did not export it) the pseudonym is trusted as stored and the row is counted in `pseudonymsUnchecked`, the same as Go's own check. A raw id on a row of a shredded period can therefore be edited without detection. Older rows with plain hex pseudonyms keep using `pseudonymSecret`, and both forms verify in one export. From a shell: `--period-secrets periods.json` with `{"20370": "<hex>", ...}`. The fixture `tests/fixtures/go-e2e-head-vectors.json` was written by the real Go code and covers stable rows, rotated rows, an erased row and a shredded period.
+
+### Catching tail truncation with a head checkpoint
+
+theauth-go can sign the last position of every chain: `checkpoint.CreateHeadCheckpoint` writes `{version, alg, keyId, timestamp, heads: [{chainKey, seq, hash}], signature}`, signed with Ed25519 (RFC 8032). Keep that file somewhere the log's writer cannot rewrite. `verifyGoHeadCheckpoint` checks the signature and then asks whether each signed chain still reaches its signed `seq` with the signed hash. It is the same idea as a Certificate Transparency monitor holding a signed tree head (RFC 6962 section 3.5) and checking the log against it.
+
+```ts
+import { verifyGoAuditChain, verifyGoHeadCheckpoint } from "@glinr/theauth";
+
+const chain = await verifyGoAuditChain(rows, { pseudonymSecret: secretHex });
+const head = await verifyGoHeadCheckpoint(headCheckpoint, [publicKey], rows);
+if (!chain.ok || !head.valid) console.error(chain.firstFailure, head);
+// head: { valid: true } or { valid: false, reason, chainKey? }
+```
+
+`publicKey` is `{ keyId, publicKey: { kty: "OKP", crv: "Ed25519", x } }`, the same shape as for Merkle checkpoints, and you can pass several keys for rotation. Leave `rows` out to check the signature alone (`verifyGoHeadSignature` does the same).
+
+| Reason | Meaning |
+|---|---|
+| `malformed` | Wrong version, unsorted or repeated `chainKey`, a `seq` below 1, a hash that is not 64 lowercase hex characters |
+| `unsupported_alg` | `alg` is not `Ed25519`, or the key is not an Ed25519 OKP key |
+| `unknown_key` | No supplied key carries the head's `keyId` |
+| `bad_signature` | The signature does not verify, or is not strict unpadded base64url |
+| `chain_truncated` | A signed chain is missing from the rows or ends below its signed `seq` (`chainKey` names it) |
+| `head_mismatch` | The row at the signed `seq` has another hash, is absent, or two rows claim that `seq` with different hashes |
+
+Rows and chains added after the head was signed are fine. The check looks only at the signed positions, so run `verifyGoAuditChain` on the same rows too, and give it every chain from the signed `seq` up: an export window that stops early reports `chain_truncated`. The signed bytes are the domain string `theauth.audit.head.v1` and a newline, followed by the canonical JSON of the other fields. Chain keys are ordered by UTF-8 bytes, as Go orders them, not by JavaScript string order.
+
+From a shell:
+
+```sh
+theauth audit verify-go export.json --head head.json --head-key public-key.json
+```
+
+`public-key.json` holds one key object, a list of them, or `{"keys": [...]}`. The command prints one line for the chain and one for the head, and exits 1 if either fails (2 if a file cannot be read). With `--json` the head result is added under `head`.
+
+The head vectors are `packages/core/tests/fixtures/go-head-checkpoint-vectors.json`. Go wrote and signed every case (with the RFC 8032 section 7.1 test 1 key) and the expected result of each case comes from the Go verifier, so the TypeScript tests fail if the two ever disagree. The generator and the steps to rerun it are in `scripts/go-head-vectors/`.
 
 The conformance vectors are `packages/core/tests/fixtures/go-audit-chain-vectors.json`, produced by running the real Go hashing code. The generator source and the steps to rerun it are in `scripts/go-chain-vectors/`.
 

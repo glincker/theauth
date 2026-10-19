@@ -10,7 +10,7 @@
  * });
  *
  * // Use via plugin
- * import { oneTap } from '@glinr/theauth/auth';
+import { oneTap } from '@glinr/theauth/auth';
  * // plugins: [oneTap({ clientId: process.env.GOOGLE_CLIENT_ID })]
  *
  * // Or use the module directly
@@ -21,10 +21,14 @@
 
 import { eq } from "drizzle-orm";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
+import type { IdSource } from "../db/id-generation.js";
+import { defaultIdSource } from "../db/id-generation.js";
 import { users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { SessionManager } from "../session/session.js";
+import { normalizeEmail } from "./normalize-email.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
@@ -49,6 +53,13 @@ export interface OneTapConfig {
 	autoCreateUser?: boolean;
 	/** CSRF token cookie name (default: "g_csrf_token") */
 	csrfCookieName?: string;
+	/**
+	 * Sign in to an existing local account that has the same email even when
+	 * Google does not vouch for the address or the local address is unverified
+	 * (default: false). The old behavior lets anyone who registered an address
+	 * first take over the account its owner later opens with Google. Leave it off.
+	 */
+	unsafeAllowUnverifiedEmailLinking?: boolean;
 }
 
 export interface GoogleUser {
@@ -101,6 +112,8 @@ export function createOneTapModule(
 	db: Database,
 	sessionManager: SessionManager,
 	signInGate?: SignInGate,
+	ids: IdSource = defaultIdSource(),
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): OneTapModule {
 	const gate = signInGate ?? createSignInGate({ db });
 	const autoCreateUser = config.autoCreateUser ?? true;
@@ -145,13 +158,24 @@ export function createOneTapModule(
 	}
 
 	async function findOrCreateUser(googleUser: GoogleUser): Promise<{ id: string; email: string }> {
-		// Look up by email first.
+		const lookupEmail = normalizeEmail(googleUser.email);
 		const existing = await db
-			.select({ id: users.id, email: users.email })
+			.select({ id: users.id, email: users.email, emailVerified: users.emailVerified })
 			.from(users)
-			.where(eq(users.email, googleUser.email));
+			.where(eq(users.email, lookupEmail));
 
 		if (existing[0]) {
+			// Both sides must vouch for the address. An unverified local row may be a
+			// pre-registered squat, and an unverified Google address proves nothing.
+			if (
+				!config.unsafeAllowUnverifiedEmailLinking &&
+				(!googleUser.emailVerified || existing[0].emailVerified !== 1)
+			) {
+				throw new OneTapVerifyError(
+					"An account with this email already exists. Sign in with your existing method first.",
+					"ACCOUNT_EXISTS",
+				);
+			}
 			return { id: existing[0].id, email: existing[0].email };
 		}
 
@@ -159,20 +183,43 @@ export function createOneTapModule(
 			throw new OneTapVerifyError(`No account found for ${googleUser.email}`, "USER_NOT_FOUND");
 		}
 
-		const id = generateId();
+		const id = ids.newId("user");
 		const now = new Date();
+
+		let storedEmail = lookupEmail;
+		let storedName: string | null = googleUser.name;
+		let storedMetadata: Record<string, unknown> | null = null;
+		if (databaseHooks.has("user", "create")) {
+			const hooked = await databaseHooks.before("user", "create", {
+				id,
+				email: storedEmail,
+				name: storedName,
+				metadata: null,
+			});
+			storedEmail = hooked.email;
+			storedName = hooked.name;
+			storedMetadata = hooked.metadata;
+		}
 
 		await db.insert(users).values({
 			id,
-			email: googleUser.email,
-			name: googleUser.name,
+			email: storedEmail,
+			name: storedName,
+			...(storedMetadata ? { metadata: storedMetadata } : {}),
 			externalId: googleUser.sub,
 			externalProvider: "google",
+			emailVerified: googleUser.emailVerified ? 1 : 0,
 			createdAt: now,
 			updatedAt: now,
 		});
+		await databaseHooks.after("user", "create", {
+			id,
+			email: storedEmail,
+			name: storedName,
+			metadata: storedMetadata,
+		});
 
-		return { id, email: googleUser.email };
+		return { id, email: storedEmail };
 	}
 
 	function getCsrfCookie(request: Request): string | null {
@@ -237,6 +284,9 @@ export function createOneTapModule(
 		} catch (err) {
 			if (err instanceof OneTapVerifyError && err.code === "USER_NOT_FOUND") {
 				return jsonResponse({ error: err.message }, 403);
+			}
+			if (err instanceof OneTapVerifyError && err.code === "ACCOUNT_EXISTS") {
+				return jsonResponse({ error: err.message, code: err.code }, 409);
 			}
 			return jsonResponse(
 				{ error: err instanceof Error ? err.message : "Failed to resolve user" },

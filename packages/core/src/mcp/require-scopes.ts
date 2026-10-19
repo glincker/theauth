@@ -1,4 +1,9 @@
-import { buildStepUpResponse } from "./step-up.js";
+import type { McpUserAuthRequirement } from "./step-up.js";
+import {
+	buildInsufficientUserAuthResponse,
+	buildStepUpResponse,
+	checkUserAuthentication,
+} from "./step-up.js";
 import type {
 	McpAuthContext,
 	McpAuthErrorCode,
@@ -19,6 +24,7 @@ const KNOWN_CODES: ReadonlySet<string> = new Set<McpAuthErrorCode>([
 	"DELEGATION_REVOKED",
 	"INSUFFICIENT_SCOPE",
 	"DPOP_REQUIRED",
+	"INSUFFICIENT_USER_AUTHENTICATION",
 	"SERVER_ERROR",
 ]);
 
@@ -70,6 +76,8 @@ export async function requireScopes(
 	ctx: McpAuthContext,
 	request: Request,
 	requiredScopes: string[],
+	/** Also demand a login of this strength or age (RFC 9470). A shortfall gives 401 `insufficient_user_authentication`. */
+	userAuth?: McpUserAuthRequirement,
 ): Promise<RequireScopesResult> {
 	const token = extractBearerToken(request);
 
@@ -138,6 +146,28 @@ export async function requireScopes(
 				requiredScopes,
 				resource: session.resource ?? undefined,
 			}),
+		};
+	}
+
+	const tooWeak = checkUserAuthentication(session.auth, userAuth);
+	if (tooWeak) {
+		return {
+			authorized: false,
+			status: 401,
+			error: {
+				code: "INSUFFICIENT_USER_AUTHENTICATION",
+				message:
+					tooWeak.reason === "max_age"
+						? "A more recent authentication is required"
+						: "A stronger authentication is required",
+			},
+			rejected: {
+				clientId: session.clientId,
+				subject: session.userId,
+				tokenId: session.tokenId,
+				...(session.agent ? { agentId: session.agent.id } : {}),
+			},
+			response: buildInsufficientUserAuthResponse(ctx, tooWeak),
 		};
 	}
 

@@ -56,7 +56,7 @@ export interface AdapterGuard {
 	admit(request: Request, relativePath: string): Promise<Response | null>;
 }
 
-const PROTECTED_PREFIXES = ["/agents", "/delegations", "/audit", "/dashboard"];
+const PROTECTED_PREFIXES = ["/agents", "/delegations", "/audit", "/dashboard", "/devices"];
 
 /** Normalise a path for matching: strip query, decode, lowercase (some frameworks route case-insensitively), collapse duplicate slashes and drop the trailing slash. */
 function normalisePath(path: string): string {
@@ -94,7 +94,7 @@ function sessionResolver(theauth: TheAuth): AdapterAuthResolver | null {
 	return async (request) => {
 		const viaAdapter = await theauth.auth.resolveUser(request);
 		if (viaAdapter) return { id: viaAdapter.id };
-		const token = extractToken(request);
+		const token = extractToken(request, sessions.cookieName);
 		if (!token) return null;
 		const session = await sessions.validate(token);
 		return session ? { id: session.userId } : null;

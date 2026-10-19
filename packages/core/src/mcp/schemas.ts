@@ -50,6 +50,13 @@ export const McpAuthorizeRequestSchema = z.object({
 	code_challenge_method: z.literal("S256"),
 	/** RFC 8707 resource indicator. Required: tokens are always audience-bound. */
 	resource: z.string().url(),
+	/** RFC 9470 and OpenID Connect Core: acceptable authentication context classes, space separated. */
+	acr_values: z.string().max(512).optional(),
+	/** OpenID Connect Core: maximum age in seconds of the authentication event. */
+	max_age: z
+		.string()
+		.regex(/^\d{1,9}$/)
+		.optional(),
 });
 
 export const McpTokenRequestSchema = z.discriminatedUnion("grant_type", [

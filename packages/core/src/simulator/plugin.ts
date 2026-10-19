@@ -94,7 +94,7 @@ export function simulator(config: SimulatorPluginConfig = {}): TheAuthPlugin {
 		id: "theauth-simulator",
 
 		async init(ctx): Promise<undefined> {
-			const sim = createSimulator({ db: ctx.db });
+			const sim = createSimulator({ db: ctx.db, resourceMatching: ctx.config.resourceMatching });
 
 			ctx.addEndpoint({
 				method: "POST",

@@ -21,17 +21,22 @@
  * ```
  */
 
-import { and, eq, gt } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { generateId, randomBytesHex } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { magicLinks, users } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import { parseRememberMe } from "../plugin/helpers.js";
 import type { SessionManager } from "../session/session.js";
+import type { ClaimOptions } from "./email-claim.js";
+import { claimVerifiedMailbox } from "./email-claim.js";
 import { normalizeEmail } from "./normalize-email.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-export interface MagicLinkConfig {
+export interface MagicLinkConfig extends ClaimOptions {
 	/** Send the magic link email. You provide the transport. */
 	sendMagicLink: (email: string, token: string, url: string) => Promise<void>;
 	/** Base URL for magic link (e.g. "https://app.example.com") */
@@ -73,6 +78,7 @@ export function createMagicLinkModule(
 	db: Database,
 	sessionManager: SessionManager,
 	signInGate?: SignInGate,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): MagicLinkModule {
 	const gate = signInGate ?? createSignInGate({ db });
 	const tokenExpiry = config.tokenExpiry ?? DEFAULT_EXPIRY_SECONDS;
@@ -87,16 +93,38 @@ export function createMagicLinkModule(
 
 		if (existing[0]) return { id: existing[0].id, email: existing[0].email };
 
-		const id = generateId();
+		const id = databaseHooks.newId("user");
 		const now = new Date();
+		let storedEmail = email;
+		let storedName: string | null = null;
+		let storedMetadata: Record<string, unknown> | null = null;
+		if (databaseHooks.has("user", "create")) {
+			const hooked = await databaseHooks.before("user", "create", {
+				id,
+				email,
+				name: null,
+				metadata: null,
+			});
+			storedEmail = hooked.email;
+			storedName = hooked.name;
+			storedMetadata = hooked.metadata;
+		}
 		await db.insert(users).values({
 			id,
-			email,
+			email: storedEmail,
+			name: storedName,
+			...(storedMetadata ? { metadata: storedMetadata } : {}),
 			createdAt: now,
 			updatedAt: now,
 		});
+		await databaseHooks.after("user", "create", {
+			id,
+			email: storedEmail,
+			name: storedName,
+			metadata: storedMetadata,
+		});
 
-		return { id, email };
+		return { id, email: storedEmail };
 	}
 
 	async function sendLink(rawEmail: string): Promise<{ sent: boolean }> {
@@ -134,18 +162,16 @@ export function createMagicLinkModule(
 
 		// Claim the link with one conditional UPDATE so two concurrent requests
 		// cannot both redeem it: only the caller whose UPDATE flips used=false wins.
-		const claimed = await db
-			.update(magicLinks)
-			.set({ used: true })
-			.where(
-				and(eq(magicLinks.token, token), eq(magicLinks.used, false), gt(magicLinks.expiresAt, now)),
-			)
-			.returning({ email: magicLinks.email });
-
-		const link = claimed[0];
+		// The email is read first because MySQL has no RETURNING to hand it back.
+		const [link] = await db
+			.select({ email: magicLinks.email })
+			.from(magicLinks)
+			.where(eq(magicLinks.token, token));
 		if (!link) return null;
+		if (!(await singleUseFor(db).magicLinks.markUsed(token, now))) return null;
 
 		const user = await findOrCreateUser(link.email);
+		await claimVerifiedMailbox(db, user.id, config, (id) => sessionManager.revokeAll(id));
 		const decision = await gate.evaluate({
 			userId: user.id,
 			method: "magic_link",
@@ -153,11 +179,10 @@ export function createMagicLinkModule(
 		});
 		if (decision.action !== "allow") throw new SignInGateError(decision);
 
-		const { token: sessionToken, session } = await sessionManager.create(
-			user.id,
-			undefined,
-			context?.rememberMe === undefined ? undefined : { rememberMe: context.rememberMe },
-		);
+		const { token: sessionToken, session } = await sessionManager.create(user.id, undefined, {
+			authMethods: ["otp"],
+			...(context?.rememberMe !== undefined && { rememberMe: context.rememberMe }),
+		});
 
 		return {
 			user,

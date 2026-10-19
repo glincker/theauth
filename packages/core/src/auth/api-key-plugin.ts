@@ -2,6 +2,7 @@ import { json, parseBody } from "../plugin/helpers.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 import type { ApiKeyManagerConfig } from "./api-key-manager.js";
 import { createApiKeyManagerModule } from "./api-key-manager.js";
+import { checkKeyPermissions, parsePermissionList } from "./api-key-scope.js";
 
 export type { ApiKeyManagerConfig };
 
@@ -32,9 +33,7 @@ export function apiKeys(config?: ApiKeyManagerConfig): TheAuthPlugin {
 					if (!bodyResult.ok) return bodyResult.response;
 					const name =
 						typeof bodyResult.data.name === "string" ? bodyResult.data.name.trim() : null;
-					const permissions = Array.isArray(bodyResult.data.permissions)
-						? bodyResult.data.permissions
-						: null;
+					const permissions = parsePermissionList(bodyResult.data.permissions);
 
 					if (!name || !permissions) {
 						return json({ error: "Missing required fields: name, permissions" }, 400);
@@ -44,11 +43,16 @@ export function apiKeys(config?: ApiKeyManagerConfig): TheAuthPlugin {
 						? new Date(bodyResult.data.expiresAt as string)
 						: undefined;
 
+					const scope = await checkKeyPermissions(user.id, permissions, config ?? {});
+					if (!scope.ok) {
+						return json({ error: "permissions_not_grantable", denied: scope.denied }, 403);
+					}
+
 					try {
 						const result = await module.create({
 							userId: user.id,
 							name,
-							permissions: permissions as string[],
+							permissions,
 							expiresAt,
 						});
 						return json(result, 201);

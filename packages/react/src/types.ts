@@ -1,3 +1,5 @@
+import type { HydrateInput, RefetchOptions } from "@glinr/theauth-client";
+
 export interface TheAuthUser {
 	id: string;
 	email?: string;
@@ -84,6 +86,25 @@ export interface RotateRetryConfig {
 
 export type RotationStatus = "idle" | "rotating" | "error";
 
+/** Options for the built in session store used when `external` is not set. */
+export interface ManagedAuthConfig {
+	/** Refetch the session on focus, reconnect or an interval. Off unless set. */
+	refetch?: RefetchOptions;
+	/** Session the server already resolved (SSR). Skips the first request. `null` means signed out. */
+	initialSession?: HydrateInput | null;
+	/**
+	 * Use the core email and password routes (`/auth/email/*`, served when the server sets the
+	 * `emailPassword` config). Explicit `signInPath`, `signUpPath` and `identifierField` still win.
+	 */
+	emailPassword?: boolean;
+	/** Default `/auth/username/sign-in`, or `/auth/email/sign-in` with `emailPassword`. */
+	signInPath?: string;
+	/** Default `/auth/username/sign-up`, or `/auth/email/sign-up` with `emailPassword`. */
+	signUpPath?: string;
+	/** Body field for the sign-in identifier. Default `username`, or `email` with `emailPassword`. */
+	identifierField?: string;
+}
+
 /** Delegates all auth to an external API when passed to `<TheAuthProvider external={...}>`. */
 export interface ExternalAuthConfig {
 	apiUrl: string;
@@ -98,6 +119,10 @@ export interface ExternalAuthConfig {
 	/** Default maps `user_id`, `id`, or `sub` to the id, plus email, name, avatar, image. */
 	mapUser?: (data: Record<string, unknown>) => TheAuthUser;
 	onLogout?: () => void;
+	/** Refetch the user on focus, reconnect or an interval. Off unless set. */
+	refetch?: RefetchOptions;
+	/** User the server already resolved (SSR). Skips the first request. `null` means signed out. */
+	initialUser?: TheAuthUser | null;
 
 	/**
 	 * Enables rotation. Defaults to `"/auth/refresh"`: `POST` with credentials, returning
@@ -135,7 +160,15 @@ export interface ExternalAuthConfig {
 	errorCodeMap?: Partial<Record<string, RotateErrorCode>>;
 }
 
-export type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };
+/** `code` is the server's error code when it sent one, for example `EMAIL_NOT_VERIFIED`. */
+export type ActionResult<T = void> =
+	| { success: true; data: T }
+	| { success: false; error: string; code?: string };
+
+/** What a sign-up reports. `verificationRequired` means no session yet: verify the email, then sign in. */
+export interface SignUpData {
+	verificationRequired: boolean;
+}
 
 export interface TheAuthContextValue {
 	session: TheAuthSession | null;
@@ -143,7 +176,15 @@ export interface TheAuthContextValue {
 	isLoading: boolean;
 	isAuthenticated: boolean;
 	signIn: (email: string, password: string) => Promise<ActionResult>;
-	signUp: (email: string, password: string, name?: string) => Promise<ActionResult>;
+	signUp: (email: string, password: string, name?: string) => Promise<ActionResult<SignUpData>>;
+	/** Email and password only. Confirms an address with the token from the verification email. */
+	verifyEmail: (token: string) => Promise<ActionResult>;
+	/** Email and password only. Sends the verification email again. */
+	resendVerification: (email: string) => Promise<ActionResult>;
+	/** Email and password only. Emails a reset link when the server has `passwordReset`. */
+	requestPasswordReset: (email: string) => Promise<ActionResult>;
+	/** Email and password only. Sets a new password from the emailed token. */
+	resetPassword: (token: string, password: string) => Promise<ActionResult>;
 	signOut: () => Promise<void>;
 	refresh: () => Promise<void>;
 

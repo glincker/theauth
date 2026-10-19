@@ -447,7 +447,7 @@ func TestAuth_GetSession_Expired_ReturnsNil(t *testing.T) {
 
 func TestAuth_AuthorizeByToken(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/authorize" {
+		if r.URL.Path != "/authorize/token" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ta_") {

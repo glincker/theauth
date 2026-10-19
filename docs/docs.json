@@ -135,8 +135,11 @@
               "add-to-existing-app",
               "configuration",
               "database",
+              "bring-your-own-drizzle",
+              "hosted-databases",
               "choose-storage",
               "benchmarks",
+              "performance",
               "production-checklist",
               "troubleshooting",
               "ai-assistants"
@@ -247,6 +250,8 @@
                   "auth/line",
                   "auth/wechat",
                   "auth/kick",
+                  "auth/cloudflare",
+                  "auth/paybin",
                   "auth/roblox"
                 ]
               },
@@ -326,6 +331,9 @@
               "agents",
               "ephemeral-sessions",
               "delegation",
+              "iot-devices",
+              "spiffe",
+              "device-conformance-kit",
               "token-vault"
             ]
           },
@@ -348,9 +356,12 @@
               "accountability-raci-template",
               "audit",
               "audit-trail",
+              "input-provenance",
               "audit-receipts",
               "audit-checkpoints",
               "observability",
+              "database-hooks",
+              "id-generation",
               "policy-shrink",
               "analyzer",
               "trust",
@@ -362,6 +373,7 @@
             "icon": "gauge",
             "pages": [
               "approval",
+              "step-up-auth",
               "agent-tools",
               "taint-guard",
               "guards",
@@ -369,6 +381,9 @@
               "vercel-ai-sdk",
               "openai-agents-sdk",
               "agent-frameworks",
+              "integrations/vercel-ai-sdk",
+              "integrations/openai-agents-sdk",
+              "integrations/langgraph-crewai",
               "simulator",
               "explain",
               "rate-limiting",
@@ -408,8 +423,10 @@
               "conformance",
               "admin-mcp",
               "dpop",
+              "dpop-agent-tokens",
               "gateway",
-              "gateway-mcp"
+              "gateway-mcp",
+              "robotics-ros2"
             ]
           },
           {
@@ -423,6 +440,13 @@
                 "icon": "server",
                 "pages": [
                   "adapters/hono",
+                  "adapters/elysia",
+                  "adapters/nitro",
+                  "adapters/effect",
+                  "adapters/encore",
+                  "adapters/convex",
+                  "adapters/waku",
+                  "adapters/react-router",
                   "adapters/express",
                   "adapters/fastify",
                   "adapters/nestjs"
@@ -450,7 +474,9 @@
               "react",
               "vue",
               "svelte",
+              "solid",
               "expo",
+              "lynx",
               "sdk-go",
               "sdk-python",
               "electron",
@@ -486,7 +512,8 @@
               "sign-in-gate",
               "trusted-device",
               "multi-session",
-              "owasp-agentic-mapping"
+              "owasp-agentic-mapping",
+              "security-doctor"
             ]
           },
           {
@@ -552,6 +579,8 @@
               "migrate/from-better-auth-agent-plugin",
               "migrate/from-next-auth",
               "migrate/from-clerk",
+              "migrate/from-supabase",
+              "migrate/from-workos",
               "migrate/from-auth0",
               "migrate/from-kavach"
             ]
@@ -587,6 +616,7 @@
             "pages": [
               "compare/index",
               "compare/vs-ba",
+              "compare/vs-keycloak",
               "compare/vs-hanko",
               "compare/vs-casdoor",
               "compare/vs-paid"

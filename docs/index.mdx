@@ -62,6 +62,7 @@ const theauth = await createTheAuth({
   ],
 });
 
+// Routes served by the email plugin (only while it is installed):
 // POST /auth/sign-up, /auth/sign-in, /auth/verify-email, /auth/request-reset ...
 const res = await theauth.plugins.handleRequest(request);
 ```
@@ -96,7 +97,15 @@ const res = await theauth.plugins.handleRequest(request);
 <div>
 **Web Crypto only** in core, no Node-specific APIs.
 </div>
+<div>
+**Devices** with their own credentials, enrollment, live revocation and signed offline policy bundles.
+</div>
+<div>
+**Robotics** with ROS 2 permissions exported to SROS2 and DDS Security files, plus a gate node for hazardous commands.
+</div>
 </Columns>
+
+Devices and robots use the same model as agents. A sensor, gateway or machine is a principal with its own credentials, permissions and audit rows, so one policy and one audit trail cover people, agents and hardware. Start with [IoT devices](/iot-devices) or [robotics and ROS 2](/robotics-ros2).
 
 ## How it fits with your stack
 

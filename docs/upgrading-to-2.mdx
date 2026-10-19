@@ -214,7 +214,7 @@ Postgres now works across the whole instance. Before, the first write and every 
 - `provider: "mysql"` throws `THEAUTH_MYSQL_UNSUPPORTED` unless you pass `experimental: true`.
 - `theauth_refresh_tokens.used` is now `BIGINT` on Postgres and MySQL, so the refresh reuse grace window works. SQLite is unchanged.
 
-## Cookies are Secure by default, PBKDF2 is stronger
+## Cookies are secure by default, PBKDF2 is stronger
 
 The `Secure` cookie default no longer reads `NODE_ENV`. It used to be off when `NODE_ENV` was unset, which is the normal state on Workers, Deno and Bun.
 
@@ -266,3 +266,210 @@ Revoking a delegation, an agent, a user's sessions or a token now reaches MCP ac
 ## Observability is opt in
 
 `observability.onDecision(event)` receives one typed event per `authorize`, `authorizeByToken` and `policy.evaluate` decision, and `logger` receives hook timeout and listener warnings. Nothing changes unless you set them. Events carry no tokens or raw arguments, and `observability.redactResource` rewrites the resource string. The dashboard audit page now sends `codes` to your audit endpoint and calls `/api/explain`, so mount the HTTP handler at `/api`. See [Observability](/observability).
+
+## Approval denials carry specific codes
+
+`approval_invalid` is gone from `authorize()`, `authorizeByToken()` and `policy.evaluate()`. A failed spend returns one of `approval_not_found`, `approval_pending`, `approval_denied`, `approval_expired`, `approval_already_used`, `approval_mismatch` or `approval_arguments_mismatch`, and all of them still map to `onViolation.type` `approval_required`. The `reason` string `APPROVAL_NOT_APPROVED` is split into `APPROVAL_PENDING` and `APPROVAL_DENIED`, and a pending request past its expiry reports `APPROVAL_EXPIRED`. Branch on `code` instead of `approval_invalid`. `approval.approve()` and `approval.deny()` now throw for an expired request and mark it `expired`, and `approval.listPending()` leaves out expired ones. New: `approval.decide()`, the `approval.pending` webhook event, and decision events with `source: "approval"`. See [Approval flows](/approval).
+
+## Stateless and JWT sessions refuse banned users
+
+The database session manager already refused a banned user. The JWT session module and the stateless session manager did not, so a banned user could still get tokens or cookies on those paths.
+
+- `createJwtSessionModule(...).createSession` now returns `USER_BANNED` for a banned user (an expired ban no longer counts) and writes a denied `sign_in` audit row. `refreshSession` goes through the same check, so a ban stops refresh token rotation. Access tokens already issued stay valid until `accessTokenTtl`.
+- `createStatelessSessions` has no database, so the check is opt in. Pass `db` to run the same check against the `users` table (the identity `sub` must be your local user id), or pass `isBanned(identity)` for a store of your own. `createSession` then returns `USER_BANNED`, and with `isBanned` set `getSession` returns null for a banned user, which ends sessions already issued.
+- Before: a banned user could sign in through these managers. After: `USER_BANNED`, with the same generic message as the other sign-in paths.
+- Action: pass `db` or `isBanned` to `createStatelessSessions`. Handle the `USER_BANNED` code where you call `createSession`.
+
+## Org and API key handlers fail closed
+
+`org.handleRequest` and `apiKeys.handleRequest` used to act on any request, trusting the `userId`, `ownerId` and `invitedBy` in the body. They now answer 401 unless the caller is authenticated.
+
+- Through `createTheAuth` nothing to wire: the handlers use your auth adapter, then the session token, like the TOTP and passkey handlers.
+- For a module built on its own (`createOrgModule(config, db, { resolveUser })`, `createApiKeyManagerModule(config, db, { resolveUser })`), pass a `resolveUser` that returns `{ id }` or null. With no resolver every route answers 401.
+- With a resolver, API key routes only reach the caller's own keys (403 otherwise). Org routes need membership to read and the `owner` or `admin` role to change anything. A member may remove themselves. `ownerId`, `invitedBy` and the accepting user are taken from the session, and a body value for another user is a 403.
+- Owner level stays with owners. Only an owner can grant the `owner` role (add, invite or role change), change or remove another owner, or delete the org. An admin who tries gets 403.
+- An invitation can only be accepted by the signed-in user whose email it was sent to (compared without case). Anyone else holding the invitation id gets 403. `GET /auth/org/:orgId/invitations` needs `owner` or `admin`, because the ids it returns work as join links.
+- `acceptInvitation` claims the invitation with one conditional write, so a second accept of the same invitation fails with "not pending" even when both run at once.
+- Opt out for trusted server code that has already authenticated and authorized the caller: `org: { trustedServerUse: true }` or `apiKeys: { trustedServerUse: true }`. The handler then trusts ids in the request, as before. A configured resolver always wins over the flag.
+- Before: unauthenticated requests could create orgs, add members and mint API keys for any user. After: 401, or 403 for another user's data.
+
+## Single use codes and tokens are claimed atomically
+
+Several redemptions read a row, checked it, then marked it used with a separate write. Two requests that arrived together could both pass the check. Each one is now a single conditional `UPDATE` or `DELETE`, and only the caller whose statement changed the row continues.
+
+- OIDC provider: an authorization code exchanged twice at once yields one token set. The other call gets `CODE_ALREADY_USED`. A refresh token used twice at once yields one rotation, the other gets `REFRESH_TOKEN_REVOKED`.
+- JWT sessions: `refreshSession` called twice with one refresh token creates one session. The other call gets `REFRESH_TOKEN_USED`.
+- Passkeys: a registration or authentication challenge is spent by one request. A concurrent second request gets `CHALLENGE_NOT_FOUND`.
+- Action: none, unless your client retries a refresh in parallel. Send one refresh at a time and reuse its result.
+
+## Authorization code grant refuses another user's agent client
+
+A client bound to an agent with `mcp.clients.bindAgent` now only gets a code, and only redeems one, for the agent's owner. Before, any signed-in user could authorize that client and receive tokens carrying the agent's identity.
+
+- The authorization endpoint returns `ACCESS_DENIED`, and the token endpoint returns `INVALID_GRANT`, both with `details.decisionCode` set to `owner_mismatch` and the message "This client is bound to an agent owned by another user and cannot act for you". The refusal is also written to the audit log under the agent.
+- Without `auth` (no database stores) there is no agent store and nothing changes.
+- Action: bind a client to an agent only when the users who authorize it own that agent. For shared service clients, bind them with a service account that owns the agent.
+
+## `inputProvenance` is a reserved audit argument name
+
+Tool arguments named `inputProvenance` are now dropped from audit `parameters`, like `approvalId` and the `theauth*` names, because input provenance is recorded only from the trusted `context.inputs` (kind, id and content hash, never content).
+
+- Action: if a tool takes an argument called `inputProvenance`, rename it, or it will not appear in the audit row.
+- Pseudonym rotation (`audit.pseudonymRotation`) is opt in. Without it nothing changes.
+
+## Input provenance uses a keyed hash
+
+`hashInputContent(content)` is now `hashInputContent(content, auditKey)` and returns an HMAC-SHA-256 under a subkey derived from the audit key, so a reader of the audit table cannot confirm a guess at short content. The old unkeyed function is `hashInputContentPlain(content)`.
+
+- Rows recorded with `context.inputs` now carry `hv: 2` on each source. Rows written before keep the plain hash and no `hv`, and still match queries by content.
+- `audit.query({ provenance: { hash } })` still works for a stored hash. To look up content, use `provenance: { content }`: the server hashes it for you, so nothing needs the key on the client.
+- Action: if you computed `hashInputContent(text)` yourself to filter, switch to `provenance: { content: text }`. Hashes you pass as `hash` in `inputs` are stored as given.
+- `AuditEntry` gains an optional `inputs` list (kind, id, hash, hv). `POST /authorize` and `POST /authorize/token` accept `inputs`, and `GET /audit` takes `provenanceKind`, `provenanceHash` and `provenanceContent`.
+
+## `generateOpenAPISpec` is generated from the route table
+
+The OpenAPI document is no longer hand written. It is built from the handler's routes and the core result shapes, and `sdks/openapi.json` is the checked-in copy.
+
+- `servers[0].url` is now `baseUrl` plus `basePath` (default `/api/theauth`). Before, `baseUrl` was used as is, so pass the origin only.
+- Paths match what the handler serves: `POST /authorize` takes `agentId` in the body, and `POST /authorize/token` is the bearer token form. The old `/agents/{id}/authorize` entry did not exist on the server.
+- `AuthorizeResult` has a required `code` (a decision code). `ExplainResult`, the delegation chain fields (`rootOwnerId`, `path`), approvals and `/mcp/introspect` are described.
+- `POST /authorize` and `POST /authorize/token` accept `approvalId`. Before, the HTTP body schema dropped it, so an approved request could not be spent over HTTP.
+- Action: regenerate any client you built from the old document, and pass the origin as `baseUrl`.
+
+
+## Agent type `device` and the IoT device tables
+
+IoT devices are backed by agent rows of the new type `device` (see [IoT devices](/iot-devices)). Nothing changes unless you set `devices` in the config, but the types widen.
+
+- `AgentIdentity["type"]`, `AgentFilter["type"]` and `CreateAgentInput["type"]` now include `"device"` (exported as `AgentType`). A `switch` over agent types that assumes three cases needs a `device` branch or a default.
+- `agent.create({ type: "device" })` throws. Devices are created with `theauth.device.register` or enrollment.
+- `agent.list()` leaves device agents out unless you pass `type: "device"`, and they do not count against `agents.maxPerUser`. `agent.rotate` refuses a device agent.
+- Agent registration tokens accept only `autonomous`, `delegated` and `service` as `agentType` (`agent_type` over HTTP). Before, any string was stored and became the agent type.
+- New decision codes: `device_not_found`, `device_suspended`, `device_revoked`, `device_expired`. `statusForDecisionCode` maps the first, third and fourth to 401.
+- Migration `0010-devices` creates `theauth_devices`, `theauth_device_credentials` and `theauth_device_enrollments` when agents are enabled. With `database.skipMigrations`, apply it with `theauth db sql --dialect <sqlite|postgres|mysql> --from 0010`.
+- `/devices` is now a protected adapter path, and the handler serves the device facing routes under `/device/*` unless you set `routes: { devices: false }`. They answer 404 while `devices` is not configured.
+- Action: add a `device` case where you branch on agent type. If you mount your own routes under `/devices` or `/device`, move them or turn the device routes off.
+
+## Step-up authentication and sender constrained agent tokens
+
+Sessions now remember how the user proved who they are, approvals can demand a fresh passkey or TOTP code, the MCP server honors `acr_values` and `max_age`, and agent tokens can be bound to a DPoP key or a client certificate. See [step-up authentication](/step-up-auth) and [sender constrained agent tokens](/dpop-agent-tokens). Everything is opt in, but some types and behaviors changed.
+
+- New decision codes: `confirmation_required`, `confirmation_failed` (both 401 from `statusForDecisionCode`) and `approval_step_up_insufficient`. A `switch` over `DecisionCode` that is exhaustive needs the new cases.
+- `SessionManager` has a new method, `recordAuth(sessionId, method)`. A custom implementation of the interface must add it. `Session` gains an optional `auth` object, and `CreateSessionOptions` gains `authMethods`.
+- A risk tier with `require: "step_up"` could never be satisfied before: the call always escalated. Now an approval spends it, provided the approval was opened under a rule at least as strong as the tier (default: multi factor within 5 minutes). If you relied on the tier to block those calls for good, keep it blocked with a `deny` hook.
+- `approval.approve(id, by)` throws `StepUpRequiredError` when the request carries a step-up rule and no assertion is passed. Requests opened without a rule behave as before.
+- `approval.approve`, `deny` and `decide` now change a request with one conditional update. Before, two concurrent decisions could both succeed and the last one won.
+- `AgentIdentity` gains an optional `cnf`. `RequestContext` gains `confirmation`. `agent.rotate(id)` keeps the binding, and takes `{ cnf }` to change it.
+- `POST /agents/introspect` is a new route, so a custom route table that mirrors `listRoutes()` needs it. `POST /authorize/token` and `requireAgent` also accept `Authorization: DPoP <token>`.
+- `passkey.verifyAuthentication` returns `userVerified` next to `userId` and `credential`.
+- The MCP `McpAuthModule.requireScopes` takes an optional third argument, and `McpPrincipal` has an `auth` field. `McpAuthErrorCode` gains `INSUFFICIENT_USER_AUTHENTICATION`.
+- Migrations: `0009-step-up-and-confirmation` adds `cnf` to `theauth_agents` and `required_acr` and `max_auth_age` to `theauth_approval_requests` (agents enabled). `0011-oauth-auth-evidence` adds `auth_acr`, `auth_amr` and `auth_time` to the OAuth code and token tables (OAuth enabled). All columns are nullable. With `database.skipMigrations`, apply them with `theauth db sql --dialect <sqlite|postgres|mysql> --from 0009`.
+- Action: add the new decision codes where you branch on them, add `recordAuth` to custom session managers, and run `theauth db up`.
+
+## The approval hash now equals theauth-go's
+
+`hashApprovalAction`, the `argumentsHash` in the `approval.pending` webhook and the check that binds an approval to its arguments now use the canonical form of theauth-go (`packages/core/src/approval/canonical.ts`). The hash of an ordinary request (ASCII text, integers, plain objects) does not change. It changes for arguments that contain `<`, `>`, `&`, U+2028 or U+2029 in a string or key, object keys that sort differently by UTF-8 bytes than by UTF-16 units (an astral character against U+E000 to U+FFFF), `-0`, or a lone surrogate. A pending request is compared by recomputing both sides, so in flight approvals keep working. Only a hash you stored from an old webhook payload for such arguments no longer matches a fresh one.
+
+Arguments that cannot be hashed now fail closed. `NaN` and `Infinity` used to hash as `null`, so an approval for `{ amount: null }` covered `{ amount: NaN }`. They now throw, and the call is denied with `approval_arguments_mismatch`. A function or symbol value is refused the same way.
+
+## Delegation subset check follows the runtime matcher, and path matching is opt in
+
+`delegate()` used to accept a child resource that was longer than an exact parent resource: a parent holding `tool:db` could delegate `tool:db:secrets` or `tool:db:*`, although the parent itself could not use either (`authorize()` matches `tool:db` only against `tool:db`). The child therefore held access the parent never had. The check now uses the same matcher as `authorize()`, so that delegation is refused with `DELEGATION_PERMISSION_SUBSET`. Delegations already stored are not rewritten. If you relied on it, give the parent a `tool:db:*` grant.
+
+New and opt in: `resourceMatching: "path"` (see [Path matching](/permissions#path-matching-opt-in)). The default is unchanged. With the default, `devices.register` and `devices.update` now refuse a device permission whose `*` is not the last segment (`mqtt:a:*:b`), because the default matcher lets a middle `*` swallow the rest of the resource. Existing devices keep working. In path mode a middle `*` means exactly one segment and is accepted.
+
+## Self service API keys are capped, and OIDC refresh reuse revokes the family
+
+A signed in user used to be able to create an API key with any permissions, including `*`. `POST /auth/api-keys` now checks the request against what the user holds and answers 403 `permissions_not_grantable` with the denied list. Tell the module what a user holds:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  apiKeys: {
+    grantablePermissions: async (userId) => loadPermissionsFor(userId),
+    adminOverride: async (userId) => isPlatformAdmin(userId),
+  },
+});
+```
+
+`*` covers everything, `agents:*` covers `agents:read` and `agents:read:own`. Without `grantablePermissions`, the `org` module (when configured) caps the key at what the creator's org roles allow through `org.hasPermission`. That check is an exact match on the role's permission strings, so a role entry such as `agents:*` does not cover a key asking for `agents:read` (owners pass for everything). If your roles use patterns, pass `grantablePermissions`. With neither, a self service request can only ask for an empty permission list, so keys with permissions stop working until you configure one. `theauth.apiKeys.create()` in your own server code and modules built with `trustedServerUse` are not capped. Rotating a key keeps the permissions it already has.
+
+OIDC provider refresh tokens now belong to a family (RFC 9700 section 4.14.2). Presenting a refresh token that was already rotated, or losing a rotation race with it, revokes every token in the family. Access tokens already issued stay valid until they expire. Migration `0012-oidc-refresh-family` adds a nullable `family_id` column to `theauth_oidc_refresh_tokens`. With `database.skipMigrations`, apply it with `theauth db sql --dialect <sqlite|postgres|mysql> --from 0012`. Refresh tokens issued before the migration have no family, so reuse of one revokes all refresh tokens of that user and client.
+
+## `DELETE /delegations/:id` answers 204 on every mount
+
+The core route table answered 204 with no body, while the admin API plugin answered 200 with `{ "revoked": [...] }` for the same path. Both now use one handler and answer 204. A missing chain is a 404 on both. The admin plugin still writes its `admin_api.delegation.revoke` audit row, and the ids of the revoked links (the chain and its descendants) are in that row's `parameters.revoked`. If you read `revoked` from the admin response, read it from the audit log or call `GET /revocations/delegations` before revoking to see the cascade.
+
+## Quorum approvals and migration 0013
+
+An approval can require more than one approver with `requiredApprovals` (default 1, so existing flows do not change). It adds migration `0013`: a nullable `required_approvals` column on `theauth_approval_requests` and a new `theauth_approval_votes` table. Run `theauth migrate` (or let `createTheAuth` migrate) before you use it. `ApprovalRequest` gains `requiredApprovals` and, for a quorum request, `approvers`. The admin API approve and deny responses and the pending list now carry `requiredApprovals` and `approvalsReceived`, and the approve response can have `status: "pending"` while a quorum is incomplete. A client that treats any 200 from approve as "approved" must check `status`. New webhook event: `approval.vote`. See [Approval flows](/approval).
+
+## Device attestation evidence needs a nonce
+
+`devices.attestation.verify` is now only called for evidence that comes with a nonce from `device.attestationNonce()` (`POST /device/attestation-nonce`). Evidence without one is refused with `nonce_invalid`, because it cannot be shown to be fresh (RFC 9334 section 10). Before, a missing nonce skipped the check and left replay protection to your verifier. If your verifier proves freshness another way, for example a signed timestamp, set `attestation.requireNonce: false`. The hook input also gains `credentialKind` and `credentialKeyThumbprint`. See [IoT devices](/iot-devices).
+
+## Client bindings: store methods and sign-in routes
+
+`SessionStore.refresh()` now returns a promise, and `SessionStore.signOut()` returns `Promise<StoreActionResult>`. Code that treats either one as synchronous must await it.
+
+The default sign-in and sign-up routes for the client bindings are now `POST /auth/username/sign-in` and `POST /auth/username/sign-up`, and the first argument is sent as `username`. The core never served `/auth/sign-in` or `/auth/sign-up`, so the old defaults answered 404. Managed sessions are confirmed with `GET /auth/session`, and `signOut` calls `POST /auth/sign-out` after it clears local state.
+
+What to do:
+
+- Await `refresh()` and `signOut()` wherever you call them on a `SessionStore`.
+- If you serve your own `/auth/sign-in` or `/auth/sign-up` for these bindings, set `signInPath`, `signUpPath` and `identifierField`. In React, pass them in the `managed` prop. In Vue and Svelte, set them in the plugin or client options. Expo and Electron take the same three options.
+- If an Expo or Electron app relied on `/sign-in/email` and `/sign-up/email`, set the three options to the routes your server serves.
+
+See [Client SDK](/client-sdk) and [React](/react).
+
+## UI, Expo, Electron and dashboard route changes
+
+`TwoFactorVerify` posts `{ code }` to `POST /auth/2fa/verify`, and a backup code goes in the same `code` field. It reads the core's `{ error: "..." }` body.
+
+`OAuthButtons` navigates to `/auth/oauth/authorize/:provider`. The server builds the callback URL itself. In Electron, `openOAuthWindow` waits for the core callback redirect before it reports success, instead of closing the window on the provider redirect.
+
+In the dashboard, revoking an agent uses `DELETE /agents/:id`, and an agent's permissions come from `GET /agents/:id`. The Users, Permissions, Settings and MCP Servers pages call routes that only the CLI dev server serves. Against any other server, those pages show a "does not serve" message.
+
+## SMS senders time out and hide response bodies
+
+`twilioOtpSender`, `vonageOtpSender` and `plivoOtpSender` all time out after 10 seconds (`timeoutMs`). Their errors carry only the HTTP status and the vendor error code. The response body is no longer attached, so phone numbers and codes do not reach logs. Code that read the body text from these errors must match on the status or the code instead.
+
+See [SMS OTP](/auth/otp).
+
+## SCIM group PUT changes only the members that differ
+
+`PUT` on a SCIM group now removes only the members missing from the list and adds only the new ones. Before, it deleted and re-inserted every member. Members who stay in the group keep their row id and their roles. Before this change, a role other than `member` was lost on every group `PUT`.
+
+## Migration 0014 adds hot path indexes
+
+Migration `0014-hot-path-indexes` is additive. It adds indexes for agent lookup by token hash, active agents per owner, permissions per agent, delegation links in both directions, the hourly rate limit read and the pending approval list.
+
+`createTheAuth` applies it. With `database.skipMigrations: true`, `createTheAuth` throws `SchemaOutdatedError` until you apply it. Run `theauth db up`, or generate the SQL with `theauth db sql --dialect <yours>` and apply it with your own tooling.
+
+## Migration 0015 and the `attestation_required` decision code
+
+Migration 0015 adds `theauth_devices.app_attest_counter` (`NOT NULL DEFAULT 0`, additive) for Apple App Attest assertion counters. `createTheAuth` applies it. With `database.skipMigrations: true` it throws `SchemaOutdatedError` until you run `theauth db up` or apply the SQL from `theauth db sql --dialect <yours>`.
+
+`DECISION_CODES` gains `attestation_required`, returned when a permission carries a `constraints.attestation` rule that the caller does not meet. If you switch exhaustively over `DecisionCode` in TypeScript, add the case. Python and Go clients list it after you regenerate them. `PermissionConstraints` gains the optional `attestation` field, so a permission read from storage by older code would ignore it: do not run old and new processes against the same permissions while you use it.
+
+The Apple App Attest verifier now returns an `attestedPublicKey` claim, and the TPM and App Attest claim sets are read by `attestationFacts`. Devices that enrolled before this release have no `attestedPublicKey`, so `device.verifyAppAssertion` answers `not_app_attest` for them until they enroll again.
+
+## Database hooks fail closed
+
+Database hooks are new in this release. They run `before` and `after` hooks on user, session and account creates and updates. A `before` hook can return `false` to abort, or `{ data }` to replace allowed fields. For users, only `email`, `name` and `metadata` can be replaced.
+
+A `before` hook that throws, times out or returns a malformed value stops the write with a `DatabaseHookError`. The error code is `DATABASE_HOOK_FAILED`, `DATABASE_HOOK_TIMEOUT` or `DATABASE_HOOK_INVALID_PAYLOAD`, whatever `hookSafety.onError` is set to. A stopped SCIM write answers 403. A stopped Stripe or Polar webhook answers 500, so the provider retries the event.
+
+`after` hooks run once the row exists, so they cannot undo it. A throw or timeout in an `after` hook is logged and swallowed.
+
+See [Database hooks](/database-hooks).
+
+## Email linking needs verified addresses
+
+Google One Tap, magic link and email OTP no longer trust an unverified account. The OAuth plugin already refused it since 0.7.0.
+
+- One Tap signs in to an existing account by email only when Google reports `email_verified: true` and the local address is verified. Otherwise it answers 409 with `ACCOUNT_EXISTS`. Users already stored with an unverified address must verify it first, or sign in once with magic link or email OTP.
+- Redeeming a magic link or email OTP marks the address verified. On an account that was unverified, it first deletes the password, linked providers, passkeys and sessions created before that proof.
+- Escape hatches, all off by default: `unsafeAllowUnverifiedEmailLinking` on `oneTap()` and `oauth()`, and `keepUnverifiedCredentials` on `magicLink` and `emailOtp`.
+
+If your existing One Tap users were created by your own sign-up flow with unverified addresses, set `emailVerified` for them before upgrading, or they get a 409 at their next sign-in.

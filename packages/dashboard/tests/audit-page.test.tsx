@@ -42,6 +42,28 @@ describe("AuditTable", () => {
 		expect(html).toContain("Explain decision for read on mcp:github:issues");
 	});
 
+	it("shows provenance chips with the id or a short hash, and a dash when none", () => {
+		const hash = "ab12cd34".padEnd(64, "0");
+		const html = renderToStaticMarkup(
+			<AuditTable
+				entries={[
+					entry({
+						inputs: [
+							{ kind: "retrieved_document", hash },
+							{ kind: "user_message", id: "msg_1", hash: "f".repeat(64) },
+						],
+					}),
+					entry({ id: "a2" }),
+				]}
+				onExplain={() => {}}
+			/>,
+		);
+		expect(html).toContain("Inputs");
+		expect(html.match(/data-testid="input-chips"/g)).toHaveLength(1);
+		expect(html).toContain("ab12cd34");
+		expect(html).toContain("msg_1");
+	});
+
 	it("renders the empty state without rows", () => {
 		expect(renderToStaticMarkup(<AuditTable entries={[]} onExplain={() => {}} />)).toContain(
 			"No audit events yet",

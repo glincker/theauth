@@ -1,0 +1,102 @@
+---
+title: Nitro
+description: Serve theAuth routes from a standalone Nitro server (v2 or v3) with `createTheAuthHandler`. No extra package. For Nuxt, use the Nuxt adapter.
+icon: code
+---
+
+A Nitro route handler can return the `Response` that `createTheAuthHandler` from `@glinr/theauth/http` produces, so there is no Nitro package. This page is for a standalone Nitro server, or any app that uses Nitro without Nuxt. In a Nuxt app use [`@glinr/theauth-nuxt`](/adapters/nuxt), which wraps the same handler.
+
+## Install
+
+```bash
+pnpm add @glinr/theauth better-sqlite3
+pnpm add nitro        # Nitro 3 (beta)
+# or: pnpm add nitropack   # Nitro 2
+```
+
+Nitro 3 beta needs `pg` and `mysql2` installed as well, even if you never use them. Its bundler hoists the lazy driver imports in `drizzle-orm` into one chunk that imports both at startup, so a missing package fails the first request. Nitro 2 does not do this.
+
+## Create the instance once
+
+Nitro 2 builds for `es2019`, which has no top-level `await`. Create the instance on the first request and reuse it. This works on Nitro 2 and 3.
+
+```typescript title="server/utils/theauth.ts"
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler } from "@glinr/theauth/http";
+
+async function setup() {
+  const theauth = await createTheAuth({
+    database: { provider: "sqlite-native", url: "theauth.db" },
+    agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+  });
+  const handler = createTheAuthHandler(theauth, {
+    basePath: "/api/theauth",
+    // Who may call the management routes. Return { id } to allow, null for a 401.
+    authenticate: async (request) => {
+      const user = await theauth.auth.resolveUser(request);
+      return user ? { id: user.id } : null;
+    },
+  });
+  return { theauth, handler };
+}
+
+let instance: ReturnType<typeof setup> | undefined;
+
+export function useTheAuth() {
+  instance ??= setup();
+  return instance;
+}
+```
+
+The in-memory `sql.js` provider (`provider: "sqlite"`) does not survive a Nitro 3 build: the bundler inlines its CommonJS file and the first request fails with `__dirname is not defined`. Use `sqlite-native`, Postgres or D1.
+
+## Mount the handler
+
+The route file is a catch-all. The handler sees the full path, so `basePath` is the mount path.
+
+<CodeGroup>
+
+```typescript title="Nitro 3: server/routes/api/theauth/[...path].ts"
+import { defineHandler } from "nitro";
+import { useTheAuth } from "../../../utils/theauth";
+
+export default defineHandler(async (event) => {
+  const { handler } = await useTheAuth();
+  return handler(event.req); // event.req is a Web Request
+});
+```
+
+```typescript title="Nitro 2: server/routes/api/theauth/[...path].ts"
+import { toWebRequest } from "h3";
+import { useTheAuth } from "../../../utils/theauth";
+
+export default defineEventHandler(async (event) => {
+  const { handler } = await useTheAuth();
+  return handler(toWebRequest(event));
+});
+```
+
+</CodeGroup>
+
+## Protect your own routes
+
+`requireAgent` is the decision logic behind the `requireScope` helpers of the other adapters. It returns the agent, or a ready 401 or 403 `Response`.
+
+```typescript title="Nitro 3: server/routes/docs.get.ts"
+import { defineHandler } from "nitro";
+import { requireAgent } from "@glinr/theauth/http";
+import { useTheAuth } from "../utils/theauth";
+
+export default defineHandler(async (event) => {
+  const { theauth } = await useTheAuth();
+  const result = await requireAgent(theauth, event.req, { action: "read", resource: "docs" });
+  if (!result.ok) return result.response; // 401 or 403 with { error: { code, message } }
+  return { agentId: result.agent.id };
+});
+```
+
+On Nitro 2 pass `toWebRequest(event)` instead of `event.req`.
+
+## What was run
+
+Both versions were built with `nitro build` and `nitropack build` and started from the build output, with `@glinr/theauth` installed from a packed tarball (so the bundler treated it like an installed dependency). On Nitro 3 beta (`3.0.260903-beta`, h3 2.0.5) and Nitro 2: `GET /api/theauth/agents` without a session answered 401, an unknown path under the mount answered 404, and `GET /docs` without a token answered 401. With an `authenticate` stub that accepts a test header, `GET /api/theauth/agents` answered 200. The `sql.js` and missing `pg` and `mysql2` failures above come from those runs.

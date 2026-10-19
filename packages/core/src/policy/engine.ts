@@ -3,7 +3,7 @@
 
 import { eq } from "drizzle-orm";
 import type { ApprovalModule } from "../approval/approval.js";
-import { APPROVAL_CODES, consumeApproval } from "../approval/consume.js";
+import { APPROVAL_CODES, consumeApproval, decisionCodeOfApproval } from "../approval/consume.js";
 import { recordAuditEvent } from "../audit/record.js";
 import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { withHookDetail } from "../authorize/hook-outcome.js";
@@ -36,7 +36,7 @@ import { runPolicyHook } from "./hook-gate.js";
 import { createRbacResolver } from "./rbac.js";
 import { createRebacBridge } from "./rebac-bridge.js";
 import { applyRisk } from "./risk.js";
-import { applyTaint, normalizeProvenance } from "./taint.js";
+import { applyTaint, normalizeProvenance, withInputLabels } from "./taint.js";
 import type {
 	DecisionPrincipal,
 	EvaluateInput,
@@ -69,6 +69,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 	const auditEnabled = config.audit !== false;
 	const sampleRate = clampSampleRate(config.auditSampleRate);
 	const policyVersion = config.policyVersion;
+	const matching = config.resourceMatching ?? "colon";
 
 	async function evaluate(
 		input: EvaluateInput,
@@ -80,12 +81,16 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		// Risk is applied after the cache so it never poisons cached decisions.
 		const risked = applyRisk(base, config.risk, input.context?.risk);
 		// Taint is applied before an approval is spent, so an approved retry still passes through it.
-		const provenance = normalizeProvenance(input.context?.provenance);
-		const tainted = applyTaint(risked, config.taint, {
-			resource: input.resource,
-			action: input.action,
-			provenance,
-		});
+		const supplied = normalizeProvenance(input.context?.provenance);
+		const provenance = config.taint?.inputLabels
+			? withInputLabels(supplied, input.context?.inputs)
+			: supplied;
+		const tainted = applyTaint(
+			risked,
+			config.taint,
+			{ resource: input.resource, action: input.action, provenance },
+			matching,
+		);
 		// A hook escalate already spent input.approvalId; do not let it be spent twice.
 		const applied = await applyApproval(
 			tainted,
@@ -135,7 +140,8 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		const agentId = input.subject.agentId;
 		if (
 			decision.decision !== "escalate" ||
-			decision.escalation?.requirement !== "approval" ||
+			(decision.escalation?.requirement !== "approval" &&
+				decision.escalation?.requirement !== "step_up") ||
 			!input.approvalId ||
 			!agentId
 		) {
@@ -147,10 +153,14 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			action: input.action,
 			resource: input.resource,
 			arguments: input.context?.arguments,
+			minStepUp: decision.escalation.stepUp,
 		});
 		if (!spent.ok) {
 			return {
-				decision: { ...withEffect(decision, "deny", "approval_invalid"), reason: spent.code },
+				decision: {
+					...withEffect(decision, "deny", decisionCodeOfApproval(spent.code)),
+					reason: spent.code,
+				},
 			};
 		}
 		return {
@@ -186,6 +196,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 				action: input.action,
 				resource: input.resource,
 				arguments: input.context?.arguments,
+				stepUp: decision.escalation?.stepUp,
 			});
 			const escalation = decision.escalation ?? {
 				tier: "constraint",
@@ -277,7 +288,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 
 		let effective: Permission[];
 		try {
-			effective = await resolveEffectivePermissions(db, rbac, input);
+			effective = await resolveEffectivePermissions(db, rbac, input, matching);
 		} catch {
 			return finalize(
 				makeDecision({
@@ -294,7 +305,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 		let cacheUnsafeSeen = false;
 
 		for (const perm of effective) {
-			if (!matchResource(perm.resource, input.resource)) continue;
+			if (!matchResource(perm.resource, input.resource, matching)) continue;
 			if (!matchAction(perm.actions, input.action)) continue;
 
 			if (perm.relation) {
@@ -479,7 +490,7 @@ export function createPolicyEngine(deps: PolicyEngineDeps): PolicyEngine {
 			ip: input.context?.ip,
 			userAgent: typeof input.context?.userAgent === "string" ? input.context.userAgent : undefined,
 			cacheHit: decision.cacheHit,
-			inputProvenance: provenanceRecord(input, decision),
+			inputProvenance: await provenanceRecord(db, input, decision),
 			subjectId: decision.principal?.subjectId,
 			actorId: decision.principal?.actorId,
 			policyVersion,

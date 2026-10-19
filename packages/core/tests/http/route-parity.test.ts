@@ -4,8 +4,10 @@ import type { McpAuthModule } from "../../src/mcp/types.js";
 import type { TheAuth } from "../../src/theauth.js";
 import { makeHarness } from "../mcp-test-harness.js";
 import { BASE, makeAuth, newAgent, sessionToken } from "./helpers.js";
+import type { DeviceIds } from "./route-parity-device-rows.js";
+import { DEVICE_ROWS, freshDevice } from "./route-parity-device-rows.js";
 
-interface Ids {
+interface Ids extends DeviceIds {
 	agentId: string;
 	agentToken: string;
 	chainId: string;
@@ -28,8 +30,8 @@ interface Row {
 	unauthenticated: number;
 	forbidden: number | null;
 	call: (ids: Ids) => Call;
-	/** Credentials the allowed caller sends: alice session, the agent token, or none. */
-	as: "alice" | "agent" | "none";
+	/** Credentials the allowed caller sends: alice session, the agent token, a device PSK, or none. */
+	as: "alice" | "agent" | "device" | "none";
 }
 
 const future = () => new Date(Date.now() + 3_600_000).toISOString();
@@ -93,6 +95,16 @@ const ROWS: Row[] = [
 		unauthenticated: 401,
 		forbidden: 404,
 		call: (i) => ({ method: "POST", path: `/agents/${i.toAgent}/rotate` }),
+	},
+	{
+		method: "POST",
+		spec: "/agents/introspect",
+		as: "alice",
+		allowed: 200,
+		unauthenticated: 401,
+		// Another owner's token is not refused, it reads as inactive (RFC 7662), so the status is still 200.
+		forbidden: 200,
+		call: (i) => ({ method: "POST", path: "/agents/introspect", body: { token: i.agentToken } }),
 	},
 	{
 		method: "POST",
@@ -293,6 +305,7 @@ const ROWS: Row[] = [
 		forbidden: null,
 		call: () => ({ method: "GET", path: "/mcp/jwks" }),
 	},
+	...DEVICE_ROWS,
 ];
 
 let auth: TheAuth;
@@ -309,7 +322,13 @@ async function fresh(): Promise<Ids> {
 		permissions: perm,
 		expiresAt: new Date(Date.now() + 3_600_000),
 	});
-	return { agentId: agent.id, agentToken: agent.token, chainId: chain.id, toAgent: other.id };
+	return {
+		agentId: agent.id,
+		agentToken: agent.token,
+		chainId: chain.id,
+		toAgent: other.id,
+		...(await freshDevice(auth)),
+	};
 }
 
 function send(call: Call, bearer?: string): Promise<Response> {
@@ -369,7 +388,13 @@ describe("route parity table", () => {
 		it(`allowed -> ${row.allowed}`, async () => {
 			const ids = await fresh();
 			const bearer =
-				row.as === "alice" ? aliceToken : row.as === "agent" ? ids.agentToken : undefined;
+				row.as === "alice"
+					? aliceToken
+					: row.as === "agent"
+						? ids.agentToken
+						: row.as === "device"
+							? ids.devicePsk
+							: undefined;
 			const res = await send(row.call(ids), bearer);
 			expect(res.status).toBe(row.allowed);
 		});
@@ -383,12 +408,13 @@ describe("route parity table", () => {
 		if (row.forbidden !== null) {
 			it(`forbidden -> ${row.forbidden}`, async () => {
 				const ids = await fresh();
-				const bearer = row.as === "agent" ? "kv_wrong" : bobToken;
+				const bearer =
+					row.as === "agent" ? ids.agentToken : row.as === "device" ? ids.devicePsk : bobToken;
 				const call =
-					row.as === "agent"
+					row.as === "agent" || row.as === "device"
 						? { ...row.call(ids), body: { action: "write", resource: "docs" } }
 						: row.call(ids);
-				const res = await send(call, row.as === "agent" ? ids.agentToken : bearer);
+				const res = await send(call, bearer);
 				expect(res.status).toBe(row.forbidden);
 			});
 		}
@@ -435,7 +461,9 @@ describe("route parity table", () => {
 			new Request(`${BASE}/agents`, { headers: { Authorization: `Bearer ${aliceToken}` } }),
 		);
 		expect(res.status).toBe(404);
-		expect(listRoutes({ routes: { management: false, explain: false, mcp: false } })).toEqual([]);
+		expect(
+			listRoutes({ routes: { management: false, explain: false, mcp: false, devices: false } }),
+		).toEqual([]);
 	});
 
 	it("throws at construction when nothing can authenticate management routes", async () => {

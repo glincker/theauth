@@ -2,6 +2,7 @@ import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/m
 import type { z } from "zod";
 import type { ApiClient } from "../client.js";
 import type { Logger } from "../logger.js";
+import { readInputsMeta } from "../provenance.js";
 import type { AuditRecorder } from "./audit.js";
 
 export interface ToolContext {
@@ -39,7 +40,7 @@ export function defineTool<Shape extends z.ZodRawShape>(spec: ToolSpec<Shape>): 
 		register(server, ctx) {
 			// The SDK callback type is conditional on the shape; the runtime contract is
 			// (parsedArgs) => CallToolResult, which this satisfies.
-			const callback = (async (args: z.objectOutputType<Shape, z.ZodTypeAny>) => {
+			const callback = (async (args: z.objectOutputType<Shape, z.ZodTypeAny>, extra?: unknown) => {
 				try {
 					const outcome = await spec.run(args, ctx);
 					await ctx.audit?.record({
@@ -47,6 +48,7 @@ export function defineTool<Shape extends z.ZodRawShape>(spec: ToolSpec<Shape>): 
 						mode: "read",
 						result: outcome.ok ? "ok" : "error",
 						params: args,
+						inputs: readInputsMeta(extra),
 					});
 					if (outcome.ok) {
 						return {

@@ -8,9 +8,16 @@ import httpx
 
 from theauth._http import AsyncTransport, SyncTransport
 from theauth.agents import AsyncAgentsResource, SyncAgentsResource
+from theauth.approvals import AsyncApprovalsResource, SyncApprovalsResource
 from theauth.audit import AsyncAuditResource, SyncAuditResource
 from theauth.auth import AsyncAuthResource, SyncAuthResource
 from theauth.delegation import AsyncDelegationResource, SyncDelegationResource
+from theauth.devices.resource import (
+    AsyncDeviceApiResource,
+    AsyncDevicesResource,
+    SyncDeviceApiResource,
+    SyncDevicesResource,
+)
 from theauth.mcp import AsyncMcpResource, SyncMcpResource
 from theauth.types import AuthorizeRequest, AuthorizeResult
 
@@ -91,6 +98,11 @@ class TheAuthClient:
         self.audit = AsyncAuditResource(self._transport)
         self.delegation = AsyncDelegationResource(self._transport)
         self.mcp = AsyncMcpResource(self._transport)
+        self.approvals = AsyncApprovalsResource(self._transport)
+        #: Device registry (admin routes, ``/devices``).
+        self.devices = AsyncDevicesResource(self._transport)
+        #: Calls a device makes as itself (``/device/*``).
+        self.device = AsyncDeviceApiResource(self._transport)
 
     async def authorize(
         self,
@@ -134,7 +146,7 @@ class TheAuthClient:
             TheAuthError: Any other non-2xx response, mapped by status.
         """
         return await self._transport.request(
-            method.upper(), path, json=json, params=_clean_params(params)
+            method.upper(), path, json=json, params=_clean_params(params), unwrap_data=False
         )
 
     async def close(self) -> None:
@@ -204,6 +216,11 @@ class TheAuthSyncClient:
         self.audit = SyncAuditResource(self._transport)
         self.delegation = SyncDelegationResource(self._transport)
         self.mcp = SyncMcpResource(self._transport)
+        self.approvals = SyncApprovalsResource(self._transport)
+        #: Device registry (admin routes, ``/devices``).
+        self.devices = SyncDevicesResource(self._transport)
+        #: Calls a device makes as itself (``/device/*``).
+        self.device = SyncDeviceApiResource(self._transport)
 
     def authorize(
         self,
@@ -237,7 +254,7 @@ class TheAuthSyncClient:
             TheAuthError: Any other non-2xx response, mapped by status.
         """
         return self._transport.request(
-            method.upper(), path, json=json, params=_clean_params(params)
+            method.upper(), path, json=json, params=_clean_params(params), unwrap_data=False
         )
 
     def close(self) -> None:

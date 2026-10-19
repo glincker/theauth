@@ -33,11 +33,20 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { sessions as sessionsTable } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { CookieOptions } from "./cookie.js";
 import { getCookie, serializeCookieDeletion } from "./cookie.js";
 import type { SessionCookieCacheConfig } from "./cookie-cache.js";
 import { createSessionCookieCache } from "./cookie-cache.js";
-import type { Session, SessionConfig, SessionInvalidReason, SessionManager } from "./session.js";
+import type {
+	CreateSessionOptions,
+	Session,
+	SessionConfig,
+	SessionInvalidReason,
+	SessionManager,
+} from "./session.js";
 import { createSessionManager } from "./session.js";
 import { buildSessionCookie } from "./session-cookie.js";
 
@@ -78,7 +87,7 @@ export interface CookieSessionManager {
 	createSession(
 		userId: string,
 		metadata?: Record<string, unknown>,
-		options?: { rememberMe?: boolean },
+		options?: Pick<CreateSessionOptions, "rememberMe" | "authMethods" | "idpAmr">,
 	): Promise<CreateSessionResult>;
 
 	/** Parses the Cookie header and looks up the session. Extends expiry when `autoRefresh` is on. */
@@ -114,12 +123,13 @@ const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 export function createCookieSessionManager(
 	config: CookieSessionConfig,
 	db: Database,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): CookieSessionManager {
 	const sessionName = config.sessionName ?? DEFAULT_SESSION_NAME;
 	const maxAgeSecs = config.maxAge ?? DEFAULT_MAX_AGE_SECONDS;
 	const autoRefresh = config.autoRefresh ?? true;
 
-	const raw = createSessionManager(config, db);
+	const raw = createSessionManager(config, db, databaseHooks);
 	const cache = config.cookieCache
 		? createSessionCookieCache({ ...config.cookieCache, secret: config.secret })
 		: null;
@@ -149,7 +159,7 @@ export function createCookieSessionManager(
 	async function createSession(
 		userId: string,
 		metadata?: Record<string, unknown>,
-		options?: { rememberMe?: boolean },
+		options?: Pick<CreateSessionOptions, "rememberMe" | "authMethods" | "idpAmr">,
 	): Promise<CreateSessionResult> {
 		const { session, token } = await raw.create(userId, metadata, options);
 		const cacheCookieHeaders = await seedCache(session, token, "");
@@ -237,7 +247,7 @@ export function createCookieSessionManager(
 
 		const row = rows[0];
 		if (!row) return null;
-		if (row.expiresAt <= new Date()) return null;
+		if (row.expiresAt.getTime() <= (config.now?.() ?? Date.now())) return null;
 
 		// Issue the new session first so a create failure leaves the user logged
 		// in, then delete the old one. The delete reports whether this call
@@ -248,14 +258,18 @@ export function createCookieSessionManager(
 			row.metadata ?? undefined,
 			{ replacing: sessionId },
 		);
-		const removed = await db
-			.delete(sessionsTable)
-			.where(eq(sessionsTable.id, sessionId))
-			.returning({ id: sessionsTable.id });
-		if (removed.length === 0) {
+		if (!(await singleUseFor(db).sessions.deleteOnce(sessionId))) {
 			await db.delete(sessionsTable).where(eq(sessionsTable.id, newSession.id));
 			return null;
 		}
+
+		// Fired only now: the new session lost no race and the old one is gone.
+		await databaseHooks.after("session", "create", {
+			id: newSession.id,
+			userId: newSession.userId,
+			expiresAt: newSession.expiresAt,
+			metadata: row.metadata ? { ...row.metadata } : null,
+		});
 
 		return {
 			session: newSession,

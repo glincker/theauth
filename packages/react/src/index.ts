@@ -10,6 +10,7 @@ export {
 
 export {
 	useAgents,
+	useEmailPassword,
 	useRotateSession,
 	useSession,
 	useSignIn,
@@ -27,10 +28,12 @@ export type {
 	AuthUser,
 	CreateAgentInput,
 	ExternalAuthConfig,
+	ManagedAuthConfig,
 	RotateErrorCode,
 	RotateResult,
 	RotateRetryConfig,
 	RotationStatus,
+	SignUpData,
 	TheAuthAgent,
 	TheAuthContextValue,
 	TheAuthPermission,

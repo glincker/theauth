@@ -350,6 +350,12 @@ export interface McpIntrospectionResponse {
 	token_type?: "Bearer" | "DPoP";
 	/** The resource server verifies the DPoP proof itself against this thumbprint. */
 	cnf?: { jkt: string };
+	/** RFC 9470 section 6.2: authentication context class reference of the user's login. */
+	acr?: string;
+	/** RFC 8176 authentication methods of the user's login. */
+	amr?: string[];
+	/** RFC 9470 section 6.2: epoch seconds of the user's authentication event. */
+	auth_time?: number;
 	act?: McpActorClaim;
 	agent_id?: string;
 	theauth_dlg?: McpDelegationBinding;

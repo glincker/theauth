@@ -1,5 +1,8 @@
 import { eq } from "drizzle-orm";
-import { organizations, orgInvitations, orgMembers, orgRoles } from "../db/schema.js";
+import { organizations, orgMembers } from "../db/schema.js";
+import { applyWriteOps } from "../db/store/apply-ops.js";
+import { createDrizzleKernel } from "../db/store/drizzle-kernel.js";
+import type { WriteOp } from "../db/store/types.js";
 import {
 	makeMemberId,
 	makeOrgId,
@@ -8,6 +11,17 @@ import {
 	slugRegex,
 } from "./organization-helpers.js";
 import type { Organization, OrgContext, OrgModule } from "./organization-types.js";
+
+/** The delete group for one organization: members, invitations and roles, then the org row. */
+export function orgRemoveOps(orgId: string): WriteOp[] {
+	const where = [{ field: "orgId", op: "eq" as const, value: orgId }];
+	return [
+		{ op: "delete", model: "orgMembers", where },
+		{ op: "delete", model: "orgInvitations", where },
+		{ op: "delete", model: "orgRoles", where },
+		{ op: "delete", model: "organizations", where: [{ field: "id", op: "eq", value: orgId }] },
+	];
+}
 
 /** Organization CRUD: create, read, update and delete. */
 export function createOrgCore(
@@ -49,34 +63,34 @@ export function createOrgCore(
 		const id = makeOrgId();
 		const now = new Date();
 
-		await db.insert(organizations).values({
-			id,
-			name: input.name,
-			slug: input.slug,
-			ownerId: input.ownerId,
-			metadata: input.metadata ?? null,
-			createdAt: now,
-			updatedAt: now,
-		});
-
-		// Add owner as member with "owner" role
-		await db.insert(orgMembers).values({
-			id: makeMemberId(),
-			orgId: id,
-			userId: input.ownerId,
-			role: "owner",
-			joinedAt: now,
-		});
-
-		// Seed default roles
-		for (const role of defaultRoles) {
-			await db.insert(orgRoles).values({
-				id: makeRoleId(),
-				orgId: id,
-				name: role.name,
-				permissions: role.permissions,
-			});
-		}
+		// One atomic group: an org never exists without its owner member and seeded roles.
+		await createDrizzleKernel(db).batch([
+			{
+				op: "insert",
+				model: "organizations",
+				row: {
+					id,
+					name: input.name,
+					slug: input.slug,
+					ownerId: input.ownerId,
+					metadata: input.metadata ?? null,
+					createdAt: now,
+					updatedAt: now,
+				},
+			},
+			{
+				op: "insert",
+				model: "orgMembers",
+				row: { id: makeMemberId(), orgId: id, userId: input.ownerId, role: "owner", joinedAt: now },
+			},
+			...defaultRoles.map(
+				(role): WriteOp => ({
+					op: "insert",
+					model: "orgRoles",
+					row: { id: makeRoleId(), orgId: id, name: role.name, permissions: role.permissions },
+				}),
+			),
+		]);
 
 		return {
 			id,
@@ -145,12 +159,9 @@ export function createOrgCore(
 	async function remove(orgId: string): Promise<void> {
 		const existing = await get(orgId);
 		if (!existing) throw new Error(`Organization "${orgId}" not found.`);
-		// Explicit cascade: remove members, invitations, and roles before the org
-		// (FK ON DELETE CASCADE may not be enabled in all SQLite configs)
-		await db.delete(orgMembers).where(eq(orgMembers.orgId, orgId));
-		await db.delete(orgInvitations).where(eq(orgInvitations.orgId, orgId));
-		await db.delete(orgRoles).where(eq(orgRoles.orgId, orgId));
-		await db.delete(organizations).where(eq(organizations.id, orgId));
+		// One atomic group, children first (FK ON DELETE CASCADE may not be enabled in all SQLite
+		// configs). Without an atomic batch the same ops run in order and a retry finishes the job.
+		await applyWriteOps(db, orgRemoveOps(orgId));
 	}
 
 	return {

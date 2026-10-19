@@ -341,7 +341,7 @@ describe("ApiKeyManagerModule.handleRequest", () => {
 	beforeEach(async () => {
 		db = await createTestDb();
 		await seedUser(db, USER_ID, "test@example.com");
-		mod = createApiKeyManagerModule({ prefix: "kos_" }, db);
+		mod = createApiKeyManagerModule({ prefix: "kos_", trustedServerUse: true }, db);
 	});
 
 	it("POST /auth/api-keys creates a key and returns 201", async () => {

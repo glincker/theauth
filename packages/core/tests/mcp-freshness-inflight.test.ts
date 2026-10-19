@@ -1,6 +1,6 @@
 /** Cached mode: a revoke that lands while a read is in flight is never lost, even for callers that joined the read. */
 import { SignJWT } from "jose";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { attachFreshnessDeps } from "../src/mcp/freshness.js";
 import type {
 	McpBindingStore,
@@ -112,8 +112,7 @@ describe("revoke during an in flight cached read", () => {
 		const token = await mint();
 		const release = h.hold();
 		const first = validate(h.ctx, token);
-		await new Promise((r) => setTimeout(r, 10));
-		expect(h.reads()).toBe(1);
+		await vi.waitFor(() => expect(h.reads()).toBe(1));
 		h.revoke("jti_1");
 		// Arrives after the local clear, while the old read is still in flight.
 		const late = validate(h.ctx, token);
@@ -128,7 +127,7 @@ describe("revoke during an in flight cached read", () => {
 		const token = await mint();
 		const release = h.hold();
 		const first = validate(h.ctx, token);
-		await new Promise((r) => setTimeout(r, 10));
+		await vi.waitFor(() => expect(h.reads()).toBe(1));
 		h.revoke("jti_1");
 		release();
 		await first;

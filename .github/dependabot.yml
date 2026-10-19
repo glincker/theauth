@@ -55,6 +55,11 @@ updates:
       prefix: chore
       include: scope
     groups:
+      codeql:
+        patterns:
+          - "github/codeql-action"
       actions:
         patterns:
           - "*"
+        exclude-patterns:
+          - "github/codeql-action"

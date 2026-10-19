@@ -70,7 +70,15 @@ export function redisStorage(client: RedisLikeClient): SecondaryStorage {
 		},
 		async incr(key, ttlSeconds): Promise<IncrResult> {
 			const ttlMs = Math.max(Math.ceil(ttlSeconds * 1000), 1);
-			const count = Number(await client.incr(key));
+			let count: number;
+			try {
+				count = Number(await client.incr(key));
+			} catch (error) {
+				// The key holds plain text from set(). Every other backend restarts the window, so do the same.
+				if (!/not an integer/i.test(String((error as Error)?.message ?? error))) throw error;
+				await client.del(key);
+				count = Number(await client.incr(key));
+			}
 			let remaining = Number(await pttl(key));
 			if (count === 1 || remaining < 0) {
 				await pexpire(key, ttlMs);

@@ -1,5 +1,5 @@
-import type { TheAuth, TrustedProxyConfig } from "@glinr/theauth";
-import { resolveClientIp } from "@glinr/theauth";
+import type { InputSource, TheAuth, TrustedProxyConfig } from "@glinr/theauth";
+import { INPUTS_HEADER, parseInputsHeader, resolveClientIp } from "@glinr/theauth";
 import { buildCorsHeaders, isOriginAllowed, isPreflight } from "./cors.js";
 import { authenticateMcp, metadataResponse, resolveMcp } from "./mcp-mode.js";
 import { startServer } from "./node-server.js";
@@ -94,12 +94,27 @@ function rateLimitKey(
 	return `anon:${fingerprint(material)}`;
 }
 
+/**
+ * Context for the permission and audit calls. `TheAuth-Inputs` carries the caller's claim of what was in context for this request (kind and hash per input, see provenance-wire in core). A malformed header is ignored, it never blocks the request.
+ */
+function callContext(
+	request: Request,
+	trustedProxy?: TrustedProxyConfig,
+): { ip?: string; userAgent?: string; inputs?: InputSource[] } {
+	const inputs = parseInputsHeader(request.headers.get(INPUTS_HEADER));
+	return {
+		ip: extractClientIp(request, trustedProxy),
+		userAgent: request.headers.get("user-agent") ?? undefined,
+		...(inputs ? { inputs } : {}),
+	};
+}
+
 async function authorizeIdentity(
 	theauth: TheAuth,
 	identity: ResolvedIdentity,
 	action: string,
 	resource: string,
-	context: { ip?: string; userAgent?: string },
+	context: { ip?: string; userAgent?: string; inputs?: InputSource[] },
 ): Promise<{ allowed: boolean; reason?: string }> {
 	if (identity.kind === "agent-token") {
 		return theauth.authorizeByToken(identity.token, { action, resource }, context);
@@ -122,10 +137,7 @@ async function checkPermissions(
 	const required = policy.requiredPermissions;
 	if (!required || required.length === 0) return { allowed: true };
 
-	const context = {
-		ip: extractClientIp(request, trustedProxy),
-		userAgent: request.headers.get("user-agent") ?? undefined,
-	};
+	const context = callContext(request, trustedProxy);
 
 	for (const perm of required) {
 		for (const action of perm.actions) {
@@ -148,10 +160,7 @@ async function recordAuditEntry(
 	const url = new URL(request.url);
 	const action = request.method.toLowerCase();
 	const resource = `gateway:${url.pathname}`;
-	const context = {
-		ip: extractClientIp(request, trustedProxy),
-		userAgent: request.headers.get("user-agent") ?? undefined,
-	};
+	const context = callContext(request, trustedProxy);
 	try {
 		if (!identity) {
 			await theauth.authorizeByToken("", { action, resource }, context);

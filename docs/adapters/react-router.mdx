@@ -1,0 +1,39 @@
+---
+title: React Router
+description: Serve theAuth routes from a React Router v7 resource route with `createTheAuthHandler`. Works on Node, Workers and any runtime that gives you a Request.
+icon: code
+---
+
+React Router v7 (and Remix) resource routes receive a Web `Request` and return a `Response`, so the core handler fits with no wrapper package.
+
+## Install
+
+```bash
+pnpm add @glinr/theauth
+```
+
+## Resource route
+
+Create `app/routes/api.theauth.$.ts` and register it with `route("api/theauth/*", "routes/api.theauth.$.ts")` in `app/routes.ts`. The request keeps its full path, so leave `basePath` at the default `/api/theauth`.
+
+```typescript
+// app/routes/api.theauth.$.ts
+import { createTheAuthHandler } from "@glinr/theauth/http";
+import { theauth } from "~/lib/theauth.server";
+
+const handler = createTheAuthHandler(theauth, {
+  authenticate: async (request) => {
+    const user = await theauth.auth.resolveUser(request);
+    return user ? { id: user.id } : null;
+  },
+});
+
+export const loader = ({ request }: { request: Request }) => handler(request);
+export const action = ({ request }: { request: Request }) => handler(request);
+```
+
+Export both `loader` (GET, HEAD) and `action` (POST, PUT, PATCH, DELETE). Build the handler once at module scope so an unsafe configuration fails at startup.
+
+## What was run
+
+The handler contract (full path in, `Response` out and 404 outside the base path) is covered by `packages/core/tests/http/fetch-mount.test.ts`. This page did not run a React Router app.

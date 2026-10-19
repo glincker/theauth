@@ -1,512 +1,279 @@
 /**
- * OpenAPI 3.1 specification generator for TheAuth REST API.
- * This generates the spec that enables auto-generated SDKs for Python, Go, Java, Rust, etc.
+ * OpenAPI 3.1 document for the TheAuth REST API, generated from the handler's route table
+ * (`listRoutes`) and the Zod shapes in `openapi-schemas.ts`. Nothing here is written per
+ * route by hand except the metadata in `openapi-operations.ts`, and the generator test fails
+ * when a served route has no metadata or when the checked-in `sdks/openapi.json` is stale.
+ * Regenerate with `pnpm --filter @glinr/theauth exec jiti scripts/generate-openapi.ts`.
  */
+import type { ZodTypeAny } from "zod";
+import { listRoutes } from "./http/router.js";
+import type { RouteAuthLevel, RouteSpec, TheAuthHandlerOptions } from "./http/types.js";
+import type { OperationMeta, QueryParam } from "./openapi-operations.js";
+import { ADMIN_API_BODIES, ADMIN_API_ROUTES, OPERATIONS } from "./openapi-operations.js";
+import { COMPONENT_SCHEMAS, ErrorEnvelopeSchema } from "./openapi-schemas.js";
+import type { JsonSchema, SchemaRegistry } from "./openapi-zod.js";
+import { zodToJsonSchema } from "./openapi-zod.js";
+
+export type { JsonSchema } from "./openapi-zod.js";
 
 export interface OpenAPISpec {
 	openapi: string;
 	info: { title: string; version: string; description: string };
 	servers: Array<{ url: string; description: string }>;
-	paths: Record<string, Record<string, PathOperation>>;
+	paths: Record<string, Record<string, OpenAPIOperation>>;
 	components: {
-		schemas: Record<string, SchemaObject>;
+		schemas: Record<string, JsonSchema>;
 		securitySchemes: Record<string, SecurityScheme>;
 	};
 }
 
-interface PathOperation {
+interface MediaType {
+	schema: JsonSchema;
+}
+
+interface OpenAPIResponse {
+	description: string;
+	content?: Record<string, MediaType>;
+	headers?: Record<string, { schema: JsonSchema }>;
+}
+
+export interface OpenAPIOperation {
 	summary: string;
 	operationId: string;
 	tags: string[];
-	security?: Array<Record<string, string[]>>;
-	parameters?: ParameterObject[];
-	requestBody?: { required: boolean; content: Record<string, { schema: SchemaRef }> };
-	responses: Record<
-		string,
-		{ description: string; content?: Record<string, { schema: SchemaRef }> }
-	>;
-}
-
-interface ParameterObject {
-	name: string;
-	in: "query" | "path" | "header";
-	required: boolean;
-	schema: SchemaRef;
+	security: Array<Record<string, string[]>>;
+	parameters?: Array<{
+		name: string;
+		in: "query" | "path";
+		required: boolean;
+		schema: JsonSchema;
+		description?: string;
+	}>;
+	requestBody?: { required: boolean; content: Record<string, MediaType> };
+	responses: Record<string, OpenAPIResponse>;
 }
 
 interface SecurityScheme {
 	type: string;
 	scheme?: string;
 	bearerFormat?: string;
-}
-
-type SchemaRef = { $ref: string } | SchemaObject;
-
-interface SchemaObject {
-	type?: string;
-	properties?: Record<string, SchemaRef>;
-	required?: string[];
-	items?: SchemaRef;
-	enum?: string[];
 	description?: string;
-	format?: string;
-	nullable?: boolean;
 }
 
-/** Generate the full OpenAPI 3.1 specification for the TheAuth REST API. */
-export function generateOpenAPISpec(options?: { baseUrl?: string; version?: string }): OpenAPISpec {
-	const baseUrl = options?.baseUrl ?? "http://localhost:3000";
-	const version = options?.version ?? "0.0.1";
+export interface GenerateOpenAPIOptions {
+	/** Origin the API is served from. Default `http://localhost:3000`. */
+	baseUrl?: string;
+	/** Path the handler is mounted under. Default `/api/theauth`. */
+	basePath?: string;
+	/** Contract version written to `info.version`. Bump it when the contract changes. */
+	version?: string;
+	/** Handler options. Routes the handler would not serve are left out. Default: every route. */
+	handler?: TheAuthHandlerOptions;
+	/** Include the admin API approval routes. Default true. */
+	adminApi?: boolean;
+}
+
+const DEFAULT_VERSION = "2.0.0";
+
+const SECURITY: Record<RouteAuthLevel, Array<Record<string, string[]>>> = {
+	admin: [{ BearerAuth: [] }],
+	agent: [{ AgentToken: [] }],
+	client: [{ ClientBasic: [] }, {}],
+	device: [{ DeviceCredential: [] }],
+	public: [],
+};
+
+function registryOf(): Map<ZodTypeAny, string> {
+	const map = new Map<ZodTypeAny, string>();
+	for (const [name, schema] of Object.entries(COMPONENT_SCHEMAS)) map.set(schema, name);
+	return map;
+}
+
+function envelope(data: JsonSchema): JsonSchema {
+	return { type: "object", required: ["data"], properties: { data } };
+}
+
+function queryParameter(param: QueryParam): NonNullable<OpenAPIOperation["parameters"]>[number] {
+	const schema: JsonSchema = { type: param.type ?? "string" };
+	if (param.enum) schema.enum = param.enum;
+	return { name: param.name, in: "query", required: false, schema, description: param.description };
+}
+
+function successBody(meta: OperationMeta, registry: SchemaRegistry): JsonSchema | undefined {
+	if (!meta.response) return meta.bare ? { type: "object" } : undefined;
+	const one = zodToJsonSchema(meta.response, registry);
+	const shape: JsonSchema = meta.list ? { type: "array", items: one } : one;
+	const withAlt = meta.alsoResponse
+		? { oneOf: [shape, zodToJsonSchema(meta.alsoResponse, registry)] }
+		: shape;
+	return meta.bare ? withAlt : envelope(withAlt);
+}
+
+function formBody(form: NonNullable<OperationMeta["form"]>): JsonSchema {
+	const properties: Record<string, JsonSchema> = {};
+	for (const [name, description] of Object.entries(form.fields)) {
+		properties[name] = { type: "string", description };
+	}
+	return { type: "object", required: form.required, properties };
+}
+
+function buildResponses(
+	meta: OperationMeta,
+	registry: SchemaRegistry,
+	auth: RouteAuthLevel,
+): Record<string, OpenAPIResponse> {
+	const responses: Record<string, OpenAPIResponse> = {};
+	const body = successBody(meta, registry);
+	if (meta.redirect) {
+		responses[String(meta.status)] = {
+			description: "Redirect to the login page or back to the client",
+			headers: { Location: { schema: { type: "string" } } },
+		};
+	} else if (meta.textType) {
+		responses[String(meta.status)] = {
+			description: "Exported entries",
+			content: {
+				[meta.textType]: { schema: { type: "string" } },
+				"application/json": { schema: { type: "string" } },
+			},
+		};
+	} else {
+		responses[String(meta.status)] = {
+			description: "Success",
+			...(body ? { content: { "application/json": { schema: body } } } : {}),
+		};
+	}
+	for (const status of meta.resultStatuses ?? []) {
+		responses[String(status)] = {
+			description:
+				"Decision made, the call is not allowed. The body is the same result as on success.",
+			...(body ? { content: { "application/json": { schema: body } } } : {}),
+		};
+	}
+	const errorBody = {
+		"application/json": { schema: zodToJsonSchema(ErrorEnvelopeSchema, registry) },
+	};
+	for (const [status, description] of Object.entries(meta.errors ?? {})) {
+		if (!responses[status]) responses[status] = { description, content: errorBody };
+	}
+	if (auth === "admin") {
+		const common: Array<[string, string]> = [
+			["401", "Not signed in"],
+			["403", "Outside the caller's scope"],
+		];
+		for (const [status, description] of common) {
+			if (!responses[status]) responses[status] = { description, content: errorBody };
+		}
+	}
+	return responses;
+}
+
+function buildOperation(
+	route: RouteSpec,
+	meta: OperationMeta,
+	registry: SchemaRegistry,
+	bodySchema: JsonSchema | undefined,
+): OpenAPIOperation {
+	const params = [...route.path.matchAll(/:([A-Za-z0-9_]+)/g)].map((m) => m[1] as string);
+	const parameters = [
+		...params.map((name) => ({
+			name,
+			in: "path" as const,
+			required: true,
+			schema: { type: "string" } as JsonSchema,
+		})),
+		...(meta.query ?? []).map(queryParameter),
+	];
+	const op: OpenAPIOperation = {
+		summary: route.summary,
+		operationId: meta.operationId,
+		tags: [meta.tag],
+		security: SECURITY[route.auth],
+		responses: buildResponses(meta, registry, route.auth),
+	};
+	if (parameters.length > 0) op.parameters = parameters;
+	if (meta.form) {
+		op.requestBody = {
+			required: true,
+			content: { "application/x-www-form-urlencoded": { schema: formBody(meta.form) } },
+		};
+	} else if (bodySchema || meta.openBody) {
+		op.requestBody = {
+			required: true,
+			content: { "application/json": { schema: bodySchema ?? { type: "object" } } },
+		};
+	}
+	return op;
+}
+
+/** Generate the OpenAPI 3.1 document for the routes `options.handler` would serve. */
+export function generateOpenAPISpec(options: GenerateOpenAPIOptions = {}): OpenAPISpec {
+	const baseUrl = options.baseUrl ?? "http://localhost:3000";
+	const basePath = options.basePath ?? options.handler?.basePath ?? "/api/theauth";
+	const registry = registryOf();
+	const routes: Array<{ route: RouteSpec; body?: JsonSchema }> = listRoutes(options.handler).map(
+		(route) => ({
+			route,
+			body: route.body ? zodToJsonSchema(route.body, registry) : undefined,
+		}),
+	);
+	if (options.adminApi !== false) {
+		for (const route of ADMIN_API_ROUTES) {
+			const schema = ADMIN_API_BODIES[`${route.method} ${route.path}`];
+			routes.push({ route, body: schema ? zodToJsonSchema(schema, registry) : undefined });
+		}
+	}
+
+	const paths: OpenAPISpec["paths"] = {};
+	for (const { route, body } of routes) {
+		const key = `${route.method} ${route.path}`;
+		const meta = OPERATIONS[key];
+		if (!meta) throw new Error(`openapi: no operation metadata for ${key}`);
+		const path = route.path.replace(/:([A-Za-z0-9_]+)/g, "{$1}");
+		const methods = paths[path] ?? {};
+		methods[route.method.toLowerCase()] = buildOperation(route, meta, registry, body);
+		paths[path] = methods;
+	}
+
+	const schemas: Record<string, JsonSchema> = {};
+	for (const [name, schema] of Object.entries(COMPONENT_SCHEMAS)) {
+		schemas[name] = zodToJsonSchema(schema, registry, true);
+	}
 
 	return {
 		openapi: "3.1.0",
 		info: {
 			title: "TheAuth API",
-			version,
+			version: options.version ?? DEFAULT_VERSION,
 			description:
-				"The Auth OS for AI Agents. Identity, permissions, delegation, and audit for the agentic era.",
+				"The Auth OS for AI Agents. Identity, permissions, delegation, and audit for the agentic era. Generated from the route table of createTheAuthHandler.",
 		},
-		servers: [{ url: baseUrl, description: "TheAuth API Server" }],
-		paths: {
-			"/agents": {
-				post: {
-					summary: "Create a new agent",
-					operationId: "createAgent",
-					tags: ["Agents"],
-					security: [{ BearerAuth: [] }],
-					requestBody: {
-						required: true,
-						content: {
-							"application/json": { schema: { $ref: "#/components/schemas/CreateAgentInput" } },
-						},
-					},
-					responses: {
-						"201": {
-							description: "Agent created",
-							content: {
-								"application/json": {
-									schema: { $ref: "#/components/schemas/AgentWithToken" },
-								},
-							},
-						},
-						"400": { description: "Invalid input" },
-						"429": { description: "Max agents per user exceeded" },
-					},
-				},
-				get: {
-					summary: "List agents",
-					operationId: "listAgents",
-					tags: ["Agents"],
-					security: [{ BearerAuth: [] }],
-					parameters: [
-						{ name: "userId", in: "query", required: false, schema: { type: "string" } },
-						{
-							name: "status",
-							in: "query",
-							required: false,
-							schema: { type: "string", enum: ["active", "revoked", "expired"] },
-						},
-						{
-							name: "type",
-							in: "query",
-							required: false,
-							schema: { type: "string", enum: ["autonomous", "delegated", "service"] },
-						},
-					],
-					responses: {
-						"200": {
-							description: "List of agents",
-							content: {
-								"application/json": {
-									schema: { type: "array", items: { $ref: "#/components/schemas/Agent" } },
-								},
-							},
-						},
-					},
-				},
-			},
-			"/agents/{id}": {
-				get: {
-					summary: "Get agent by ID",
-					operationId: "getAgent",
-					tags: ["Agents"],
-					security: [{ BearerAuth: [] }],
-					parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-					responses: {
-						"200": {
-							description: "Agent details",
-							content: { "application/json": { schema: { $ref: "#/components/schemas/Agent" } } },
-						},
-						"404": { description: "Agent not found" },
-					},
-				},
-				patch: {
-					summary: "Update agent",
-					operationId: "updateAgent",
-					tags: ["Agents"],
-					security: [{ BearerAuth: [] }],
-					parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-					requestBody: {
-						required: true,
-						content: {
-							"application/json": { schema: { $ref: "#/components/schemas/UpdateAgentInput" } },
-						},
-					},
-					responses: {
-						"200": {
-							description: "Agent updated",
-							content: { "application/json": { schema: { $ref: "#/components/schemas/Agent" } } },
-						},
-					},
-				},
-				delete: {
-					summary: "Revoke agent",
-					operationId: "revokeAgent",
-					tags: ["Agents"],
-					security: [{ BearerAuth: [] }],
-					parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-					responses: { "204": { description: "Agent revoked" } },
-				},
-			},
-			"/agents/{id}/rotate": {
-				post: {
-					summary: "Rotate agent token",
-					operationId: "rotateAgentToken",
-					tags: ["Agents"],
-					security: [{ BearerAuth: [] }],
-					parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-					responses: {
-						"200": {
-							description: "New token issued",
-							content: {
-								"application/json": { schema: { $ref: "#/components/schemas/AgentWithToken" } },
-							},
-						},
-					},
-				},
-			},
-			"/authorize": {
-				post: {
-					summary: "Authorize an agent action",
-					operationId: "authorize",
-					tags: ["Authorization"],
-					requestBody: {
-						required: true,
-						content: {
-							"application/json": { schema: { $ref: "#/components/schemas/AuthorizeRequest" } },
-						},
-					},
-					responses: {
-						"200": {
-							description: "Authorization result",
-							content: {
-								"application/json": { schema: { $ref: "#/components/schemas/AuthorizeResult" } },
-							},
-						},
-					},
-				},
-			},
-			"/authorize/token": {
-				post: {
-					summary: "Authorize by agent token",
-					operationId: "authorizeByToken",
-					tags: ["Authorization"],
-					security: [{ AgentToken: [] }],
-					requestBody: {
-						required: true,
-						content: {
-							"application/json": {
-								schema: {
-									type: "object",
-									properties: {
-										action: { type: "string" },
-										resource: { type: "string" },
-										arguments: { type: "object" },
-									},
-									required: ["action", "resource"],
-								},
-							},
-						},
-					},
-					responses: {
-						"200": {
-							description: "Authorization result",
-							content: {
-								"application/json": { schema: { $ref: "#/components/schemas/AuthorizeResult" } },
-							},
-						},
-					},
-				},
-			},
-			"/audit": {
-				get: {
-					summary: "Query audit logs",
-					operationId: "queryAudit",
-					tags: ["Audit"],
-					security: [{ BearerAuth: [] }],
-					parameters: [
-						{ name: "agentId", in: "query", required: false, schema: { type: "string" } },
-						{ name: "userId", in: "query", required: false, schema: { type: "string" } },
-						{
-							name: "since",
-							in: "query",
-							required: false,
-							schema: { type: "string", format: "date-time" },
-						},
-						{
-							name: "until",
-							in: "query",
-							required: false,
-							schema: { type: "string", format: "date-time" },
-						},
-						{
-							name: "result",
-							in: "query",
-							required: false,
-							schema: { type: "string", enum: ["allowed", "denied", "rate_limited", "escalated"] },
-						},
-						{ name: "limit", in: "query", required: false, schema: { type: "integer" } },
-						{
-							name: "offset",
-							in: "query",
-							required: false,
-							schema: {
-								type: "integer",
-								description: "Deprecated, use cursor. Ignored when cursor is set.",
-							},
-						},
-						{
-							name: "order",
-							in: "query",
-							required: false,
-							schema: {
-								type: "string",
-								enum: ["asc", "desc"],
-								description: "desc (default) is newest first.",
-							},
-						},
-						{
-							name: "cursor",
-							in: "query",
-							required: false,
-							schema: {
-								type: "string",
-								description: "nextCursor from the previous page. Implies paged=true.",
-							},
-						},
-						{
-							name: "events",
-							in: "query",
-							required: false,
-							schema: { type: "string", description: "Comma separated audit events." },
-						},
-						{
-							name: "resource",
-							in: "query",
-							required: false,
-							schema: {
-								type: "string",
-								description: "Exact resource, or a prefix when it ends with *.",
-							},
-						},
-						{
-							name: "paged",
-							in: "query",
-							required: false,
-							schema: {
-								type: "boolean",
-								description: "true returns { entries, nextCursor } instead of a bare array.",
-							},
-						},
-					],
-					responses: {
-						"200": {
-							description:
-								"Audit log entries. A bare array, or { entries, nextCursor } when paged=true or cursor is set",
-							content: {
-								"application/json": {
-									schema: { type: "array", items: { $ref: "#/components/schemas/AuditEntry" } },
-								},
-							},
-						},
-					},
-				},
-			},
-			"/delegations": {
-				post: {
-					summary: "Create delegation chain",
-					operationId: "createDelegation",
-					tags: ["Delegation"],
-					security: [{ BearerAuth: [] }],
-					requestBody: {
-						required: true,
-						content: {
-							"application/json": { schema: { $ref: "#/components/schemas/DelegateInput" } },
-						},
-					},
-					responses: {
-						"201": {
-							description: "Delegation created",
-							content: {
-								"application/json": { schema: { $ref: "#/components/schemas/DelegationChain" } },
-							},
-						},
-					},
-				},
-			},
-		},
+		servers: [{ url: `${baseUrl}${basePath}`, description: "TheAuth API Server" }],
+		paths,
 		components: {
-			schemas: {
-				CreateAgentInput: {
-					type: "object",
-					required: ["ownerId", "name", "type", "permissions"],
-					properties: {
-						ownerId: { type: "string" },
-						name: { type: "string" },
-						type: { type: "string", enum: ["autonomous", "delegated", "service"] },
-						permissions: { type: "array", items: { $ref: "#/components/schemas/Permission" } },
-						expiresAt: { type: "string", format: "date-time", nullable: true },
-						metadata: { type: "object" },
-					},
-				},
-				UpdateAgentInput: {
-					type: "object",
-					properties: {
-						name: { type: "string" },
-						permissions: { type: "array", items: { $ref: "#/components/schemas/Permission" } },
-						expiresAt: { type: "string", format: "date-time", nullable: true },
-						metadata: { type: "object" },
-					},
-				},
-				Agent: {
-					type: "object",
-					properties: {
-						id: { type: "string" },
-						ownerId: { type: "string" },
-						name: { type: "string" },
-						type: { type: "string", enum: ["autonomous", "delegated", "service"] },
-						status: { type: "string", enum: ["active", "revoked", "expired"] },
-						permissions: { type: "array", items: { $ref: "#/components/schemas/Permission" } },
-						expiresAt: { type: "string", format: "date-time", nullable: true },
-						createdAt: { type: "string", format: "date-time" },
-						updatedAt: { type: "string", format: "date-time" },
-					},
-				},
-				AgentWithToken: {
-					type: "object",
-					description: "Agent identity with the token (only returned on create/rotate)",
-					properties: {
-						id: { type: "string" },
-						token: {
-							type: "string",
-							description:
-								"Agent token (ta_ prefix; legacy kv_ tokens are still accepted). Store securely - not retrievable after creation.",
-						},
-						name: { type: "string" },
-						type: { type: "string" },
-						status: { type: "string" },
-						permissions: { type: "array", items: { $ref: "#/components/schemas/Permission" } },
-					},
-				},
-				Permission: {
-					type: "object",
-					required: ["resource", "actions"],
-					properties: {
-						resource: {
-							type: "string",
-							description: "Resource pattern (e.g. mcp:github:*, tool:file_read)",
-						},
-						actions: {
-							type: "array",
-							items: { type: "string" },
-							description: "Allowed actions (read, write, execute, delete, *)",
-						},
-						constraints: { $ref: "#/components/schemas/PermissionConstraints" },
-					},
-				},
-				PermissionConstraints: {
-					type: "object",
-					properties: {
-						maxCallsPerHour: { type: "integer" },
-						allowedArgPatterns: { type: "array", items: { type: "string" } },
-						requireApproval: { type: "boolean" },
-						timeWindow: {
-							type: "object",
-							properties: {
-								start: { type: "string", description: "HH:MM format" },
-								end: { type: "string", description: "HH:MM format" },
-							},
-						},
-						ipAllowlist: { type: "array", items: { type: "string" } },
-					},
-				},
-				AuthorizeRequest: {
-					type: "object",
-					required: ["agentId", "action", "resource"],
-					properties: {
-						agentId: { type: "string" },
-						action: { type: "string" },
-						resource: { type: "string" },
-						arguments: { type: "object" },
-					},
-				},
-				AuthorizeResult: {
-					type: "object",
-					properties: {
-						allowed: { type: "boolean" },
-						reason: { type: "string", nullable: true },
-						auditId: { type: "string" },
-					},
-				},
-				AuditEntry: {
-					type: "object",
-					properties: {
-						id: { type: "string" },
-						agentId: { type: "string" },
-						userId: { type: "string" },
-						action: { type: "string" },
-						event: { type: "string", nullable: true },
-						resource: { type: "string" },
-						parameters: { type: "object" },
-						result: { type: "string", enum: ["allowed", "denied", "rate_limited", "escalated"] },
-						durationMs: { type: "integer" },
-						timestamp: { type: "string", format: "date-time" },
-					},
-				},
-				DelegateInput: {
-					type: "object",
-					required: ["fromAgent", "toAgent", "permissions", "expiresAt"],
-					properties: {
-						fromAgent: { type: "string" },
-						toAgent: { type: "string" },
-						permissions: { type: "array", items: { $ref: "#/components/schemas/Permission" } },
-						expiresAt: { type: "string", format: "date-time" },
-						maxDepth: { type: "integer" },
-					},
-				},
-				DelegationChain: {
-					type: "object",
-					properties: {
-						id: { type: "string" },
-						fromAgent: { type: "string" },
-						toAgent: { type: "string" },
-						permissions: { type: "array", items: { $ref: "#/components/schemas/Permission" } },
-						depth: { type: "integer" },
-						expiresAt: { type: "string", format: "date-time" },
-						createdAt: { type: "string", format: "date-time" },
-					},
-				},
-			},
+			schemas,
 			securitySchemes: {
 				BearerAuth: {
 					type: "http",
 					scheme: "bearer",
-					bearerFormat: "JWT",
+					description: "A signed-in user session, or the principal your authenticate hook resolves",
 				},
 				AgentToken: {
 					type: "http",
 					scheme: "bearer",
 					bearerFormat: "TheAuth Agent Token (ta_...)",
+				},
+				DeviceCredential: {
+					type: "http",
+					scheme: "bearer",
+					description:
+						"A device pre shared key (tdk_...) or a device assertion JWT (typ device-assertion+jwt). A client certificate checked by your proxy also works when devices.clientCertThumbprint is set.",
+				},
+				ClientBasic: {
+					type: "http",
+					scheme: "basic",
+					description:
+						"OAuth client credentials. client_secret_post and private_key_jwt are also accepted in the form body.",
 				},
 			},
 		},

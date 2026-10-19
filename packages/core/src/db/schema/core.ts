@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { bigintNumber, bool, flag01, json, timestampSec } from "./columns.js";
 
 interface TenantSettingsRow {
@@ -14,6 +14,16 @@ interface PermissionConstraintsRow {
 	requireApproval?: boolean;
 	timeWindow?: { start: string; end: string };
 	ipAllowlist?: string[];
+	attestation?: {
+		minSecurityLevel?: "hardware" | "strongbox";
+		bootState?: Array<"verified" | "self_signed" | "unverified" | "failed" | "unlocked">;
+		appIds?: string[];
+	};
+}
+
+interface AgentConfirmationRow {
+	jkt?: string;
+	"x5t#S256"?: string;
 }
 
 interface DelegationPermissionRow {
@@ -65,66 +75,90 @@ export const tenants = sqliteTable("theauth_tenants", {
 	updatedAt: timestampSec("updated_at").notNull(),
 });
 
-export const agents = sqliteTable("theauth_agents", {
-	id: text("id").primaryKey(),
-	ownerId: text("owner_id")
-		.notNull()
-		.references(() => users.id),
-	tenantId: text("tenant_id").references(() => tenants.id), // nullable, for multi-tenant scoping
-	name: text("name").notNull(),
-	type: text("type", { enum: ["autonomous", "delegated", "service"] }).notNull(),
-	status: text("status", { enum: ["active", "revoked", "expired"] })
-		.notNull()
-		.default("active"),
-	tokenHash: text("token_hash").notNull(), // hashed agent token
-	tokenPrefix: text("token_prefix").notNull(), // first 8 chars for identification
-	expiresAt: timestampSec("expires_at"),
-	lastActiveAt: timestampSec("last_active_at"),
-	metadata: json<Record<string, unknown>>("metadata"),
-	createdAt: timestampSec("created_at").notNull(),
-	updatedAt: timestampSec("updated_at").notNull(),
-});
+export const agents = sqliteTable(
+	"theauth_agents",
+	{
+		id: text("id").primaryKey(),
+		ownerId: text("owner_id")
+			.notNull()
+			.references(() => users.id),
+		tenantId: text("tenant_id").references(() => tenants.id), // nullable, for multi-tenant scoping
+		name: text("name").notNull(),
+		type: text("type", { enum: ["autonomous", "delegated", "service", "device"] }).notNull(),
+		status: text("status", { enum: ["active", "revoked", "expired"] })
+			.notNull()
+			.default("active"),
+		tokenHash: text("token_hash").notNull(), // hashed agent token
+		tokenPrefix: text("token_prefix").notNull(), // first 8 chars for identification
+		expiresAt: timestampSec("expires_at"),
+		lastActiveAt: timestampSec("last_active_at"),
+		metadata: json<Record<string, unknown>>("metadata"),
+		/** Confirmation claim (RFC 7800) the token is bound to: `jkt` (DPoP) or `x5t#S256` (mTLS). Null means a plain bearer token. */
+		cnf: json<AgentConfirmationRow>("cnf"),
+		createdAt: timestampSec("created_at").notNull(),
+		updatedAt: timestampSec("updated_at").notNull(),
+	},
+	(t) => [
+		index("theauth_agents_token_hash").on(t.tokenHash),
+		index("theauth_agents_owner_status").on(t.ownerId, t.status),
+	],
+);
 
-export const permissions = sqliteTable("theauth_permissions", {
-	id: text("id").primaryKey(),
-	agentId: text("agent_id")
-		.notNull()
-		.references(() => agents.id, { onDelete: "cascade" }),
-	resource: text("resource").notNull(), // e.g. "mcp:github:*", "tool:file_read"
-	actions: json<string[]>("actions").notNull(), // ["read", "write", "execute"]
-	constraints: json<PermissionConstraintsRow>("constraints"),
-	// When set, the policy engine consults the ReBAC graph for this permission.
-	relation: text("relation"),
-	createdAt: timestampSec("created_at").notNull(),
-});
+export const permissions = sqliteTable(
+	"theauth_permissions",
+	{
+		id: text("id").primaryKey(),
+		agentId: text("agent_id")
+			.notNull()
+			.references(() => agents.id, { onDelete: "cascade" }),
+		resource: text("resource").notNull(), // e.g. "mcp:github:*", "tool:file_read"
+		actions: json<string[]>("actions").notNull(), // ["read", "write", "execute"]
+		constraints: json<PermissionConstraintsRow>("constraints"),
+		// When set, the policy engine consults the ReBAC graph for this permission.
+		relation: text("relation"),
+		createdAt: timestampSec("created_at").notNull(),
+	},
+	(t) => [index("theauth_permissions_agent").on(t.agentId)],
+);
 
-export const delegationChains = sqliteTable("theauth_delegation_chains", {
-	id: text("id").primaryKey(),
-	fromAgentId: text("from_agent_id")
-		.notNull()
-		.references(() => agents.id),
-	toAgentId: text("to_agent_id")
-		.notNull()
-		.references(() => agents.id),
-	permissions: json<DelegationPermissionRow[]>("permissions").notNull(),
-	depth: integer("depth").notNull().default(1),
-	maxDepth: integer("max_depth").notNull().default(3),
-	status: text("status", { enum: ["active", "revoked", "expired"] })
-		.notNull()
-		.default("active"),
-	expiresAt: timestampSec("expires_at").notNull(),
-	createdAt: timestampSec("created_at").notNull(),
-});
+export const delegationChains = sqliteTable(
+	"theauth_delegation_chains",
+	{
+		id: text("id").primaryKey(),
+		fromAgentId: text("from_agent_id")
+			.notNull()
+			.references(() => agents.id),
+		toAgentId: text("to_agent_id")
+			.notNull()
+			.references(() => agents.id),
+		permissions: json<DelegationPermissionRow[]>("permissions").notNull(),
+		depth: integer("depth").notNull().default(1),
+		maxDepth: integer("max_depth").notNull().default(3),
+		status: text("status", { enum: ["active", "revoked", "expired"] })
+			.notNull()
+			.default("active"),
+		expiresAt: timestampSec("expires_at").notNull(),
+		createdAt: timestampSec("created_at").notNull(),
+	},
+	(t) => [
+		index("theauth_delegation_chains_to").on(t.toAgentId, t.status),
+		index("theauth_delegation_chains_from").on(t.fromAgentId, t.status),
+	],
+);
 
-export const rateLimits = sqliteTable("theauth_rate_limits", {
-	id: text("id").primaryKey(),
-	agentId: text("agent_id")
-		.notNull()
-		.references(() => agents.id, { onDelete: "cascade" }),
-	resource: text("resource").notNull(),
-	windowStart: timestampSec("window_start").notNull(),
-	count: integer("count").notNull().default(0),
-});
+export const rateLimits = sqliteTable(
+	"theauth_rate_limits",
+	{
+		id: text("id").primaryKey(),
+		agentId: text("agent_id")
+			.notNull()
+			.references(() => agents.id, { onDelete: "cascade" }),
+		resource: text("resource").notNull(),
+		windowStart: timestampSec("window_start").notNull(),
+		count: integer("count").notNull().default(0),
+	},
+	(t) => [index("theauth_rate_limits_lookup").on(t.agentId, t.resource, t.windowStart)],
+);
 
 export const mcpServers = sqliteTable("theauth_mcp_servers", {
 	id: text("id").primaryKey(),

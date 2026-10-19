@@ -61,7 +61,7 @@ export function createUsernameRequestHandler(
 ): (request: Request) => Promise<Response | null> {
 	/** The signed-in user id from a Bearer token or the session cookie, or null. */
 	async function sessionUserId(request: Request): Promise<string | null> {
-		const token = extractToken(request);
+		const token = extractToken(request, sessionManager.cookieName);
 		if (!token) return null;
 		try {
 			const session = await sessionManager.validate(token);

@@ -74,7 +74,7 @@ describe("theauth db", () => {
 		});
 		const body = JSON.parse(result.out) as { dialect: string; sql: string };
 		expect(body.dialect).toBe("mysql");
-		expect(body.sql).toContain("NOW(3)");
+		expect(body.sql).toContain("UTC_TIMESTAMP(3)");
 	});
 
 	it("status and up work against a SQLite file", async () => {

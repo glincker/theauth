@@ -41,7 +41,12 @@ export function tokenVault(config: TokenVaultPluginConfig): TheAuthPlugin {
 				throw new Error("theauth-token-vault requires secondaryStorage (set it on createTheAuth)");
 			}
 			const storage = ctx.secondaryStorage.for("tokenVault");
-			const vault: TokenVault = await createTokenVault({ ...config, db: ctx.db, storage });
+			const vault: TokenVault = await createTokenVault({
+				resourceMatching: ctx.config.resourceMatching,
+				...config,
+				db: ctx.db,
+				storage,
+			});
 			const baseUrl = ctx.config.baseUrl ?? "";
 			const redirectUriFor = (provider: string) =>
 				config.buildRedirectUri

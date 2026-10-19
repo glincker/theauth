@@ -79,18 +79,12 @@ func (r *AuthResource) GetSession(ctx context.Context, token string) (*Session, 
 }
 
 // AuthorizeByToken checks whether an action is permitted using an agent bearer
-// token directly (when you have the token rather than the agent ID).
+// token directly (when you have the token rather than the agent ID). A denial,
+// including an invalid or revoked token (HTTP 401), is a result with Allowed
+// false and Code set, not an error.
 func (r *AuthResource) AuthorizeByToken(ctx context.Context, agentToken string, req AuthorizeRequest) (*AuthorizeResult, error) {
 	extraHeaders := map[string]string{"Authorization": "Bearer " + agentToken}
-	var raw json.RawMessage
-	if err := r.tp.doJSONWithHeaders(ctx, "POST", "/authorize", req, nil, extraHeaders, &raw); err != nil {
-		return nil, err
-	}
-	var result AuthorizeResult
-	if err := json.Unmarshal(unwrapAPIData(raw), &result); err != nil {
-		return nil, fmt.Errorf("theauth: decode authorize result: %w", err)
-	}
-	return &result, nil
+	return r.tp.doDecision(ctx, "/authorize/token", req, extraHeaders)
 }
 
 func decodeAuthResponse(data json.RawMessage) (*AuthResponse, error) {

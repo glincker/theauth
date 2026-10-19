@@ -59,7 +59,7 @@ console.log(agentDid.did);
 // did:web:auth.example.com:agents:agt_abc123
 ```
 
-theAuth stores the DID document but does not serve it. Publish it yourself (for example from `agentDid.didDocument`) at the resolved URL:
+theAuth stores the DID document but does not register a route for it, so `/agents/:id/did.json` and `/.well-known/did.json` answer 404 until you add them. Publish it yourself (for example from `agentDid.didDocument`) at the resolved URL:
 
 ```
 did:web:auth.example.com:agents:agt_abc123

@@ -117,6 +117,9 @@ The send endpoint is limited to **5 requests per minute per IP address** (taken 
 | `appUrl` | `string` | required | Base URL prepended to the callback path, for example `https://app.example.com` |
 | `tokenExpiry` | `number` | `900` | Token lifetime in seconds (15 minutes) |
 | `callbackPath` | `string` | `/auth/magic-link/verify` | Path appended to `appUrl` in the link |
+| `keepUnverifiedCredentials` | `boolean` | `false` | When the owner first proves the mailbox on an account whose address was unverified, theAuth deletes the password, linked providers, passkeys and sessions that were created before the proof. Set `true` to keep them |
+
+Redeeming a link or code marks the address verified. The cleanup stops account pre-hijacking: someone who registered the victim's address first would otherwise keep the password they set after the victim signs in.
 
 ## Related
 

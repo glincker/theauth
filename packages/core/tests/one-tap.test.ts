@@ -312,6 +312,7 @@ describe("OneTapModule.handleRequest: user flows", () => {
 			id: existingId,
 			email: "existing@example.com",
 			name: "Existing User",
+			emailVerified: 1,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -355,6 +356,7 @@ describe("OneTapModule.handleRequest: user flows", () => {
 			id: "pre-existing-id",
 			email: "known@example.com",
 			name: "Known User",
+			emailVerified: 1,
 			createdAt: now,
 			updatedAt: now,
 		});

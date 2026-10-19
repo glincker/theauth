@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { ADD_HELP, formatAdd, listItems, parseAddArgs, runAdd } from "./add-command.js";
 import { INIT_AGENT_HELP, parseInitAgentArgs, runInitAgent } from "./agent/init-agent.js";
 import { serveStdio } from "./agent/mcp-server.js";
+import { APPROVALS_HELP, parseApprovalsArgs, runApprovals } from "./approvals-commands.js";
 import { AUDIT_HELP, openAuditModule, parseAuditArgs, runAudit } from "./audit-commands.js";
 import { runVerifyGo } from "./audit-verify-go.js";
 import { AUTH_HELP, parseAuthArgs, runLogin, runLogout, runWhoami } from "./auth-commands.js";
@@ -13,10 +14,17 @@ import { startDashboardServer } from "./dashboard-server.js";
 import { runDbCommand } from "./db-commands.js";
 import { startDemoServer } from "./demo-server.js";
 import { DEV_HELP, parseDevArgs, runDev } from "./dev-command.js";
+import { runDeviceCommand } from "./device-commands.js";
 import { runDoctor } from "./doctor-live.js";
 import { formatInit, INIT_HELP, parseInitArgs, runInit } from "./init.js";
 import { MIGRATE_HELP, parseMigrateArgs, runMigrate } from "./migrate-commands.js";
 import { runPolicyCommand } from "./policy-commands.js";
+import { runRos2Command } from "./ros2-commands.js";
+import {
+	parseSecurityArgs,
+	runSecurityDoctor,
+	SECURITY_DOCTOR_HELP,
+} from "./security-doctor-run.js";
 import {
 	parseSimulateArgs,
 	runPermissions,
@@ -56,9 +64,12 @@ Commands:
   login         Sign in with the device flow (RFC 8628)
   logout        Revoke and forget the saved login
   whoami        Show the signed-in user
-  audit         Verify the audit hash chain, replay an agent (verify, replay)
+  approvals     Review approval requests: list, show, approve, deny, request
+  audit         Verify the audit hash chain, replay an agent, query rows (verify, replay, query)
   db            Schema migrations ledger (status, up, sql)
   policy        Test policy suites against explain(): theauth policy test <suite>
+  ros2          Export a robot's permissions as SROS2 and DDS Security files (export, diff)
+  device        IoT devices: register, list, suspend, resume, revoke, enroll-token, attest
   simulate      Ask what an agent could do, no side effects (--json)
   permissions   Show an agent's effective permissions (--json)
   doctor        Check your setup and a running server (--live <url>, --json, --fail-on <severity>)
@@ -75,6 +86,7 @@ Examples:
   theauth init --framework hono --yes
   theauth init --agent --target claude,cursor
   theauth doctor --live http://localhost:3000/api/theauth
+  theauth doctor --security --json --fail-on high
   theauth dev
   theauth mcp
   theauth migrate
@@ -231,6 +243,21 @@ async function handleAuthCommand(command: "login" | "logout" | "whoami"): Promis
 	if (code !== 0) exit(code);
 }
 
+async function handleApprovals(): Promise<void> {
+	const parsed = parseApprovalsArgs(argv.slice(3));
+	if (parsed.help) {
+		stdout.write(APPROVALS_HELP);
+		return;
+	}
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${APPROVALS_HELP}`);
+		exit(1);
+		return;
+	}
+	const code = await runApprovals(parsed);
+	if (code !== 0) exit(code);
+}
+
 async function handleAdd(): Promise<void> {
 	const parsed = parseAddArgs(argv.slice(3));
 	if (parsed.help) {
@@ -270,7 +297,27 @@ function handleSecret(): void {
 	stdout.write(runSecret(parsed));
 }
 
+async function handleSecurityDoctor(): Promise<void> {
+	const parsed = parseSecurityArgs(argv.slice(3), process.cwd());
+	if (parsed.help) {
+		stdout.write(SECURITY_DOCTOR_HELP);
+		return;
+	}
+	if (parsed.error !== null) {
+		stdout.write(`${parsed.error}\n${SECURITY_DOCTOR_HELP}`);
+		exit(2);
+		return;
+	}
+	const { text, code } = await runSecurityDoctor(parsed, process.env);
+	stdout.write(text);
+	if (code !== 0) exit(code);
+}
+
 async function handleDoctor(): Promise<void> {
+	if (argv.slice(3).includes("--security")) {
+		await handleSecurityDoctor();
+		return;
+	}
 	const parsed = parseDoctorArgs(argv.slice(3), process.cwd());
 	if (parsed.help) {
 		stdout.write(DOCTOR_HELP);
@@ -386,6 +433,9 @@ async function main(): Promise<void> {
 		case "completions":
 			handleCompletions();
 			break;
+		case "approvals":
+			await handleApprovals();
+			break;
 		case "audit":
 			await handleAudit();
 			break;
@@ -403,6 +453,12 @@ async function main(): Promise<void> {
 			break;
 		case "policy":
 			await runPolicyCommand(argv.slice(3));
+			break;
+		case "ros2":
+			await runRos2Command(argv.slice(3));
+			break;
+		case "device":
+			await runDeviceCommand(argv.slice(3));
 			break;
 		default:
 			stdout.write(`Unknown command: ${command}\n\n`);

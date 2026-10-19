@@ -11,6 +11,7 @@ import {
 import { useState } from "react";
 import type { TheAuthApiClient } from "../api/client.js";
 import type { CreatePermissionTemplateInput, PermissionTemplate } from "../api/types.js";
+import { ApiErrorNotice } from "../components/api-error.js";
 import { Button } from "../components/button.js";
 import { ConflictWarning } from "../components/conflict-warning.js";
 import { ConstraintEditor } from "../components/constraint-editor.js";
@@ -373,6 +374,8 @@ export function PermissionsPage({ client }: PermissionsPageProps) {
 					</Button>
 				}
 			/>
+
+			<ApiErrorNotice result={templatesResult} />
 
 			{isLoading ? (
 				<div className="flex items-center justify-center py-16">

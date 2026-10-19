@@ -3,6 +3,7 @@ import type { AuditLogEntry, AuditResult } from "../api/types.js";
 import { Badge } from "../components/badge.js";
 import { Button } from "../components/button.js";
 import { DecisionCodeBadge } from "../components/decision-code.js";
+import { InputChips } from "../components/input-chips.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
 
 function resultVariant(result: AuditResult) {
@@ -12,6 +13,7 @@ function resultVariant(result: AuditResult) {
 		case "denied":
 			return "red" as const;
 		case "rate_limited":
+		case "escalated":
 			return "yellow" as const;
 	}
 }
@@ -44,6 +46,7 @@ function Head() {
 			<Th>Resource</Th>
 			<Th>Result</Th>
 			<Th>Code</Th>
+			<Th>Inputs</Th>
 			<Th>Duration</Th>
 			<Th>
 				<span className="sr-only">Explain</span>
@@ -65,7 +68,7 @@ export function AuditTable({ entries, onExplain }: AuditTableProps) {
 				<Head />
 				<TableBody>
 					<tr>
-						<td colSpan={8}>
+						<td colSpan={9}>
 							<EmptyState
 								icon={<ScrollText className="w-6 h-6" />}
 								title="No audit events yet"
@@ -117,6 +120,9 @@ export function AuditTable({ entries, onExplain }: AuditTableProps) {
 							</Td>
 							<Td>
 								<DecisionCodeBadge code={entry.code} />
+							</Td>
+							<Td>
+								<InputChips inputs={entry.inputs} />
 							</Td>
 							<Td>
 								<span className="text-xs text-zinc-500 font-mono">

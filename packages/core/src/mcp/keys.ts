@@ -7,7 +7,7 @@ import {
 	importJWK,
 	jwtVerify,
 } from "jose";
-import { generateId } from "../crypto/web-crypto.js";
+import { generateId, importHmacKey } from "../crypto/web-crypto.js";
 import type { McpAsymmetricAlg, McpAuthContext } from "./types.js";
 
 /**
@@ -128,13 +128,7 @@ export async function verifyAccessJwt(
 	if (header.alg === "HS256") {
 		const secret = ctx.config.signingSecret;
 		if (!secret) throw new Error("HS256 tokens are not accepted by this server");
-		const key = await globalThis.crypto.subtle.importKey(
-			"raw",
-			new TextEncoder().encode(secret),
-			{ name: "HMAC", hash: "SHA-256" },
-			false,
-			["verify"],
-		);
+		const key = await importHmacKey(secret, "SHA-256");
 		return (await jwtVerify(token, key, { ...common, algorithms: ["HS256"] })).payload;
 	}
 	const loaded = load(ctx);

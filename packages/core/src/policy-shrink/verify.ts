@@ -22,7 +22,7 @@ function ref(row: DecisionRow): RowRef {
  */
 export function createReplay(proposed: Permission[], opts: VerifyOptions = {}) {
 	const max = wholeOr(opts.maxExamples, DEFAULT_EXAMPLES);
-	const find = createGrantMatcher(proposed);
+	const find = createGrantMatcher(proposed, opts.resourceMatching);
 	const perPermission = proposed.map((p) => ({ permission: p, allows: 0 }));
 	const report: BlastRadiusReport = {
 		replayedAllows: 0,

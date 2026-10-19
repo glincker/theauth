@@ -1,0 +1,86 @@
+---
+title: "Vercel AI SDK helper"
+description: "Wrap a Vercel AI SDK tool map with guardAiSdkTools from @glinr/theauth/integrations. Each call is authorized first and a refusal comes back as a structured denial."
+icon: shield-check
+---
+
+`guardAiSdkTools` takes the tool map you pass to `generateText` or `streamText` and returns a copy where every `execute` calls `authorize` first. It has no runtime dependency on `ai`: the tool type is structural.
+
+A refused call does not throw. It resolves to a `ToolDenial` with the decision code, so the model reads the refusal as the tool result and stops. For the throwing variant built on the policy engine, see [Vercel AI SDK](/vercel-ai-sdk).
+
+```bash
+npm install @glinr/theauth
+```
+
+## Runnable snippet
+
+```ts
+import { generateText, tool } from "ai";
+import { z } from "zod";
+import { createTheAuth } from "@glinr/theauth";
+import { guardAiSdkTools, isToolDenial } from "@glinr/theauth/integrations";
+
+const auth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true },
+});
+
+const agent = await auth.agent.create({
+  ownerId: "user-alice",
+  name: "support-agent",
+  type: "autonomous",
+  permissions: [{ resource: "tool:lookupInvoice", actions: ["execute"] }],
+});
+
+const tools = guardAiSdkTools(
+  {
+    lookupInvoice: tool({
+      description: "Read an invoice",
+      inputSchema: z.object({ id: z.string() }),
+      execute: async ({ id }) => ({ id, status: "paid" }),
+    }),
+    refund: tool({
+      description: "Refund an invoice",
+      inputSchema: z.object({ id: z.string() }),
+      execute: async ({ id }) => ({ id, refunded: true }),
+    }),
+  },
+  { authorize: auth.authorize, agentId: agent.id },
+);
+
+// lookupInvoice runs. refund resolves to:
+// { ok: false, denied: true, toolName: "refund", code: "no_permission", reason, approvalRequired: false, auditId }
+const result = await tools.refund.execute({ id: "inv_1" }, {} as never);
+console.log(isToolDenial(result) ? result.code : "ran");
+```
+
+Pass `tools` to `generateText({ model, tools, prompt })` as usual.
+
+## Options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `authorize` | required | `theauth.authorize`, or any function with the same shape |
+| `agentId` | required | Agent id, or a function from the per-call context to an id |
+| `action` | `execute` | Action checked |
+| `resource` | `tool:<name>` | Resource checked, from the tool name and arguments |
+| `requestApproval` | none | Called on `approval_required`. Return an approved request id to retry once |
+| `contextOf` | the AI SDK call options | Pick the per-call context passed to `agentId` |
+| `onDecision` | none | Log each outcome. Errors thrown here are ignored |
+
+If `authorize` throws, the call is refused with code `guard_error`. The guard fails closed.
+
+## Approval
+
+```ts
+const tools = guardAiSdkTools(rawTools, {
+  authorize: auth.authorize,
+  agentId: agent.id,
+  requestApproval: async ({ agentId, action, resource }) => {
+    // Open a request, wait for a human, return the approved id.
+    return await waitForApprovedRequestId({ agentId, action, resource });
+  },
+});
+```
+
+The approved id is spent on a single retry. If the function returns `undefined`, the model gets a denial with `approvalRequired: true`.

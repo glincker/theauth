@@ -1,0 +1,85 @@
+---
+title: "OpenAI Agents SDK helper"
+description: "Guard OpenAI Agents SDK function tools with guardFunctionTool from @glinr/theauth/integrations. Authorize runs first and a refusal returns a structured denial."
+icon: shield-check
+---
+
+`guardFunctionTool` wraps a function tool definition (a `name` plus `execute(input, context)`) so `authorize` runs before `execute`. It does not import `@openai/agents`.
+
+`tool()` returns an object that exposes `invoke`, not `execute`, so guard the plain definition first and pass the result to `tool()`. For the throwing variant built on the policy engine, see [OpenAI Agents SDK](/openai-agents-sdk).
+
+```bash
+npm install @glinr/theauth
+```
+
+## Runnable snippet
+
+```ts
+import { Agent, run, tool } from "@openai/agents";
+import { z } from "zod";
+import { createTheAuth } from "@glinr/theauth";
+import { guardFunctionTool } from "@glinr/theauth/integrations";
+
+const auth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true },
+});
+
+const theauthAgent = await auth.agent.create({
+  ownerId: "user-alice",
+  name: "billing-agent",
+  type: "autonomous",
+  permissions: [{ resource: "tool:lookupInvoice", actions: ["execute"] }],
+});
+
+const lookupInvoice = guardFunctionTool(
+  {
+    name: "lookupInvoice",
+    description: "Read an invoice",
+    parameters: z.object({ id: z.string() }),
+    execute: async ({ id }: { id: string }) => ({ id, status: "paid" }),
+  },
+  { authorize: auth.authorize, agentId: theauthAgent.id },
+);
+
+const agent = new Agent({
+  name: "Billing",
+  instructions: "Answer billing questions.",
+  tools: [tool(lookupInvoice)],
+});
+
+const result = await run(agent, "Is invoice inv_1 paid?");
+console.log(result.finalOutput);
+```
+
+## Denials
+
+A refused call returns a `ToolDenial` object as the tool result, which the SDK serializes for the model:
+
+```json
+{
+  "ok": false,
+  "denied": true,
+  "toolName": "refund",
+  "code": "approval_required",
+  "reason": "approval required for tool:refund",
+  "approvalRequired": true,
+  "auditId": "..."
+}
+```
+
+Use `formatDenial` to return text instead:
+
+```ts
+guardFunctionTool(definition, {
+  authorize: auth.authorize,
+  agentId: theauthAgent.id,
+  formatDenial: (d) => `Refused (${d.code}). ${d.approvalRequired ? "Ask the user." : "Do not retry."}`,
+});
+```
+
+`agentId` may be a function of the run context, the second argument of `execute`. `requestApproval`, `action`, `resource` and `onDecision` work as in the [Vercel AI SDK helper](/integrations/vercel-ai-sdk). Use `guardFunctionTools(definitions, options)` for a list.
+
+## Python
+
+The Python Agents SDK has the same guard, `guard_function_tool` from `theauth.integrations`. It wraps the `FunctionTool` that `@function_tool` returns. See [LangGraph and CrewAI](/integrations/langgraph-crewai) for the setup and a snippet.

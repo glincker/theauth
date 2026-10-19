@@ -6,6 +6,8 @@
 import { and, eq, lt } from "drizzle-orm";
 import { generateId } from "../../crypto/web-crypto.js";
 import type { Database } from "../../db/database.js";
+import { singleUseWithTables } from "../../db/store/for-database.js";
+import { createDatabaseHookRunner } from "../../hooks/database-hooks.js";
 import { resolveRedirectTarget } from "../../redirect/allowlist.js";
 import { generateCodeVerifier } from "./pkce.js";
 import { oauthAccounts, oauthStates } from "./schema.js";
@@ -23,6 +25,9 @@ import type {
 // Defaults
 
 const DEFAULT_STATE_TTL_SECONDS = 600; // 10 minutes
+
+/** The one plugin table the single-use repositories reach: authorization state. */
+const STATE_TABLES = { oauthStates };
 
 /**
  * Create an OAuth module bound to a database instance.
@@ -54,6 +59,18 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 	const nowMs = config.now ?? Date.now;
 	const sealer = createTokenSealer(config.tokenEncryption);
 	const tokenApi = createTokenApi(db, config, sealer);
+	const databaseHooks = config.databaseHooks ?? createDatabaseHookRunner(undefined);
+
+	/** Runs the account `before` hook and returns the expiry to store. Throws to abort. */
+	async function accountBefore(
+		operation: "create" | "update",
+		row: { id: string; userId: string; provider: string; providerAccountId: string },
+		expiresAt: Date | null,
+	): Promise<Date | null> {
+		if (!databaseHooks.has("account", operation)) return expiresAt;
+		const hooked = await databaseHooks.before("account", operation, { ...row, expiresAt });
+		return hooked.expiresAt;
+	}
 
 	function getProvider(providerId: string) {
 		const provider = config.providers[providerId];
@@ -169,11 +186,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 
 		// Consume the state, delete before network calls to prevent replay attacks.
 		// The delete is the claim: a concurrent callback with the same state gets no row back.
-		const consumed = await db
-			.delete(oauthStates)
-			.where(eq(oauthStates.state, state))
-			.returning({ state: oauthStates.state });
-		if (!consumed[0]) {
+		if (!(await singleUseWithTables(db, STATE_TABLES).oauthStates.consume(state))) {
 			throw new Error("OAuth callback: unknown or already-used state value.");
 		}
 
@@ -194,7 +207,14 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		const existing = existingRows[0];
 
 		if (existing) {
-			// Refresh stored tokens.
+			// Refresh stored tokens. A row still waiting for linkAccount has no user yet, so it fires no hook.
+			const callbackExpiry = tokens.expiresIn
+				? new Date(now.getTime() + tokens.expiresIn * 1000)
+				: existing.expiresAt;
+			const hookedExpiry =
+				existing.userId === "__pending__"
+					? callbackExpiry
+					: await accountBefore("update", existing, callbackExpiry);
 			await db
 				.update(oauthAccounts)
 				.set({
@@ -204,12 +224,19 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 						tokens.refreshToken,
 						existing.refreshToken,
 					),
-					expiresAt: tokens.expiresIn
-						? new Date(now.getTime() + tokens.expiresIn * 1000)
-						: existing.expiresAt,
+					expiresAt: hookedExpiry,
 					updatedAt: now,
 				})
 				.where(eq(oauthAccounts.id, existing.id));
+			if (existing.userId !== "__pending__") {
+				await databaseHooks.after("account", "update", {
+					id: existing.id,
+					userId: existing.userId,
+					provider: existing.provider,
+					providerAccountId: existing.providerAccountId,
+					expiresAt: hookedExpiry,
+				});
+			}
 
 			const updated = await db
 				.select()
@@ -227,7 +254,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 		// New link, we do NOT create the theauth_users row here.  That is the
 		// caller's responsibility because they may want to look up an existing
 		// user by email, collect extra profile fields, enforce tenant rules, etc.
-		const accountId = generateId();
+		const accountId = databaseHooks.newId("account");
 		const expiresAt = tokens.expiresIn ? new Date(now.getTime() + tokens.expiresIn * 1000) : null;
 
 		await db.insert(oauthAccounts).values({
@@ -287,6 +314,13 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			if (existing.userId !== "__pending__" && existing.userId !== userId) {
 				throw new Error("OAuth account is already linked to a different user.");
 			}
+			// A pending row becomes a real link here, so it counts as a create.
+			const linkOp = existing.userId === "__pending__" ? "create" : "update";
+			const linkExpiry = await accountBefore(
+				linkOp,
+				{ id: existing.id, userId, provider: providerId, providerAccountId: userInfo.id },
+				expiresAt,
+			);
 			await db
 				.update(oauthAccounts)
 				.set({
@@ -297,10 +331,17 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 						tokens.refreshToken,
 						existing.refreshToken,
 					),
-					expiresAt,
+					expiresAt: linkExpiry,
 					updatedAt: now,
 				})
 				.where(eq(oauthAccounts.id, existing.id));
+			await databaseHooks.after("account", linkOp, {
+				id: existing.id,
+				userId,
+				provider: providerId,
+				providerAccountId: userInfo.id,
+				expiresAt: linkExpiry,
+			});
 
 			const updated = await db
 				.select()
@@ -310,7 +351,12 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			return rowToAccount(updated[0] as typeof oauthAccounts.$inferSelect);
 		}
 
-		const accountId = generateId();
+		const accountId = databaseHooks.newId("account");
+		const newExpiry = await accountBefore(
+			"create",
+			{ id: accountId, userId, provider: providerId, providerAccountId: userInfo.id },
+			expiresAt,
+		);
 
 		await db.insert(oauthAccounts).values({
 			id: accountId,
@@ -321,9 +367,16 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 			refreshToken: tokens.refreshToken
 				? await sealer.seal(accountId, "refresh", tokens.refreshToken)
 				: null,
-			expiresAt,
+			expiresAt: newExpiry,
 			createdAt: now,
 			updatedAt: now,
+		});
+		await databaseHooks.after("account", "create", {
+			id: accountId,
+			userId,
+			provider: providerId,
+			providerAccountId: userInfo.id,
+			expiresAt: newExpiry,
 		});
 
 		const newRows = await db.select().from(oauthAccounts).where(eq(oauthAccounts.id, accountId));

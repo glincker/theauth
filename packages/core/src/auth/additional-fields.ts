@@ -28,6 +28,9 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { sessions, users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
+import { databaseHooksFromConfig, withUserUpdate } from "../hooks/user-update-hooks.js";
 import type { TheAuthPlugin } from "../plugin/types.js";
 
 export interface FieldDefinition {
@@ -112,6 +115,7 @@ function applyDefaults(
 export function createAdditionalFieldsModule(
 	config: AdditionalFieldsConfig,
 	db: Database,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): AdditionalFieldsModule {
 	function validate(
 		fields: Record<string, unknown>,
@@ -173,10 +177,18 @@ export function createAdditionalFieldsModule(
 			additionalFields: { ...existingAdditional, ...fields },
 		};
 
-		await db
-			.update(users)
-			.set({ metadata: updatedMeta, updatedAt: new Date() })
-			.where(eq(users.id, userId));
+		await withUserUpdate(
+			databaseHooks,
+			db,
+			userId,
+			{ metadata: updatedMeta },
+			async (effective) => {
+				await db
+					.update(users)
+					.set({ metadata: effective.metadata ?? updatedMeta, updatedAt: new Date() })
+					.where(eq(users.id, userId));
+			},
+		);
 	}
 
 	async function getSessionFields(sessionId: string): Promise<Record<string, unknown>> {
@@ -246,7 +258,7 @@ export function additionalFields(config: AdditionalFieldsConfig = {}): TheAuthPl
 		id: "theauth-additional-fields",
 
 		async init(ctx) {
-			const mod = createAdditionalFieldsModule(config, ctx.db);
+			const mod = createAdditionalFieldsModule(config, ctx.db, databaseHooksFromConfig(ctx.config));
 
 			ctx.addEndpoint({
 				method: "GET",

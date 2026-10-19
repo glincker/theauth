@@ -52,6 +52,27 @@ class AuthenticationError(TheAuthError):
         super().__init__(message, code=code, status_code=401, details=details)
 
 
+class StepUpRequiredError(AuthenticationError):
+    """The caller must sign in again, stronger or more recently (HTTP 401, RFC 9470).
+
+    Attributes:
+        challenge: The parsed ``WWW-Authenticate`` challenge, or ``None`` when
+            the server sent the error code without a header. Send the user
+            through authorization with ``challenge.authorize_params()``.
+    """
+
+    def __init__(
+        self,
+        message: str = "Step-up authentication required",
+        *,
+        code: str = "STEP_UP_REQUIRED",
+        challenge: Optional[Any] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(message, code=code, details=details)
+        self.challenge = challenge
+
+
 class PermissionError(TheAuthError):
     """Raised when the caller lacks permission for the requested action (HTTP 403)."""
 

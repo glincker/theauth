@@ -10,6 +10,7 @@ import {
 	pseudonymMismatches,
 	resolvePseudonymKey,
 } from "./pseudonym.js";
+import { resolvePeriodSecret, rotatingMismatches, storedPeriod } from "./pseudonym-rotation.js";
 import type { ErasureIndex } from "./verify-anchors.js";
 import { checkPinnedAnchor, checkPrefixAnchor, loadErasures } from "./verify-anchors.js";
 
@@ -133,6 +134,7 @@ export async function verifyAuditChain(
 		const loaded = await loadErasures(db, pseudonymKey, opts.agentId);
 		firstBreak = loaded.brk;
 		const ctx: VerifyContext = {
+			db,
 			hmacKey,
 			pseudonymKey,
 			erasures: loaded.index,
@@ -292,6 +294,7 @@ async function checkStart(
 
 interface VerifyContext {
 	hmacKey: string | undefined;
+	db: Database;
 	/** Key the id pseudonyms, erasure entries and anchors are checked with; undefined when none exists yet. */
 	pseudonymKey: string | undefined;
 	erasures: ErasureIndex;
@@ -311,6 +314,16 @@ function bridgeErased(prev: AuditRow, row: AuditRow, ctx: VerifyContext): number
 		count++;
 	}
 	return (row.prevHash ?? null) === expectedPrev ? count : undefined;
+}
+
+/** Raw ids that no longer match their stored pseudonym. A row under a shredded rotation period cannot be checked and counts as clean: its chain hash is still verified. */
+async function idMismatches(row: AuditRow, ctx: VerifyContext): Promise<string[]> {
+	const period = storedPeriod(row.idPseudonyms);
+	if (period === undefined) {
+		return ctx.pseudonymKey ? pseudonymMismatches(row, ctx.pseudonymKey) : [];
+	}
+	const secret = await resolvePeriodSecret(ctx.db, period, false);
+	return secret ? rotatingMismatches(row, secret, period, isErasedId) : [];
 }
 
 function hasErasedIds(row: AuditRow): boolean {
@@ -383,7 +396,7 @@ async function checkRow(
 		};
 	}
 	if ((row.hashVersion ?? 1) >= 2) {
-		if (ctx.pseudonymKey && (await pseudonymMismatches(row, ctx.pseudonymKey)).length > 0) {
+		if ((await idMismatches(row, ctx)).length > 0) {
 			return { brk: { ...base, reason: "pseudonym_mismatch", rowIds: [row.id] }, erased };
 		}
 		// An erasure record carries placeholder ids by design; it is not itself erased.

@@ -24,6 +24,7 @@ export async function approveConsent(
 		codeChallenge,
 		codeChallengeMethod,
 		resource,
+		auth,
 	} = params;
 
 	// Validate client still exists and is enabled
@@ -96,6 +97,7 @@ export async function approveConsent(
 		codeChallenge,
 		codeChallengeMethod,
 		resource: canonicalResource,
+		...(auth ? { auth } : {}),
 		expiresAt,
 		createdAt: now,
 	};

@@ -16,8 +16,10 @@ import { createTheAuthWith } from "../src/theauth-core.js";
 import { columnsOf, indexNames, ledgerIds, memoryDb, memoryDbV120 } from "./helpers-schema-db.js";
 
 const ALL_IDS = MIGRATIONS.map((m) => m.id);
-/** Migrations a config without the oauth feature applies (0006 and 0008 need oauth). */
-const CORE_IDS = ALL_IDS.filter((id) => id !== "0006" && id !== "0007" && id !== "0008");
+/** Migrations a config without the oauth feature applies (0006, 0007, 0008 and 0011 need oauth, 0012 needs the OIDC provider). */
+const CORE_IDS = ALL_IDS.filter(
+	(id) => id !== "0006" && id !== "0007" && id !== "0008" && id !== "0011" && id !== "0012",
+);
 
 describe("migration ledger: fresh SQLite database", () => {
 	it("creates every table, records every migration and reports nothing pending", async () => {
@@ -294,6 +296,11 @@ describe("feature scoped migrations", () => {
 			"0002",
 			"0004",
 			"0005",
+			"0009",
+			"0010",
+			"0013",
+			"0014",
+			"0015",
 		]);
 		await createTables(db, "sqlite", withAgents);
 		expect(await ledgerIds(exec)).toEqual(CORE_IDS);

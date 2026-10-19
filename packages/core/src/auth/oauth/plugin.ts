@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { users } from "../../db/schema.js";
+import { createDatabaseHookRunner, DatabaseHookError } from "../../hooks/database-hooks.js";
 import {
 	buildClearCookie,
 	buildSessionSetCookie,
@@ -15,6 +16,7 @@ import { withRateLimit } from "../rate-limit-middleware.js";
 import { createRateLimiter } from "../rate-limiter.js";
 import { signInGateRedirect } from "../sign-in-gate.js";
 import { OAuthTokenError } from "./errors.js";
+import { idpAmrFromTokens } from "./idp-amr.js";
 import type { MobileFlow, MobileOAuthConfig } from "./mobile.js";
 import { createMobileOAuth, MOBILE_COOKIE } from "./mobile.js";
 import { createOAuthModule } from "./module.js";
@@ -27,6 +29,10 @@ export interface OAuthPluginConfig extends OAuthModuleConfig {
 	 * Native app sign-in. When set, `authorize` accepts `mobile_redirect` and a PKCE `code_challenge`, and the app trades the code it receives for a session at `POST /auth/oauth/mobile/exchange`. Off when omitted.
 	 */
 	mobile?: MobileOAuthConfig;
+	/**
+	 * Sign in to an existing local account with the same email even when the provider does not vouch for the address or the local address is unverified (default: false). The old behavior lets anyone who registered an address first take over the account its owner later opens through a provider. Leave it off.
+	 */
+	unsafeAllowUnverifiedEmailLinking?: boolean;
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -67,7 +73,12 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 		id: "theauth-oauth",
 
 		async init(ctx): Promise<PluginInitResult> {
-			const module = createOAuthModule(ctx.db, config);
+			const databaseHooks = createDatabaseHookRunner(ctx.config.databaseHooks, {
+				logger: ctx.config.logger,
+				hookSafety: ctx.config.hookSafety,
+				generateId: ctx.config.advanced?.database?.generateId,
+			});
+			const module = createOAuthModule(ctx.db, { ...config, databaseHooks });
 
 			const baseUrl = ctx.config.baseUrl ?? "";
 			const baseUrls = ctx.config.allowedHosts?.length
@@ -214,7 +225,10 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 								// address. An unverified provider email lets anyone who controls
 								// a provider account with the victim's address sign in as them,
 								// and an unverified local account may be a pre-registered squat.
-								if (result.userInfo.emailVerified !== true || !existing[0].emailVerified) {
+								if (
+									!config.unsafeAllowUnverifiedEmailLinking &&
+									(result.userInfo.emailVerified !== true || !existing[0].emailVerified)
+								) {
 									return fail(
 										"An account with this email already exists. Sign in with your existing method and link this provider from account settings.",
 										409,
@@ -222,17 +236,25 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 								}
 								userId = existing[0].id;
 							} else {
-								const newId = crypto.randomUUID();
-								await ctx.db.insert(users).values({
+								const newId = databaseHooks.newId("user");
+								const hookedUser = await databaseHooks.before("user", "create", {
 									id: newId,
 									email: normalized,
 									name: result.userInfo.name ?? null,
+									metadata: null,
+								});
+								await ctx.db.insert(users).values({
+									id: newId,
+									email: hookedUser.email,
+									name: hookedUser.name,
+									...(hookedUser.metadata !== null && { metadata: hookedUser.metadata }),
 									externalProvider: `oauth:${provider}`,
 									externalId: result.userInfo.id,
 									emailVerified: result.userInfo.emailVerified === true ? 1 : 0,
 									createdAt: new Date(),
 									updatedAt: new Date(),
 								});
+								await databaseHooks.after("user", "create", hookedUser);
 								userId = newId;
 							}
 
@@ -272,13 +294,18 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 
 							const remembered = getCookie(request, REMEMBER_COOKIE);
 							const rememberMe = remembered === "1" ? true : remembered === "0" ? false : undefined;
-							const { session, token } = await sessionManager.create(
-								userId,
-								undefined,
-								rememberMe === undefined ? undefined : { rememberMe },
-							);
+							const { session, token } = await sessionManager.create(userId, undefined, {
+								authMethods: ["federated"],
+								idpAmr: idpAmrFromTokens(result.tokens),
+								...(rememberMe !== undefined && { rememberMe }),
+							});
 							const isSecure = baseUrl.startsWith("https://");
-							const cookie = buildSessionSetCookie("theauth_session", token, session, isSecure);
+							const cookie = buildSessionSetCookie(
+								sessionManager.cookieName ?? "theauth_session",
+								token,
+								session,
+								isSecure,
+							);
 
 							// Pass user info (not the token) as a URL param for the frontend
 							const userInfo = encodeURIComponent(JSON.stringify({ id: userId, email }));
@@ -298,6 +325,7 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 							userInfo: result.userInfo,
 						});
 					} catch (err) {
+						if (err instanceof DatabaseHookError) return fail(err.message, 403);
 						return fail(err instanceof Error ? err.message : "OAuth callback failed", 400);
 					}
 				},
@@ -329,7 +357,9 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 						const user = found?.[0];
 						if (!user) return jsonResponse({ error: "Invalid or expired code" }, 400);
 
-						const { session, token } = await sessionManager.create(userId);
+						const { session, token } = await sessionManager.create(userId, undefined, {
+							authMethods: ["federated"],
+						});
 						return jsonResponse({
 							data: {
 								token,

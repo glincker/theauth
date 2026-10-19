@@ -1,4 +1,5 @@
 /** Types for the OAuth 2.0 and OIDC provider system. PKCE (S256) is used for all provider flows. */
+import type { DatabaseHookRunner } from "../../hooks/database-hooks.js";
 
 export interface OAuthProviderConfig {
 	clientId: string;
@@ -51,6 +52,8 @@ export interface OAuthUserInfo {
 }
 
 export interface OAuthModuleConfig {
+	/** Runner for `databaseHooks.account`. The `oauth()` plugin fills it from the instance config. */
+	databaseHooks?: DatabaseHookRunner;
 	/**
 	 * Map of provider ID to provider instance.
 	 *

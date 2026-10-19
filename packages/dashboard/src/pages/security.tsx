@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Clock, ShieldAlert, ShieldOff, Timer, XCircle } from "lucide-react";
 import type { TheAuthApiClient } from "../api/client.js";
+import type { PaginatedAuditLogs } from "../api/types.js";
 import { Badge } from "../components/badge.js";
 import { PageHeader } from "../components/layout.js";
 import { EmptyState, Table, TableBody, TableHead, Td, Th, Tr } from "../components/table.js";
@@ -63,6 +64,20 @@ function SkeletonCard() {
 
 // Security Page
 
+const RECENT_LIMIT = 100;
+
+function since24h(): string {
+	return new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** Core returns no total, so a full page reads as "100+". */
+export function countLabel(
+	result: { success: true; data: PaginatedAuditLogs } | { success: false } | undefined,
+): string | number {
+	if (!result?.success) return "-";
+	return result.data.hasMore ? `${RECENT_LIMIT}+` : result.data.entries.length;
+}
+
 interface SecurityPageProps {
 	client: TheAuthApiClient;
 }
@@ -81,13 +96,14 @@ export function SecurityPage({ client }: SecurityPageProps) {
 
 	const { data: denialsResult, isLoading: denialsLoading } = useQuery({
 		queryKey: ["audit-denials"],
-		queryFn: () => client.getAuditLogs({ result: "denied", limit: 20 }),
+		queryFn: () => client.getAuditLogs({ result: "denied", limit: RECENT_LIMIT, from: since24h() }),
 		refetchInterval: 30_000,
 	});
 
 	const { data: rateLimitedResult, isLoading: rateLimitedLoading } = useQuery({
 		queryKey: ["audit-rate-limited"],
-		queryFn: () => client.getAuditLogs({ result: "rate_limited", limit: 20 }),
+		queryFn: () =>
+			client.getAuditLogs({ result: "rate_limited", limit: RECENT_LIMIT, from: since24h() }),
 		refetchInterval: 30_000,
 	});
 
@@ -126,14 +142,14 @@ export function SecurityPage({ client }: SecurityPageProps) {
 					<>
 						<StatCard
 							title="Rate limited (24h)"
-							value={rateLimitedResult?.success ? rateLimitedResult.data.total : "-"}
+							value={countLabel(rateLimitedResult)}
 							subtitle="requests throttled in last 24h"
 							icon={Timer}
 							iconColor="bg-amber-600"
 						/>
 						<StatCard
 							title="Denied (24h)"
-							value={denialsResult?.success ? denialsResult.data.total : "-"}
+							value={countLabel(denialsResult)}
 							subtitle="access denied events in last 24h"
 							icon={XCircle}
 							iconColor="bg-red-600"

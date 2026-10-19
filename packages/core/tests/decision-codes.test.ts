@@ -161,7 +161,7 @@ describe("authorize() codes", () => {
 			name: "bad approval id",
 			permission: { resource: "mcp:x", actions: ["read"], constraints: { requireApproval: true } },
 			request: { approvalId: "apr_missing" },
-			code: "approval_invalid",
+			code: "approval_not_found",
 			type: "approval_required",
 		},
 	];

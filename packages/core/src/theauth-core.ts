@@ -1,9 +1,11 @@
 import { createAgentModule } from "./agent/agent.js";
+import { createAgentConfirmationVerifier } from "./agent/confirmation-http.js";
 import { createAgentFacade } from "./agent/facade.js";
 import { createPrivilegeAnalyzer } from "./analyzer/privilege.js";
 import { createApprovalModule } from "./approval/approval.js";
 import { createAuditFacade } from "./audit/facade.js";
 import { createConfiguredAuditModule } from "./audit/setup.js";
+import { registerEmailPasswordEndpoints } from "./auth/email-password-http.js";
 import { createHumanAuthModules } from "./auth/human-modules.js";
 import type { SignInGate } from "./auth/sign-in-gate.js";
 import { createSignInGate } from "./auth/sign-in-gate.js";
@@ -12,8 +14,10 @@ import { createAuthorizePipeline } from "./authorize/pipeline.js";
 import type { Database } from "./db/database.js";
 import { createSchemaApi, ensureSchema } from "./db/migrations.js";
 import { createDelegationModule } from "./delegation/delegation.js";
+import { createConfiguredDeviceModule } from "./device/wiring.js";
 import { createDidModule } from "./did/module.js";
 import { createExplainer } from "./explain/explain.js";
+import { createDatabaseHookRunner } from "./hooks/database-hooks.js";
 import { createHookRuntime } from "./hooks/runtime.js";
 import { createCoreRevocationBus, withMcpSignOutRevocation } from "./mcp/revocation-wiring.js";
 import { createMcpServerRegistry } from "./mcp/server-registry.js";
@@ -21,6 +25,7 @@ import { createObservability } from "./observability/index.js";
 import { createPermissionEngine } from "./permission/engine.js";
 import {
 	createEndpointContext,
+	createPluginsFacade,
 	createRequestHookRunner,
 	registerSessionEndpoints,
 	withSignInGatePlugin,
@@ -29,7 +34,7 @@ import { createPluginRouter } from "./plugin/router.js";
 import { initializePlugins } from "./plugin/runner.js";
 import { createPolicyModule } from "./policies/budget.js";
 import { createPolicyEngine } from "./policy/engine.js";
-import type { PolicyEngine } from "./policy/types.js";
+import type { PolicyEngine, PolicyEngineConfig } from "./policy/types.js";
 import type { RedirectChainManager } from "./redirect/chain.js";
 import { createRedirectChain } from "./redirect/chain.js";
 import type { SessionFreshnessModule } from "./session/freshness.js";
@@ -54,13 +59,21 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	await ensureSchema(db, config);
 
 	// The policy engine can open approval requests, so the approval module is created first.
-	const approvalModule = createApprovalModule(config.approval ?? {}, db);
 	const hooks = config.hooks ?? {};
 	const { runBeforeAuthorize, guardAgentCreate } = createHookRuntime(hooks, config.hookSafety);
 	const observability = createObservability(config.observability, config.logger);
+	const approvalModule = createApprovalModule(config.approval ?? {}, db, {
+		observability,
+		// The webhook module is built further down, so it is looked up when a request opens.
+		webhooks: () => webhookModule,
+	});
+	const policyConfig: PolicyEngineConfig | undefined =
+		config.policy?.resourceMatching === undefined && config.resourceMatching
+			? { ...config.policy, resourceMatching: config.resourceMatching }
+			: config.policy;
 	const policyEngine: PolicyEngine = createPolicyEngine({
 		db,
-		config: config.policy,
+		config: policyConfig,
 		approval: approvalModule,
 		observability,
 		runBeforeAuthorize: hooks.beforeAuthorize ? runBeforeAuthorize : undefined,
@@ -72,19 +85,30 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		db,
 		maxPerUser: config.agents?.maxPerUser ?? 10,
 		defaultPermissions: config.agents?.defaultPermissions ?? [],
+		resourceMatching: config.resourceMatching,
 		tokenExpiry: config.agents?.tokenExpiry ?? "24h",
 	});
-	const userModule = createUserModule({ db });
+	const databaseHooks = createDatabaseHookRunner(config.databaseHooks, {
+		logger: observability.logger,
+		hookSafety: config.hookSafety,
+		generateId: config.advanced?.database?.generateId,
+	});
+	const userModule = createUserModule({ db, databaseHooks });
 	const permissionEngine = createPermissionEngine({
 		db,
 		auditAll: config.agents?.auditAll ?? true,
+		resourceMatching: config.resourceMatching,
 	});
 
 	const auditModule = createConfiguredAuditModule(db, config.audit);
 
-	const delegationModule = createDelegationModule({ db, revocations });
+	const delegationModule = createDelegationModule({
+		db,
+		revocations,
+		resourceMatching: config.resourceMatching,
+	});
 	const sessionManager: SessionManager | null = withMcpSignOutRevocation(
-		config.auth?.session ? createSessionManager(config.auth.session, db) : null,
+		config.auth?.session ? createSessionManager(config.auth.session, db, databaseHooks) : null,
 		revocations,
 		config,
 	);
@@ -96,7 +120,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		config: config.signInGate,
 		sessionSecret: config.auth?.session?.secret,
 		totpAvailable: !!config.totp || (config.plugins?.some((p) => p.id === "theauth-2fa") ?? false),
-		usernameAccountsAvailable: !!config.username,
+		usernameAccountsAvailable: !!config.username || !!config.emailPassword,
 	});
 
 	const privilegeAnalyzer = createPrivilegeAnalyzer(db);
@@ -108,12 +132,14 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		agentModule,
 		permissionEngine,
 		delegationModule,
+		requireConfirmation: config.agents?.confirmation?.required === true,
 	});
 	const { explain } = createExplainer({
 		db,
 		agentModule,
 		runBeforeAuthorize,
 		hookConfigured: !!hooks.beforeAuthorize,
+		resourceMatching: config.resourceMatching,
 	});
 
 	const tenantModule = createTenantModule(db);
@@ -130,6 +156,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		adminModule,
 		apiKeyManagerModule,
 		usernameModule,
+		emailPasswordModule,
 		oneTimeTokenModule,
 		passwordResetModule,
 		emailVerificationModule,
@@ -142,6 +169,10 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	// Runs after core modules so plugins can depend on them.
 	assertSecondaryStorageConfig(config.secondaryStorage);
 	const secondaryStorage = createSecondaryStorageResolver(config.secondaryStorage, db);
+	const agentConfirmation = createAgentConfirmationVerifier(
+		config.agents?.confirmation,
+		secondaryStorage.for("nonces"),
+	);
 	const pluginRegistry = await initializePlugins(
 		withSignInGatePlugin(config.plugins ?? [], sessionManager !== null),
 		db,
@@ -159,6 +190,11 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	});
 
 	if (sessionManager) registerSessionEndpoints(pluginRegistry, sessionManager, endpointCtx);
+	registerEmailPasswordEndpoints(pluginRegistry, emailPasswordModule, {
+		passwordReset: passwordResetModule,
+		sessionManager,
+		baseUrl: config.baseUrl,
+	});
 
 	const {
 		agent: agentProxy,
@@ -172,12 +208,27 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		pluginContext: pluginRegistry.pluginContext,
 	});
 
+	const device = createConfiguredDeviceModule(config, {
+		db,
+		storage: secondaryStorage.for("deviceAuth"),
+		agent: agentProxy,
+		delegate,
+		getEffectivePermissions: delegationModule.getEffectivePermissions,
+		authorize,
+		recordDenial: permissionEngine.recordDenial,
+		guardAgentCreate,
+	});
+
 	return {
 		agent: agentProxy,
+		/** IoT devices as principals backed by `device` agents. Null unless `devices` is configured. */
+		device,
 		/** User rows: idempotent `create({ email, name?, id? })` and `get(idOrEmail)`. */
 		user: userModule,
 		authorize,
 		authorizeByToken,
+		/** @internal Reads DPoP and certificate proofs off a request for `requireAgent` and the HTTP handler. */
+		agentConfirmation,
 		/** Read-only account of what `authorize()` would decide and why. No audit rows, no counters. */
 		explain,
 		/** Logger and decision event counters: `stats()` reports emitted, errors and slow listener calls. */
@@ -241,26 +292,9 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 * ```
 		 */
 		did: didModule,
-		/**
-		 * Magic link authentication. Null unless `magicLink` and `auth.session` are configured.
-		 *
-		 * @example
-		 * ```typescript
-		 * // In your route handler
-		 * const response = await theauth.magicLink?.handleRequest(request);
-		 * if (response) return response;
-		 * ```
-		 */
+		/** Magic link authentication, `await theauth.magicLink?.handleRequest(request)`. Null unless `magicLink` and `auth.session` are configured. */
 		magicLink: magicLinkModule,
-		/**
-		 * Email OTP authentication. Null unless `emailOtp` and `auth.session` are configured.
-		 *
-		 * @example
-		 * ```typescript
-		 * const response = await theauth.emailOtp?.handleRequest(request);
-		 * if (response) return response;
-		 * ```
-		 */
+		/** Email OTP authentication, `await theauth.emailOtp?.handleRequest(request)`. Null unless `emailOtp` and `auth.session` are configured. */
 		emailOtp: emailOtpModule,
 		/**
 		 * TOTP two-factor authentication. Null unless `totp` is configured.
@@ -348,6 +382,8 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 * ```
 		 */
 		username: usernameModule,
+		/** Email and password authentication, served under `/auth/email/*`. Null unless `emailPassword` and `auth.session` are configured. */
+		emailPassword: emailPasswordModule,
 		/**
 		 * Password reset. Null unless `passwordReset` and `auth.session` are configured.
 		 *
@@ -476,23 +512,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 * });
 		 * ```
 		 */
-		plugins: {
-			/** Route a request through plugin endpoints. Returns null if no plugin handles it. */
-			async handleRequest(request: Request, basePath = ""): Promise<Response | null> {
-				const hooked = await runRequestHooks(request);
-				if (hooked instanceof Response) return hooked;
-				return pluginRouter.handle(hooked, basePath, endpointCtx);
-			},
-			/** Runs plugin `onRequest` hooks for requests TheAuth does not route itself, such as `/mcp/token`. */
-			runRequestHooks,
-			getEndpoints() {
-				return pluginRouter.getEndpoints();
-			},
-			getContext(): Record<string, unknown> {
-				return { ...pluginRegistry.pluginContext };
-			},
-			registry: pluginRegistry,
-		},
+		plugins: createPluginsFacade({ pluginRegistry, pluginRouter, runRequestHooks, endpointCtx }),
 	};
 }
 

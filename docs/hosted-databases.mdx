@@ -1,0 +1,134 @@
+---
+title: Turso, Neon and Supabase
+description: Run theAuth on Turso (libSQL), Neon serverless Postgres or Supabase Postgres. A libsql provider, a Neon recipe over a WebSocket pool and the Supabase connection modes, with what was tested.
+icon: cloud
+---
+
+These three hosted databases are not special cases in the schema. Turso speaks SQLite, Neon and Supabase speak Postgres, and theAuth already runs on both dialects. What changes is how you connect.
+
+| Host | How to connect | Needs |
+|---|---|---|
+| Turso or any libSQL | `provider: "libsql"` | `@libsql/client` |
+| Supabase | `provider: "postgres"` with a Supabase URL | `pg` |
+| Neon | `database: { drizzle, dialect: "postgres" }` with Neon's WebSocket `Pool` | `@neondatabase/serverless`, `ws` on older Node |
+
+## Turso and libSQL
+
+```bash
+pnpm add @glinr/theauth @libsql/client
+```
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const auth = await createTheAuth({
+  database: {
+    provider: "libsql",
+    url: process.env.TURSO_DATABASE_URL!, // libsql://my-db-my-org.turso.io
+    authToken: process.env.TURSO_AUTH_TOKEN!,
+  },
+});
+```
+
+`url` also takes `https://`, `wss://` and `file:./local.db`, so the same code runs against a local file in development. `authToken` is not needed for a `file:` URL. Tables are created on boot, and `skipMigrations: true` makes boot fail with `SchemaOutdatedError` if the schema is behind, like the other providers.
+
+libSQL is SQLite on the wire, so the schema is the SQLite one: ids are text and timestamps are integer epoch seconds. Foreign keys are on by default in the client. The `libsql` provider does not set `journal_mode` or `busy_timeout`, because those belong to the server. If you open a `file:` database from more than one process, set them yourself with a bring your own handle ([Bring your own Drizzle instance](/bring-your-own-drizzle)).
+
+Want your own client, for example an embedded replica with `syncUrl`? Pass it in:
+
+```ts
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
+
+const client = createClient({ url: "file:replica.db", syncUrl: process.env.TURSO_DATABASE_URL!, authToken: process.env.TURSO_AUTH_TOKEN! });
+const auth = await createTheAuth({ database: { drizzle: drizzle(client), dialect: "sqlite" } });
+```
+
+The embedded replica form was not run. Writes on a replica go to the primary, and theAuth reads straight after writing (single use tokens, refresh rotation), so check that your replica sync mode gives read your writes before you rely on it.
+
+## Supabase
+
+Supabase is Postgres. Use the `postgres` provider with a connection string from the dashboard's Connect dialog. Which string you use matters:
+
+| Mode | Port | Use it for |
+|---|---|---|
+| Direct | 5432 | A long running server with IPv6 or the IPv4 add-on. Run migrations here. |
+| Session pooler | 5432 | A long running server on an IPv4 only network. |
+| Transaction pooler | 6543 | Serverless and edge functions. |
+
+```ts
+const auth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.SUPABASE_DB_URL! },
+});
+```
+
+Supabase asks for SSL, because many drivers default to `prefer`, which can fall back to plain text. With the `pg` driver the exact spelling matters. In `pg` 8.20, the version this repository tests with, `sslmode=require` is an alias for `verify-full`, so `pg` checks the server certificate against your system certificate store, and a Supabase certificate chain can fail that check. Pick one:
+
+- Verify properly: download the root certificate from Database settings in the Supabase dashboard and use `?sslmode=verify-full&sslrootcert=/path/to/supabase-root.crt`.
+- Encrypt without verifying, which is what Supabase's own `require` does: `?uselibpqcompat=true&sslmode=require`.
+
+I did not run either against a real Supabase project. The alias behavior comes from running `pg-connection-string` 2.14.1 on those three URLs. The transaction pooler does not support prepared statements. theAuth never creates a named prepared statement, so nothing needs turning off. The suite below ran against a transaction mode pooler with prepared statements disabled and passed.
+
+Two things to know:
+
+- On serverless, keep the pool small. `provider: "postgres"` opens a `pg` pool with its default size, so a function that scales to many instances multiplies it. The transaction pooler absorbs that. If you need a size of one, use bring your own Drizzle with `new Pool({ connectionString, max: 1 })`.
+- Do not point theAuth at the `auth` schema or reuse Supabase Auth tables. theAuth creates its own `theauth_*` tables in `public`. Row Level Security is off on them, so do not expose them through the Data API: turn on RLS with no policies, or revoke access for the `anon` and `authenticated` roles. Your server connects as a role that bypasses RLS.
+
+## Neon
+
+Neon serves Postgres over TCP and over WebSocket. The WebSocket `Pool` from `@neondatabase/serverless` is a drop in for `pg`, and supports the interactive transactions theAuth uses. The HTTP driver (`neon-http`) does not support them, so do not use it.
+
+```bash
+pnpm add @glinr/theauth @neondatabase/serverless drizzle-orm
+```
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+import { Pool } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+const auth = await createTheAuth({
+  database: { drizzle: drizzle({ client: pool }), dialect: "postgres" },
+});
+```
+
+On Node 21 and older there is no global `WebSocket`. Install `ws` and set `neonConfig.webSocketConstructor = ws` before you create the pool. Node 22 has one built in.
+
+On an edge runtime a WebSocket cannot outlive the request. Create the pool and the instance inside the request handler and call `pool.end()` before you return, as Neon's driver docs describe. On a Node server, create them once.
+
+If you are on a Node server and do not need Neon's WebSocket driver, `provider: "postgres"` with the normal Neon connection string works as well. Use the pooled (`-pooler`) host on serverless.
+
+## What was run
+
+- **libSQL.** The store contract suite (`runStoreContract`, 14 checks) against a real libSQL file database, with the `libsql` provider and with a bring your own `drizzle-orm/libsql` handle. It covers 24 parallel callers on one single use row, unique conflicts, an audit chain written by two handles and the hourly budget. Plus a restart that keeps data, and `skipMigrations` on an existing and an empty database. Not run: a remote Turso database, `libsql://` and `wss://` URLs, embedded replicas.
+- **Supabase.** The same suite against local Postgres 14 behind PgBouncer 1.26 in transaction pooling mode with `max_prepared_statements = 0`, three runs, ten parallel callers. Not run: a real Supabase project, Supavisor, `sslmode=require` against Supabase's certificates.
+- **Neon.** A scratch project with the packed `@glinr/theauth`, `@neondatabase/serverless` 1.2.0 and `ws`, using the WebSocket `Pool` through a small local bridge from WebSocket frames to a local Postgres 14 (Neon's wire protocol is plain Postgres messages inside the frames). Migrations ran, a user, an agent and allow and deny decisions worked, and 24 parallel calls against a budget of 10 admitted no more than 10. Not run: a real Neon endpoint, so the `-pooler` host, cold starts and Neon's own proxy are untested. The Neon driver is not a dependency of this repository, so this is a manual check and not part of the test suite.
+
+The pooler suite is in `packages/core/tests/store-contract/pg-pooler.test.ts` and runs when `THEAUTH_TEST_PG_POOLER_URL` points at an empty database behind a transaction mode pooler.
+
+One behavior to expect behind any pooler: the hourly call budget reserves before it checks, so when a burst is larger than the budget it can refuse calls that would have fit. It never admits more than the budget. Under a pooler that interleaves the reservations, a burst of 24 calls against a budget of 10 admitted between one and three.
+
+## Run the suite against your own database
+
+The suites above run on a local file and a local Postgres. To check a real Turso, Neon or Supabase database, point the opt-in tests at it. They live in `packages/core/tests/store-contract/hosted.test.ts` and are skipped unless their variable is set, so a plain `vitest run` never opens a network connection.
+
+| Variable | Value |
+|---|---|
+| `THEAUTH_TEST_TURSO_URL`, `THEAUTH_TEST_TURSO_AUTH_TOKEN` | `libsql://...` URL and token of a throwaway Turso database |
+| `THEAUTH_TEST_NEON_URL` | Neon connection string (the `-pooler` host works too) |
+| `THEAUTH_TEST_SUPABASE_URL` | Supabase connection string: direct, session pooler or transaction pooler |
+| `THEAUTH_TEST_HOSTED_RESET=1` | Drop the `theauth_*` tables of each configured database before and after its suite |
+
+```bash
+cd packages/core
+THEAUTH_TEST_SUPABASE_URL='postgres://...:6543/postgres?uselibpqcompat=true&sslmode=require' \
+  npx vitest run tests/store-contract/hosted.test.ts
+```
+
+Use an empty database you can throw away. The store contract suite (the same 14 checks as above, ten parallel callers) writes users, agents, sessions and audit rows with random ids, and does not clean up after itself. `THEAUTH_TEST_HOSTED_RESET=1` removes tables whose names start with `theauth_` and nothing else. Each configured host also gets a restart check: data written by one instance is read by a second one booted with `skipMigrations: true`, and the schema reports nothing pending.
+
+If `@neondatabase/serverless` is installed in `packages/core`, a second Neon suite runs through its WebSocket `Pool` (the path from the Neon section). The package is not a dependency of this repository, so add it with `pnpm add -D @neondatabase/serverless` while you try it and drop the change afterwards.
+
+I ran the file against a local libSQL file (as `THEAUTH_TEST_TURSO_URL`) and a local Postgres 14 (as `THEAUTH_TEST_NEON_URL`) to check the wiring: the suites ran and passed, and every other suite was skipped. I did not run it against a real Turso, Neon or Supabase endpoint.

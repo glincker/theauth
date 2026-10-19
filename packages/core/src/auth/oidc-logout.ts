@@ -215,7 +215,7 @@ export function createOidcLogoutModule(deps: OidcLogoutDeps): OidcLogoutModule {
 		const sm = config.sessionManager;
 
 		if (sm) {
-			const token = extractToken(ctx.request);
+			const token = extractToken(ctx.request, sm.cookieName);
 			if (token) {
 				const session = await sm.validate(token);
 				// A hint for another user must not end this browser's session.

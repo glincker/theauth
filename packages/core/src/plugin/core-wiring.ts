@@ -6,6 +6,7 @@ import { users } from "../db/schema.js";
 import type { SessionManager } from "../session/session.js";
 import type { TheAuthConfig } from "../types.js";
 import { buildClearCookie, extractToken, json } from "./helpers.js";
+import type { createPluginRouter } from "./router.js";
 import type { PluginRegistry } from "./runner.js";
 import type { EndpointContext, TheAuthPlugin } from "./types.js";
 
@@ -35,7 +36,7 @@ export function createEndpointContext(
 			}
 
 			if (sessionManager) {
-				const token = extractToken(request);
+				const token = extractToken(request, sessionManager.cookieName);
 				if (!token) return null;
 
 				try {
@@ -92,7 +93,7 @@ export function registerSessionEndpoints(
 		path: "/auth/sign-out",
 		metadata: { description: "Revoke the current session and clear cookie" },
 		async handler(request) {
-			const token = extractToken(request);
+			const token = extractToken(request, sessionManager.cookieName);
 			if (!token) return json({ error: "No session" }, 401);
 
 			try {
@@ -108,7 +109,7 @@ export function registerSessionEndpoints(
 				status: 200,
 				headers: {
 					"Content-Type": "application/json",
-					"Set-Cookie": buildClearCookie("theauth_session"),
+					"Set-Cookie": buildClearCookie(sessionManager.cookieName ?? "theauth_session"),
 				},
 			});
 		},
@@ -122,7 +123,7 @@ export function registerSessionEndpoints(
 			const user = await endpointCtx.getUser(request);
 			if (!user) return json({ error: "Not authenticated" }, 401);
 
-			const token = extractToken(request);
+			const token = extractToken(request, sessionManager.cookieName);
 			const session = token ? await sessionManager.validate(token) : null;
 
 			return json({
@@ -131,4 +132,31 @@ export function registerSessionEndpoints(
 			});
 		},
 	});
+}
+
+/** The `theauth.plugins` facade: request routing, hooks and read access to plugin context. */
+export function createPluginsFacade(deps: {
+	pluginRegistry: PluginRegistry;
+	pluginRouter: ReturnType<typeof createPluginRouter>;
+	runRequestHooks: ReturnType<typeof createRequestHookRunner>;
+	endpointCtx: EndpointContext;
+}) {
+	const { pluginRegistry, pluginRouter, runRequestHooks, endpointCtx } = deps;
+	return {
+		/** Route a request through plugin endpoints. Returns null if no plugin handles it. */
+		async handleRequest(request: Request, basePath = ""): Promise<Response | null> {
+			const hooked = await runRequestHooks(request);
+			if (hooked instanceof Response) return hooked;
+			return pluginRouter.handle(hooked, basePath, endpointCtx);
+		},
+		/** Runs plugin `onRequest` hooks for requests TheAuth does not route itself, such as `/mcp/token`. */
+		runRequestHooks,
+		getEndpoints() {
+			return pluginRouter.getEndpoints();
+		},
+		getContext(): Record<string, unknown> {
+			return { ...pluginRegistry.pluginContext };
+		},
+		registry: pluginRegistry,
+	};
 }

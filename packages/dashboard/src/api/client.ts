@@ -1,14 +1,21 @@
+import type { CoreAuditEntry } from "./audit.js";
+import { auditExportQuery, auditQuery, toAuditLogEntry } from "./audit.js";
+import type { DeviceApi } from "./devices.js";
+import { createDeviceApi } from "./devices.js";
 import type {
 	Agent,
 	AgentPermission,
 	ApiResult,
 	ApprovalDecision,
 	AuditLogFilters,
+	CoreDashboardStats,
 	CreateAgentInput,
 	CreateAgentResponse,
 	CreatePermissionTemplateInput,
+	CreateRevocationInput,
 	DashboardStats,
 	DelegationChain,
+	DelegationImpact,
 	ExplainRequest,
 	ExplainResponse,
 	McpServerInfo,
@@ -16,13 +23,17 @@ import type {
 	PendingApproval,
 	PermissionTemplate,
 	RegisterMcpServerInput,
+	RevocationKind,
+	RevocationsSnapshot,
 	TheAuthSettings,
 	User,
 } from "./types.js";
 
+const AUDIT_PAGE_SIZE = 50;
+
 // Client Factory
 
-export interface TheAuthApiClient {
+export interface TheAuthApiClient extends DeviceApi {
 	getStats: () => Promise<ApiResult<DashboardStats>>;
 
 	getAgents: () => Promise<ApiResult<Agent[]>>;
@@ -45,6 +56,12 @@ export interface TheAuthApiClient {
 		id: string,
 		decision: "approve" | "deny",
 	) => Promise<ApiResult<ApprovalDecision>>;
+
+	/** Live denylist rows plus bus stats. Absent on cores older than the revocation routes (HTTP_404). */
+	getRevocations: (kind?: RevocationKind) => Promise<ApiResult<RevocationsSnapshot>>;
+	getDelegationImpact: () => Promise<ApiResult<DelegationImpact[]>>;
+	/** Audited on the server. Answers the ids that are now denied. */
+	createRevocation: (input: CreateRevocationInput) => Promise<ApiResult<{ revoked: string[] }>>;
 
 	getUsers: () => Promise<ApiResult<User[]>>;
 
@@ -76,6 +93,7 @@ async function apiFetch<T>(
 	baseUrl: string,
 	path: string,
 	options?: RequestInit,
+	as: "json" | "text" = "json",
 ): Promise<ApiResult<T>> {
 	try {
 		const url = `${baseUrl.replace(/\/$/, "")}${path}`;
@@ -88,21 +106,39 @@ async function apiFetch<T>(
 		});
 
 		if (!response.ok) {
-			let errorBody: { code?: string; message?: string } = {};
+			let errorBody: {
+				code?: string;
+				message?: string;
+				error?: { code?: string; message?: string };
+			} = {};
 			try {
-				errorBody = (await response.json()) as { code?: string; message?: string };
+				errorBody = (await response.json()) as typeof errorBody;
 			} catch {
 				// ignore parse error
+			}
+			// An approval that needs a fresher sign-in answers 401 STEP_UP_REQUIRED (RFC 9470).
+			// Keep that code so the page can say what to do. Every other error keeps its old shape.
+			if (response.status === 401 && errorBody.error?.code === "STEP_UP_REQUIRED") {
+				return {
+					success: false,
+					error: {
+						code: "STEP_UP_REQUIRED",
+						message: errorBody.error.message ?? "Step-up required",
+					},
+				};
 			}
 			return {
 				success: false,
 				error: {
 					code: errorBody.code ?? `HTTP_${response.status}`,
-					message: errorBody.message ?? response.statusText,
+					message: errorBody.message ?? errorBody.error?.message ?? response.statusText,
 				},
 			};
 		}
 
+		// 204 has no body (revoking a credential or an enrollment token): nothing to parse.
+		if (response.status === 204) return { success: true, data: undefined as T };
+		if (as === "text") return { success: true, data: (await response.text()) as T };
 		const data = (await response.json()) as T;
 		return { success: true, data };
 	} catch (err) {
@@ -121,12 +157,69 @@ async function apiFetch<T>(
 /** @deprecated Use `TheAuthApiClient` instead. Will be removed in a future major version. */
 export type AuthApiClient = TheAuthApiClient;
 
+/**
+ * The core admin API serves no route for users, permission templates, MCP server
+ * registration or settings. Only the CLI demo server does. Against a server without
+ * them the call answers 404 or 405, and this turns that into a NOT_SUPPORTED failure
+ * the page shows as a clear message instead of a generic HTTP error.
+ */
+function notServed<T>(res: ApiResult<T>, feature: string): ApiResult<T> {
+	if (res.success) return res;
+	if (res.error.code !== "HTTP_404" && res.error.code !== "HTTP_405") return res;
+	return {
+		success: false,
+		error: {
+			code: "NOT_SUPPORTED",
+			message: `This server does not serve ${feature}, so this page has no data source. The core admin API has no such route; only the CLI demo server does.`,
+		},
+	};
+}
+
+const TEMPLATES = "/api/permissions/templates";
+const TEMPLATES_LABEL = "permission templates (/api/permissions/templates)";
+const MCP_LABEL = "an MCP server registry (/api/mcp/servers)";
+const SETTINGS_LABEL = "settings (/api/settings)";
+
+/** Reads `permissions` off the agent record. `GET /agents/:id` has no `/permissions` sub-route. */
+function toAgentPermissions(agent: { permissions?: unknown }): AgentPermission[] {
+	if (!Array.isArray(agent.permissions)) return [];
+	return agent.permissions.map((raw, i) => {
+		const p = (raw ?? {}) as Partial<AgentPermission>;
+		return {
+			id: typeof p.id === "string" ? p.id : `${p.resource ?? "permission"}-${i}`,
+			resource: String(p.resource ?? ""),
+			actions: Array.isArray(p.actions) ? p.actions : [],
+			constraints: p.constraints ?? {},
+		};
+	});
+}
+
 export function createApiClient(apiUrl: string): TheAuthApiClient {
 	const fetch = <T>(path: string, options?: RequestInit) => apiFetch<T>(apiUrl, path, options);
+	const fetchText = (path: string) => apiFetch<string>(apiUrl, path, undefined, "text");
 
 	return {
+		...createDeviceApi(fetch),
 		// Dashboard Stats
-		getStats: () => fetch<DashboardStats>("/api/dashboard/stats"),
+		getStats: async () => {
+			const [stats, delegations] = await Promise.all([
+				fetch<CoreDashboardStats>("/api/dashboard/stats"),
+				fetch<DelegationChain[]>("/api/delegations"),
+			]);
+			if (!stats.success) return stats;
+			const { agents, audit } = stats.data;
+			const decided = audit.allowed + audit.denied + audit.rateLimited;
+			const mapped: DashboardStats = {
+				totalAgents: agents.total,
+				activeAgents: agents.active,
+				recentAuditEvents: audit.last24h,
+				authAllowedRate: decided === 0 ? 100 : (audit.allowed / decided) * 100,
+				activeDelegations: delegations.success
+					? delegations.data.filter((d) => d.status === "active").length
+					: 0,
+			};
+			return { success: true as const, data: mapped };
+		},
 
 		// Agents
 		getAgents: () => fetch<Agent[]>("/api/agents"),
@@ -137,49 +230,53 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 				body: JSON.stringify(input),
 			}),
 
-		revokeAgent: (agentId) =>
-			fetch<{ success: boolean }>(`/api/agents/${agentId}/revoke`, {
-				method: "POST",
-			}),
+		// The core revokes with DELETE /agents/:id. It has no /revoke route.
+		revokeAgent: async (agentId) => {
+			const res = await fetch<unknown>(`/api/agents/${encodeURIComponent(agentId)}`, {
+				method: "DELETE",
+			});
+			return res.success ? { success: true as const, data: { success: true } } : res;
+		},
 
 		rotateAgentToken: (agentId) =>
 			fetch<{ token: string }>(`/api/agents/${agentId}/rotate`, {
 				method: "POST",
 			}),
 
-		getAgentPermissions: (agentId) =>
-			fetch<AgentPermission[]>(`/api/agents/${agentId}/permissions`),
+		getAgentPermissions: async (agentId) => {
+			const id = encodeURIComponent(agentId);
+			const res = await fetch<{ permissions?: unknown }>(`/api/agents/${id}`);
+			if (res.success) return { success: true as const, data: toAgentPermissions(res.data) };
+			// The CLI demo server serves a dedicated sub-route instead.
+			if (res.error.code === "HTTP_404") {
+				return fetch<AgentPermission[]>(`/api/agents/${id}/permissions`);
+			}
+			return res;
+		},
 
 		// Audit Logs
-		getAuditLogs: (filters?: AuditLogFilters) => {
-			const params = new URLSearchParams();
-			if (filters) {
-				if (filters.agentId) params.set("agentId", filters.agentId);
-				if (filters.action) params.set("action", filters.action);
-				if (filters.result) params.set("result", filters.result);
-				if (filters.codes?.length) params.set("codes", filters.codes.join(","));
-				if (filters.from) params.set("from", filters.from);
-				if (filters.to) params.set("to", filters.to);
-				if (filters.limit !== undefined) params.set("limit", String(filters.limit));
-				if (filters.offset !== undefined) params.set("offset", String(filters.offset));
-			}
-			const qs = params.toString();
-			return fetch<PaginatedAuditLogs>(`/api/audit${qs ? `?${qs}` : ""}`);
+		getAuditLogs: async (filters?: AuditLogFilters) => {
+			const limit = filters?.limit ?? AUDIT_PAGE_SIZE;
+			const offset = filters?.offset ?? 0;
+			const [rows, agents] = await Promise.all([
+				fetch<CoreAuditEntry[]>(`/api/audit${auditQuery(filters, limit)}`),
+				fetch<Array<{ id: string; name: string }>>("/api/agents"),
+			]);
+			if (!rows.success) return rows;
+			const names = new Map(agents.success ? agents.data.map((a) => [a.id, a.name]) : []);
+			return {
+				success: true,
+				data: {
+					entries: rows.data.slice(0, limit).map((row) => toAuditLogEntry(row, names)),
+					hasMore: rows.data.length > limit,
+					limit,
+					offset,
+				},
+			};
 		},
 
-		exportAuditLogs: (format: "json" | "csv", filters?: AuditLogFilters) => {
-			const params = new URLSearchParams();
-			params.set("format", format);
-			if (filters) {
-				if (filters.agentId) params.set("agentId", filters.agentId);
-				if (filters.action) params.set("action", filters.action);
-				if (filters.result) params.set("result", filters.result);
-				if (filters.codes?.length) params.set("codes", filters.codes.join(","));
-				if (filters.from) params.set("from", filters.from);
-				if (filters.to) params.set("to", filters.to);
-			}
-			return fetch<string>(`/api/audit/export?${params.toString()}`);
-		},
+		exportAuditLogs: (format: "json" | "csv", filters?: AuditLogFilters) =>
+			fetchText(`/api/audit/export${auditExportQuery(format, filters)}`),
 
 		// Approvals
 		explainDecision: (input: ExplainRequest) =>
@@ -192,28 +289,48 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 				method: "POST",
 			}),
 
-		// Users
-		getUsers: () => fetch<User[]>("/api/users"),
+		// Revocations
+		getRevocations: (kind) =>
+			fetch<RevocationsSnapshot>(`/api/revocations${kind ? `?kind=${kind}` : ""}`),
 
-		// Permission Templates
-		getPermissionTemplates: () => fetch<PermissionTemplate[]>("/api/permissions/templates"),
+		getDelegationImpact: () => fetch<DelegationImpact[]>("/api/revocations/delegations"),
 
-		createPermissionTemplate: (input) =>
-			fetch<PermissionTemplate>("/api/permissions/templates", {
+		createRevocation: (input) =>
+			fetch<{ revoked: string[] }>("/api/revocations", {
 				method: "POST",
 				body: JSON.stringify(input),
 			}),
 
-		updatePermissionTemplate: (id, input) =>
-			fetch<PermissionTemplate>(`/api/permissions/templates/${id}`, {
-				method: "PATCH",
-				body: JSON.stringify(input),
-			}),
+		// Users
+		getUsers: async () => notServed(await fetch<User[]>("/api/users"), "a users list (/api/users)"),
 
-		deletePermissionTemplate: (id) =>
-			fetch<{ success: boolean }>(`/api/permissions/templates/${id}`, {
-				method: "DELETE",
-			}),
+		// Permission Templates (no core route, demo server only)
+		getPermissionTemplates: async () =>
+			notServed(await fetch<PermissionTemplate[]>(TEMPLATES), TEMPLATES_LABEL),
+
+		createPermissionTemplate: async (input) =>
+			notServed(
+				await fetch<PermissionTemplate>(TEMPLATES, {
+					method: "POST",
+					body: JSON.stringify(input),
+				}),
+				TEMPLATES_LABEL,
+			),
+
+		updatePermissionTemplate: async (id, input) =>
+			notServed(
+				await fetch<PermissionTemplate>(`${TEMPLATES}/${id}`, {
+					method: "PATCH",
+					body: JSON.stringify(input),
+				}),
+				TEMPLATES_LABEL,
+			),
+
+		deletePermissionTemplate: async (id) =>
+			notServed(
+				await fetch<{ success: boolean }>(`${TEMPLATES}/${id}`, { method: "DELETE" }),
+				TEMPLATES_LABEL,
+			),
 
 		// Delegations
 		getDelegations: () => fetch<DelegationChain[]>("/api/delegations"),
@@ -223,22 +340,30 @@ export function createApiClient(apiUrl: string): TheAuthApiClient {
 				method: "DELETE",
 			}),
 
-		// MCP Servers
-		getMcpServers: () => fetch<McpServerInfo[]>("/api/mcp/servers"),
+		// MCP Servers (no core route, demo server only)
+		getMcpServers: async () =>
+			notServed(await fetch<McpServerInfo[]>("/api/mcp/servers"), MCP_LABEL),
 
-		registerMcpServer: (input) =>
-			fetch<McpServerInfo>("/api/mcp/servers", {
-				method: "POST",
-				body: JSON.stringify(input),
-			}),
+		registerMcpServer: async (input) =>
+			notServed(
+				await fetch<McpServerInfo>("/api/mcp/servers", {
+					method: "POST",
+					body: JSON.stringify(input),
+				}),
+				MCP_LABEL,
+			),
 
-		// Settings
-		getSettings: () => fetch<TheAuthSettings>("/api/settings"),
+		// Settings (no core route, demo server only)
+		getSettings: async () =>
+			notServed(await fetch<TheAuthSettings>("/api/settings"), SETTINGS_LABEL),
 
-		updateSettings: (settings) =>
-			fetch<TheAuthSettings>("/api/settings", {
-				method: "PATCH",
-				body: JSON.stringify(settings),
-			}),
+		updateSettings: async (settings) =>
+			notServed(
+				await fetch<TheAuthSettings>("/api/settings", {
+					method: "PATCH",
+					body: JSON.stringify(settings),
+				}),
+				SETTINGS_LABEL,
+			),
 	};
 }

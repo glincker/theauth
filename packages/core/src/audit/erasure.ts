@@ -3,11 +3,11 @@
  * Version 2 chain rows hash keyed pseudonyms of the ids (see pseudonym.ts), so blanking the raw columns leaves their hashes valid and nothing else is needed. Version 1 rows (released format, hash_version NULL or 1) hash the raw agentId and userId, so rewriting those columns cannot keep the hash. For those rows, and for rows deleted outright, an `audit.erasure` record names each affected row with its stored hash and link, and the verifier reports them as erased instead of as tamper. The record is appended to the agent's hash chain like any other row, and every entry carries an HMAC made with the audit key (see integrity.ts), so a record written by hand without the key excuses nothing. Destroying the key is a further option and is not implemented (no key shredding).
  */
 
-import { eq, inArray, or } from "drizzle-orm";
-import { generateId } from "../crypto/web-crypto.js";
+import { and, eq, inArray, or } from "drizzle-orm";
+import { generateId, hmacSha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { agents, auditLogs, users } from "../db/schema.js";
-import { isUniqueViolation } from "../db/unique-violation.js";
+import { toStoreConflict } from "../db/store-conflict.js";
 import type { AuditRow } from "./chain.js";
 import { computeRowHash, ERASURE_ACTION, getAuditChainConfig, insertAuditRow } from "./chain.js";
 import type { UnsignedErasureEntry } from "./integrity.js";
@@ -29,7 +29,11 @@ export interface EraseAuditOptions {
 /**
  * Tombstones. The audit FK columns are NOT NULL and reference users and agents, and the erased user's own row is deleted afterwards. Instead of switching FK enforcement off (a SQLite-only session setting), anonymized rows are repointed to inert placeholder rows keyed by the same stable anonymous id. They are idempotent, banned or revoked, hold no credential and no personal data, and exist only so the FKs stay satisfied on every dialect.
  */
-export async function ensureTombstoneUser(db: Database, anonUserId: string): Promise<void> {
+export async function ensureTombstoneUser(
+	db: Database,
+	anonUserId: string,
+	metadata: Record<string, unknown> = {},
+): Promise<void> {
 	if (await rowExists(db, users, users.id, anonUserId)) return;
 	const now = new Date();
 	try {
@@ -37,7 +41,7 @@ export async function ensureTombstoneUser(db: Database, anonUserId: string): Pro
 			id: anonUserId,
 			// Unique and recognisably synthetic; never a deliverable address.
 			email: `tombstone-${anonUserId.replace(/[^A-Za-z0-9-]/g, "")}@erased.invalid`,
-			metadata: {},
+			metadata,
 			banned: 1,
 			banReason: "erased",
 			createdAt: now,
@@ -45,7 +49,7 @@ export async function ensureTombstoneUser(db: Database, anonUserId: string): Pro
 		});
 	} catch (error) {
 		// A concurrent erasure of the same user inserted it first. Anything else is real.
-		if (!isUniqueViolation(error) || !(await rowExists(db, users, users.id, anonUserId)))
+		if (!toStoreConflict(error, "users") || !(await rowExists(db, users, users.id, anonUserId)))
 			throw error;
 	}
 }
@@ -73,7 +77,10 @@ export async function ensureTombstoneAgent(
 			updatedAt: now,
 		});
 	} catch (error) {
-		if (!isUniqueViolation(error) || !(await rowExists(db, agents, agents.id, anonAgentId))) {
+		if (
+			!toStoreConflict(error, "agents") ||
+			!(await rowExists(db, agents, agents.id, anonAgentId))
+		) {
 			throw error;
 		}
 	}
@@ -94,6 +101,11 @@ export async function eraseAuditIdentity(db: Database, opts: EraseAuditOptions):
 	return opts.keepRows ? await anonymizeRows(db, opts) : await deleteRows(db, opts);
 }
 
+/**
+ * Every pass is safe to rerun after a crash at any statement. Order: tombstones, then the per-agent rewrites, then the erasure record derived from the rewritten rows, then the accountability scrub. A rerun finds the rows already rewritten, so the record pass works from the anonymous ids (which are deterministic) and skips rows an existing record already names.
+ *
+ * The record cannot go before the rewrite: it is a row on the anonymous agent's hash chain, and the rewritten rows keep their original `chain_seq` on that same chain (unique per agent), so a record appended first would take a seq the rewritten rows need.
+ */
 async function anonymizeRows(db: Database, opts: EraseAuditOptions): Promise<number> {
 	// Rows on the user's agents, plus rows the user caused on other agents.
 	const match =
@@ -101,50 +113,25 @@ async function anonymizeRows(db: Database, opts: EraseAuditOptions): Promise<num
 			? or(inArray(auditLogs.agentId, opts.agentIds), eq(auditLogs.userId, opts.userId))
 			: eq(auditLogs.userId, opts.userId);
 	const rows: AuditRow[] = await db.select().from(auditLogs).where(match);
-	let affected = 0;
+	const owned = new Set(opts.agentIds);
 	if (rows.length > 0) {
 		await ensureTombstoneUser(db, opts.anonUserId);
-		const owned = new Set(opts.agentIds);
-		const hmacKey = getAuditChainConfig(db)?.hmacKey;
-		// Version 1 chained rows lose their hash validity once agentId or userId change.
-		const legacy = new Map<string, UnsignedErasureEntry[]>();
-		for (const r of rows) {
-			const newAgentId = owned.has(r.agentId) ? opts.anonAgentId(r.agentId) : r.agentId;
-			if (r.chainSeq !== null && r.hash !== null && (r.hashVersion ?? 1) < 2) {
-				// Both updates below set userId to the placeholder on every matched row.
-				const rewritten = { ...r, agentId: newAgentId, userId: opts.anonUserId };
-				const list = legacy.get(newAgentId) ?? [];
-				list.push({
-					id: r.id,
-					agentId: newAgentId,
-					seq: r.chainSeq,
-					hash: r.hash,
-					prevHash: r.prevHash,
-					hashVersion: r.hashVersion ?? 1,
-					reason: "anonymized",
-					erasedHash: await computeRowHash(rewritten, r.chainSeq, r.prevHash, hmacKey),
-				});
-				legacy.set(newAgentId, list);
-			}
-		}
 		const ownedWithRows = new Set(rows.filter((r) => owned.has(r.agentId)).map((r) => r.agentId));
 		for (const agentId of ownedWithRows) {
-			const anonAgentId = opts.anonAgentId(agentId);
-			await ensureTombstoneAgent(db, anonAgentId, opts.anonUserId);
+			await ensureTombstoneAgent(db, opts.anonAgentId(agentId), opts.anonUserId);
+		}
+		for (const agentId of ownedWithRows) {
 			await db
 				.update(auditLogs)
-				.set({ userId: opts.anonUserId, agentId: anonAgentId })
+				.set({ userId: opts.anonUserId, agentId: opts.anonAgentId(agentId) })
 				.where(eq(auditLogs.agentId, agentId));
 		}
 		await db
 			.update(auditLogs)
 			.set({ userId: opts.anonUserId })
 			.where(eq(auditLogs.userId, opts.userId));
-		affected = rows.length;
-		for (const [agentId, list] of legacy) {
-			await writeErasureRecord(db, agentId, opts.anonUserId, list);
-		}
 	}
+	await recordRewrittenLegacyRows(db, opts);
 	// Accountability ids that point at the erased user or their agents. Version 2
 	// hashes cover the pseudonyms, so blanking these keeps the chain valid.
 	await db.update(auditLogs).set({ subjectId: null }).where(eq(auditLogs.subjectId, opts.userId));
@@ -155,7 +142,67 @@ async function anonymizeRows(db: Database, opts: EraseAuditOptions): Promise<num
 			.set({ actorId: null })
 			.where(inArray(auditLogs.actorId, opts.agentIds));
 	}
-	return affected;
+	return rows.length;
+}
+
+/**
+ * Version 1 chained rows lose their hash validity once agentId or userId change. Finds the rows now carrying the placeholder user id whose stored hash no longer matches, and writes the signed record for the ones no record names yet. Reads only the rewritten state, so it works the same on a first pass and on a rerun.
+ */
+async function recordRewrittenLegacyRows(db: Database, opts: EraseAuditOptions): Promise<void> {
+	const rewritten: AuditRow[] = await db
+		.select()
+		.from(auditLogs)
+		.where(eq(auditLogs.userId, opts.anonUserId));
+	const legacy = rewritten.filter(
+		(r) =>
+			r.action !== ERASURE_ACTION &&
+			r.chainSeq !== null &&
+			r.hash !== null &&
+			(r.hashVersion ?? 1) < 2,
+	);
+	if (legacy.length === 0) return;
+	const hmacKey = getAuditChainConfig(db)?.hmacKey;
+	const agentIds = [...new Set(legacy.map((r) => r.agentId))];
+	const named = await namedByRecords(db, agentIds);
+	const byAgent = new Map<string, UnsignedErasureEntry[]>();
+	for (const r of legacy) {
+		if (named.has(r.id) || r.chainSeq === null || r.hash === null) continue;
+		const erasedHash = await computeRowHash(r, r.chainSeq, r.prevHash, hmacKey);
+		// A row whose hash still matches was never rewritten, nothing to excuse.
+		if (erasedHash === r.hash) continue;
+		const list = byAgent.get(r.agentId) ?? [];
+		list.push({
+			id: r.id,
+			agentId: r.agentId,
+			seq: r.chainSeq,
+			hash: r.hash,
+			prevHash: r.prevHash,
+			hashVersion: r.hashVersion ?? 1,
+			reason: "anonymized",
+			erasedHash,
+		});
+		byAgent.set(r.agentId, list);
+	}
+	for (const [agentId, list] of byAgent) {
+		await writeErasureRecord(db, agentId, opts.anonUserId, list);
+	}
+}
+
+/** Ids of the audit rows that an existing erasure record on one of these chains already names. */
+async function namedByRecords(db: Database, agentIds: string[]): Promise<Set<string>> {
+	const records = await db
+		.select({ parameters: auditLogs.parameters })
+		.from(auditLogs)
+		.where(and(eq(auditLogs.action, ERASURE_ACTION), inArray(auditLogs.agentId, agentIds)));
+	const ids = new Set<string>();
+	for (const rec of records) {
+		const list = (rec.parameters as { rows?: unknown } | null)?.rows;
+		for (const item of Array.isArray(list) ? list : []) {
+			const id = (item as { id?: unknown } | null)?.id;
+			if (typeof id === "string") ids.add(id);
+		}
+	}
+	return ids;
 }
 
 async function deleteRows(db: Database, opts: EraseAuditOptions): Promise<number> {
@@ -201,7 +248,9 @@ async function deleteRows(db: Database, opts: EraseAuditOptions): Promise<number
 	return rows.length;
 }
 
-/** Sign each entry and append the record to the agent's chain. Written before a hard delete, so a chain whose head is deleted still links to the record. */
+/**
+ * Sign each entry and append the record to the agent's chain. Written before a hard delete, so a chain whose head is deleted still links to the record. The record id is derived from the agent and the rows it names, so rewriting the same set after a crash, or from two concurrent calls, finds the record already there instead of adding a second one.
+ */
 async function writeErasureRecord(
 	db: Database,
 	agentId: string,
@@ -210,17 +259,30 @@ async function writeErasureRecord(
 ): Promise<void> {
 	const key = await resolvePseudonymKey(db, getAuditChainConfig(db)?.hmacKey, true);
 	if (!key) throw new Error("no audit key available to sign the erasure record");
-	const rows = await Promise.all(entries.map((e) => signErasureEntry(key, e)));
-	await insertAuditRow(db, {
-		id: `era_${generateId()}`,
-		agentId,
-		userId: anonUserId,
-		action: ERASURE_ACTION,
-		resource: `audit:${agentId}`,
-		parameters: { rows },
-		result: "allowed",
-		reason: "erasure",
-		durationMs: 0,
-		timestamp: new Date(),
-	});
+	const sorted = [...entries].sort((a, b) => a.id.localeCompare(b.id));
+	const id = `era_${(await hmacSha256(key, `theauth.erasure.record.v1:${agentId}:${sorted.map((e) => e.id).join(",")}`)).slice(0, 32)}`;
+	if (await auditRowExists(db, id)) return;
+	const rows = await Promise.all(sorted.map((e) => signErasureEntry(key, e)));
+	try {
+		await insertAuditRow(db, {
+			id,
+			agentId,
+			userId: anonUserId,
+			action: ERASURE_ACTION,
+			resource: `audit:${agentId}`,
+			parameters: { rows },
+			result: "allowed",
+			reason: "erasure",
+			durationMs: 0,
+			timestamp: new Date(),
+		});
+	} catch (error) {
+		// A concurrent erasure wrote the same record first. Anything else is real.
+		if (!(await auditRowExists(db, id))) throw error;
+	}
+}
+
+async function auditRowExists(db: Database, id: string): Promise<boolean> {
+	const found = await db.select({ id: auditLogs.id }).from(auditLogs).where(eq(auditLogs.id, id));
+	return found.length > 0;
 }

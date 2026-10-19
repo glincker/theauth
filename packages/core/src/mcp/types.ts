@@ -1,5 +1,6 @@
 import type { JWK } from "jose";
 import type { TheAuthLogger } from "../observability/types.js";
+import type { AuthAssertion } from "../session/auth-context.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import type { McpDpopConfig } from "./dpop-types.js";
 import type {
@@ -17,7 +18,9 @@ import type {
 	McpRevocationConfig,
 	McpSessionFreshness,
 } from "./revocation-types.js";
+import type { McpUserAuthRequirement } from "./step-up.js";
 import type {
+	McpAuthEvidence,
 	McpClientBindings,
 	McpRegistrationConfig,
 	RequireScopesResult,
@@ -27,13 +30,20 @@ import type {
 	McpCimdAdmin,
 	McpCimdConfig,
 	McpClientBlockStore,
-	McpClientCimdSnapshot,
 } from "./types-cimd.js";
+import type {
+	McpClient,
+	McpClientRegistrationRequest,
+	McpClientRegistrationResponse,
+	McpProtectedResourceMetadata,
+	McpServerMetadata,
+} from "./types-client.js";
 
 export type { McpValidateOptions } from "./revocation-types.js";
 
 export type {
 	McpAuthErrorCode,
+	McpAuthEvidence,
 	McpClientBindings,
 	McpRegistrationConfig,
 	McpRejectedToken,
@@ -176,127 +186,13 @@ export interface McpTokenFamilyStore {
 	revokeFamily: (familyId: string) => Promise<void>;
 }
 
-// OAuth 2.0 Authorization Server Metadata (RFC 8414)
-
-export interface McpServerMetadata {
-	issuer: string;
-	authorization_endpoint: string;
-	token_endpoint: string;
-	/** Omitted when `registration.enabled === false`. */
-	registration_endpoint?: string;
-	jwks_uri?: string;
-	scopes_supported: string[];
-	response_types_supported: string[];
-	response_modes_supported: string[];
-	grant_types_supported: string[];
-	token_endpoint_auth_methods_supported: string[];
-	/** RFC 8414: JWS algorithms accepted for `private_key_jwt` assertions. */
-	token_endpoint_auth_signing_alg_values_supported?: string[];
-	code_challenge_methods_supported: string[];
-	service_documentation?: string;
-	revocation_endpoint?: string;
-	revocation_endpoint_auth_methods_supported?: string[];
-	revocation_endpoint_auth_signing_alg_values_supported?: string[];
-	/** RFC 8414 / RFC 7662: present only when introspection is enabled (and the route is mounted). */
-	introspection_endpoint?: string;
-	introspection_endpoint_auth_methods_supported?: string[];
-	introspection_endpoint_auth_signing_alg_values_supported?: string[];
-	/** RFC 9207: the authorization response carries an `iss` parameter. */
-	authorization_response_iss_parameter_supported?: boolean;
-	client_id_metadata_document_supported?: boolean;
-	/** RFC 9449 section 5.1: JWS algorithms accepted for DPoP proofs. */
-	dpop_signing_alg_values_supported?: string[];
-}
-
-// Protected Resource Metadata (RFC 9728)
-
-export interface McpProtectedResourceMetadata {
-	resource: string;
-	authorization_servers: string[];
-	jwks_uri?: string;
-	scopes_supported: string[];
-	bearer_methods_supported: string[];
-	resource_signing_alg_values_supported?: string[];
-	/** RFC 9728: JWS algorithms accepted for DPoP proofs. */
-	dpop_signing_alg_values_supported?: string[];
-	/** RFC 9728: true when this resource refuses tokens that are not DPoP-bound. */
-	dpop_bound_access_tokens_required?: boolean;
-}
-
-// OAuth Client (RFC 7591 Dynamic Client Registration)
-
-export interface McpClient {
-	clientId: string;
-	clientSecret: string | null;
-	clientName: string | null;
-	clientUri: string | null;
-	logoUri: string | null;
-	redirectUris: string[];
-	grantTypes: string[];
-	responseTypes: string[];
-	tokenEndpointAuthMethod: string;
-	scope: string | null;
-	contacts: string[] | null;
-	tosUri: string | null;
-	policyUri: string | null;
-	softwareId: string | null;
-	softwareVersion: string | null;
-	clientType: "public" | "confidential";
-	disabled: boolean;
-	/** Why the client is disabled, for example "blocked" or "cimd_changed_while_bound". */
-	disabledReason?: string | null;
-	userId: string | null;
-	/** The agent this client acts as, or null/absent when unbound. Tokens issued to the client carry it as `agent_id` and the built-in delegation mapping resolves the client to it. */
-	agentId?: string | null;
-	/** Set to "cimd" for clients resolved from a Client ID Metadata Document. */
-	source?: "cimd";
-	jwks?: { keys: JWK[] };
-	jwksUri?: string;
-	/** Snapshot of the fetched Client ID Metadata Document (source "cimd" only). */
-	cimd?: McpClientCimdSnapshot;
-	createdAt: Date;
-	updatedAt: Date;
-}
-
-export interface McpClientRegistrationRequest {
-	redirect_uris: string[];
-	token_endpoint_auth_method?: string;
-	grant_types?: string[];
-	response_types?: string[];
-	client_name?: string;
-	client_uri?: string;
-	logo_uri?: string;
-	scope?: string;
-	contacts?: string[];
-	tos_uri?: string;
-	policy_uri?: string;
-	software_id?: string;
-	software_version?: string;
-	jwks?: { keys: JWK[] };
-	jwks_uri?: string;
-}
-
-export interface McpClientRegistrationResponse {
-	client_id: string;
-	client_secret?: string;
-	client_id_issued_at: number;
-	client_secret_expires_at?: number;
-	redirect_uris: string[];
-	token_endpoint_auth_method: string;
-	grant_types: string[];
-	response_types: string[];
-	client_name?: string;
-	client_uri?: string;
-	logo_uri?: string;
-	scope?: string;
-	contacts?: string[];
-	tos_uri?: string;
-	policy_uri?: string;
-	software_id?: string;
-	software_version?: string;
-	jwks?: { keys: JWK[] };
-	jwks_uri?: string;
-}
+export type {
+	McpClient,
+	McpClientRegistrationRequest,
+	McpClientRegistrationResponse,
+	McpProtectedResourceMetadata,
+	McpServerMetadata,
+} from "./types-client.js";
 
 export interface McpAuthorizationCode {
 	code: string;
@@ -307,6 +203,8 @@ export interface McpAuthorizationCode {
 	codeChallenge: string;
 	codeChallengeMethod: "S256";
 	resource: string | null;
+	/** How the user authenticated, when `resolveAuthContext` is configured. */
+	auth?: McpAuthEvidence;
 	expiresAt: Date;
 	createdAt: Date;
 }
@@ -320,6 +218,10 @@ export interface McpAuthorizeRequest {
 	code_challenge: string;
 	code_challenge_method: string;
 	resource: string;
+	/** RFC 9470 and OpenID Connect Core: acceptable authentication context classes, space separated. */
+	acr_values?: string;
+	/** OpenID Connect Core: the authentication event must be at most this many seconds old. */
+	max_age?: string;
 }
 
 export interface McpAuthorizeResult {
@@ -345,6 +247,8 @@ export interface McpAccessToken {
 	tokenType: "Bearer" | "DPoP";
 	/** RFC 7638 thumbprint of the DPoP key this grant is bound to. Persist it: the refresh grant refuses any other key. Absent for bearer grants. */
 	dpopJkt?: string;
+	/** How the user authenticated for this grant. Persist it: a refresh keeps the same `acr`, `amr` and `auth_time`. */
+	auth?: McpAuthEvidence;
 	expiresIn: number;
 	scope: string[];
 	clientId: string;
@@ -387,6 +291,12 @@ export interface McpTokenPayload {
 	client_id: string;
 	/** RFC 9449 confirmation claim: `jkt` is the bound key thumbprint. */
 	cnf?: { jkt?: string };
+	/** RFC 9470 and RFC 9068: authentication context class reference of the user's login. */
+	acr?: string;
+	/** RFC 8176 authentication methods of the user's login. */
+	amr?: string[];
+	/** Epoch seconds of the user's authentication event. */
+	auth_time?: number;
 	agent_id?: string;
 	agent_type?: string;
 	trust_tier?: string;
@@ -416,6 +326,8 @@ export interface McpSession {
 	expiresAt: Date;
 	tokenId: string;
 	dpopJkt?: string;
+	/** `acr`, `amr` and `auth_time` of the user's login, when the token carries them. */
+	auth?: Partial<McpAuthEvidence>;
 	agent?: { id: string; type?: string; trustTier?: string };
 	delegationChain?: McpDelegationHop[];
 	/** The verified `theauth_dlg` claim, when the token is bound. */
@@ -475,6 +387,8 @@ export interface McpAuthContext {
 	logger?: TheAuthLogger;
 	tokenFamilies?: McpTokenFamilyStore;
 	resolveUserId: (request: Request) => Promise<string | null>;
+	/** How the signed-in user authenticated (typically `session.auth`). Enables `acr_values` and `max_age` on authorize and puts `acr`, `amr` and `auth_time` in tokens. Return null when unknown. */
+	resolveAuthContext?: (request: Request) => Promise<AuthAssertion | null>;
 }
 
 export interface ApproveConsentParams {
@@ -486,6 +400,8 @@ export interface ApproveConsentParams {
 	codeChallenge: string;
 	codeChallengeMethod: "S256";
 	resource: string;
+	/** How the user authenticated, read server side from their session. Never pass a value taken from the request. */
+	auth?: McpAuthEvidence;
 }
 
 export interface McpAuthModule {
@@ -525,7 +441,11 @@ export interface McpAuthModule {
 		handler: McpProtectedHandler,
 		options?: RequireMcpAuthOptions,
 	) => (request: Request) => Promise<Response>;
-	requireScopes: (request: Request, requiredScopes: string[]) => Promise<RequireScopesResult>;
+	requireScopes: (
+		request: Request,
+		requiredScopes: string[],
+		userAuth?: McpUserAuthRequirement,
+	) => Promise<RequireScopesResult>;
 }
 
 // Zod Schemas

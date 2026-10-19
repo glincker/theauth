@@ -2,6 +2,7 @@
 // the approval it requires. Applied after permission matching, so a permitted
 // action in a high tier becomes an escalate instead of an allow.
 
+import { ACR } from "../session/auth-context.js";
 import { withEffect } from "./decision.js";
 import type {
 	ApprovalRequirement,
@@ -12,6 +13,9 @@ import type {
 	RiskTierRule,
 } from "./types.js";
 import { POLICY_ERROR_CODES } from "./types.js";
+
+/** Default rule for a `step_up` tier that names none: a second factor, proven in the last 5 minutes. */
+const DEFAULT_STEP_UP = { acr: ACR.mfa, maxAge: 300 } as const;
 
 const STRENGTH: Record<ApprovalRequirement, number> = { none: 0, approval: 1, step_up: 2 };
 
@@ -55,6 +59,11 @@ export function applyRisk(
 		tier: rule.tier,
 		requirement: rule.require,
 		reason: `risk tier "${rule.tier}" requires ${rule.require}`,
+		...(rule.stepUp
+			? { stepUp: rule.stepUp }
+			: rule.require === "step_up"
+				? { stepUp: { ...DEFAULT_STEP_UP } }
+				: {}),
 	};
 	return {
 		...withEffect(decision, "escalate", "risk_escalation"),

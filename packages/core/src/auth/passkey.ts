@@ -175,6 +175,12 @@ export function createPasskeyModule(
 
 			try {
 				const result = await verifyAuthentication(resp);
+				// A request that already carries this user's session is a step up (RFC 9470).
+				await deps.recordStepUp?.(
+					request,
+					result.userVerified ? "passkey" : "passkey_presence",
+					result.userId,
+				);
 				return jsonResponse(result);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Authentication failed";

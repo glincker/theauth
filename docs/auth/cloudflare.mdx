@@ -1,0 +1,78 @@
+---
+title: Cloudflare
+description: "Authenticate users with Sign in with Cloudflare. Create an OAuth client in the Cloudflare dashboard, require the user-details.read scope, and add createCloudflareProvider to the oauth() plugin."
+icon: "cloud"
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Create an OAuth client in the Cloudflare dashboard, add `user-details.read` as a required scope, and register the redirect URI:
+
+```
+https://your-app.com/api/theauth/auth/oauth/callback/cloudflare
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/theauth.ts"
+import { createTheAuth } from '@glinr/theauth';
+import { oauth, createCloudflareProvider } from '@glinr/theauth/auth';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
+  plugins: [
+    oauth({
+      providers: {
+        cloudflare: createCloudflareProvider({
+          clientId: process.env.CLOUDFLARE_CLIENT_ID!,
+          clientSecret: process.env.CLOUDFLARE_CLIENT_SECRET!,
+        }),
+      },
+    }),
+  ],
+});
+```
+
+```bash
+CLOUDFLARE_CLIENT_ID=...
+CLOUDFLARE_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `user-details.read`. It must also be a required scope on the OAuth client, or sign in cannot complete.
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `user-details.read` | Read the account email and name from the Cloudflare API |
+| `offline_access` | Opt in through `scopes` to get a refresh token. The client needs the `refresh_token` grant |
+
+Any other Cloudflare API scope can be added through `scopes`, and must be selected on the OAuth client too.
+
+## How it works
+
+- Authorization Code flow with PKCE (S256). The endpoints are `https://dash.cloudflare.com/oauth2/auth` and `https://dash.cloudflare.com/oauth2/token`.
+- Client credentials go in an `Authorization: Basic` header by default. If the client is registered for `client_secret_post`, pass `tokenEndpointAuthMethod: 'client_secret_post'`.
+- Cloudflare's OIDC userinfo endpoint returns only `sub`, so the profile is read from `GET https://api.cloudflare.com/client/v4/user`. The answer is wrapped in `{ success, errors, result }`. The name is `first_name` and `last_name` joined, with the email as the fallback. There is no avatar.
+- `/user` does not say whether the email is verified, so the OAuth plugin will not link a Cloudflare login to an existing account by email.
+- Clients without a secret (token auth method `none`) are not supported by this provider.
+
+Vendor docs: [Integrate your OAuth client with Cloudflare](https://developers.cloudflare.com/fundamentals/oauth/integrate-with-cloudflare/).
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/cloudflare` | Redirect to Cloudflare |
+| GET | `/auth/oauth/callback/cloudflare` | Handle callback |

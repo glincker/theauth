@@ -13,9 +13,11 @@ from theauth.errors import (
     PermissionError,
     RateLimitError,
     ServerError,
+    StepUpRequiredError,
     TheAuthError,
     ValidationError,
 )
+from theauth.step_up import parse_step_up_challenge
 
 T = TypeVar("T")
 
@@ -32,6 +34,14 @@ def _parse_error(response: httpx.Response) -> TheAuthError:
         body: Any = response.json()
     except Exception:
         body = {}
+
+    if isinstance(body, dict) and isinstance(body.get("error"), str):
+        # OAuth endpoints (RFC 6749 section 5.2): { error, error_description }
+        inner = {
+            "code": body["error"],
+            "message": body.get("error_description") or f"HTTP {response.status_code}",
+        }
+        body = {"error": inner}
 
     if isinstance(body, dict):
         # Support both { code, message } and { error: { code, message } }
@@ -60,6 +70,11 @@ def _parse_error(response: httpx.Response) -> TheAuthError:
             message, code=code, status_code=status, issues=issues, details=details
         )
     if status == 401:
+        challenge = parse_step_up_challenge(response.headers.get("WWW-Authenticate"))
+        if challenge is not None or code in ("STEP_UP_REQUIRED", "insufficient_user_authentication"):
+            return StepUpRequiredError(
+                message, code=code, challenge=challenge, details=details
+            )
         return AuthenticationError(message, code=code, details=details)
     if status == 403:
         return PermissionError(message, code=code, details=details)
@@ -77,6 +92,35 @@ def _parse_error(response: httpx.Response) -> TheAuthError:
         return ServerError(message, code=code, status_code=status, details=details)
 
     return TheAuthError(message, code=code, status_code=status, details=details)
+
+
+def unwrap(body: Any) -> Any:
+    """Return ``body["data"]`` for the ``{ data }`` envelope the server wraps results in.
+
+    Anything else (a bare list, an object with other keys, an OAuth body) is
+    returned as is.
+    """
+    if isinstance(body, dict) and "data" in body and set(body) <= {"data", "success"}:
+        return body["data"]
+    return body
+
+
+def decision_from_error(response: httpx.Response) -> Optional[Dict[str, Any]]:
+    """Read an authorize result from a 401 or 403 response, if it carries one.
+
+    The server answers a denied authorize call with 403 (401 for an identity
+    failure) and the same ``{ data: result }`` body as an allowed call. A scope
+    refusal has ``{ error }`` instead and is not a result.
+    """
+    if response.status_code not in (401, 403):
+        return None
+    try:
+        inner = unwrap(response.json())
+    except Exception:
+        return None
+    if isinstance(inner, dict) and "allowed" in inner:
+        return inner
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -127,9 +171,11 @@ class AsyncTransport:
         json: Optional[Any] = None,
         params: Optional[Dict[str, str]] = None,
         extra_headers: Optional[Dict[str, str]] = None,
+        unwrap_data: bool = True,
     ) -> Any:
         """Perform an authenticated JSON request and return the parsed body.
 
+        The ``{ data }`` envelope is removed unless ``unwrap_data`` is false.
         Raises the appropriate :class:`~theauth.errors.TheAuthError` subclass
         on any non-2xx response.
         """
@@ -153,6 +199,58 @@ class AsyncTransport:
         if not response.is_success:
             raise _parse_error(response)
 
+        body = response.json()
+        return unwrap(body) if unwrap_data else body
+
+    async def request_decision(
+        self,
+        path: str,
+        *,
+        json: Any,
+        extra_headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """POST to an authorize endpoint and return the result dict.
+
+        A 401 or 403 that carries a result is a denial, not an error.
+        """
+        try:
+            response = await self._get_client().request(
+                "POST",
+                f"{self._base}{path}",
+                headers=self._build_headers(extra_headers),
+                json=json,
+            )
+        except httpx.RequestError as exc:
+            raise NetworkError(str(exc)) from exc
+        denial = decision_from_error(response)
+        if denial is not None:
+            return denial
+        if not response.is_success:
+            raise _parse_error(response)
+        result = unwrap(response.json())
+        return result  # type: ignore[no-any-return]
+
+    async def request_form(
+        self,
+        path: str,
+        *,
+        data: Dict[str, str],
+        extra_headers: Optional[Dict[str, str]] = None,
+    ) -> Any:
+        """POST an ``application/x-www-form-urlencoded`` body (OAuth endpoints).
+
+        The JSON response is returned as is, with no ``{ data }`` envelope.
+        """
+        headers = self._build_headers(extra_headers)
+        headers.pop("Content-Type", None)
+        try:
+            response = await self._get_client().request(
+                "POST", f"{self._base}{path}", headers=headers, data=data
+            )
+        except httpx.RequestError as exc:
+            raise NetworkError(str(exc)) from exc
+        if not response.is_success:
+            raise _parse_error(response)
         return response.json()
 
     async def request_raw(
@@ -243,6 +341,7 @@ class SyncTransport:
         json: Optional[Any] = None,
         params: Optional[Dict[str, str]] = None,
         extra_headers: Optional[Dict[str, str]] = None,
+        unwrap_data: bool = True,
     ) -> Any:
         """Perform an authenticated JSON request and return the parsed body."""
         url = f"{self._base}{path}"
@@ -265,6 +364,52 @@ class SyncTransport:
         if not response.is_success:
             raise _parse_error(response)
 
+        body = response.json()
+        return unwrap(body) if unwrap_data else body
+
+    def request_decision(
+        self,
+        path: str,
+        *,
+        json: Any,
+        extra_headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """POST to an authorize endpoint and return the result dict."""
+        try:
+            response = self._get_client().request(
+                "POST",
+                f"{self._base}{path}",
+                headers=self._build_headers(extra_headers),
+                json=json,
+            )
+        except httpx.RequestError as exc:
+            raise NetworkError(str(exc)) from exc
+        denial = decision_from_error(response)
+        if denial is not None:
+            return denial
+        if not response.is_success:
+            raise _parse_error(response)
+        result = unwrap(response.json())
+        return result  # type: ignore[no-any-return]
+
+    def request_form(
+        self,
+        path: str,
+        *,
+        data: Dict[str, str],
+        extra_headers: Optional[Dict[str, str]] = None,
+    ) -> Any:
+        """POST an ``application/x-www-form-urlencoded`` body (OAuth endpoints)."""
+        headers = self._build_headers(extra_headers)
+        headers.pop("Content-Type", None)
+        try:
+            response = self._get_client().request(
+                "POST", f"{self._base}{path}", headers=headers, data=data
+            )
+        except httpx.RequestError as exc:
+            raise NetworkError(str(exc)) from exc
+        if not response.is_success:
+            raise _parse_error(response)
         return response.json()
 
     def request_raw(

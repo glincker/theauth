@@ -1,6 +1,8 @@
 import type {
 	AgentFilter,
 	AuditLogFilter,
+	CastApprovalVoteInput,
+	CastApprovalVoteResult,
 	CreateAgentInput,
 	CreateAuditLogInput,
 	CreatePermissionInput,
@@ -9,6 +11,7 @@ import type {
 	PrismaAgent,
 	PrismaApiKey,
 	PrismaApprovalRequest,
+	PrismaApprovalVote,
 	PrismaAuditLog,
 	PrismaDelegationChain,
 	PrismaJwtRefreshToken,
@@ -26,6 +29,7 @@ import type {
 	PrismaUser,
 	TheAuthPrismaAdapter,
 } from "./types.js";
+import { ApprovalVoteError } from "./types.js";
 
 // We define only the parts we call so the adapter compiles without @prisma/client
 // being installed in this package. Users supply their own generated PrismaClient.
@@ -50,6 +54,7 @@ interface PrismaModelDelegate<T> {
 	upsert(args: { where: PrismaWhereInput; create: unknown; update: unknown }): Promise<T>;
 	delete(args: { where: PrismaWhereInput }): Promise<T>;
 	deleteMany(args?: { where?: PrismaWhereInput }): Promise<{ count: number }>;
+	updateMany(args: { where: PrismaWhereInput; data: unknown }): Promise<{ count: number }>;
 	count(args?: { where?: PrismaWhereInput }): Promise<number>;
 }
 
@@ -72,7 +77,12 @@ interface PrismaClientLike {
 	theAuthJwtRefreshToken: PrismaModelDelegate<PrismaJwtRefreshToken>;
 	theAuthTrustScore: PrismaModelDelegate<PrismaTrustScore>;
 	theAuthApprovalRequest: PrismaModelDelegate<PrismaApprovalRequest>;
+	theAuthApprovalVote: PrismaModelDelegate<PrismaApprovalVote>;
 	$transaction<T>(fn: (tx: PrismaClientLike) => Promise<T>): Promise<T>;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+	return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "P2002";
 }
 
 /**
@@ -462,6 +472,80 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		return prisma.theAuthApprovalRequest.update({ where: { id }, data });
 	}
 
+	async function listApprovalVotes(approvalId: string): Promise<PrismaApprovalVote[]> {
+		return prisma.theAuthApprovalVote.findMany({
+			where: { approvalId },
+			orderBy: [{ decidedAt: "asc" }, { approverId: "asc" }],
+		});
+	}
+
+	async function approversOf(approvalId: string): Promise<string[]> {
+		return (await listApprovalVotes(approvalId)).map((v) => v.approverId);
+	}
+
+	async function withdrawVote(approvalId: string, approverId: string): Promise<void> {
+		await prisma.theAuthApprovalVote.deleteMany({ where: { approvalId, approverId } });
+	}
+
+	async function castApprovalVote(input: CastApprovalVoteInput): Promise<CastApprovalVoteResult> {
+		const { approvalId, approverId, now } = input;
+		const row = await prisma.theAuthApprovalRequest.findUnique({ where: { id: approvalId } });
+		if (!row) throw new ApprovalVoteError("NOT_FOUND", "Approval request not found");
+		const required = row.requiredApprovals ?? 1;
+		if (approverId === row.userId || approverId === row.agentId) {
+			throw new ApprovalVoteError(
+				"SELF_APPROVAL",
+				"The requester cannot approve a request that needs a quorum",
+			);
+		}
+		const duplicate = new ApprovalVoteError(
+			"DUPLICATE_APPROVER",
+			"This approver already approved the request",
+		);
+		if ((await approversOf(approvalId)).includes(approverId)) throw duplicate;
+		try {
+			await prisma.theAuthApprovalVote.create({
+				data: {
+					approvalId,
+					approverId,
+					decidedAt: BigInt(now.getTime()),
+					approverAcr: input.approverAcr ?? null,
+				},
+			});
+		} catch (err) {
+			// P2002 is Prisma's unique constraint violation, here the (approvalId, approverId) key.
+			if (isUniqueViolation(err)) throw duplicate;
+			throw err;
+		}
+
+		const approvers = await approversOf(approvalId);
+		if (approvers.length < required) {
+			const fresh = await prisma.theAuthApprovalRequest.findUnique({ where: { id: approvalId } });
+			if (fresh?.status !== "pending" || fresh.expiresAt <= now) {
+				await withdrawVote(approvalId, approverId);
+				return { kind: "lost" };
+			}
+			return { kind: "pending", approvers };
+		}
+
+		// Concurrent votes can push the count past the quorum. Only the first `required` count.
+		const quorum = approvers.slice(0, required);
+		const { count } = await prisma.theAuthApprovalRequest.updateMany({
+			where: { id: approvalId, status: "pending", expiresAt: { gt: now } },
+			data: { status: "approved", respondedAt: now, respondedBy: quorum.at(-1) ?? approverId },
+		});
+		if (count === 1) return { kind: "approved", approvers: quorum };
+
+		// Someone else completed or denied it first. The vote stands only if the request is
+		// approved and this approver is among the first `required` counted.
+		const after = await prisma.theAuthApprovalRequest.findUnique({ where: { id: approvalId } });
+		if (after?.status === "approved" && quorum.includes(approverId)) {
+			return { kind: "approved", approvers: quorum };
+		}
+		await withdrawVote(approvalId, approverId);
+		return { kind: "lost" };
+	}
+
 	async function transaction<T>(fn: (adapter: TheAuthPrismaAdapter) => Promise<T>): Promise<T> {
 		return prisma.$transaction((tx) => fn(createPrismaAdapter(tx as PrismaClientLike)));
 	}
@@ -532,6 +616,8 @@ export function createPrismaAdapter(prisma: PrismaClientLike): TheAuthPrismaAdap
 		listPendingApprovals,
 		createApprovalRequest,
 		updateApprovalRequest,
+		listApprovalVotes,
+		castApprovalVote,
 		transaction,
 	};
 }

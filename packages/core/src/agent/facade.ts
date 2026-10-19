@@ -3,6 +3,7 @@ import type { TheAuthHooks } from "../hooks/lifecycle.js";
 import type { HookRuntime } from "../hooks/runtime.js";
 import type { DelegateInput, DelegationChain } from "../types.js";
 import type { createAgentModule } from "./agent.js";
+import { introspectAgentToken } from "./introspect.js";
 
 type AgentModule = ReturnType<typeof createAgentModule>;
 type DelegationModule = ReturnType<typeof createDelegationModule>;
@@ -79,6 +80,8 @@ export function createAgentFacade(deps: AgentFacadeDeps) {
 		get: agentModule.get,
 		list: agentModule.list,
 		validateToken: agentModule.validateToken,
+		/** RFC 7662 view of an agent token, with `cnf` when it is bound to a key. */
+		introspect: (token: string) => introspectAgentToken(agentModule, token),
 	};
 
 	async function delegate(input: DelegateInput): Promise<DelegationChain> {

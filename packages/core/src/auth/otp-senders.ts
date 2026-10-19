@@ -1,6 +1,7 @@
 /** Pluggable delivery for one-time codes. A sender gets a fully formed message (channel, recipient, code, purpose) and is responsible only for delivery. */
 
 import type { EmailProvider } from "../email/types.js";
+import { describeOtp as describe, PURPOSE_LABEL, smsFailure } from "./otp-message.js";
 
 export type OtpChannel = "email" | "sms";
 
@@ -18,18 +19,6 @@ export interface OtpMessage {
 
 export interface OtpSender {
 	send(message: OtpMessage): Promise<void>;
-}
-
-const PURPOSE_LABEL: Record<OtpPurpose, string> = {
-	"sign-in": "sign-in code",
-	"verify-email": "email verification code",
-	"reset-password": "password reset code",
-	"two-factor": "verification code",
-};
-
-function describe(message: OtpMessage): string {
-	const minutes = Math.max(1, Math.round(message.expiresInSeconds / 60));
-	return `Your ${PURPOSE_LABEL[message.purpose]} is ${message.code}. It expires in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
 }
 
 // Email: wraps any EmailProvider (resend, ses, postmark, sendgrid, smtp, console)
@@ -72,6 +61,8 @@ export interface TwilioSenderConfig {
 	/** Sending number in E.164. Provide this or `messagingServiceSid`. */
 	from?: string;
 	messagingServiceSid?: string;
+	/** Request timeout. Default 10000. */
+	timeoutMs?: number;
 }
 
 export function twilioOtpSender(config: TwilioSenderConfig): OtpSender {
@@ -100,14 +91,10 @@ export function twilioOtpSender(config: TwilioSenderConfig): OtpSender {
 						"Content-Type": "application/x-www-form-urlencoded",
 					},
 					body: form.toString(),
+					signal: AbortSignal.timeout(config.timeoutMs ?? 10_000),
 				},
 			);
-			if (!response.ok) {
-				const text = await response.text().catch(() => "(no body)");
-				throw new Error(
-					`[theauth/otp] twilio: request failed with status ${response.status}: ${text}`,
-				);
-			}
+			if (!response.ok) throw await smsFailure("twilio", response);
 		},
 	};
 }

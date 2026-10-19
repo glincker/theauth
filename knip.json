@@ -1,0 +1,46 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "rules": {
+    "exports": "off",
+    "nsExports": "off",
+    "types": "off",
+    "nsTypes": "off",
+    "duplicates": "off"
+  },
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/**/*.{mjs,ts,js}"],
+      "ignore": [
+        "apps/**",
+        "examples/**",
+        "docs/**",
+        "docs-local/**",
+        "registry/**",
+        "sdks/**",
+        "benchmarks/**",
+        "templates/**",
+        "tools/**",
+        "skills/**",
+        "theauth/**",
+        "migrations/**"
+      ]
+    },
+    "packages/*": {
+      "entry": ["tests/**/*", "bench/**/*", "scripts/**/*", "src/index.ts"],
+      "ignore": ["templates/**"]
+    },
+    "packages/adapters/*": {
+      "entry": ["tests/**/*", "bench/**/*", "scripts/**/*", "src/index.ts"],
+      "ignore": ["templates/**"]
+    },
+    "packages/auth/*": {
+      "entry": ["tests/**/*", "bench/**/*", "scripts/**/*", "src/index.ts"],
+      "ignore": ["templates/**"]
+    },
+    "packages/plugins/*": {
+      "entry": ["tests/**/*", "bench/**/*", "scripts/**/*", "src/index.ts"],
+      "ignore": ["templates/**"]
+    }
+  },
+  "ignore": ["**/dist/**", "**/*.d.ts"]
+}

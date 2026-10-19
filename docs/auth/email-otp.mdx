@@ -110,6 +110,9 @@ A wrong, expired, or exhausted code returns `401`. After `maxAttempts` verificat
 | `codeLength` | `number` | `6` | Number of digits in the OTP |
 | `codeExpiry` | `number` | `300` | Code lifetime in seconds (5 minutes) |
 | `maxAttempts` | `number` | `5` | Verification attempts allowed per code |
+| `keepUnverifiedCredentials` | `boolean` | `false` | When the owner first proves the mailbox on an account whose address was unverified, theAuth deletes the password, linked providers, passkeys and sessions that were created before the proof. Set `true` to keep them |
+
+Redeeming a link or code marks the address verified. The cleanup stops account pre-hijacking: someone who registered the victim's address first would otherwise keep the password they set after the victim signs in.
 
 ## Related
 

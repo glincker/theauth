@@ -14,6 +14,8 @@ go get github.com/glincker/theauth-go
 
 Requires Go 1.21+. No external dependencies.
 
+This is the REST client for the TypeScript server. The Go server library (v2) is a separate project, [theauth-go](https://github.com/glincker/theauth-go).
+
 ## Quickstart
 
 ```go
@@ -117,10 +119,49 @@ result, err := client.Agents.Authorize(ctx, "agent-id", theauth.AuthorizeRequest
 })
 // result.Allowed bool
 // result.AuditID string
+// result.Code    theauth.DecisionCode, for example theauth.DecisionNoPermission
 
 // Effective permissions (own + delegated)
 perms, err := client.Agents.GetEffectivePermissions(ctx, "agent-id")
 ```
+
+## Decisions, explain, approvals and introspection
+
+A denied call is a result, not an error: the server answers 403 (401 for a bad
+token), and the client returns `Allowed: false` with a `Code` to branch on.
+
+```go
+result, err := client.Agents.Authorize(ctx, "agent-id", theauth.AuthorizeRequest{
+    Action: "write", Resource: "db:orders",
+})
+if err == nil && result.Code == theauth.DecisionApprovalRequired {
+    // open an approval, wait for a human, then retry with ApprovalID set
+}
+
+// Explain: the decision, the delegation chain behind the agent, constraint
+// checks and the closest grants that did not match. Nothing is audited.
+why, err := client.Agents.Explain(ctx, theauth.ExplainRequest{
+    AgentID: "agent-id", Action: "write", Resource: "db:orders",
+})
+// why.Delegation.RootOwnerID, why.Delegation.Path, why.NearMisses[0].Hint
+
+// Approvals (admin API plugin, admin user token)
+opened, err := client.Approvals.Open(ctx, theauth.OpenApprovalInput{Action: "admin:rotate", Resource: "agent:a1"})
+decision, err := client.Approvals.Approve(ctx, opened.ID)
+// A quorum: two distinct approvers. decision.Status stays ApprovalPending until the second one.
+two, err := client.Approvals.Open(ctx, theauth.OpenApprovalInput{Action: "admin:rotate", Resource: "agent:a1", RequiredApprovals: 2})
+spent, err := client.Approvals.Consume(ctx, opened.ID, theauth.ConsumeApprovalInput{Action: "admin:rotate", Resource: "agent:a1"})
+
+// Token introspection (RFC 7662), authenticated as an OAuth client
+info, err := client.MCP.Introspect(ctx, theauth.IntrospectInput{
+    Token: accessToken, ClientID: "rs-1", ClientSecret: "...",
+})
+// info.Active, info.AgentID, info.Delegation.Agt, info.InactiveReason
+```
+
+The request and response shapes follow [`sdks/openapi.json`](../openapi.json),
+which is generated from the server's route table. A test in this module checks
+that the routes these calls use exist in that document.
 
 ## Auth (human users)
 
@@ -244,6 +285,119 @@ jkt := prover.Thumbprint() // cnf.jkt value
 ```
 
 Each request carries a `DPoP` proof (`htm`, `htu` without query or fragment, `iat`, `jti`, and `ath` when a token is sent). A Bearer token becomes `Authorization: DPoP <token>`. The server `DPoP-Nonce` is cached per origin and a `use_dpop_nonce` challenge is retried once. Reuse a key with `WithDPoPKey`.
+
+## Step-up (RFC 9470)
+
+A resource that needs a stronger or fresher sign-in answers 401 with
+`WWW-Authenticate: Bearer error="insufficient_user_authentication", acr_values="...", max_age="..."`.
+The client returns `*theauth.ErrStepUpRequired` (`IsAuthentication` is also true for it) with the parsed challenge.
+
+```go
+_, err := client.Approvals.Approve(ctx, approvalID)
+var su *theauth.ErrStepUpRequired
+if errors.As(err, &su) && su.Challenge != nil {
+    params := su.Challenge.AuthorizeParams() // acr_values and max_age
+    // Send the user through authorization again with these query parameters.
+    fmt.Println(params)
+}
+```
+
+`ParseStepUpChallenge(resp.Header.Values("WWW-Authenticate")...)` reads a header you got some other way. `StepUpParams`, `ACRSatisfies(have, want...)` and `AuthIsFresh(authTime, maxAge, now, skew)` cover the rest. The class order is a theAuth rule (`ACRNone`, `ACRSingleFactor`, `ACRMFA`, `ACRPhishingResistant`); an unknown acr never satisfies another.
+
+## Sender constrained agent tokens
+
+Bind a token to a DPoP key (RFC 9449) or a client certificate (RFC 8705) with the `cnf` claim (RFC 7800).
+
+```go
+prover, _ := theauth.NewDPoPProver()
+agent, err := client.Agents.Create(ctx, theauth.CreateAgentInput{
+    OwnerID: "user-123",
+    Name:    "reader",
+    Type:    theauth.AgentTypeAutonomous,
+    Permissions: []theauth.Permission{{Resource: "mcp:github:*", Actions: []string{"read"}}},
+    Cnf:     theauth.DPoPConfirmation(prover),
+})
+
+bound := theauth.NewClient(baseURL, theauth.WithToken(agent.Token))
+bound.UseDPoP(prover)
+
+client.Agents.Rotate(ctx, agent.ID)                                            // keeps the binding
+client.Agents.RotateWith(ctx, agent.ID, theauth.RotateOptions{Unbind: true})   // plain bearer again
+```
+
+`MTLSConfirmation(certDER)` builds the certificate form. `Agent.Cnf` and `IntrospectionResponse.Cnf` read it back.
+
+## Input provenance
+
+Say what the model had in context when it asked for a call. The server hashes `Content` with its audit key and never stores it.
+
+```go
+res, err := client.Agents.Authorize(ctx, agent.ID, theauth.AuthorizeRequest{
+    Action:   "execute",
+    Resource: "mcp:github:create_issue",
+    Inputs: []theauth.ProvenanceInput{
+        {Kind: theauth.ProvenanceUserMessage, ID: "msg_123", Content: userText},
+        {Kind: theauth.ProvenanceRetrievedDocument, ID: pageURL, Content: pageText},
+    },
+})
+```
+
+For a proxy that cannot rewrite bodies, `EncodeInputsHeader(inputs)` returns the value for the `TheAuth-Inputs` header (base64url JSON, at most 32 inputs and 8192 characters).
+
+## Devices
+
+`client.Devices` is the registry (needs a user or admin token). `client.Device` is what a device calls as itself.
+
+```go
+// Admin: register a device that signs its own assertions. The key comes first,
+// the id only exists after registering, so bind it afterwards.
+signer, _ := theauth.NewDeviceAssertionSigner("")
+spec, _ := theauth.JWKCredential(signer.PublicJWK())
+reg, err := client.Devices.Register(ctx, theauth.RegisterDeviceInput{
+    OwnerID:     "user-123",
+    Name:        "Pump 4",
+    Permissions: []theauth.Permission{{Resource: "mqtt:plant/a/pump4/#", Actions: []string{"publish"}}},
+    Credential:  &spec,
+})
+_ = signer.Bind(reg.Device.ID)
+
+// Device: check an action. The signer makes a new assertion for every call.
+res, err := client.Device.Authorize(ctx, signer, theauth.AuthorizeRequest{
+    Action: "publish", Resource: "mqtt:plant/a/pump4/temp",
+})
+
+// Admin: a bulk token for a factory run. The device enrolls itself with it.
+maxUses, ttl := 50, 86400
+tok, _ := client.Devices.CreateEnrollmentToken(ctx, theauth.EnrollmentTokenInput{
+    OwnerID: "user-123", Kind: theauth.EnrollmentBulk, MaxUses: &maxUses, TTLSeconds: &ttl,
+})
+enrolled, _ := client.Device.Enroll(ctx, theauth.EnrollDeviceInput{
+    Token: tok.Token, Name: "Pump 5", Credential: theauth.PSKCredential(),
+})
+psk := theauth.DevicePSK(enrolled.Credential.Secret) // shown once
+
+_, _ = client.Devices.Suspend(ctx, reg.Device.ID, "stolen")
+```
+
+`DeviceAssertionSigner` builds the `device-assertion+jwt` the server verifies (ES256, a fresh `jti` each time, `aud` `theauth`, lifetime up to 300 seconds). Pass it, a `DevicePSK` or a `DeviceToken` as the credential of `Device.Authorize` and `Device.Bundle`. A signer signs a new assertion on every call, which the server's one time `jti` rule needs. `Devices.IssueBundle` and `Device.Bundle` return the signed offline policy bundle for devices that cannot call home. `JWKCredential` refuses a private JWK before it leaves the process.
+
+### SPIFFE
+
+With `devices.spiffe` set on the server, the admin calls cover the four SPIFFE routes:
+
+```go
+check, _ := client.Devices.SPIFFEVerify(ctx, theauth.SPIFFEX509(chainPEM)) // mints nothing
+cred, _ := client.Devices.LinkSPIFFEID(ctx, deviceID, "spiffe://example.org/ns/prod/sa/pump")
+issued, _ := client.Devices.SPIFFEToken(ctx, chainPEM) // token bound to the certificate (RFC 8705)
+
+// Device side, with a JWT-SVID. A refused SVID is an *ErrAuthentication, Code is the failure code.
+me, err := client.Device.SPIFFEVerify(ctx, jwtSVID)
+```
+
+A failed admin check is a result (`check.OK` false, `check.Code` says why), not an error. A
+mapping owned by another user reads as `unknown_workload`. `LinkSPIFFEPresentation` links the
+id of a verified SVID instead. An X.509-SVID cannot go to `Device.SPIFFEVerify`: the server
+takes it from the TLS handshake, never from the body.
 
 ## Error handling
 

@@ -1,3 +1,4 @@
+import { narrowAttestationConstraint } from "../policy/attestation-constraint.js";
 import type { PermissionConstraints } from "../types.js";
 
 // Deny-all representations. abac.ts reads an empty list as "no constraint", so
@@ -66,6 +67,9 @@ export function narrowConstraints(
 	} else if (a.timeWindow || b.timeWindow) {
 		out.timeWindow = a.timeWindow ?? b.timeWindow;
 	}
+
+	const attestation = narrowAttestationConstraint(a.attestation, b.attestation);
+	if (attestation) out.attestation = attestation;
 
 	return Object.keys(out).length > 0 ? out : undefined;
 }

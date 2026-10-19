@@ -1,7 +1,10 @@
 // Public types for the unified policy engine.
 
+import type { InputSource } from "../audit/provenance.js";
 import type { DecisionCode } from "../permission/codes.js";
+import type { AuthRequirement } from "../session/auth-context.js";
 import type { ProvenanceMap, TaintConfig, TaintVerdict } from "../taint/types.js";
+import type { ResourceMatching } from "./resource-match.js";
 
 export type PolicyEffect = "permit" | "deny" | "indeterminate" | "escalate";
 
@@ -39,6 +42,8 @@ export interface RiskTierRule {
 	tier: string;
 	when: RiskCondition;
 	require: ApprovalRequirement;
+	/** What the approver must prove before approving an action in this tier (RFC 9470). With `require: "step_up"` the default is multi factor within the last 5 minutes. */
+	stepUp?: AuthRequirement;
 }
 
 export interface RiskConfig {
@@ -50,6 +55,8 @@ export interface EscalationInfo {
 	tier: string;
 	requirement: Exclude<ApprovalRequirement, "none">;
 	reason: string;
+	/** The step-up rule the approval must have been granted under. Set by risk tiers. */
+	stepUp?: AuthRequirement;
 	/** Set when evaluate() was called with openApproval and a request was opened. */
 	approvalRequestId?: string;
 }
@@ -73,6 +80,8 @@ export interface PolicyEvaluationContext {
 	arguments?: Record<string, unknown>;
 	/** Provenance labels per argument name ("*" for the whole call). Checked against `PolicyEngineConfig.taint` and written to the audit record's input_provenance. */
 	provenance?: ProvenanceMap;
+	/** Where the inputs of this call came from. Recorded as kind, id and content hash in the audit row. */
+	inputs?: InputSource[];
 	timestamp?: Date;
 	[key: string]: unknown;
 }
@@ -161,6 +170,8 @@ export interface PolicyEngineConfig {
 	taint?: TaintConfig;
 	/** Version label of the active policy set; written to the audit policy_version field. */
 	policyVersion?: string;
+	/** Resource matching for this engine and its taint rules. Defaults to the top level `resourceMatching`, then `colon`. */
+	resourceMatching?: ResourceMatching;
 }
 
 /** Error codes returned in PolicyDecision.reason when the decision was not a clean PERMIT or DENY from a matched permission. */

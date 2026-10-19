@@ -3,7 +3,7 @@
  *
  * @example
  * ```typescript
- * import { createStripeModule } from '@glinr/theauth/auth';
+import { createStripeModule } from '@glinr/theauth/auth';
  *
  * const stripe = createStripeModule({
  *   secretKey: process.env.STRIPE_SECRET_KEY!,
@@ -22,6 +22,9 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/database.js";
 import { users } from "../db/schema.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
+import { withUserUpdate } from "../hooks/user-update-hooks.js";
 import { DEFAULT_API_VERSION, stripeRequest, verifyWebhookSignature } from "./stripe-helpers.js";
 import type {
 	CheckoutOptions,
@@ -43,7 +46,24 @@ export type {
 	SubscriptionInfo,
 } from "./stripe-types.js";
 
-export function createStripeModule(config: StripeConfig, db: Database): StripeModule {
+export function createStripeModule(
+	config: StripeConfig,
+	db: Database,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
+): StripeModule {
+	/** Billing columns changed by a provider call or webhook, wrapped in the user update hooks. */
+	async function updateUser(
+		userId: string,
+		set: Partial<typeof users.$inferInsert>,
+	): Promise<void> {
+		await withUserUpdate(databaseHooks, db, userId, {}, async (hooked) => {
+			await db
+				.update(users)
+				.set({ ...hooked, ...set })
+				.where(eq(users.id, userId));
+		});
+	}
+
 	const apiVersion = config.apiVersion ?? DEFAULT_API_VERSION;
 
 	function api<T>(
@@ -76,17 +96,14 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 		const currentPeriodEnd = new Date(sub.current_period_end * 1000);
 		const status = sub.status as SubscriptionInfo["status"];
 
-		await db
-			.update(users)
-			.set({
-				stripeSubscriptionId: sub.id,
-				stripeSubscriptionStatus: sub.status,
-				stripePriceId: priceId,
-				stripeCurrentPeriodEnd: currentPeriodEnd,
-				stripeCancelAtPeriodEnd: sub.cancel_at_period_end,
-				updatedAt: new Date(),
-			})
-			.where(eq(users.id, userId));
+		await updateUser(userId, {
+			stripeSubscriptionId: sub.id,
+			stripeSubscriptionStatus: sub.status,
+			stripePriceId: priceId,
+			stripeCurrentPeriodEnd: currentPeriodEnd,
+			stripeCancelAtPeriodEnd: sub.cancel_at_period_end,
+			updatedAt: new Date(),
+		});
 
 		const info: SubscriptionInfo = {
 			id: sub.id,
@@ -104,17 +121,14 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 	}
 
 	async function clearSubscription(userId: string): Promise<void> {
-		await db
-			.update(users)
-			.set({
-				stripeSubscriptionId: null,
-				stripeSubscriptionStatus: "canceled",
-				stripePriceId: null,
-				stripeCurrentPeriodEnd: null,
-				stripeCancelAtPeriodEnd: false,
-				updatedAt: new Date(),
-			})
-			.where(eq(users.id, userId));
+		await updateUser(userId, {
+			stripeSubscriptionId: null,
+			stripeSubscriptionStatus: "canceled",
+			stripePriceId: null,
+			stripeCurrentPeriodEnd: null,
+			stripeCancelAtPeriodEnd: false,
+			updatedAt: new Date(),
+		});
 	}
 
 	async function handleCheckoutSessionCompleted(obj: Record<string, unknown>): Promise<void> {
@@ -140,10 +154,7 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 		// Persist the customer ID if it is not yet linked
 		const userRow = await getUserRow(userId);
 		if (!userRow?.stripeCustomerId) {
-			await db
-				.update(users)
-				.set({ stripeCustomerId: customerId, updatedAt: new Date() })
-				.where(eq(users.id, userId));
+			await updateUser(userId, { stripeCustomerId: customerId, updatedAt: new Date() });
 		}
 
 		// Fetch full subscription data and persist
@@ -184,10 +195,7 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 		const userRow = await findUserByCustomerId(invoice.customer);
 		if (!userRow) return;
 
-		await db
-			.update(users)
-			.set({ stripeSubscriptionStatus: "past_due", updatedAt: new Date() })
-			.where(eq(users.id, userRow.id));
+		await updateUser(userRow.id, { stripeSubscriptionStatus: "past_due", updatedAt: new Date() });
 
 		if (userRow.stripeSubscriptionId && config.onSubscriptionChange) {
 			await config.onSubscriptionChange(userRow.id, {
@@ -207,10 +215,7 @@ export function createStripeModule(config: StripeConfig, db: Database): StripeMo
 			metadata: { theauth_user_id: userId },
 		});
 
-		await db
-			.update(users)
-			.set({ stripeCustomerId: customer.id, updatedAt: new Date() })
-			.where(eq(users.id, userId));
+		await updateUser(userId, { stripeCustomerId: customer.id, updatedAt: new Date() });
 
 		return customer.id;
 	}

@@ -1,5 +1,6 @@
 import { getDpopAlgs, readDpopHeader, verifyDpopProof } from "./dpop.js";
 import type { McpRevalidateOptions } from "./revocation-types.js";
+import { checkUserAuthentication } from "./step-up.js";
 import type { McpAuthContext, McpDelegationHop, McpSession } from "./types.js";
 import { validateAccessToken } from "./validate.js";
 
@@ -21,6 +22,8 @@ export interface McpPrincipal {
 	scheme: "Bearer" | "DPoP";
 	/** Thumbprint of the proof key when the token is DPoP-bound, else null. */
 	dpopJkt: string | null;
+	/** `acr`, `amr` and `auth_time` of the user's login, when the token carries them. */
+	auth: McpSession["auth"] | null;
 	/** The underlying session, for code that already works with `McpSession`. */
 	session: McpSession;
 }
@@ -43,6 +46,10 @@ export interface RequireMcpAuthOptions extends McpRevalidateOptions {
 	requireDpop?: boolean;
 	/** Demand a server nonce in resource-request proofs. Default: `McpConfig.dpop.requireNonce`. */
 	requireNonce?: boolean;
+	/** The login behind the token must have reached this `acr`, for example `ACR.phishingResistant`. A shortfall gives 401 `insufficient_user_authentication` (RFC 9470). A token with no `acr` claim, such as a client credentials token, never passes. */
+	requireAcr?: string | string[];
+	/** The login behind the token must be at most this many seconds old (checked against `auth_time`). Same 401 challenge as `requireAcr`. */
+	maxAge?: number;
 }
 
 const CORS_EXPOSE = "WWW-Authenticate, DPoP-Nonce";
@@ -284,6 +291,31 @@ export function requireMcpAuth(
 			});
 		}
 
+		const tooWeak = checkUserAuthentication(session.auth, {
+			acr: options.requireAcr,
+			maxAge: options.maxAge,
+		});
+		if (tooWeak) {
+			const scheme = presented.scheme === "DPoP" ? dpop : bearer;
+			const description =
+				tooWeak.reason === "max_age"
+					? "A more recent authentication is required"
+					: "A stronger authentication is required";
+			return failure({
+				status: 401,
+				error: "insufficient_user_authentication",
+				description,
+				challenges: [
+					scheme({
+						error: "insufficient_user_authentication",
+						error_description: description,
+						acr_values: tooWeak.acr?.join(" "),
+						max_age: tooWeak.maxAge === undefined ? undefined : String(tooWeak.maxAge),
+					}),
+				],
+			});
+		}
+
 		throttleRevalidate(session, options.revalidateEveryMs);
 
 		return handler(request, {
@@ -297,6 +329,7 @@ export function requireMcpAuth(
 			expiresAt: session.expiresAt,
 			scheme: presented.scheme,
 			dpopJkt: session.dpopJkt ?? null,
+			auth: session.auth ?? null,
 			session,
 		});
 	};

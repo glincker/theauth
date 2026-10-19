@@ -196,6 +196,54 @@ const servers = await client.mcp.list();
 const found = await client.mcp.get(server.id);
 ```
 
+## Session refetch and SSR
+
+`createSessionStore` keeps a session in step with the server. It is the same store the React, Vue, Svelte and Solid bindings use.
+
+```typescript
+import { createSessionStore } from "@glinr/theauth-client";
+
+const store = createSessionStore({
+  basePath: "/api/theauth",
+  storage: typeof localStorage === "undefined" ? undefined : localStorage,
+  refetch: { intervalMs: 5 * 60_000 },
+});
+```
+
+| Trigger | Option | Default |
+|-|-|-|
+| Window focus, or the tab becoming visible | `refetch.onFocus` | on |
+| Browser back online | `refetch.onReconnect` | on |
+| Fixed interval | `refetch.intervalMs` | off (0) |
+| Interval while offline | `refetch.whenOffline` | off |
+
+The triggers run while the store has at least one subscriber and stop when the last one leaves. `store.startAutoRefresh(options)` starts them by hand and returns a `stop` function, `store.destroy()` stops them and aborts a refresh in flight. With no `window` (a server, a worker, an edge runtime) every trigger is a no-op, so the same code runs there. `refetch.env` takes your own `window`, `document` and `isOnline`, which is how the tests drive it with fake event targets.
+
+`store.refresh()` calls `GET {basePath}/auth/session`. Concurrent calls, such as focus and visibility firing together, share one request. A 401 or 403 clears the session. A network error or a 5xx keeps what the store has, so a dropped connection does not sign anyone out. A sign out that happens while a refresh is running wins over the refresh result.
+
+For SSR, resolve the session on the server and seed the store so the first render matches and no request is needed:
+
+```typescript
+store.hydrateSession({ user: { id: "u_123", email: "ada@example.com" }, expiresAt });
+```
+
+Leave `token` out of the HTML you render. Cookie sessions do not need it, and the store asks the server again on the next refresh. An expired or malformed value counts as signed out, and `hydrateSession(null)` means the server found no session. Neither the store nor the refetch code logs anything, and no error message contains a token.
+
+The routes the store calls are `POST /auth/sign-out`, `GET /auth/session`, and either the username routes (`/auth/username/sign-in` and `/auth/username/sign-up`, which you forward with `theauth.username.handleRequest`) or, with `emailPassword: true`, the core email and password routes that `createTheAuthHandler` serves (`/auth/email/sign-in` and `/auth/email/sign-up`, body field `email`). Set `signInPath`, `signUpPath` and `identifierField` if you serve your own.
+
+```ts
+import { createSessionStore } from '@glinr/theauth-client';
+
+const store = createSessionStore({ emailPassword: true });
+const up = await store.signUp('ada@example.com', 'correct horse battery', 'Ada');
+// up: { success: true, verificationRequired: true } while the address is unverified
+await store.verifyEmail(tokenFromTheEmailLink);
+const inn = await store.signIn('ada@example.com', 'correct horse battery');
+// inn.success is false with inn.code === 'EMAIL_NOT_VERIFIED' before verification
+```
+
+The store also has `resendVerification(email)`, `requestPasswordReset(email)` and `resetPassword(token, password)`. See [Email and password](/auth/email-password) for the server side and the error codes.
+
 ## Next steps
 
 <CardGroup cols={2}>

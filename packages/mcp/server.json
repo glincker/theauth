@@ -7,13 +7,13 @@
     "source": "github",
     "subfolder": "packages/mcp"
   },
-  "version": "1.1.1",
+  "version": "2.0.0",
   "websiteUrl": "https://theauth.dev",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@glinr/theauth-mcp",
-      "version": "1.1.1",
+      "version": "2.0.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

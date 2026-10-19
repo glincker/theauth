@@ -1,6 +1,9 @@
+import type { AgentConfirmation } from "./agent/confirmation.js";
 import type { AgentConfig } from "./agent/types.js";
 import type { ApprovalConfig } from "./approval/approval.js";
 import type { ChainCheckpointOptions, ChainCheckpointResult } from "./audit/chain-anchor.js";
+import type { InputSource, InputSourceKind, ProvenanceFilter } from "./audit/provenance.js";
+import type { PseudonymRotation } from "./audit/pseudonym-rotation.js";
 import type {
 	AgentReplay,
 	AuditChainExportOptions,
@@ -13,6 +16,7 @@ import type { ApiKeyManagerConfig } from "./auth/api-key-manager.js";
 import type { CaptchaConfig } from "./auth/captcha.js";
 import type { TrustedProxyConfig } from "./auth/client-ip.js";
 import type { EmailOtpConfig } from "./auth/email-otp.js";
+import type { EmailPasswordConfig } from "./auth/email-password.js";
 import type { EmailVerificationConfig } from "./auth/email-verification.js";
 import type { MagicLinkConfig } from "./auth/magic-link.js";
 import type { OrgConfig } from "./auth/organization.js";
@@ -26,7 +30,10 @@ import type { AuthAdapter } from "./auth/types.js";
 import type { UsernameAuthConfig } from "./auth/username.js";
 import type { WebhookConfig } from "./auth/webhooks.js";
 import type { DatabaseConfig } from "./db/database.js";
+import type { IdGeneratorOption } from "./db/id-generation.js";
+import type { DeviceConfig } from "./device/types.js";
 import type { DidWebConfig } from "./did/types.js";
+import type { DatabaseHooks } from "./hooks/database-hooks.js";
 import type { TheAuthHooks } from "./hooks/lifecycle.js";
 import type { HookSafetyConfig } from "./hooks/safety.js";
 import type { McpConfig, Result } from "./mcp/types.js";
@@ -34,6 +41,8 @@ import type { ObservabilityConfig, TheAuthLogger } from "./observability/types.j
 import type { DecisionCode } from "./permission/codes.js";
 import type { PermissionCatalog } from "./permission/typed.js";
 import type { TheAuthPlugin } from "./plugin/types.js";
+import type { AttestationConstraint } from "./policy/attestation-constraint.js";
+import type { ResourceMatching } from "./policy/resource-match.js";
 import type { PolicyEngineConfig } from "./policy/types.js";
 import type { RedirectConfig } from "./redirect/chain.js";
 import type { SessionFreshnessConfig } from "./session/freshness.js";
@@ -47,6 +56,8 @@ export interface TheAuthConfig {
 	database: DatabaseConfig;
 
 	agents?: AgentConfig;
+	/** IoT devices as principals (`theauth.device`). Needs `agents`. See docs/iot-devices.mdx. */
+	devices?: DeviceConfig;
 
 	audit?: AuditConfig;
 
@@ -63,6 +74,14 @@ export interface TheAuthConfig {
 
 	/** Lifecycle hooks for agent sandboxing, logging, and custom validation */
 	hooks?: TheAuthHooks;
+	/**
+	 * Per-model database hooks: `before` and `after` for create and update on `user`, `session` and `account`. A `before` hook can return `false` to abort or `{ data }` to replace fields, and it fails closed on a throw or timeout. See `docs/database-hooks.mdx`.
+	 */
+	databaseHooks?: DatabaseHooks;
+	/**
+	 * Advanced database behavior. `database.generateId` sets how ids of users, sessions and OAuth accounts are made: `"uuid"` (default, random v4), `"uuidv7"` (time ordered, RFC 9562) or a function `({ model }) => string`. Database generated ids (`false`, `"serial"`) are refused. See `docs/id-generation.mdx`.
+	 */
+	advanced?: { database?: { generateId?: IdGeneratorOption } };
 	/**
 	 * Optional permission catalog (see `definePermissions`). Declaring it narrows `resource` and `action` on the returned instance at the type level. Not enforced at runtime.
 	 */
@@ -139,6 +158,13 @@ export interface TheAuthConfig {
 	/** Username and password authentication. Enables `theauth.username`. */
 	username?: UsernameAuthConfig;
 
+	/**
+	 * Email and password authentication. Enables `theauth.emailPassword` and serves the
+	 * `/auth/email/*` routes from `createTheAuthHandler`. Needs `auth.session`, and
+	 * `emailVerification` unless `requireVerification` is `false`.
+	 */
+	emailPassword?: EmailPasswordConfig;
+
 	/** Password reset (forgot password) flow. Enables `theauth.passwordReset`. */
 	passwordReset?: PasswordResetConfig;
 
@@ -153,6 +179,11 @@ export interface TheAuthConfig {
 
 	/** Unified policy engine: LRU cache size and TTL, combine strategy, audit sampling. */
 	policy?: PolicyEngineConfig;
+
+	/**
+	 * How a permission `resource` pattern is compared to the requested resource, for authorize(), the policy engine, delegation, simulate, explain, device bundles and the token vault. `colon` (default) honors `*` only as a whole `:` segment. `path` also lets `/` separate segments inside a colon segment: `*` matches one, `**` matches one or more, never an empty, `.` or `..` segment. Turning it on only changes patterns that have a `*` or `**` path segment, which were literal text before. `policy.resourceMatching` overrides this for the unified policy engine alone.
+	 */
+	resourceMatching?: ResourceMatching;
 
 	/** Redirect chain configuration. Enables `theauth.redirects`. */
 	redirects?: RedirectConfig;
@@ -211,16 +242,22 @@ export interface McpModule {
 }
 
 // Placeholder types - will be fully defined in their respective modules
+/** Every agent type, including the `device` type of IoT device backing agents. */
+export type AgentType = "autonomous" | "delegated" | "service" | "device";
+
 export interface AgentIdentity {
 	id: string;
 	ownerId: string;
 	tenantId?: string;
 	name: string;
-	type: "autonomous" | "delegated" | "service";
+	/** `device` marks the backing agent of an IoT device (see `theauth.device`). Never accepted on create. */
+	type: AgentType;
 	token: string;
 	permissions: Permission[];
 	status: "active" | "revoked" | "expired";
 	expiresAt: Date | null;
+	/** Sender constraint of the token (RFC 7800): `jkt` for DPoP, `x5t#S256` for mutual TLS. Absent for a plain bearer token. See `docs/dpop-agent-tokens.mdx`. */
+	cnf?: AgentConfirmation;
 	createdAt: Date;
 	updatedAt: Date;
 }
@@ -239,16 +276,21 @@ export interface PermissionConstraints {
 	requireApproval?: boolean;
 	timeWindow?: { start: string; end: string };
 	ipAllowlist?: string[];
+	/** Only a device whose verified hardware attestation meets this rule may use the permission. Fails closed for a caller with no attestation (every agent and user). See docs/iot-devices.mdx. */
+	attestation?: AttestationConstraint;
 }
 
 export interface CreateAgentInput {
 	ownerId: string;
 	tenantId?: string;
 	name: string;
-	type: "autonomous" | "delegated" | "service";
+	/** `device` is refused here: device agents are created by `theauth.device.register`. It is in the union so `beforeAgentCreate` policies see device registrations. */
+	type: AgentType;
 	permissions: Permission[];
 	expiresAt?: Date;
 	metadata?: Record<string, unknown>;
+	/** Bind the token to a key or certificate (RFC 7800). The token then works only for a request that proves the key, for example with a DPoP proof (RFC 9449). */
+	cnf?: AgentConfirmation;
 }
 
 export interface UpdateAgentInput {
@@ -262,7 +304,8 @@ export interface AgentFilter {
 	userId?: string;
 	tenantId?: string;
 	status?: "active" | "revoked" | "expired";
-	type?: "autonomous" | "delegated" | "service";
+	/** Device backing agents are left out unless `type: "device"` is asked for. */
+	type?: AgentType;
 }
 
 export interface AuthorizeResult {
@@ -276,9 +319,13 @@ export interface AuthorizeResult {
 export type AuthorizeFn = (agentId: string, request: AuthorizeRequest) => Promise<AuthorizeResult>;
 
 export interface RequestContext {
+	/** Proofs of possession the transport already verified for this request, by `cnf` member (`jkt`, `x5t#S256`). An agent token bound with `cnf` is refused unless these match. Set it only from verified data, `requireAgent` and the HTTP handler do. */
+	confirmation?: AgentConfirmation;
 	/** Client IP address, used for ipAllowlist enforcement and audit logging */
 	ip?: string;
 	userAgent?: string;
+	/** Where the inputs of this call came from. Recorded in the audit row as kind, id and content hash, never the content. */
+	inputs?: InputSource[];
 }
 
 export interface AuthorizeRequest {
@@ -319,6 +366,10 @@ export interface AuditConfig {
 	tamperEvident?: boolean;
 	/** Secret for HMAC-SHA256 hashing. Set it so someone with write access to the database but not to this key cannot rewrite rows and recompute the chain. */
 	hmacKey?: string;
+	/**
+	 * Rotate the id pseudonyms. Each period uses its own random secret, so one subject has a different pseudonym in every period, and once an old period secret is shredded nobody, the key holder included, can link a subject across periods. Off by default (one stable pseudonym per subject).
+	 */
+	pseudonymRotation?: PseudonymRotation;
 	/** Called when a best-effort audit write fails. */
 	onAuditError?: (info: { error: unknown; pendingFailures: number; totalFailures: number }) => void;
 }
@@ -338,7 +389,17 @@ export interface AuditEntry {
 	event: AuditEvent | null;
 	durationMs: number;
 	tokensCost?: number;
+	/** Inputs the caller said were in context for this call (kind, optional id, content hash). Never the content. Absent when none were recorded. */
+	inputs?: AuditInputRef[];
 	timestamp: Date;
+}
+
+/** One recorded input of a call. `hv` is 2 for the keyed hash, absent for plain SHA-256 hashes of older rows. */
+export interface AuditInputRef {
+	kind: InputSourceKind;
+	id?: string;
+	hash: string;
+	hv?: 2;
 }
 
 /**
@@ -383,6 +444,8 @@ export interface AuditFilter {
 	events?: AuditEvent[];
 	/** Exact resource, or a prefix when it ends with `*` (for example `mcp:github:*`). */
 	resource?: string;
+	/** Only rows that recorded an input of this kind and/or with this content hash (see `hashInputContent`). */
+	provenance?: ProvenanceFilter;
 	/** Write order. Default "desc" (newest first), unchanged from earlier versions. */
 	order?: "asc" | "desc";
 	/** Opaque cursor from `AuditPage.nextCursor`. Continue the same filter and order from where the last page ended. */

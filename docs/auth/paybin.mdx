@@ -1,0 +1,78 @@
+---
+title: Paybin
+description: "Authenticate users with Paybin OpenID Connect. Register a client in the Paybin portal and add createPaybinProvider to the oauth() plugin."
+icon: "credit-card"
+---
+
+## Setup
+
+<Steps>
+<Step>
+### Get credentials
+
+Register a client in the Paybin developer portal and set the redirect URI:
+
+```
+https://your-app.com/api/theauth/auth/oauth/callback/paybin
+```
+</Step>
+
+<Step>
+### Configure
+
+```ts title="lib/theauth.ts"
+import { createTheAuth } from '@glinr/theauth';
+import { oauth, createPaybinProvider } from '@glinr/theauth/auth';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
+  secret: process.env.THEAUTH_SECRET!,
+  baseUrl: 'https://your-app.com/api/theauth',
+  auth: { session: { secret: process.env.THEAUTH_SECRET! } },
+  plugins: [
+    oauth({
+      providers: {
+        paybin: createPaybinProvider({
+          clientId: process.env.PAYBIN_CLIENT_ID!,
+          clientSecret: process.env.PAYBIN_CLIENT_SECRET!,
+        }),
+      },
+    }),
+  ],
+});
+```
+
+```bash
+PAYBIN_CLIENT_ID=...
+PAYBIN_CLIENT_SECRET=...
+```
+</Step>
+</Steps>
+
+## Scopes
+
+Default scopes: `openid`, `email`, `profile`.
+
+| Scope | What it unlocks |
+|-------|----------------|
+| `openid` | OIDC sign in and the `sub` claim |
+| `email` | `email` and `email_verified` |
+| `profile` | name, picture, locale |
+| `offline_access` | Opt in through `scopes` to get a refresh token |
+
+Paybin also defines `merchant:*`, `transaction:*`, `wallet:*` and `kyc:*` scopes. Some need specific roles on the Paybin side. Pass them through `scopes`.
+
+## How it works
+
+- Authorization Code flow with PKCE (S256). Issuer `https://idp.paybin.io`, endpoints under `/connect/authorize`, `/connect/token` and `/connect/userinfo`.
+- Client credentials go in the form body. Paybin also accepts them in a basic header.
+- The profile comes from the userinfo endpoint. `email_verified` is passed through as `emailVerified`, so a verified Paybin email can link to an existing account.
+
+Vendor docs: [Paybin OpenID Connect](https://developers.paybin.io/knowledge-center/oidc).
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/auth/oauth/authorize/paybin` | Redirect to Paybin |
+| GET | `/auth/oauth/callback/paybin` | Handle callback |

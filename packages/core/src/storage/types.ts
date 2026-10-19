@@ -37,6 +37,8 @@ export const SECONDARY_STORAGE_FEATURES = [
 	"nonces",
 	"sessionsCache",
 	"tokenVault",
+	/** Device assertion replay cache and attestation nonces. */
+	"deviceAuth",
 ] as const;
 
 export type SecondaryStorageFeature = (typeof SECONDARY_STORAGE_FEATURES)[number];

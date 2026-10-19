@@ -3,6 +3,7 @@ import type { DecisionCode } from "../permission/codes.js";
 import { DECISION_CODES } from "../permission/codes.js";
 import type { ConstraintStep } from "../policy/abac.js";
 import { findMatchingPermission, inspectConstraints, readRateUsage } from "../policy/abac.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type { AgentIdentity, Permission } from "../types.js";
 import type { TraceStep } from "./types.js";
 
@@ -53,9 +54,10 @@ export async function evaluateSet(
 	label: string,
 	input: EvaluateSetInput,
 	now: Date,
+	matching: ResourceMatching = "colon",
 ): Promise<SetEvaluation> {
 	const { action, resource } = input;
-	const match = findMatchingPermission(permissions, action, resource);
+	const match = findMatchingPermission(permissions, action, resource, matching);
 	if (!match) {
 		const reason = `No permission grants agent "${agent.name}" access to "${action}" on "${resource}"`;
 		return {

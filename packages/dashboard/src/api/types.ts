@@ -42,7 +42,16 @@ export interface CreateAgentResponse {
 
 // Audit Log Types
 
-export type AuditResult = "allowed" | "denied" | "rate_limited";
+export type AuditResult = "allowed" | "denied" | "rate_limited" | "escalated";
+
+export type InputSourceKind = "user_message" | "tool_output" | "retrieved_document" | "agent";
+
+/** One recorded input of a call: its kind, an optional source id and the content hash. Never the content. */
+export interface AuditInputRef {
+	kind: InputSourceKind;
+	id?: string;
+	hash: string;
+}
 
 export interface AuditLogEntry {
 	id: string;
@@ -58,9 +67,13 @@ export interface AuditLogEntry {
 	code?: string;
 	/** Audit event name, for example `authorize` or `policy.evaluate`. */
 	event?: string;
+	/** Inputs the caller recorded for this call (provenance). */
+	inputs?: AuditInputRef[];
 }
 
 export interface AuditLogFilters {
+	/** Only calls that recorded an input of this kind. */
+	provenanceKind?: InputSourceKind;
 	/** Decision codes to keep. Sent as `codes` and applied again on the loaded page. */
 	codes?: string[];
 	agentId?: string;
@@ -72,9 +85,10 @@ export interface AuditLogFilters {
 	offset?: number;
 }
 
+/** One page of audit rows. Core `GET /audit` returns no total, so the page only knows if more follow. */
 export interface PaginatedAuditLogs {
 	entries: AuditLogEntry[];
-	total: number;
+	hasMore: boolean;
 	limit: number;
 	offset: number;
 }
@@ -125,10 +139,18 @@ export type AuthSettings = TheAuthSettings;
 export interface DashboardStats {
 	totalAgents: number;
 	activeAgents: number;
-	totalAuditEvents: number;
+	/** Audit rows in the last 24 hours (core reports no all-time total). */
 	recentAuditEvents: number;
+	/** Allowed share of the last 24 hours, 0 to 100. */
 	authAllowedRate: number;
 	activeDelegations: number;
+}
+
+/** What core's `GET /dashboard/stats` sends. */
+export interface CoreDashboardStats {
+	agents: { total: number; active: number; revoked: number; expired: number };
+	users: { total: number };
+	audit: { last24h: number; allowed: number; denied: number; rateLimited: number };
 }
 
 // User Types
@@ -198,12 +220,25 @@ export interface PendingApproval {
 	/** JSON text, secrets redacted server side, cut at 2 KB. */
 	arguments: string;
 	argumentsTruncated: boolean;
+	/** Approving needs a sign-in that reached this acr (RFC 9470). Absent when there is no step-up rule. */
+	requiredAcr?: string;
+	/** Approving needs a sign-in event at most this many seconds old. */
+	maxAuthAge?: number;
+	/** Distinct approvers needed. Absent on older servers, which means 1. */
+	requiredApprovals?: number;
+	/** Approvers counted so far. */
+	approvalsReceived?: number;
+	/** Who approved so far, for a quorum request. */
+	approvers?: string[];
 }
 
 export interface ApprovalDecision {
 	id: string;
-	status: "approved" | "denied";
+	/** `pending` means the vote counted and the quorum is not complete yet. */
+	status: "approved" | "denied" | "pending";
 	respondedAt: string;
+	requiredApprovals?: number;
+	approvalsReceived?: number;
 }
 
 // Explain Types (POST /explain, the subset the drawer renders)
@@ -258,4 +293,52 @@ export interface ExplainResponse {
 		elapsedMs?: number;
 	};
 	nearMisses: ExplainNearMiss[];
+}
+
+// Revocation Types (GET/POST /revocations on the admin API)
+
+export type RevocationKind = "jti" | "dlg" | "agent" | "sub" | "client";
+
+export interface RevocationRow {
+	kind: RevocationKind;
+	id: string;
+	revokedAt: string;
+	expiresAt: string;
+	reason: string;
+	sourceId: string | null;
+}
+
+/** Counters of the instance's revocation bus. */
+export interface RevocationBusStats {
+	published: number;
+	rowsPushed: number;
+	retries: number;
+	pushFailures: number;
+	attemptFailures: number;
+	pruned: number;
+}
+
+export interface RevocationsSnapshot {
+	rows: RevocationRow[];
+	/** Null when the instance has no revocation bus. */
+	stats: RevocationBusStats | null;
+}
+
+export interface DelegationImpact {
+	id: string;
+	fromAgentId: string;
+	toAgentId: string;
+	expiresAt: string;
+	/** Link ids a revoke would deny, this link first. */
+	cascade: string[];
+	agents: string[];
+	denied: boolean;
+	/** MCP tokens are stateless, so impact is a rule over theauth_dlg.lnk. */
+	tokenRule: string;
+}
+
+export interface CreateRevocationInput {
+	kind: RevocationKind;
+	id: string;
+	reason?: string;
 }

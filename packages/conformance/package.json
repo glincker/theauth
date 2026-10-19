@@ -1,6 +1,6 @@
 {
   "name": "@glinr/theauth-conformance",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Black-box agent-auth conformance suite for any OAuth 2.1 or MCP authorization server or resource server, with a shields.io badge",
   "type": "module",
   "main": "dist/index.js",

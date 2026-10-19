@@ -1,3 +1,10 @@
+/**
+ * Client for the theAuth Go server, not for the TypeScript handler. The paths it calls
+ * (`/auth/sessions`, `/auth/tokens`, `/auth/account/agents`, `/auth/step-up`,
+ * `/auth/device/approve`) exist on the Go server and are not registered by
+ * `packages/core`. Against the TypeScript handler use `createSessionStore` and the
+ * routes in `docs/api.mdx` instead.
+ */
 import type {
 	BootstrapStatus,
 	DeviceCode,

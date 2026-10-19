@@ -1,0 +1,522 @@
+---
+title: IoT devices
+description: Sensors, gateways and machines as principals with their own credentials, scoped permissions, enrollment, live revocation and signed offline policy bundles.
+icon: microchip
+---
+
+A device in theAuth is a principal like an agent. It has an owner, groups, permissions with constraints, delegation from agents, audit rows and revocation. Under the hood each device is backed by an agent row of type `device`, so the permission engine, the delegation chain, the revocation bus and the hash chained audit log all apply without a second rule system.
+
+What a device gets that an agent does not:
+
+- Credentials made for hardware: a pre shared key, a public key that signs short assertions, or a TLS client certificate thumbprint.
+- Enrollment by claim code (one device, typed by a person) or bulk token (a factory line, with a use limit).
+- An attestation hook for evidence at enrollment, with built in verifiers for Android Key Attestation, Apple App Attest and TPM 2.0 quotes.
+- A signed offline policy bundle for devices that cannot call home on every decision.
+- Suspend and resume, separate from permanent revoke.
+
+## Turn it on
+
+Devices need `agents`. Add `devices` to your config:
+
+```ts
+import { createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "file:./theauth.db" },
+  agents: { enabled: true },
+  devices: {
+    // Optional. Signs offline policy bundles. Use ES256 or EdDSA, keep the private key in your secret store.
+    bundleSigning: { alg: "ES256", kid: "bundle-2026-10", privateKey: JSON.parse(process.env.DEVICE_BUNDLE_KEY!) },
+  },
+  // Assertion replay cache and attestation nonces. Use "database" or Redis with more than one server.
+  secondaryStorage: { deviceAuth: "database" },
+});
+```
+
+Migration `0010-devices` adds three tables (`theauth_devices`, `theauth_device_credentials`, `theauth_device_enrollments`). It runs on the next boot, or apply it with `theauth db up`.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `maxPerOwner` | 10000 | Devices per owner that are not revoked. Devices do not count against `agents.maxPerUser`. |
+| `audience` | `"theauth"` | `aud` a device assertion must carry. |
+| `issuer` | `"theauth"` | `iss` of offline bundles. |
+| `bundleSigning` | none | `{ alg, kid, privateKey, previous? }`. Without it bundles are refused. |
+| `bundleTtlSeconds` | 3600 | Bundle lifetime. Capped at 86400. |
+| `attestation` | none | `{ required?, requireNonce?, verify? }`. Evidence without a `verify` function is refused, and so is evidence without a nonce. |
+| `revocations` | off | `{ ttlSeconds?, maxEntries? }`. Signs a revocation snapshot next to every bundle. |
+| `clientCertThumbprint` | none | `(request) => x5t#S256 or null`, for mTLS terminated at your proxy. |
+
+## A runnable example
+
+```ts
+import { createTheAuth, evaluateDeviceBundle, verifyDeviceBundle } from "@glinr/theauth";
+import { exportJWK, generateKeyPair } from "jose";
+
+const signing = await generateKeyPair("ES256", { extractable: true });
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: ":memory:" },
+  agents: { enabled: true },
+  devices: { bundleSigning: { alg: "ES256", kid: "k1", privateKey: await exportJWK(signing.privateKey) } },
+});
+await theauth.user.create({ id: "owner-1", email: "owner@example.com" });
+const devices = theauth.device!;
+
+// Register a thermostat with a pre shared key. The secret is returned once.
+const { device, credential } = await devices.register({
+  ownerId: "owner-1",
+  name: "thermostat-hall",
+  kind: "sensor",
+  hardwareId: "SN-0042",
+  groups: ["hvac"],
+  permissions: [
+    { resource: "mqtt:sensors:temp:*", actions: ["publish"] },
+    { resource: "coap:valve:hall", actions: ["put"], constraints: { requireApproval: true } },
+  ],
+  credential: { kind: "psk" },
+});
+console.log("psk", credential?.secret);
+
+// Online decision: same engine as agents, audit row marked theauthPrincipal = { type: "device" }.
+console.log(await devices.authorize(device.id, { action: "publish", resource: "mqtt:sensors:temp:hall" }));
+
+// Offline: sign a bundle, verify it on the device side, decide without the server.
+const bundle = await devices.issueBundle(device.id);
+const checked = await verifyDeviceBundle(bundle.token, { keys: devices.jwks(), deviceId: device.id });
+if (checked.ok) {
+  console.log(evaluateDeviceBundle(checked.claims, { action: "publish", resource: "mqtt:sensors:temp:hall" }));
+  // requireApproval cannot be met offline, so this one is denied.
+  console.log(evaluateDeviceBundle(checked.claims, { action: "put", resource: "coap:valve:hall" }));
+}
+
+// Kill it. The backing agent is revoked too, which reaches every server through the revocation bus.
+await devices.revoke(device.id, "returned to vendor");
+```
+
+## Credentials
+
+| Kind | Stored | The device sends |
+| --- | --- | --- |
+| `psk` | SHA-256 of the secret and a 16 character lookup prefix | `Authorization: Bearer tdk_...` |
+| `jwk` | the public key and its RFC 7638 thumbprint | a device assertion JWT as `Authorization: Bearer <jwt>` |
+| `x509` | the `x5t#S256` thumbprint (RFC 8705 section 3.1) | its TLS client certificate; your proxy passes the thumbprint through `clientCertThumbprint` |
+
+Accepted keys are EC P-256, EC P-384 and Ed25519. A private key or an RSA key is refused at registration. A device can hold several credentials, so rotate by adding the new one and revoking the old one:
+
+```ts
+const next = await devices.addCredential(device.id, { kind: "jwk", jwk: newPublicJwk });
+await devices.revokeCredential(device.id, oldCredentialId);
+```
+
+### Device assertions
+
+A device with a key signs a short JWT for each connection or request. The layout follows RFC 7523 section 3, the replay rules follow DPoP (RFC 9449):
+
+```jsonc
+// header
+{ "alg": "ES256", "typ": "device-assertion+jwt", "kid": "<RFC 7638 thumbprint of the device key>" }
+// payload
+{ "iss": "<deviceId>", "sub": "<deviceId>", "aud": "theauth", "iat": 1760000000, "exp": 1760000060, "jti": "<16+ random chars>" }
+```
+
+The server checks the signature with the registered key (the algorithm is pinned to the key type), `iss` and `sub` equal the device id, `aud`, a lifetime of at most 300 seconds, `iat` no more than 30 seconds ahead, and a `jti` it has not seen for this device. In Node:
+
+```ts
+import { SignJWT, importJWK } from "jose";
+
+const key = await importJWK(devicePrivateJwk, "ES256");
+const jwt = await new SignJWT({ jti: crypto.randomUUID() })
+  .setProtectedHeader({ alg: "ES256", typ: "device-assertion+jwt", kid: deviceKeyThumbprint })
+  .setIssuer(deviceId)
+  .setSubject(deviceId)
+  .setAudience("theauth")
+  .setIssuedAt()
+  .setExpirationTime("60s")
+  .sign(key);
+```
+
+## Enrollment
+
+Ship devices without per device secrets and bind them on first boot.
+
+```ts
+// One device, a person types the code from a label or app: XXXXX-XXXXX, 15 minutes, single use.
+const claim = await devices.createEnrollmentToken({ ownerId: "owner-1", kind: "claim", groups: ["hvac"] });
+
+// A factory line: long token, use limit, 24 hours by default (30 days max).
+const bulk = await devices.createEnrollmentToken({
+  ownerId: "owner-1",
+  kind: "bulk",
+  maxUses: 500,
+  permissions: [{ resource: "mqtt:sensors:*", actions: ["publish"] }],
+});
+```
+
+The device then enrolls itself:
+
+```bash
+curl -X POST https://auth.example.com/api/theauth/device/enroll \
+  -H 'content-type: application/json' \
+  -d '{"token":"7KQ2M-9XR4T","name":"thermostat-hall","hardwareId":"SN-0042","credential":{"kind":"psk"}}'
+```
+
+Codes and tokens are stored as hashes. A use is claimed with one conditional UPDATE, so two devices racing for the last use cannot both win. A bad credential in the request is refused before a use is spent. Each device records the token that created it (`enrollmentId`), so if a bulk token leaks you can list and suspend exactly the devices it made: `devices.list({ enrollmentId })`.
+
+<Warning>
+`POST /device/enroll` and `POST /device/attestation-nonce` take no credentials. Keep the adapter rate limiter on for them.
+</Warning>
+
+### Attestation
+
+Set `attestation.verify` to check evidence before the device is created. The device first asks for a nonce (`POST /device/attestation-nonce`) and binds it into its evidence, so old evidence cannot be replayed. Evidence that arrives without a nonce is refused unless you set `attestation.requireNonce: false`. The hook receives `{ evidence, nonce, hardwareId, enrollmentId, credentialKind, credentialKeyThumbprint }`, where the last two describe the credential the device is enrolling (`credentialKeyThumbprint` is the RFC 7638 thumbprint of a `jwk` credential).
+
+```ts
+devices: {
+  attestation: {
+    required: true,
+    verify: async ({ evidence, nonce, hardwareId }) => {
+      const claims = await myEatVerifier(evidence); // your RATS Verifier (RFC 9334)
+      if (claims.eat_nonce !== nonce) return { ok: false, reason: "stale evidence" };
+      return { ok: true, claims: { ueid: claims.ueid } };
+    },
+  },
+}
+```
+
+The built in Android, Apple and TPM verifiers refuse an empty nonce (`""`) as well as a missing one, with the reason "needs the enrollment nonce". Before this, an empty string passed the missing check, and a TPM quote taken with empty qualifying data would have matched it. The Go port (`iot/attest`) already behaved this way. If you write your own `verify`, do the same: evidence that cannot be shown fresh should never be accepted.
+
+A verifier that throws counts as a refusal. The claims you return are stored on the device as `attestation`.
+
+#### Android key attestation (built in)
+
+`createAndroidKeyAttestationVerifier` checks the certificate chain that `KeyStore.getCertificateChain` returns for a hardware backed key. It implements Google's published steps: the chain must end at a Google Hardware Attestation root, no certificate may be on Google's revocation list, the key attestation extension must appear once and in the leaf (a later copy could have been added by an attacker), the key and the attestation must meet a minimum security level (TEE or StrongBox), the TEE enforced root of trust must show a locked bootloader and verified boot, the key must have been generated in hardware, and the attestation challenge must equal the enrollment nonce.
+
+```ts
+import { createAndroidKeyAttestationVerifier, googleRevocationList } from "@glinr/theauth";
+
+devices: {
+  attestation: {
+    required: true,
+    verify: createAndroidKeyAttestationVerifier({
+      revocation: googleRevocationList(), // required choice: a lookup, or "disabled" on purpose
+      minSecurityLevel: "trusted_environment", // or "strongbox"
+      bootPolicy: "verified", // "verified_or_self_signed" or "any" for development devices
+      allowedPackages: ["com.example.robot"], // optional, software enforced
+    }),
+  },
+}
+```
+
+On the device, generate an EC P-256 key with `setAttestationChallenge(nonce.getBytes(UTF_8))`, enroll that same public key as a `jwk` credential, and send the chain as evidence: a JSON array of base64 DER certificates, leaf first. By default the verifier requires that the attested key is the enrolled key (`bindKey`), so a genuine device cannot vouch for a key that lives somewhere else. A `psk` or `x509` credential fails that check; set `bindKey: false` if you only want proof that the device is genuine.
+
+Things to know:
+
+- The bundled roots are the two Google roots published at `android.googleapis.com/attestation/root`, copied on 2026-10-18. Pass `roots` to pin a newer list. Anchors are not time checked. Factory chains of the old root (subject serial `f92009e853b6b045`) are accepted after their `notAfter` date, as Google instructs, unless the chain carries the provisioning information extension (Remote Key Provisioning), where validity is enforced.
+- `googleRevocationList()` caches the list by its `Cache-Control` header and throws when it cannot fetch it, which refuses the enrollment. Set `staleIfErrorSeconds` to tolerate an outage for a bounded time.
+- Not supported: chains that use an attest key to certify another key (the verifier wants the extension in the leaf), the CBOR provisioning information content (only its position is checked), and `attestationIdSerial` or IMEI matching against `hardwareId`.
+- `theauth device attest android --evidence chain.json --nonce <n> --revocation google` runs the same verifier from the command line.
+
+**How this verifier was tested.** The test suite uses real attestation chains from Google's own repository, [google/android-key-attestation](https://github.com/google/android-key-attestation/tree/master/src/test/resources) (Apache License 2.0, copied unmodified into `packages/core/tests/fixtures/android-key-attestation.json`): EC and RSA keys, TEE and StrongBox, produced by TestDPC on devices. Three of the four chains verify, and `openssl verify` agrees with us on all four, including that the fourth (EC StrongBox) is not a valid chain: its leaf signature matches neither of the certificates above it. The parsed key description is compared with what `openssl asn1parse` prints for the same bytes. Those devices were unlocked, so the strict boot policy refuses them, which the tests also check. What is not covered: we have no chain from a locked, verified device with a known private key, so key binding is tested with the public key of a fixture leaf, and no chain with the provisioning information extension, so that branch is tested only by reading the specification. Treat the verifier as reviewed against Google's documentation and tested against real fixtures, not as certified by Google.
+
+#### Apple App Attest (built in)
+
+`createAppleAppAttestVerifier` checks the attestation object that `DCAppAttestService.attestKey` returns, following Apple's [Attestation Object Validation Guide](https://developer.apple.com/documentation/devicecheck/attestation-object-validation-guide): the CBOR object has format `apple-appattest`, its `x5c` holds the credential and intermediate certificates and the chain must end at the Apple App Attestation Root CA, the credential certificate's nonce extension (OID 1.2.840.113635.100.8.2) must equal SHA-256 of `authData` followed by the client data hash, the key identifier must be SHA-256 of the certificate's public key point and equal the credential id, `rpIdHash` must be SHA-256 of an App ID you allow, the counter must be 0, and the AAGUID must match the environment you expect.
+
+```ts
+import { createAppleAppAttestVerifier } from "@glinr/theauth";
+
+devices: {
+  attestation: {
+    required: true,
+    verify: createAppleAppAttestVerifier({
+      appIds: ["ABCDE12345.com.example.robot"], // TeamID.BundleID, required
+      environment: "production", // "development" for sandbox builds, "any" for both
+      allowedValidationCategories: [1], // optional, see below
+    }),
+  },
+}
+```
+
+On the device, generate a key with `generateKey`, enroll your own credential as a `jwk` credential, and attest with client data that names that credential. By default (`bind: "client-data"`) the verifier expects the client data to be the UTF-8 text `<nonce>:<RFC 7638 thumbprint of the enrolled key>`, hashed with SHA-256:
+
+```swift
+let clientData = Data("\(nonce):\(thumbprint)".utf8)
+let hash = Data(SHA256.hash(data: clientData))
+let attestation = try await DCAppAttestService.shared.attestKey(keyId, clientDataHash: hash)
+// evidence: {"attestation": attestation.base64EncodedString(), "keyId": keyId}
+```
+
+Apple's certificate then vouches for that exact pairing of nonce and enrolled key. App Attest keys cannot be exported or used as a signing credential for your own tokens, which is why the enrolled key is a separate one. `bind: "attested-key"` instead demands that the enrolled key is the App Attest key itself, and `bind: "none"` checks the nonce only.
+
+Things to know:
+
+- The bundled root was downloaded over HTTPS from `apple.com/certificateauthority/Apple_App_Attestation_Root_CA.pem` on 2026-10-18. Apple publishes no fingerprint for it, so the evidence that it is the right root is that the intermediate certificates in real attestations verify against it. Pass `roots` to pin your own.
+- The credential certificate is valid for about three days. Verify at enrollment, not later. There is no revocation list for App Attest, so no revocation option exists.
+- Two extensions in `authData` are returned as claims when present: `apple_validation_category_01` (Apple's guide shows 1 for an OS distributed app, a development signed build on an iPhone reported 3) and `apple_bundle_version_01`. Apple's own 2026 sample sets only the attested credential flag yet carries the extension map, so the verifier reads the map whenever bytes follow the key, and the map is covered by the certificate's nonce.
+- The claims also carry `attestedPublicKey`, the App Attest key as a base64 X9.62 point, which later assertions are checked against (see below).
+- Not built: asking Apple's service to refresh a fraud metric (it needs your own credentials), and any macOS specific checks.
+- `theauth device attest apple --evidence att.json --nonce <n> --app-id <TeamID.BundleID>` runs the same verifier from the command line.
+
+**How this verifier was tested.** Three real attestation objects, copied unmodified into `packages/core/tests/fixtures/apple-app-attest.json`: the sample in Apple's validation guide (fetched from developer.apple.com on 2026-10-18, example app `com.example.myapp`), a recording from a physical iPhone on iOS 14.4 in the development environment from [veehaitch/devicecheck-appattest](https://github.com/veehaitch/devicecheck-appattest/blob/main/src/test/resources/ios-14.4.yaml) (Apache License 2.0), and a recording from an iPhone on iOS 27.0.1 in the production environment from [jewei/app-attest-php](https://github.com/jewei/app-attest-php/blob/main/spec/termakan-ios27-attestation.json) (MIT). All three verify against the bundled root with the clock set inside their three day window, which also shows the chain, the nonce and the key id logic match what Apple's service produces. The tests refuse a different nonce, another App ID, the wrong environment, a wrong key id, a changed `authData`, an expired certificate and a foreign root. Limits of that evidence: the tests do not bind with real keys, because those devices never saw our client data format. The `client-data` path is run on real data by reading the iOS 27 recording's challenge (which contains colons) as `<nonce>:<thumbprint>`, which exercises the code but is not a recording of a device doing it. Nothing here covers attestation objects from macOS, Mac Catalyst or visionOS. Treat the verifier as reviewed against Apple's documentation and tested against real fixtures, not as certified by Apple.
+
+#### Apple App Attest assertions and receipts
+
+An attestation proves a key was made in your app once. An assertion proves a later request came from the same app instance: the app calls `generateAssertion(keyId, clientDataHash)` and the server checks it with `verifyAppleAssertion`, following the assertion steps of Apple's [validation guide](https://developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server). It hashes the client data, computes `SHA-256(authenticatorData || clientDataHash)`, verifies the ECDSA signature over that with the attested key, checks that `rpIdHash` is SHA-256 of your App ID and that the counter is higher than the last one stored.
+
+The device module does this for an enrolled device and keeps the counter for you:
+
+```ts
+const nonce = await auth.device.attestationNonce();
+// The app puts the nonce inside its client data, for example {"nonce":"..."}, and sends the assertion.
+const res = await auth.device.verifyAppAssertion(deviceId, {
+  assertion,           // base64 or base64url of the CBOR object
+  clientData,          // the exact bytes the app hashed
+  nonce: nonce.nonce,  // single use, must appear inside clientData
+});
+if (!res.ok) return deny(res.code); // device_not_found, device_blocked, not_app_attest, nonce_invalid, assertion_invalid, assertion_replayed
+```
+
+The key and the App ID come from the claims stored at enrollment (`attestedPublicKey`, `appId`), so a device that enrolled with Apple evidence before this release has no key to check against and gets `not_app_attest`. The counter lives in `theauth_devices.app_attest_counter` (migration 0015) and moves forward with one conditional `UPDATE ... WHERE app_attest_counter < new`, so two requests with the same assertion cannot both pass: exactly one wins and the rest get `assertion_replayed`. A gap in the counter is fine (the app may have asserted offline), a lower or equal value is not. Refusals write an audit row `device.app_assertion.refused`. Without a nonce the check is refused unless `attestation.requireNonce` is false, because a counter alone does not show that the client data is fresh.
+
+The fraud receipt that Apple returns with an attestation or assertion is a CMS (PKCS#7) object. `verifyAppleReceipt` checks Apple's signature, the chain (signer `Application Attestation Fraud Receipt Signing`, issuer `Apple Application Integration CA 5 - G1`, root Apple Root CA - G3, bundled in `APPLE_RECEIPT_ROOTS`), the App ID, optionally the attested key, and that the receipt has not expired. It returns the risk metric (the number of keys Apple saw for the device in the last 30 days, present only in a refreshed receipt), the creation and expiry times and the token you would send to Apple to refresh it. Sending that token to Apple is not done here.
+
+```ts
+import { verifyAppleReceipt } from "@glinr/theauth";
+
+const r = await verifyAppleReceipt(receiptBase64, { appId: "ABCDE12345.com.example.robot", publicKey: device.attestation?.attestedPublicKey as string });
+if (r.ok && (r.receipt.riskMetric ?? 0) > 2) flagForReview(device);
+```
+
+From the command line: `theauth device attest apple-assertion` and `theauth device attest apple-receipt` (see the CLI section).
+
+**How this was tested.** Real recordings, copied unmodified into `packages/core/tests/fixtures/apple-app-assertion.json`: an assertion from an iPhone on iOS 14.4 and two receipts from the same device, from [veehaitch/devicecheck-appattest](https://github.com/veehaitch/devicecheck-appattest/blob/main/src/test/resources/ios-14.4.yaml) (Apache License 2.0), and an iOS 27 assertion whose `authenticatorData` carries Apple extension bytes, from [block/buzz](https://github.com/block/buzz) (Apache License 2.0) through [jewei/app-attest-php](https://github.com/jewei/app-attest-php). Both assertions verify, with counters 1 and 116. Apple Root CA - G3 was downloaded from `apple.com/certificateauthority/AppleRootCA-G3.cer` on 2026-10-19 and its SHA-256 matches the fingerprint Apple lists. The tests refuse a replayed counter, other client data, another App ID, another key, flipped bytes and truncation, and for receipts an expired receipt, another key or app, a foreign root, and a changed payload. The real receipts carry no signed attributes, so a second path (with signed attributes, as OpenSSL and most CMS tools write them) is tested with receipts made by `openssl cms` under a throwaway CA, labelled as synthetic in the fixture. The fixtures come from a handful of devices, so treat this as reviewed against the documentation and exercised on real data, not as certified by Apple.
+
+#### TPM 2.0 quotes (built in)
+
+`createTpm2QuoteVerifier` checks a TPM2_Quote against the TCG TPM 2.0 Library specification. The attestation key must be a restricted signing key that cannot leave its TPM (`restricted`, `sign`, `fixedTPM`, `fixedParent`, not `decrypt`), because only a restricted key signs nothing but structures the TPM built, which is what gives the `TPM_GENERATED` magic its meaning. The quote must be a TPM_ST_ATTEST_QUOTE, its qualifying data must equal the enrollment nonce, its signature must verify under that key (RSASSA or ECDSA, SHA-256 or stronger), its clock must be marked safe, and the PCR values in the evidence must hash to the signed digest. With `roots`, the evidence must also carry a certificate chain from the attestation key to a root you trust.
+
+```ts
+import { createTpm2QuoteVerifier } from "@glinr/theauth";
+
+devices: {
+  attestation: {
+    required: true,
+    verify: createTpm2QuoteVerifier({
+      roots: [vendorRootPem], // trust anchor for the attestation key certificate
+      challengeEncoding: "hex", // how the nonce string maps to the qualifying data
+      expectedPcrs: { sha256: { 7: "<hex of the secure boot PCR you expect>" } },
+    }),
+  },
+}
+```
+
+The evidence is JSON: `akPublic` (TPMT_PUBLIC or TPM2B_PUBLIC, base64), `quote` (the TPMS_ATTEST message, base64), `signature` (TPMT_SIGNATURE, base64), `pcrs` (hex values by bank and index, for example `{"sha256": {"0": "...", "7": "..."}}`, covering every PCR the quote selected) and `akCertificates` (base64 DER, leaf first). With tpm2-tools these are what `tpm2_quote` writes with `-m` and `-s` plus the values from `tpm2_pcrread`. We did not run tpm2-tools while building this, so check the flags and the output format against your version.
+
+Things to know:
+
+- There is no bundled root. TPM vendors and clouds each run their own, so you pass the one you trust. Without `roots` you must pass `allowUnverifiedAk: true`, and the claims then say `akVerified: false`: the quote proves someone holding that key signed a TPM shaped structure, not that a TPM exists.
+- This verifier does not run the credential activation handshake that proves an attestation key shares a TPM with an endorsement key, and it does not check TPM2_Certify of the enrolled device key. A genuine TPM therefore vouches for the nonce, but the quote does not prove that the enrolled credential lives in that TPM. `createTpm2CertifyVerifier` (next section) does both.
+- The event log, RSA-PSS signatures and ECDAA are not supported. PCR values are reported in the claims, and `expectedPcrs` compares chosen ones.
+- `theauth device attest tpm --evidence quote.json --nonce <n> --root vendor-root.pem` runs the same verifier from the command line.
+
+**How this verifier was tested.** The fixture is a real attestation from a Google Compute Engine Shielded VM (virtual TPM) in [google/go-tpm-tools](https://github.com/google/go-tpm-tools/blob/7350267efdfa67fc62be505004fd61d7d05e5288/internal/test/attestations/gce-cos-85-nonce9009.pb) (Apache License 2.0): three quotes of the same machine (SHA-1, SHA-256 and SHA-384 PCR banks, signed RSASSA-2048 with SHA-256), a second file with quotes taken without a nonce, and the key certificate from the same file. Google's published [intermediate](https://pki.goog/cloud_integrity/tpm_ek_intermediate_2.crt) and [root](https://pki.goog/cloud_integrity/tpm_ek_root_1.crt) were fetched on 2026-10-18 to complete the chain. `openssl verify` accepts that chain, and `openssl dgst -verify` accepts all six quote signatures and finds each PCR digest in its quote, which agrees with this verifier. The tests also refuse another nonce, a quote taken without one, changed PCR values, a changed quote or signature, a key that is not restricted, a foreign root and an expired chain. Limits: it is one vendor and one virtual TPM, so physical TPMs from Infineon, STMicro, Nuvoton or Intel and Windows platform keys are untested. In this fixture the certified key carries the endorsement key certificate usage, which is how that cloud issues it. The ECDSA branch is covered only by keys generated inside the test, which shows the code path works and nothing about any device.
+
+#### TPM 2.0 credential activation and TPM2_Certify (built in)
+
+`createTpm2CertifyVerifier` proves what a quote cannot: that the attestation key (AK) and the endorsement key (EK) live in one TPM, and that the key the device enrolls lives in that TPM and cannot be exported.
+
+1. The device sends its EK and AK public areas to `POST /device/tpm-activation` together with a live nonce from `/device/attestation-nonce`. The server runs TPM2_MakeCredential (`tpm2MakeCredential`): it wraps a fresh 32 byte secret so that only the TPM holding that EK, with an AK of that exact name loaded, can recover it, and answers with `credentialBlob`, `encryptedSecret` and an `activationId`.
+2. The device runs TPM2_ActivateCredential, which gives back the secret, and TPM2_Certify of its enrolled key with the enrollment nonce as qualifying data, signed by the AK.
+3. At enrollment the evidence carries both. The verifier checks the AK is a restricted, fixedTPM, fixedParent signing key, the Certify signature and qualifying data, that the certified name equals the key's public area, that the key has `fixedTPM`, `fixedParent` and `sensitiveDataOrigin` (generated in the TPM, never imported, not duplicable), that it is the enrolled `jwk` credential (same RFC 7638 thumbprint, ECC keys only), and that the activation secret is the one issued for this AK and this EK. The activation is single use and lives five minutes.
+
+```ts
+import { createTpm2CertifyVerifier } from "@glinr/theauth";
+
+devices: {
+  attestation: {
+    required: true,
+    verify: createTpm2CertifyVerifier({
+      ekRoots: [manufacturerRootPem], // EK certificate chain to a root you trust, says the TPM is real
+      // allowUnverifiedEk: true,     // development only: claims then say ekVerified: false
+    }),
+  },
+}
+```
+
+Evidence is JSON: `ekPublic`, `akPublic`, `keyPublic` (TPMT_PUBLIC or TPM2B_PUBLIC, base64url), `certifyInfo` (the TPMS_ATTEST of TPM2_Certify), `signature` (TPMT_SIGNATURE), `activation: { id, secret }` and, with `ekRoots`, `ekCertificates` (base64 DER, leaf first). Without `ekRoots` nobody vouches that the EK belongs to a real TPM, and the claims say `ekVerified: false`. The policy facts below then read `software`, because a software TPM can run the whole handshake.
+
+Tested against a software TPM: swtpm 0.7.3 (libtpms) with tpm2-tools 5.7 and tpm2-pytss 2.3.0 in Docker, which produced real EK, AK and key public areas for RSA and ECC, real TPM2_Certify output (checked by the tests), and a real TPM2_MakeCredential and TPM2_ActivateCredential round trip. More important, the credential blobs this library makes were fed to TPM2_ActivateCredential on that TPM, which recovered the secret for both an RSA and an ECC EK. The tests pin the randomness (the RSA seed, the ECC ephemeral key) and compare the blob byte for byte with the one the TPM accepted. The scripts are in `docs-local/tpm2` of the Go repository (`sh docs-local/tpm2/run.sh`, needs Docker). Not covered: a hardware TPM (Infineon, STMicro, Nuvoton), real EK certificates and manufacturer roots, and TPM 1.2.
+
+## Policy on attestation claims
+
+A permission can demand a hardware attested device. Put an `attestation` constraint on it:
+
+```ts
+await auth.device.register({
+  ownerId: "owner-1",
+  name: "front-door-lock",
+  permissions: [
+    { resource: "door:front", actions: ["status"] },
+    {
+      resource: "door:front",
+      actions: ["unlock"],
+      constraints: {
+        attestation: {
+          minSecurityLevel: "hardware",        // "hardware" or "strongbox"
+          bootState: ["verified"],             // optional, Android only
+          appIds: ["com.example.lock"],        // optional, one of them must be attested
+        },
+      },
+    },
+  ],
+});
+```
+
+The rule reads facts that the server derives from the claims stored at enrollment (`attestationFacts`), never from the request:
+
+| Format | `securityLevel` | `bootState` | `appIds` |
+| --- | --- | --- | --- |
+| `android-key-attestation` | the lower of the attestation and key level: TEE is `hardware`, StrongBox is `strongbox`, else `software` | the verified boot state, or `unlocked` when the bootloader is unlocked | the attested package names |
+| `apple-app-attest` | `hardware` (the key is in the Secure Enclave) | not attested | the App ID |
+| `tpm2-quote` | `hardware` when the AK chained to a trusted root, else `software` | not attested | none |
+| `tpm2-certify` | `hardware` when the credential was activated and the EK chained to a trusted root, else `software` | not attested | none |
+| anything else (a custom verifier) | no facts | | |
+
+A field you set must hold. The rule fails closed: a caller with no attestation (every agent and every user), a device that enrolled without evidence, claims of an unknown format, a boot state the format does not report, and a malformed rule all deny, with the code `attestation_required`. It runs after the argument patterns and before `requireApproval`, so a person is never asked to approve something the device cannot do. `device.authorize` passes the device's facts to the permission engine. Delegation can only narrow it: a child keeps the strictest level and the intersection of boot states and app ids, and an empty intersection denies.
+
+Offline bundles carry the facts as the signed `att` claim, so `evaluateDeviceBundle` and the Go `device.Evaluate` decide the same way without a round trip. A bundle issued to a device without evidence has no `att`, and permissions with an attestation constraint deny. The facts are fixed at enrollment: a device that is later compromised keeps them until you suspend or revoke it, and `app_id` is only as strong as the format (Android package names are software enforced).
+
+The dashboard shows the verified claims in the device detail panel. `theauth device attest` prints the facts next to the claims, so you can see what a rule would read before you write it.
+
+## Authorization, delegation and revocation
+
+- `devices.authorize(id, request)` checks the device state first (`device_suspended`, `device_revoked`, `device_expired`, `device_not_found`), then runs the same pipeline as agents: `beforeAuthorize` hooks, own and delegated permissions, constraints, approvals and audit.
+- Every audit row for a device has `parameters.theauthPrincipal = { type: "device", id }`. Keys starting with `theauth` are reserved, so a device cannot plant that marker through arguments.
+- `devices.delegate({ fromAgent, deviceId, permissions, expiresAt })` lets an agent hand a subset of its permissions to a device. Revoking the agent revokes the chain.
+- `devices.suspend(id)` is reversible. `devices.revoke(id)` is permanent, revokes the backing agent and cascades its delegations.
+- Device backing agents are hidden from `agent.list()` unless you pass `type: "device"`, and their bearer token can never be used or rotated.
+
+## Offline policy bundles
+
+A bundle is a compact JWS with `typ: device-policy+jwt`, signed with `bundleSigning`:
+
+```json
+{
+  "iss": "theauth", "sub": "<deviceId>", "aud": "<deviceId>",
+  "iat": 1760000000, "nbf": 1760000000, "exp": 1760003600, "jti": "...",
+  "seq": 1760000000123, "owner": "owner-1", "groups": ["hvac"],
+  "perms": [{ "resource": "mqtt:sensors:temp:*", "actions": ["publish"] }]
+}
+```
+
+Rules on the device, as implemented by `verifyDeviceBundle` and `evaluateDeviceBundle`:
+
+1. Verify the signature against `GET /device/jwks`, `typ`, `iss`, and that `sub` and `aud` are this device. Respect `nbf` and `exp` with 30 seconds of skew.
+2. Keep the highest `seq` accepted and refuse a lower one, so an old and wider bundle cannot be replayed.
+3. Match permissions the same way the server does.
+4. `requireApproval` always denies offline. `maxCallsPerHour` denies unless you pass the local call count. Time windows use the device clock.
+
+`perms` is the device's own permissions plus active delegations at issue time. A revocation reaches online checks at once but reaches an offline device only when its bundle expires, so pick the TTL as the longest stale window you accept. One hour is the default.
+
+### Signed revocation snapshots
+
+A revoked device keeps working offline until its bundle expires. If a robot talks to other devices while disconnected, or you want a device to notice its own revocation without a round trip, turn on snapshots:
+
+```ts
+devices: {
+  bundleSigning: { alg: "ES256", kid: "bundle-2026-10", privateKey },
+  revocations: { ttlSeconds: 3600 }, // opt in; needs bundleSigning
+}
+```
+
+`issueBundle` then returns `revocations: { token, claims }` next to the bundle (and `GET /device/bundle` includes it). The token is a compact JWS (`typ: device-revocations+jwt`, same key and JWKS as bundles) that lists the revoked and suspended devices of the bundle's owner: claims `iss`, `sub` (the owner), `iat`, `nbf`, `exp`, `jti`, `seq` (issue time in ms), `n` (entry count), `h` (`sha256-64`) and `ids`. Each entry is the first 8 bytes of the SHA-256 of the device id, sorted, concatenated and base64url encoded, so a device costs 11 characters and the list is exact for practical purposes (a false match needs a 64 bit collision). A Bloom filter would be smaller, but its false positives would lock healthy devices out, so we did not use one. `maxEntries` (default 50000) caps the list, and the server refuses to sign a truncated one.
+
+The device opts in to checking it when it verifies the bundle:
+
+```ts
+const res = await verifyDeviceBundle(bundle.token, {
+  keys: jwks,
+  deviceId,
+  revocations: { token: bundle.revocations?.token, maxAgeSeconds: 900, lastSeq: savedSnapshotSeq },
+});
+if (!res.ok) {
+  // "revoked": this device is on the list
+  // "stale_revocations": snapshot missing, expired or older than maxAgeSeconds (fail closed)
+  // "rollback": an older snapshot than one already accepted
+}
+```
+
+`maxAgeSeconds` is measured from the snapshot's `iat`, so a device can demand fresher data than the snapshot's own `exp`. Without the `revocations` option nothing changes. To ask whether a peer is revoked, call `verifyRevocationSnapshot(token, { keys, maxAgeSeconds, owner })` and then `result.has(peerId)`. The Go package `iot/device` has the same checks (`VerifyBundle` with `Revocations`, `VerifyRevocations`, `RevocationSnapshot.Contains`) and runs against shared vectors generated from the TypeScript code. One note on timing: suspension is reversible, and a resumed device stays on a snapshot until that snapshot expires, so pick a short `ttlSeconds` if you suspend often.
+
+## HTTP routes
+
+Management routes need a signed in owner and only show that owner's devices:
+
+| Method | Path | |
+| --- | --- | --- |
+| GET | `/devices` | list (`ownerId`, `status`, `group`, `enrollmentId`, `limit`, `offset`) |
+| POST | `/devices` | register |
+| GET, PATCH, DELETE | `/devices/:id` | get with credentials, update, revoke |
+| POST | `/devices/:id/suspend`, `/devices/:id/resume` | pause and resume |
+| POST, DELETE | `/devices/:id/credentials[/:credentialId]` | add, revoke a credential |
+| POST | `/devices/:id/bundle` | issue a bundle |
+| GET, POST | `/devices/enrollment-tokens` | list, create an enrollment token |
+| DELETE | `/devices/enrollment-tokens/:id` | revoke an enrollment token |
+
+`GET /devices/enrollment-tokens` takes `ownerId`, `limit` and `offset`. Each row has `id`, `kind`, `ownerId`, `maxUses`, `uses`, `groups`, `status` (`active`, `expired`, `revoked` or `used_up`) and the dates. It never returns the plaintext token or its hash, so a lost token cannot be recovered from the list: revoke it and create another.
+
+```ts
+const res = await fetch(`${base}/devices/enrollment-tokens?limit=20`, {
+  headers: { authorization: `Bearer ${sessionToken}` },
+});
+const { data } = await res.json();
+for (const t of data) console.log(t.id, t.status, `${t.uses}/${t.maxUses}`);
+```
+
+Device facing routes (turn them off with `routes: { devices: false }`):
+
+| Method | Path | Auth |
+| --- | --- | --- |
+| POST | `/device/enroll` | enrollment token in the body |
+| POST | `/device/attestation-nonce` | none |
+| POST | `/device/tpm-activation` | none, needs a live nonce |
+| POST | `/device/authorize` | device credential; 401 bad credential, 403 denied |
+| GET | `/device/bundle` | device credential |
+| GET | `/device/jwks` | none |
+
+With `devices.spiffe` set the handler also serves `POST /device/spiffe/verify`, and the admin routes `POST /devices/spiffe/verify`, `POST /devices/spiffe/token` and `POST /devices/:id/spiffe`. See [SPIFFE workload identity](/spiffe).
+
+To exercise bundles, snapshots, offline use, clock skew and revocation against a fleet of simulated devices, see the [device conformance kit](/device-conformance-kit).
+
+`/auth/device/*` is a different thing: the RFC 8628 flow where a person signs in on a TV or CLI.
+
+## Resource names for device protocols
+
+Resources are colon separated, and `*` matches the rest:
+
+- MQTT topic `sensors/temp/42` is `mqtt:sensors:temp:42`, actions `publish` and `subscribe`. The filter `sensors/#` is `mqtt:sensors:*`. `+` has no direct equivalent, so a broker plugin should expand or deny it.
+- CoAP `/actuators/valve` is `coap:actuators:valve`, actions `get`, `put`, `post`, `delete`, `observe`.
+- ROS 2 topics follow [Robotics and ROS 2](/robotics-ros2).
+
+## CLI
+
+```bash
+theauth device register --config ./theauth.config.mjs --owner owner-1 --name gw-1 --psk \
+  --perm "mqtt:sensors:*=publish" --group yard
+theauth device list --config ./theauth.config.mjs --status active
+theauth device enroll-token --config ./theauth.config.mjs --owner owner-1 --kind bulk --max-uses 200
+theauth device suspend <deviceId> --config ./theauth.config.mjs --reason "battery swap"
+theauth device revoke <deviceId> --config ./theauth.config.mjs
+theauth device attest android --evidence chain.json --nonce <nonce> --revocation google
+theauth device attest apple --evidence att.json --nonce <nonce> --app-id ABCDE12345.com.example.robot
+theauth device attest tpm --evidence quote.json --nonce <nonce> --challenge hex --root vendor-root.pem
+theauth device attest apple-assertion --assertion a.b64 --client-data cd.bin --app-id ABCDE12345.com.example.robot --public-key <attestedPublicKey> --previous-counter 0
+theauth device attest apple-receipt --receipt r.b64 --app-id ABCDE12345.com.example.robot
+theauth device spiffe verify-x509 --cert leaf.pem --root ca.pem
+theauth device spiffe link <deviceId> spiffe://example.org/ns/yard/sa/robot-7 --config ./theauth.config.mjs
+```
+
+SPIFFE SVIDs as device credentials are covered in [SPIFFE workload identity](/spiffe).
+
+## What is not here yet
+
+CWT and COSE encoding of bundles for very small devices, a built in verifier for EAT, an HTTP route for App Attest assertions (the library call exists), asking Apple's service for a fresh fraud metric, and uploading decisions a device made offline into the audit chain.

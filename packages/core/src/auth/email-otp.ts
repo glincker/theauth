@@ -16,16 +16,21 @@
  * ```
  */
 
-import { and, eq, gt, lt, sql } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { constantTimeEqual, fromHex, generateId, sha256 } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { emailOtps, users } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
+import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
+import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { SessionManager } from "../session/session.js";
+import type { ClaimOptions } from "./email-claim.js";
+import { claimVerifiedMailbox } from "./email-claim.js";
 import { normalizeEmail } from "./normalize-email.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-export interface EmailOtpConfig {
+export interface EmailOtpConfig extends ClaimOptions {
 	/** Send the OTP code via email. */
 	sendOtp: (email: string, code: string) => Promise<void>;
 	/** Digit length of the generated code (default: 6) */
@@ -90,6 +95,7 @@ export function createEmailOtpModule(
 	db: Database,
 	sessionManager: SessionManager,
 	signInGate?: SignInGate,
+	databaseHooks: DatabaseHookRunner = createDatabaseHookRunner(undefined),
 ): EmailOtpModule {
 	const gate = signInGate ?? createSignInGate({ db });
 	const codeLength = config.codeLength ?? DEFAULT_CODE_LENGTH;
@@ -105,16 +111,38 @@ export function createEmailOtpModule(
 
 		if (existing[0]) return { id: existing[0].id, email: existing[0].email };
 
-		const id = generateId();
+		const id = databaseHooks.newId("user");
 		const now = new Date();
+		let storedEmail = email;
+		let storedName: string | null = null;
+		let storedMetadata: Record<string, unknown> | null = null;
+		if (databaseHooks.has("user", "create")) {
+			const hooked = await databaseHooks.before("user", "create", {
+				id,
+				email,
+				name: null,
+				metadata: null,
+			});
+			storedEmail = hooked.email;
+			storedName = hooked.name;
+			storedMetadata = hooked.metadata;
+		}
 		await db.insert(users).values({
 			id,
-			email,
+			email: storedEmail,
+			name: storedName,
+			...(storedMetadata ? { metadata: storedMetadata } : {}),
 			createdAt: now,
 			updatedAt: now,
 		});
+		await databaseHooks.after("user", "create", {
+			id,
+			email: storedEmail,
+			name: storedName,
+			metadata: storedMetadata,
+		});
 
-		return { id, email };
+		return { id, email: storedEmail };
 	}
 
 	async function sendCode(rawEmail: string): Promise<{ sent: boolean; retryAfter?: number }> {
@@ -172,25 +200,17 @@ export function createEmailOtpModule(
 
 		// Reserve an attempt with one conditional UPDATE. A read-then-write counter
 		// lets N parallel guesses all observe the same count and skip the lockout.
-		const reserved = await db
-			.update(emailOtps)
-			.set({ attempts: sql`${emailOtps.attempts} + 1` })
-			.where(and(eq(emailOtps.id, record.id), lt(emailOtps.attempts, maxAttempts)))
-			.returning({ id: emailOtps.id });
-		if (!reserved[0]) return null;
+		if (!(await singleUseFor(db).emailOtps.reserveAttempt(record.id, maxAttempts))) return null;
 
 		const given = fromHex(await hashCode(code));
 		const stored = fromHex(record.codeHash);
 		if (!constantTimeEqual(given, stored)) return null;
 
 		// Correct code: delete returns the row only to the one caller that removed it.
-		const consumed = await db
-			.delete(emailOtps)
-			.where(eq(emailOtps.id, record.id))
-			.returning({ id: emailOtps.id });
-		if (!consumed[0]) return null;
+		if (!(await singleUseFor(db).emailOtps.consume(record.id))) return null;
 
 		const user = await findOrCreateUser(email);
+		await claimVerifiedMailbox(db, user.id, config, (id) => sessionManager.revokeAll(id));
 		const decision = await gate.evaluate({
 			userId: user.id,
 			method: "email_otp",
@@ -198,7 +218,9 @@ export function createEmailOtpModule(
 		});
 		if (decision.action !== "allow") throw new SignInGateError(decision);
 
-		const { token: sessionToken, session } = await sessionManager.create(user.id);
+		const { token: sessionToken, session } = await sessionManager.create(user.id, undefined, {
+			authMethods: ["otp"],
+		});
 
 		return {
 			user,

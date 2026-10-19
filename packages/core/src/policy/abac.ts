@@ -3,18 +3,24 @@
  */
 
 import { and, eq, gte } from "drizzle-orm";
-import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { rateLimits } from "../db/schema.js";
+import { singleUseFor } from "../db/store/for-database.js";
 import type { DenialCode } from "../permission/codes.js";
 import { codeForConstraint } from "../permission/codes.js";
 import type { Permission, PermissionConstraints } from "../types.js";
+import type { AttestationFacts } from "./attestation-constraint.js";
+import { checkAttestationConstraint } from "./attestation-constraint.js";
+import type { ResourceMatching } from "./resource-match.js";
+import { matchColonResource, matchPathResource } from "./resource-match.js";
 
 export interface ConstraintEvaluationInput {
 	subjectId: string; // agent id used for rate-limit row keying; "" if subject has no agent
 	resource: string;
 	arguments?: Record<string, unknown>;
 	ip?: string;
+	/** Verified attestation facts of the calling device, from the device record, never from the request. Absent for agents and users, so an `attestation` constraint denies them. */
+	attestation?: AttestationFacts;
 }
 
 export interface ConstraintResult {
@@ -26,20 +32,17 @@ export interface ConstraintResult {
 	needsApproval?: boolean;
 }
 
-/** Match a resource pattern against a requested resource. Supports wildcards: "mcp:github:*", "tool:*", "*". */
-export function matchResource(pattern: string, resource: string): boolean {
-	if (pattern === "*") return true;
-
-	const patternParts = pattern.split(":");
-	const resourceParts = resource.split(":");
-
-	for (let i = 0; i < patternParts.length; i++) {
-		const part = patternParts[i];
-		if (part === "*") return true;
-		if (part !== resourceParts[i]) return false;
-	}
-
-	return patternParts.length === resourceParts.length;
+/**
+ * Match a resource pattern against a requested resource. Supports wildcards: "mcp:github:*", "tool:*", "*". The optional mode is `colon` (default) or `path`, see resource-match.ts.
+ */
+export function matchResource(
+	pattern: string,
+	resource: string,
+	mode: ResourceMatching = "colon",
+): boolean {
+	return mode === "path"
+		? matchPathResource(pattern, resource)
+		: matchColonResource(pattern, resource);
 }
 
 /** Check if an action is allowed by a permission's actions list. */
@@ -153,45 +156,22 @@ export async function checkRateLimit(
 		return { allowed: true };
 	}
 
-	const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-	const rows = await db
-		.select()
-		.from(rateLimits)
-		.where(
-			and(
-				eq(rateLimits.agentId, agentId),
-				eq(rateLimits.resource, resource),
-				gte(rateLimits.windowStart, oneHourAgo),
-			),
-		);
-
-	const totalCalls = rows.reduce((sum, r) => sum + r.count, 0);
-
-	if (totalCalls >= maxCallsPerHour) {
+	const now = Date.now();
+	const bucket = new Date(Math.floor(now / (5 * 60 * 1000)) * (5 * 60 * 1000));
+	// One atomic reserve: bump the bucket, then sum. A read then write here let parallel calls all pass.
+	const { allowed, total } = await singleUseFor(db).rateLimits.reserve({
+		agentId,
+		resource,
+		bucket,
+		since: new Date(now - 60 * 60 * 1000),
+		max: maxCallsPerHour,
+	});
+	if (!allowed) {
 		return {
 			allowed: false,
-			reason: rateLimitReason(totalCalls, maxCallsPerHour, resource),
+			reason: rateLimitReason(total, maxCallsPerHour, resource),
 			code: "rate_limited",
 		};
-	}
-
-	const currentWindow = new Date(Math.floor(Date.now() / (5 * 60 * 1000)) * (5 * 60 * 1000));
-	const existing = rows.find((r) => r.windowStart.getTime() === currentWindow.getTime());
-
-	if (existing) {
-		await db
-			.update(rateLimits)
-			.set({ count: existing.count + 1 })
-			.where(eq(rateLimits.id, existing.id));
-	} else {
-		await db.insert(rateLimits).values({
-			id: generateId(),
-			agentId,
-			resource,
-			windowStart: currentWindow,
-			count: 1,
-		});
 	}
 
 	return { allowed: true };
@@ -207,9 +187,10 @@ export function findMatchingPermission(
 	permissions: Permission[],
 	action: string,
 	resource: string,
+	mode: ResourceMatching = "colon",
 ): { permission: Permission; index: number } | null {
 	const index = permissions.findIndex(
-		(p) => matchResource(p.resource, resource) && matchAction(p.actions, action),
+		(p) => matchResource(p.resource, resource, mode) && matchAction(p.actions, action),
 	);
 	const permission = index === -1 ? undefined : permissions[index];
 	return permission ? { permission, index } : null;
@@ -242,7 +223,8 @@ export type ConstraintName =
 	| "allowedArgPatterns"
 	| "requireApproval"
 	| "timeWindow"
-	| "ipAllowlist";
+	| "ipAllowlist"
+	| "attestation";
 
 export interface ConstraintStep {
 	constraint: ConstraintName;
@@ -271,7 +253,7 @@ export interface InspectOptions {
 }
 
 /**
- * Evaluate every constraint without touching storage. Constraint order is rate limit, arg patterns, approval, time window, IP allowlist, and the walk stops at the first failure, exactly like evaluateConstraints.
+ * Evaluate every constraint without touching storage. Constraint order is rate limit, arg patterns, attestation, approval, time window, IP allowlist, and the walk stops at the first failure, exactly like evaluateConstraints.
  */
 export function inspectConstraints(
 	input: ConstraintEvaluationInput,
@@ -339,6 +321,30 @@ export function inspectConstraints(
 			detail: "All string arguments match the allowed patterns",
 			observed: input.arguments,
 			configured: constraints.allowedArgPatterns,
+		});
+	}
+
+	// Before the approval step: a human is never asked to approve what this device cannot do.
+	if (constraints.attestation) {
+		const check = checkAttestationConstraint(constraints.attestation, input.attestation);
+		if (!check.ok) {
+			return stop(
+				{
+					constraint: "attestation",
+					outcome: "fail",
+					detail: check.reason ?? "Attestation requirement not met",
+					...(input.attestation && { observed: input.attestation }),
+					configured: constraints.attestation,
+				},
+				check.reason,
+			);
+		}
+		steps.push({
+			constraint: "attestation",
+			outcome: "pass",
+			detail: "Device attestation meets the requirement",
+			observed: input.attestation,
+			configured: constraints.attestation,
 		});
 	}
 
@@ -430,7 +436,7 @@ export function inspectConstraints(
 }
 
 /**
- * Evaluate every constraint on a permission. Returns the first failure, or { allowed: true } if all pass. Constraint order: rate limit, arg patterns, approval, time window, IP allowlist.
+ * Evaluate every constraint on a permission. Returns the first failure, or { allowed: true } if all pass. Constraint order: rate limit, arg patterns, attestation, approval, time window, IP allowlist.
  * The rate limit step records the call; everything after it is delegated to inspectConstraints so the simulator evaluates the same rules.
  */
 export async function evaluateConstraints(
@@ -472,6 +478,7 @@ export function isCacheUnsafe(constraints?: PermissionConstraints): boolean {
 	return (
 		constraints.maxCallsPerHour != null ||
 		Boolean(constraints.timeWindow) ||
+		Boolean(constraints.attestation) ||
 		(Array.isArray(constraints.allowedArgPatterns) && constraints.allowedArgPatterns.length > 0)
 	);
 }

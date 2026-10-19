@@ -19,6 +19,7 @@ export type {
 	AuthSession,
 	AuthUser,
 	CreateAgentInput,
+	SignUpData,
 	TheAuthAgent,
 	TheAuthPermission,
 	TheAuthSession,

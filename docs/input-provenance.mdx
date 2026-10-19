@@ -1,0 +1,138 @@
+---
+title: Input provenance
+description: Record which messages, documents and tool outputs were in context for each AI agent call, so a prompt injection can be traced to the calls it influenced.
+icon: route
+---
+
+## The threat
+
+Prompt injection works because the model cannot tell an instruction from the user apart from text it read on a web page or in a file. [OWASP LLM01](https://genai.owasp.org/llmrisk/llm01-prompt-injection/) lists segregating and marking external content as a mitigation, and notes there is no complete prevention. So some injections will get through. When one does, you need to answer three questions fast: which document carried it, which calls did it influence, and which of those did damage.
+
+Input provenance is the record that answers them. Each audit row can list the inputs the caller says were in context: a kind, an optional id and a hash of the content. The content is never stored. Given a suspect document, you hash it, search the audit log, and get every call that had it in context.
+
+This is evidence for investigation, not a guard. The server records what the caller declares and does not check that a source is real or complete. For blocking calls based on where arguments came from, see the [taint guard](/taint-guard).
+
+## What is recorded
+
+| Field | Meaning |
+| --- | --- |
+| `kind` | `user_message`, `tool_output`, `retrieved_document` or `agent` |
+| `id` | Optional identifier you choose, such as a message id, a URL or a tool call id |
+| `hash` | 64 hex characters, computed from the content |
+| `hv` | `2` for the keyed hash. Absent on rows written before the keyed hash |
+
+The kinds map onto the provenance model in [W3C PROV](https://www.w3.org/TR/prov-overview/): an input is an entity, the call is an activity that used it. The same idea appears in the [OpenTelemetry GenAI conventions](https://github.com/open-telemetry/semantic-conventions-genai), which keep message content off by default because it often holds personal data. Here the default is the same: hash, never content.
+
+## The hash is keyed
+
+A plain SHA-256 of a short message can be confirmed by anyone who reads the audit table and guesses the text. So the stored hash is an HMAC-SHA-256 under a subkey derived with HKDF ([RFC 5869](https://www.rfc-editor.org/rfc/rfc5869)) from the audit key (`audit.hmacKey`, or the installation secret when you set none). The chain key itself is never used to hash content.
+
+Because the hash is keyed, a client cannot compute it. To look something up, send the content to the server and let it hash with its key. The query API, the HTTP route and the CLI all take `content` for this reason. Rows written before the keyed hash keep their plain hash (no `hv`), and a content query matches both forms.
+
+## Record inputs in code
+
+```ts
+await theauth.authorize(
+  agent.id,
+  { action: "execute", resource: "mcp:github:create_issue" },
+  {
+    inputs: [
+      { kind: "user_message", id: "msg_123", content: userText },
+      { kind: "retrieved_document", id: "https://example.org/page", content: pageText },
+    ],
+  },
+);
+```
+
+For guarded tools, pass `inputs` to `guardTool`. Find every call that had a document in context:
+
+```ts
+const rows = await theauth.audit.query({
+  provenance: { kind: "retrieved_document", content: pageText },
+});
+for (const row of rows) console.log(row.timestamp, row.agentId, row.resource, row.inputs);
+```
+
+## Send inputs over HTTP
+
+`POST /authorize` and `POST /authorize/token` accept an `inputs` array in the body, with the same fields as above. A header form exists for proxies and gateways that cannot rewrite bodies: `TheAuth-Inputs` holds the base64url encoding of the same JSON array, up to 8192 characters and 32 inputs. Prefer entries with a `hash` over `content` in a header, since proxies log headers. A malformed header is ignored and never blocks the request. When both are present, the body wins.
+
+```ts
+import { encodeInputsHeader } from "@glinr/theauth";
+
+await fetch(`${base}/authorize/token`, {
+  method: "POST",
+  headers: {
+    authorization: `Bearer ${agentToken}`,
+    "content-type": "application/json",
+    "theauth-inputs": encodeInputsHeader([{ kind: "tool_output", id: "call_7", content: toolResult }]),
+  },
+  body: JSON.stringify({ action: "read", resource: "mcp:github:issues" }),
+});
+```
+
+Query the audit log with `GET /audit?provenanceKind=retrieved_document&provenanceContent=...`. `provenanceHash` takes a stored hash. Each entry carries `inputs` (kind, id, hash, hv).
+
+## Gateway
+
+The [gateway](/gateway) reads `TheAuth-Inputs` on each request and records it on the permission check and the audit entry, then removes the header before forwarding to your upstream. An agent framework that fetches through the gateway can attach the documents it has in context without touching the upstream service.
+
+## Admin MCP server
+
+Clients of the admin MCP server pass inputs in the tool call `_meta`, under the key `io.theauth/inputs` (MCP reserves unprefixed names, so the key carries a reverse DNS prefix):
+
+```json
+{
+  "name": "revoke_agent",
+  "arguments": { "id": "agent_1", "reason": "suspected injection" },
+  "_meta": {
+    "io.theauth/inputs": [{ "kind": "user_message", "id": "ticket-88", "content": "Please revoke agent_1" }]
+  }
+}
+```
+
+The server writes them into the audit event for that call. `query_audit` takes `provenanceKind`, `provenanceContent` and `provenanceHash`.
+
+## CLI
+
+```bash
+# every call that had this page in context
+theauth audit query --input-content "$(cat suspect.html)" --provenance retrieved_document
+
+# every call with any retrieved document, last 100
+theauth audit query --provenance retrieved_document --limit 100
+
+# by stored hash, from a row you already looked at
+theauth audit query --provenance retrieved_document:3f2a...c9
+```
+
+Set `THEAUTH_AUDIT_HMAC_KEY` if your app runs with `audit.hmacKey`, or the CLI cannot reproduce the keyed hash.
+
+## Dashboard
+
+The audit page shows an Inputs column with one chip per recorded input: the kind, then the id or the first eight hash characters. Retrieved documents are amber, since they are the usual injection carrier. A filter narrows the page to one kind.
+
+## Hold risky calls after untrusted input
+
+With `policy.taint.inputLabels` on, the kinds in `context.inputs` become call level labels named `input:<kind>`, and a [taint rule](/taint-guard) can forbid them. This holds `tool:exec` for human approval whenever a retrieved document was in context:
+
+```ts
+const theauth = await createTheAuth({
+  // ...
+  policy: {
+    taint: {
+      inputLabels: true,
+      rules: [{ resource: "tool:exec", forbid: ["input:retrieved_document"] }],
+    },
+  },
+});
+```
+
+The effect defaults to `escalate`, which opens an approval request. After a person approves it, the retry with the `approvalId` passes. Use `effect: "deny"` to refuse outright. The option is off by default, so existing rules see the same labels as before. It rests on the caller declaring its inputs, so it reduces risk and is not a boundary against a caller that hides a document.
+
+## What it does not do
+
+- It does not verify the claim. A caller that leaves out a poisoned document leaves it out of the record.
+- It does not follow data through the model. It says what was in context, not what the model used.
+- A caller supplied `hash` is stored as given and is only as private as the caller's hashing. Use `content` where you can.
+- Rows from before the keyed hash can have their short content guessed by someone who reads the table. Newer rows cannot, without the key.

@@ -1,5 +1,7 @@
 import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import type { InputSource } from "../provenance.js";
+import { readInputsMeta } from "../provenance.js";
 import type { RegisteredTool, ToolContext } from "./define.js";
 
 /**
@@ -60,21 +62,24 @@ function defineWriteTool(spec: WriteSpec, actor: string): RegisteredTool {
 				result: Parameters<NonNullable<ToolContext["audit"]>["record"]>[0]["result"],
 				args: WriteArgs,
 				approvalId?: string,
+				inputs?: InputSource[],
 			) =>
 				ctx.audit?.record({
 					tool: spec.name,
 					mode: "write",
 					result,
 					approvalId,
+					inputs,
 					params: { id: args.id, reason: args.reason },
 				}) ?? Promise.resolve(true);
 
-			const callback = (async (args: WriteArgs) => {
+			const callback = (async (args: WriteArgs, extra?: unknown) => {
+				const inputs = readInputsMeta(extra);
 				try {
 					const resource = resourceOf(args.id);
 					if (!args.approvalId) {
 						// Fail closed: no audited intent, no approval request.
-						if (!(await audit("requested", args))) {
+						if (!(await audit("requested", args, undefined, inputs))) {
 							return text(
 								{
 									success: false,
@@ -114,7 +119,7 @@ function defineWriteTool(spec: WriteSpec, actor: string): RegisteredTool {
 								true,
 							);
 						}
-						await audit("pending", args, approvalId);
+						await audit("pending", args, approvalId, inputs);
 						return text({
 							status: "pending",
 							approvalId,
@@ -136,7 +141,7 @@ function defineWriteTool(spec: WriteSpec, actor: string): RegisteredTool {
 						return text({ status: "pending", approvalId: args.approvalId });
 					}
 					if (found.data.status !== "approved") {
-						await audit("denied", args, args.approvalId);
+						await audit("denied", args, args.approvalId, inputs);
 						return text(
 							{
 								success: false,
@@ -163,7 +168,7 @@ function defineWriteTool(spec: WriteSpec, actor: string): RegisteredTool {
 						},
 					);
 					if (!spent.ok) {
-						await audit("denied", args, args.approvalId);
+						await audit("denied", args, args.approvalId, inputs);
 						return text(
 							{ success: false, error: { code: spent.error.code, message: spent.error.message } },
 							true,
@@ -171,13 +176,13 @@ function defineWriteTool(spec: WriteSpec, actor: string): RegisteredTool {
 					}
 					const done = await spec.execute(args.id, ctx);
 					if (!done.ok) {
-						await audit("failed", args, args.approvalId);
+						await audit("failed", args, args.approvalId, inputs);
 						return text(
 							{ success: false, error: { code: done.error.code, message: done.error.message } },
 							true,
 						);
 					}
-					await audit("executed", args, args.approvalId);
+					await audit("executed", args, args.approvalId, inputs);
 					return text({ status: "executed", approvalId: args.approvalId, target: resource });
 				} catch (error) {
 					ctx.logger.error(`tool ${spec.name} failed`, error);

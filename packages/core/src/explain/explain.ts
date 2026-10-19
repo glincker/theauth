@@ -5,7 +5,8 @@ import type { DelegationLink, HookDelegationChain } from "../hooks/lifecycle.js"
 import type { BeforeAuthorizeRunner, HookOutcome } from "../hooks/run.js";
 import type { Result } from "../mcp/types.js";
 import type { DecisionCode } from "../permission/codes.js";
-import { DECISION_CODES } from "../permission/codes.js";
+import { DECISION_CODES, isApprovalDenial } from "../permission/codes.js";
+import type { ResourceMatching } from "../policy/resource-match.js";
 import type { SetEvaluation } from "../simulator/evaluate-set.js";
 import { evaluateSet, matchKind } from "../simulator/evaluate-set.js";
 import type { TraceStep } from "../simulator/types.js";
@@ -26,6 +27,8 @@ export interface ExplainerDeps {
 	runBeforeAuthorize: BeforeAuthorizeRunner;
 	/** True when `hooks.beforeAuthorize` is set. */
 	hookConfigured: boolean;
+	/** Same mode authorize() uses. Default `colon`. */
+	resourceMatching?: ResourceMatching;
 }
 
 export interface Explainer {
@@ -104,6 +107,7 @@ function hookFromOutcome(outcome: HookOutcome): ExplainHook {
 /** Read-only mirror of `authorize()`. Writes no audit rows, bumps no counters, spends no approvals, caches nothing. */
 export function createExplainer(deps: ExplainerDeps): Explainer {
 	const { db, agentModule, runBeforeAuthorize, hookConfigured } = deps;
+	const matching = deps.resourceMatching ?? "colon";
 
 	async function explain(
 		agentId: string,
@@ -238,7 +242,15 @@ export function createExplainer(deps: ExplainerDeps): Explainer {
 		};
 		const attempts: ExplainAttempt[] = [];
 
-		const own = await evaluateSet(db, agent, agent.permissions, "agent permissions", input, now);
+		const own = await evaluateSet(
+			db,
+			agent,
+			agent.permissions,
+			"agent permissions",
+			input,
+			now,
+			matching,
+		);
 		trace.push(...own.steps);
 		attempts.push(attemptOf("own", agent.permissions.length, own));
 		let final = own;
@@ -258,6 +270,7 @@ export function createExplainer(deps: ExplainerDeps): Explainer {
 					"delegation chains",
 					input,
 					now,
+					matching,
 				);
 				trace.push(...via.steps);
 				attempts.push(attemptOf("delegation", flat.length, via));
@@ -269,9 +282,7 @@ export function createExplainer(deps: ExplainerDeps): Explainer {
 					flat[via.match?.index ?? -1]?.link,
 				);
 				// Mirror authorize: delegated wins when it allows or holds for approval, else the own verdict stands.
-				const approvalCode =
-					via.code === DECISION_CODES.APPROVAL_INVALID ||
-					via.code === DECISION_CODES.APPROVAL_REQUIRED;
+				const approvalCode = isApprovalDenial(via.code);
 				if (via.allowed || approvalCode) {
 					final = via;
 					grant = viaGrant;
@@ -315,6 +326,7 @@ export function createExplainer(deps: ExplainerDeps): Explainer {
 						],
 						action,
 						resource,
+						matching,
 					),
 			constraints,
 			attempts,

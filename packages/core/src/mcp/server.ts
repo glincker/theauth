@@ -10,6 +10,8 @@ import { describeClientForConsent } from "./consent-view.js";
 import type { McpIntrospectionHooks } from "./introspect.js";
 import { handleIntrospection } from "./introspect.js";
 import { getJwks } from "./keys.js";
+import type { LoginRedirectDetails } from "./login-redirect.js";
+import { loginRedirectUrl } from "./login-redirect.js";
 import { createInMemoryBlockStore, createInMemoryTokenFamilyStore } from "./memory-stores.js";
 import { getAuthorizationServerMetadata, getProtectedResourceMetadata } from "./metadata.js";
 import { registerClient } from "./registration.js";
@@ -61,6 +63,8 @@ export interface McpModuleAuth {
 export type McpModuleParams = {
 	config: McpConfig;
 	resolveUserId: McpAuthContext["resolveUserId"];
+	/** How the signed-in user authenticated, normally `(req) => session.auth`. Turns on `acr_values`, `max_age` and the `acr`, `amr` and `auth_time` token claims. */
+	resolveAuthContext?: McpAuthContext["resolveAuthContext"];
 	/** Called after every introspection decision of an authenticated caller (caller client, jti, result, reason; never the token). Errors are swallowed. The audit log needs an agent and user row, so introspection is reported here instead. */
 	introspectionAudit?: McpIntrospectionHooks["audit"];
 } & (
@@ -198,11 +202,19 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 		};
 	}
 
+	// Pre-registered clients are written while the module starts. A request that arrives first must wait
+	// for them, or a client that is configured would answer as unknown (and a failed write would be lost).
+	let preRegistered: Promise<void> = Promise.resolve();
+	const findStoredClient = required("findClient");
+
 	// Build the context shared by all handlers
 	const ctx: McpAuthContext = {
 		config: resolvedConfig,
 		storeClient: required("storeClient"),
-		findClient: required("findClient"),
+		findClient: async (clientId) => {
+			await preRegistered;
+			return findStoredClient(clientId);
+		},
 		storeAuthorizationCode: required("storeAuthorizationCode"),
 		consumeAuthorizationCode: required("consumeAuthorizationCode"),
 		storeToken: required("storeToken"),
@@ -223,6 +235,7 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 		resolveUserId: params.auth
 			? bannedAwareResolveUserId(params.auth.db, params.resolveUserId)
 			: params.resolveUserId,
+		...(params.resolveAuthContext ? { resolveAuthContext: params.resolveAuthContext } : {}),
 	};
 	ctxRef.current = ctx;
 	wireRevocation(ctx, { revocations, bindings, bus: params.auth?.revocations });
@@ -262,8 +275,10 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 		}
 	})();
 
-	// Expose the promise so tests/callers can await full initialisation.
-	void preRegistrationPromise;
+	// Client lookups await this promise. A failed write is rethrown to the first lookup instead of
+	// surfacing as an unhandled rejection at startup.
+	preRegistered = preRegistrationPromise;
+	preRegistrationPromise.catch(() => undefined);
 
 	// Return the public module API
 	return {
@@ -305,7 +320,8 @@ export function createMcpModule(params: McpModuleParams): McpAuthModule {
 			resource?: string;
 		}) => buildStepUpResponse(ctx, options),
 
-		requireScopes: (request: Request, scopes: string[]) => requireScopes(ctx, request, scopes),
+		requireScopes: (request: Request, scopes: string[], userAuth) =>
+			requireScopes(ctx, request, scopes, userAuth),
 
 		requireMcpAuth: (handler, options) => requireMcpAuth(ctx, handler, options),
 	};
@@ -390,16 +406,10 @@ export function createMcpResponseHelpers(ctx: McpAuthContext) {
 			if (!result.success) {
 				// If login is required, the caller should redirect to the login page
 				if (result.error.code === "LOGIN_REQUIRED") {
-					const details = result.error.details as
-						| { loginPage?: string; returnTo?: string }
-						| undefined;
-					if (details?.loginPage) {
-						const loginUrl = new URL(details.loginPage);
-						if (details.returnTo) {
-							loginUrl.searchParams.set("returnTo", details.returnTo);
-						}
-						return Response.redirect(loginUrl.toString(), 302);
-					}
+					const loginUrl = loginRedirectUrl(
+						result.error.details as LoginRedirectDetails | undefined,
+					);
+					if (loginUrl) return Response.redirect(loginUrl, 302);
 				}
 				return new Response(
 					JSON.stringify({
