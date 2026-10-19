@@ -18,7 +18,7 @@ export interface DeviceAttestationInput {
 	hardwareId?: string;
 	enrollmentId: string;
 	/** Kind of credential the device is enrolling. */
-	credentialKind?: "psk" | "jwk" | "x509";
+	credentialKind?: DeviceCredentialKind;
 	/** RFC 7638 SHA-256 thumbprint of the enrolled public key when `credentialKind` is `jwk`. A verifier that attests a key compares it with the attested key. */
 	credentialKeyThumbprint?: string;
 }
@@ -90,19 +90,22 @@ export interface Device {
 	updatedAt: Date;
 }
 
-export type DeviceCredentialKind = "psk" | "jwk" | "x509";
+/** `spiffe`: the credential is a SPIFFE ID (lookup is the id). The SVID is verified by `createSpiffeBridge`, never by `device.authenticate`. */
+export type DeviceCredentialKind = "psk" | "jwk" | "x509" | "spiffe";
 
 /** What a caller asks for when adding a credential. */
 export type DeviceCredentialInput =
 	| { kind: "psk" }
 	| { kind: "jwk"; jwk: JWK }
-	| { kind: "x509"; thumbprint: string };
+	| { kind: "x509"; thumbprint: string }
+	/** Map a SPIFFE ID to this device. Owner side only: enrollment refuses it, or a bulk token holder could claim any id. */
+	| { kind: "spiffe"; spiffeId: string };
 
 export interface DeviceCredential {
 	id: string;
 	deviceId: string;
 	kind: DeviceCredentialKind;
-	/** jwk: RFC 7638 thumbprint; x509: x5t#S256; psk: lookup prefix. */
+	/** jwk: RFC 7638 thumbprint; x509: x5t#S256; psk: lookup prefix; spiffe: the SPIFFE ID. */
 	lookup: string;
 	publicJwk?: JWK;
 	status: "active" | "revoked";

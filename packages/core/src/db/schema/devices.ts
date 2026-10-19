@@ -42,7 +42,7 @@ export const deviceCredentials = sqliteTable("theauth_device_credentials", {
 	deviceId: text("device_id")
 		.notNull()
 		.references(() => devices.id, { onDelete: "cascade" }),
-	kind: text("kind", { enum: ["psk", "jwk", "x509"] }).notNull(),
+	kind: text("kind", { enum: ["psk", "jwk", "x509", "spiffe"] }).notNull(),
 	/** psk: lookup prefix of the secret; jwk: RFC 7638 thumbprint; x509: x5t#S256. Indexed. */
 	lookup: text("lookup").notNull(),
 	/** psk: SHA-256 hex of the full secret. Null for the other kinds. */

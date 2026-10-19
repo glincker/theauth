@@ -2,7 +2,7 @@
 
 export type DeviceStatus = "active" | "suspended" | "revoked";
 
-export type DeviceCredentialKind = "psk" | "jwk" | "x509";
+export type DeviceCredentialKind = "psk" | "jwk" | "x509" | "spiffe";
 
 export interface DeviceRow {
 	id: string;

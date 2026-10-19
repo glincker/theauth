@@ -104,7 +104,7 @@ export const DeviceSchema = z.object({
 export const DeviceCredentialSchema = z.object({
 	id: z.string(),
 	deviceId: z.string(),
-	kind: z.enum(["psk", "jwk", "x509"]),
+	kind: z.enum(["psk", "jwk", "x509", "spiffe"]),
 	lookup: z.string(),
 	publicJwk: z.record(z.unknown()).optional(),
 	status: z.enum(["active", "revoked"]),

@@ -5,6 +5,7 @@ import type { Database } from "../db/database.js";
 import { agents, deviceCredentials, devices, permissions } from "../db/schema.js";
 import type { Permission } from "../types.js";
 import { generateDevicePsk, normalizeDeviceJwk, normalizeX509Thumbprint } from "./credentials.js";
+import { parseSpiffeId } from "./spiffe/spiffe-id.js";
 import type {
 	Device,
 	DeviceCredential,
@@ -190,6 +191,15 @@ export function createDeviceRegistry(db: Database, maxPerOwner: number) {
 					secretHash: null,
 					publicJwk: key.jwk as Record<string, unknown>,
 				},
+			};
+		}
+		if (input.kind === "spiffe") {
+			const id = parseSpiffeId(input.spiffeId);
+			if (!id.ok || id.path === "") {
+				throw new DeviceInputError("INVALID_INPUT", "spiffeId must be a SPIFFE ID with a path");
+			}
+			return {
+				row: { ...base, kind: "spiffe", lookup: id.id, secretHash: null, publicJwk: null },
 			};
 		}
 		const thumbprint = normalizeX509Thumbprint(input.thumbprint);

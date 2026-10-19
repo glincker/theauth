@@ -3,6 +3,7 @@ import { stderr, stdout } from "node:process";
 import { pathToFileURL } from "node:url";
 import type { TheAuth } from "@glinr/theauth";
 import { ATTEST_HELP, parseAttestArgs, runAttest } from "./device-attest-command.js";
+import { parseSpiffeArgs, runSpiffeVerify, SPIFFE_HELP } from "./device-spiffe-command.js";
 
 export const DEVICE_HELP = `
 theauth device
@@ -18,6 +19,8 @@ Usage:
                               [--group g]... [--perm "resource=action,action"]...
   theauth device attest android|apple|tpm --evidence <file> --nonce <n> ...
                                 (offline evidence check, no --config; see "device attest --help")
+  theauth device spiffe verify-x509|verify-jwt|link ...
+                                (SPIFFE SVID check and device mapping; see "device spiffe --help")
 
 Every command needs --config <file.mjs>: an ES module whose default export is a
 TheAuth instance (or a config object) with \`devices\` and \`agents\` configured.
@@ -277,6 +280,32 @@ export async function runDeviceCommand(argv: string[]): Promise<void> {
 			return;
 		}
 		const done = await runAttest(attest);
+		stdout.write(`${done.text}\n`);
+		if (!done.ok) process.exitCode = 1;
+		return;
+	}
+	if (argv[0] === "spiffe") {
+		const rest = argv.slice(1);
+		if (rest.length === 0 || rest.includes("--help") || rest.includes("-h")) {
+			stdout.write(SPIFFE_HELP);
+			return;
+		}
+		const spiffe = parseSpiffeArgs(rest);
+		if (spiffe.error) {
+			stderr.write(`${spiffe.error}\n${SPIFFE_HELP}`);
+			process.exitCode = 1;
+			return;
+		}
+		if (spiffe.sub === "link") {
+			const devices = await loadDevices(spiffe.config ?? "");
+			const [deviceId, spiffeId] = spiffe.positional as [string, string];
+			const credential = await devices.addCredential(deviceId, { kind: "spiffe", spiffeId });
+			stdout.write(
+				`${spiffe.json ? JSON.stringify(credential, null, 2) : `Linked ${spiffeId} to ${deviceId} (credential ${credential.id})`}\n`,
+			);
+			return;
+		}
+		const done = await runSpiffeVerify(spiffe);
 		stdout.write(`${done.text}\n`);
 		if (!done.ok) process.exitCode = 1;
 		return;

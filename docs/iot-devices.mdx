@@ -404,7 +404,11 @@ theauth device revoke <deviceId> --config ./theauth.config.mjs
 theauth device attest android --evidence chain.json --nonce <nonce> --revocation google
 theauth device attest apple --evidence att.json --nonce <nonce> --app-id ABCDE12345.com.example.robot
 theauth device attest tpm --evidence quote.json --nonce <nonce> --challenge hex --root vendor-root.pem
+theauth device spiffe verify-x509 --cert leaf.pem --root ca.pem
+theauth device spiffe link <deviceId> spiffe://example.org/ns/yard/sa/robot-7 --config ./theauth.config.mjs
 ```
+
+SPIFFE SVIDs as device credentials are covered in [SPIFFE workload identity](/spiffe).
 
 ## What is not here yet
 

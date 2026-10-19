@@ -21,7 +21,7 @@ import type {
 import { clampBundleTtl, deviceBundleJwks, signDeviceBundle } from "./bundle.js";
 import { createDeviceAuthenticator } from "./device-auth.js";
 import { createDeviceEnrollment } from "./enrollment.js";
-import { createDeviceRegistry, DeviceInputError } from "./registry.js";
+import { createDeviceRegistry, DeviceInputError, nowSec } from "./registry.js";
 import { signRevocationSnapshot } from "./revocation.js";
 import { clampRevocationTtl, collectBlockedIds } from "./revocation-issue.js";
 import { deviceBlock, devicePrincipal } from "./state.js";
@@ -207,12 +207,35 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 	}
 
 	async function enroll(input: Parameters<typeof enrollment.enroll>[0]) {
+		if (input.credential.kind === "spiffe") {
+			throw new DeviceInputError(
+				"INVALID_INPUT",
+				"A SPIFFE ID cannot be claimed at enrollment, add it with device.addCredential",
+			);
+		}
 		const enrolled = await enrollment.enroll(input);
 		await lifecycle(enrolled.device, "device.enroll", {
 			enrollmentId: enrolled.device.enrollmentId ?? null,
 			attested: enrolled.device.attestation !== undefined,
 		});
 		return enrolled;
+	}
+
+	/**
+	 * The device mapped to a SPIFFE ID that was already verified against a trust bundle (see `createSpiffeBridge`). Null for an unknown id, a revoked credential, or a device that is suspended, revoked or expired. Never pass an id taken straight from a request.
+	 */
+	async function findBySpiffeId(
+		spiffeId: string,
+	): Promise<{ device: Device; credentialId: string } | null> {
+		const row = await registry.findCredential("spiffe", spiffeId);
+		if (row?.status !== "active") return null;
+		if (row.expiresAt != null && row.expiresAt <= nowSec()) return null;
+		const deviceRow = await registry.getRow(row.deviceId);
+		if (!deviceRow) return null;
+		const device = await registry.toDevice(deviceRow);
+		if (deviceBlock(device)) return null;
+		await registry.touch(deviceRow, row.id, undefined).catch(() => {});
+		return { device, credentialId: row.id };
 	}
 
 	/**
@@ -338,6 +361,7 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 		enroll,
 		authenticate: authenticator.authenticate,
 		authenticateRequest: authenticator.authenticateRequest,
+		findBySpiffeId,
 		authorize,
 		delegate,
 		issueBundle,

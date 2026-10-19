@@ -1,0 +1,158 @@
+---
+title: SPIFFE workload identity
+description: Let a workload or robot that already holds a SPIFFE SVID act as a theAuth device or agent, with an RFC 8705 certificate bound token, no bootstrap secret needed.
+icon: id-card
+---
+
+Workloads in a cluster that runs SPIRE or another SPIFFE issuer already hold a short lived identity document, an SVID. The SPIFFE bridge takes that document, checks it against a trust bundle you configure, and maps the SPIFFE ID to a device or agent you registered. The workload never needs a pre shared key from you.
+
+The bridge is a plain function over the pieces theAuth already has. It does not open sockets and it does not create principals: a SPIFFE ID that nobody mapped is refused.
+
+## What it accepts
+
+| Document | Checked against | You get |
+| --- | --- | --- |
+| X.509-SVID (certificate with one `spiffe://` URI SAN) | CA certificates of the trust bundle | The principal and `cnf` `x5t#S256` (RFC 8705), and for an agent a token bound to that certificate |
+| JWT-SVID (compact JWS) | `jwt-svid` keys of the trust bundle, plus your audience | The principal. No token: a JWT-SVID has no key to bind |
+
+Rules come from the SPIFFE specifications: [SPIFFE ID](https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE-ID.md), [X509-SVID](https://github.com/spiffe/spiffe/blob/main/standards/X509-SVID.md), [JWT-SVID](https://github.com/spiffe/spiffe/blob/main/standards/JWT-SVID.md) and [trust domain and bundle](https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE_Trust_Domain_and_Bundle.md). The checks fail closed.
+
+X.509-SVID refusals (X509-SVID sections 2, 3.1, 4.1, 4.3, 5):
+
+- no URI SAN, or more than one URI SAN (code `no_uri_san`, `multiple_uri_sans`)
+- a URI that is not a valid SPIFFE ID, or has no path (`invalid_spiffe_id`)
+- a trust domain without a configured bundle (`untrusted_domain`), or a chain that does not end at a CA of that same trust domain (`untrusted_chain`)
+- expired or not yet valid, with 30 seconds of skew (`expired`, `not_yet_valid`)
+- a leaf with the CA flag set (`ca_leaf`)
+- key usage missing, not critical, without `digitalSignature`, or with `keyCertSign` or `cRLSign` (`key_usage`)
+- extended key usage that does not allow `clientAuth`, an unknown critical extension, or a non critical SAN on an empty Subject (`key_usage`, `extension`)
+- an intermediate that is not a CA, is expired, or breaks a `pathLenConstraint` (`untrusted_chain`)
+
+JWT-SVID refusals (JWT-SVID sections 2 to 4): an algorithm outside RS, ES and PS 256/384/512, headers other than `alg`, `kid` and `typ`, `typ` other than `JWT` or `JOSE`, no `kid`, a missing or wrong `aud`, a missing or past `exp`, `exp` more than `maxJwtTtlSeconds` (default 3600) ahead, a bad signature, an unknown `kid`.
+
+## Set it up
+
+Map a SPIFFE ID to a device. Only the owner side can do this, enrollment refuses it, otherwise whoever holds a bulk token could claim any identity:
+
+```ts
+import { createSpiffeBridge, createTheAuth } from "@glinr/theauth";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite", url: "file:./theauth.db" },
+  agents: {
+    enabled: true,
+    // A token bound to a certificate is only accepted with that certificate. Your TLS terminator knows it.
+    confirmation: {
+      methods: { "x5t#S256": (req) => req.headers.get("x-client-cert-sha256") },
+    },
+  },
+  devices: {},
+});
+
+const { device } = await theauth.device!.register({
+  ownerId: "owner-1",
+  name: "yard robot 7",
+  permissions: [{ resource: "mqtt:sensors:*", actions: ["publish"] }],
+  credential: { kind: "spiffe", spiffeId: "spiffe://example.org/ns/yard/sa/robot-7" },
+});
+
+const bridge = createSpiffeBridge({
+  trustDomains: {
+    "example.org": {
+      // Static roots, a bundle document, or a bundle endpoint. They can be combined.
+      endpoint: { url: "https://spire.example.org/bundle" },
+    },
+  },
+  audience: ["https://theauth.example.org"],
+  devices: theauth.device,
+  agents: {
+    get: (id) => theauth.agent.get(id),
+    rotate: (id, options) => theauth.agent.rotate(id, options),
+    map: { "spiffe://example.org/ns/yard/sa/planner": "agent-id-of-the-planner" },
+  },
+});
+```
+
+Then authenticate. For an X.509-SVID pass the chain from the TLS handshake your server verified (leaf first, PEM or DER). Never read it from a header the client can set: the bridge cannot tell whether the peer holds the private key, only your TLS layer can.
+
+```ts
+const result = await bridge.authenticate({ kind: "x509", chain: peerCertificatePem });
+if (!result.ok) {
+  // result.code is stable, result.reason is for your logs. Answer 401 with a generic message.
+  throw new Error(result.code);
+}
+
+if (result.principal.type === "device") {
+  const decision = await theauth.device!.authorize(result.principal.device.id, {
+    action: "publish",
+    resource: "mqtt:sensors:temp:1",
+  });
+}
+
+// Agents can also get a token bound to the certificate (RFC 8705, cnf "x5t#S256").
+const issued = await bridge.issueAgentToken(result);
+```
+
+`bridge.authenticateRequest(request)` does the same for a `Request`: it reads the certificate from the `clientCertificate` callback you pass to `createSpiffeBridge`, and falls back to `Authorization: Bearer <JWT-SVID>`.
+
+Two things to know about `issueAgentToken`. It rotates the agent token, so the previous token stops working: use one agent per workload identity, not one agent for a replicated deployment. And a device has no bearer token, it acts through `device.authorize`, so there is nothing to bind.
+
+## Trust bundles and rotation
+
+A bundle is a JWK Set (`use: "x509-svid"` entries hold a CA certificate in `x5c`, `use: "jwt-svid"` entries hold a public key and `kid`), with `spiffe_sequence` and `spiffe_refresh_hint`. Give a trust domain any mix of `bundle` (object or JSON text), `roots` (PEM) and `endpoint`.
+
+With an `endpoint` the bundle is refreshed lazily, on the first call after `spiffe_refresh_hint` has passed. There is no timer, so it works on serverless runtimes. Rules:
+
+- the URL must be https, redirects are refused, the body is capped (1 MiB) and the request has a timeout (5 seconds)
+- polling is never faster than `minRefreshSeconds` (60), whatever the hint says
+- a `spiffe_sequence` that goes backwards, or disappears from a bundle that had one, is refused (rollback)
+- an empty `keys` array is accepted, it means the trust domain revoked everything
+- a failed refresh keeps the last good bundle until `maxStaleSeconds` (86400), then that trust domain fails closed
+
+A plain `fetch` works for an `https_web` bundle endpoint (public web PKI). An `https_spiffe` endpoint authenticates itself with an SVID, so pass your own `fetch` that does mutual TLS against your bootstrap bundle.
+
+## Verify an SVID from the shell
+
+```bash
+theauth device spiffe verify-x509 --cert leaf.pem --root ca.pem
+theauth device spiffe verify-x509 --cert leaf.pem --bundle bundle.json --now 2026-10-18T12:00:00Z --json
+theauth device spiffe verify-jwt --token svid.jwt --bundle bundle.json --audience https://theauth.example.org
+theauth device spiffe link <deviceId> spiffe://example.org/ns/yard/sa/robot-7 --config ./theauth.config.mjs
+```
+
+The first three run offline with the same code the bridge uses and exit 1 when the SVID is refused.
+
+## Test SVIDs with openssl
+
+The test suite makes real certificates with the openssl CLI, so you can reproduce a case by hand. A root and an SVID, with the extensions the specification requires:
+
+```bash
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -noenc -keyout ca.key -out ca.pem \
+  -days 3650 -subj "/O=SPIFFE" \
+  -addext "basicConstraints=critical,CA:TRUE" \
+  -addext "keyUsage=critical,keyCertSign,cRLSign" \
+  -addext "subjectAltName=URI:spiffe://example.org"
+
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -noenc -keyout leaf.key -out leaf.csr -subj "/"
+
+cat > leaf.cnf <<'EXT'
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature
+extendedKeyUsage=serverAuth,clientAuth
+subjectAltName=critical,URI:spiffe://example.org/ns/yard/sa/robot-7
+EXT
+
+openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -days 1 -out leaf.pem -extfile leaf.cnf
+```
+
+`-noenc` is `-nodes` on OpenSSL 1.1. Change one line of `leaf.cnf` to see a refusal: `CA:TRUE` gives `ca_leaf`, dropping `keyUsage` gives `key_usage`, a second `URI:` gives `multiple_uri_sans`.
+
+## Limits
+
+- Not implemented: name constraints, and RSASSA-PSS or Ed25519 certificate signatures. A chain that uses them is refused, never accepted.
+- No HTTP route yet. Call the bridge from your own handler or gateway.
+- A JWT-SVID is a bearer credential, keep it on TLS and use one audience per service. The bridge accepts a token with several audiences if yours is one of them.
+- The bridge writes no audit row of its own. Actions that follow (`device.authorize`, agent calls) are audited as usual.
+- The `spiffe` credential of a device does not go through `device.authenticate`, only through the bridge.
+
+The Go twin lives in the `iot/spiffe` package of theauth-go and replays the same test vectors.

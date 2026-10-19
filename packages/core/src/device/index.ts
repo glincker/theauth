@@ -35,4 +35,5 @@ export {
 	REVOCATION_DIGEST,
 	verifyRevocationSnapshot,
 } from "./revocation.js";
+export * from "./spiffe/index.js";
 export type * from "./types.js";

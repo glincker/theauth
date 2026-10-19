@@ -329,6 +329,7 @@
               "ephemeral-sessions",
               "delegation",
               "iot-devices",
+              "spiffe",
               "token-vault"
             ]
           },
