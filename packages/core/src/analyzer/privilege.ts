@@ -227,7 +227,8 @@ export function createPrivilegeAnalyzer(db: Database) {
 				(perm.constraints.maxCallsPerHour !== undefined ||
 					perm.constraints.timeWindow !== undefined ||
 					perm.constraints.requireApproval === true ||
-					(perm.constraints.ipAllowlist && perm.constraints.ipAllowlist.length > 0));
+					(perm.constraints.ipAllowlist && perm.constraints.ipAllowlist.length > 0) ||
+					perm.constraints.attestation !== undefined);
 
 			if (!hasConstraints) {
 				findings.push({

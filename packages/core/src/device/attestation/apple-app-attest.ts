@@ -310,6 +310,8 @@ export function createAppleAppAttestVerifier(options: AppleAppAttestOptions) {
 				environment: isProd ? "production" : "development",
 				appId,
 				keyId: btoa(String.fromCharCode(...keyId)),
+				// The attested key as an X9.62 point, so assertions can be verified later (`verifyAppleAssertion`).
+				attestedPublicKey: btoa(String.fromCharCode(...point)),
 				...(attestedKey !== undefined && { attestedKeyThumbprint: attestedKey }),
 				...(category !== undefined && { validationCategory: category }),
 				...(typeof bundleVersion === "string" && { bundleVersion }),

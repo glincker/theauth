@@ -229,7 +229,20 @@ store.hydrateSession({ user: { id: "u_123", email: "ada@example.com" }, expiresA
 
 Leave `token` out of the HTML you render. Cookie sessions do not need it, and the store asks the server again on the next refresh. An expired or malformed value counts as signed out, and `hydrateSession(null)` means the server found no session. Neither the store nor the refetch code logs anything, and no error message contains a token.
 
-The routes the store calls are `POST /auth/username/sign-in`, `POST /auth/username/sign-up`, `POST /auth/sign-out` and `GET /auth/session`. The core has no email and password route, so set `signInPath`, `signUpPath` and `identifierField` if you serve your own.
+The routes the store calls are `POST /auth/sign-out`, `GET /auth/session`, and either the username routes (`/auth/username/sign-in` and `/auth/username/sign-up`, which you forward with `theauth.username.handleRequest`) or, with `emailPassword: true`, the core email and password routes that `createTheAuthHandler` serves (`/auth/email/sign-in` and `/auth/email/sign-up`, body field `email`). Set `signInPath`, `signUpPath` and `identifierField` if you serve your own.
+
+```ts
+import { createSessionStore } from '@glinr/theauth-client';
+
+const store = createSessionStore({ emailPassword: true });
+const up = await store.signUp('ada@example.com', 'correct horse battery', 'Ada');
+// up: { success: true, verificationRequired: true } while the address is unverified
+await store.verifyEmail(tokenFromTheEmailLink);
+const inn = await store.signIn('ada@example.com', 'correct horse battery');
+// inn.success is false with inn.code === 'EMAIL_NOT_VERIFIED' before verification
+```
+
+The store also has `resendVerification(email)`, `requestPasswordReset(email)` and `resetPassword(token, password)`. See [Email and password](/auth/email-password) for the server side and the error codes.
 
 ## Next steps
 

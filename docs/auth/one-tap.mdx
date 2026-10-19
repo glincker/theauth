@@ -70,6 +70,9 @@ Google sends a `g_csrf_token` cookie with the request. theAuth validates that th
 | `clientId` | string | required | Google OAuth client ID |
 | `autoCreateUser` | boolean | `true` | Create user if not found |
 | `csrfCookieName` | string | `"g_csrf_token"` | CSRF cookie name |
+| `unsafeAllowUnverifiedEmailLinking` | boolean | `false` | Sign in to an existing account with the same email even when Google or the local address is unverified. Leave it off: it allows account pre-hijacking |
+
+An existing account is matched by email (case-insensitive) only when Google reports `email_verified: true` and the local address is verified. Otherwise the callback answers 409 with code `ACCOUNT_EXISTS` and no session. New users are stored as verified only when Google said so.
 
 ## Endpoint
 

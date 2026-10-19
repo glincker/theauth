@@ -2,6 +2,7 @@ import { Cpu } from "lucide-react";
 import type { DeviceDetail, DeviceFleetStats, DeviceRow } from "../api/device-types.js";
 import {
 	activeCredentialKinds,
+	attestationLines,
 	formatLastSeen,
 	spiffeTrustDomain,
 	statusTone,
@@ -168,6 +169,31 @@ export function DeviceTable({
 	);
 }
 
+/** Verified attestation claims, so an operator sees which devices a `securityLevel` rule will let through. */
+function AttestationSection({ claims }: { claims: Record<string, unknown> | undefined }) {
+	const lines = attestationLines(claims);
+	if (lines.length === 0) {
+		return (
+			<p data-testid="device-attestation" className="text-zinc-500">
+				No hardware attestation. Permissions with an attestation constraint deny this device.
+			</p>
+		);
+	}
+	return (
+		<div data-testid="device-attestation" className="space-y-1">
+			<p className="font-medium">Hardware attestation</p>
+			<dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+				{lines.map((l) => (
+					<div key={l.label} className="contents">
+						<dt className="text-zinc-500">{l.label}</dt>
+						<dd className="font-mono break-all">{l.value}</dd>
+					</div>
+				))}
+			</dl>
+		</div>
+	);
+}
+
 /** One device with its credentials (kind and state only, never key material). */
 export function DeviceDetailPanel({ device }: { device: DeviceDetail }) {
 	return (
@@ -182,6 +208,7 @@ export function DeviceDetailPanel({ device }: { device: DeviceDetail }) {
 					Hardware id: <span className="font-mono">{device.hardwareId}</span>
 				</p>
 			)}
+			<AttestationSection claims={device.attestation} />
 			{device.lastSeenIp && (
 				<p>
 					Last IP: <span className="font-mono">{device.lastSeenIp}</span>

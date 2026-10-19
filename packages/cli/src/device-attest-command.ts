@@ -5,6 +5,8 @@ export const ATTEST_HELP = `
 theauth device attest android --evidence <file> --nonce <nonce> --revocation google|off [options]
 theauth device attest apple   --evidence <file> --nonce <nonce> --app-id <TeamID.BundleID> [options]
 theauth device attest tpm     --evidence <file> --nonce <nonce> --root <file> | --allow-unverified-ak [options]
+theauth device attest apple-assertion --assertion <file> --client-data <file> --app-id <id> --public-key <base64> --previous-counter <n>
+theauth device attest apple-receipt   --receipt <file> [--app-id <id>] [--public-key <base64>] [--root <file>]
 
 Checks evidence offline with the same verifier the enrollment hook uses. No config file is needed.
 Exit code 0 when the evidence is accepted, 1 when it is refused.
@@ -12,6 +14,10 @@ Exit code 0 when the evidence is accepted, 1 when it is refused.
 android: the evidence file is a JSON array of base64 DER certificates, leaf first (KeyStore.getCertificateChain).
 apple:   the evidence file is JSON { "attestation": "<base64>", "keyId": "<base64>" } (App Attest attestKey output).
 tpm:     the evidence file is JSON { "akPublic", "quote", "signature", "pcrs", "akCertificates" }, see the IoT docs.
+apple-assertion: --assertion is the base64 assertion object, --client-data the exact bytes the app hashed, --public-key the
+         attestedPublicKey claim stored at enrollment, --previous-counter the highest counter accepted so far (0 after attestation).
+apple-receipt:   --receipt is the base64 receipt (CMS) Apple returned with an attestation or assertion.
+The TPM certify verifier needs the server side activation store, so it has no offline command here (the Go CLI has one).
 
 Common options:
   --evidence <file>         Evidence file
@@ -36,11 +42,18 @@ apple options:
 tpm options:
   --allow-unverified-ak     Accept an attestation key without a certificate chain (development only)
   --pcr <bank>:<index>=<hex>   Expected PCR value, for example sha256:7=ab12... (repeatable)
+
+Accepted evidence also prints the policy facts (securityLevel, bootState, appIds) that an attestation constraint reads.
 `;
 
 export interface AttestArgs {
-	format: "android" | "apple" | "tpm";
+	format: "android" | "apple" | "tpm" | "apple-assertion" | "apple-receipt";
 	evidence?: string;
+	assertion?: string;
+	clientData?: string;
+	publicKey?: string;
+	previousCounter: number;
+	receipt?: string;
 	nonce?: string;
 	revocation?: "google" | "off";
 	roots: string[];
@@ -59,7 +72,7 @@ export interface AttestArgs {
 	error: string | null;
 }
 
-const FORMATS = ["android", "apple", "tpm"] as const;
+const FORMATS = ["android", "apple", "tpm", "apple-assertion", "apple-receipt"] as const;
 
 /** Parse the arguments after `device attest`. */
 export function parseAttestArgs(args: string[]): AttestArgs {
@@ -74,12 +87,14 @@ export function parseAttestArgs(args: string[]): AttestArgs {
 		environment: "production",
 		clientDataHash: "sha256",
 		allowUnverifiedAk: false,
+		previousCounter: 0,
 		pcrs: {},
 		json: false,
 		error: null,
 	};
 	if (!FORMATS.some((f) => f === format)) {
-		out.error = "Supported attestation formats: android, apple, tpm";
+		out.error =
+			"Supported attestation formats: android, apple, tpm, apple-assertion, apple-receipt";
 		return out;
 	}
 	for (let i = 0; i < rest.length; i++) {
@@ -96,6 +111,30 @@ export function parseAttestArgs(args: string[]): AttestArgs {
 				out.evidence = v;
 				i++;
 				break;
+			case "--assertion":
+				out.assertion = v;
+				i++;
+				break;
+			case "--client-data":
+				out.clientData = v;
+				i++;
+				break;
+			case "--public-key":
+				out.publicKey = v;
+				i++;
+				break;
+			case "--receipt":
+				out.receipt = v;
+				i++;
+				break;
+			case "--previous-counter": {
+				const n = Number(v);
+				if (!Number.isInteger(n) || n < 0 || n > 0xffff_ffff) {
+					out.error ??= "--previous-counter must be an integer from 0 to 4294967295";
+				} else out.previousCounter = n;
+				i++;
+				break;
+			}
 			case "--nonce":
 				out.nonce = v;
 				i++;
@@ -169,7 +208,14 @@ export function parseAttestArgs(args: string[]): AttestArgs {
 				out.error ??= `Unknown argument: ${a}`;
 		}
 	}
-	if (!out.error) {
+	if (!out.error && out.format === "apple-assertion") {
+		if (!out.assertion) out.error = "Missing --assertion <file>";
+		else if (!out.clientData) out.error = "Missing --client-data <file>";
+		else if (!out.publicKey) out.error = "Missing --public-key <base64>";
+		else if (out.appIds.length !== 1) out.error = "Pass exactly one --app-id <TeamID.BundleID>";
+	} else if (!out.error && out.format === "apple-receipt") {
+		if (!out.receipt) out.error = "Missing --receipt <file>";
+	} else if (!out.error) {
 		if (!out.evidence) out.error = "Missing --evidence <file>";
 		else if (!out.nonce) out.error = "Missing --nonce";
 		else if (out.format === "android" && !out.revocation) {
@@ -217,9 +263,56 @@ async function buildVerifier(args: AttestArgs, roots: string[]) {
 	});
 }
 
+async function runAssertionOrReceipt(
+	args: AttestArgs,
+	roots: string[],
+): Promise<{ ok: true; claims: Record<string, unknown> } | { ok: false; reason: string }> {
+	const core = await import("@glinr/theauth");
+	if (args.format === "apple-assertion") {
+		const assertion = (await readFile(resolve(args.assertion ?? ""), "utf8")).trim();
+		const clientData = await readFile(resolve(args.clientData ?? ""));
+		const r = await core.verifyAppleAssertion({
+			assertion,
+			clientData: new Uint8Array(clientData),
+			appId: args.appIds[0] ?? "",
+			publicKey: args.publicKey ?? "",
+			previousCounter: args.previousCounter,
+		});
+		return r.ok ? { ok: true, claims: { counter: r.counter, flags: r.flags } } : r;
+	}
+	const receipt = (await readFile(resolve(args.receipt ?? ""), "utf8")).trim();
+	const r = await core.verifyAppleReceipt(receipt, {
+		...(args.appIds[0] !== undefined && { appId: args.appIds[0] }),
+		...(args.publicKey !== undefined && { publicKey: args.publicKey }),
+		...(roots.length > 0 && { roots }),
+		...(args.now && { now: () => args.now as Date }),
+	});
+	if (!r.ok) return r;
+	const x = r.receipt;
+	return {
+		ok: true,
+		claims: {
+			appId: x.appId,
+			type: x.type,
+			...(x.environment !== undefined && { environment: x.environment }),
+			creationTime: x.creationTime.toISOString(),
+			...(x.notBefore && { notBefore: x.notBefore.toISOString() }),
+			...(x.expirationTime && { expirationTime: x.expirationTime.toISOString() }),
+			...(x.riskMetric !== undefined && { riskMetric: x.riskMetric }),
+			token: x.token,
+			...(x.attestedKeyThumbprint !== undefined && {
+				attestedKeyThumbprint: x.attestedKeyThumbprint,
+			}),
+		},
+	};
+}
+
 /** Run the check and return the text to print plus whether the evidence was accepted. */
 export async function runAttest(args: AttestArgs): Promise<{ text: string; ok: boolean }> {
 	const roots = await Promise.all(args.roots.map((f) => readFile(resolve(f), "utf8")));
+	if (args.format === "apple-assertion" || args.format === "apple-receipt") {
+		return render(await runAssertionOrReceipt(args, roots), args.json);
+	}
 	const evidence = await readFile(resolve(args.evidence ?? ""), "utf8");
 	const verify = await buildVerifier(args, roots);
 	const result = await verify({
@@ -231,9 +324,23 @@ export async function runAttest(args: AttestArgs): Promise<{ text: string; ok: b
 			credentialKeyThumbprint: args.keyThumbprint,
 		}),
 	});
-	if (args.json) return { text: JSON.stringify(result, null, 2), ok: result.ok };
+	return render(result.ok ? { ok: true, claims: result.claims ?? {} } : result, args.json);
+}
+
+async function render(
+	result: { ok: true; claims: Record<string, unknown> } | { ok: false; reason: string },
+	json: boolean,
+): Promise<{ text: string; ok: boolean }> {
+	const core = await import("@glinr/theauth");
+	const facts = result.ok ? core.attestationFacts(result.claims) : undefined;
+	if (json) {
+		return {
+			text: JSON.stringify(result.ok ? { ...result, ...(facts && { facts }) } : result, null, 2),
+			ok: result.ok,
+		};
+	}
 	if (!result.ok) return { text: `Refused: ${result.reason}`, ok: false };
-	const c = result.claims ?? {};
-	const lines = Object.entries(c).map(([k, val]) => `  ${k}: ${JSON.stringify(val)}`);
-	return { text: `Accepted\n${lines.join("\n")}`, ok: true };
+	const lines = Object.entries(result.claims).map(([k, val]) => `  ${k}: ${JSON.stringify(val)}`);
+	const factsLine = facts ? `\nPolicy facts: ${JSON.stringify(facts)}` : "";
+	return { text: `Accepted\n${lines.join("\n")}${factsLine}`, ok: true };
 }

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AgentConfirmationSchema } from "../agent/confirmation.js";
 import { InputSourcesSchema } from "../audit/provenance-wire.js";
+import { AttestationConstraintSchema } from "../policy/attestation-constraint-schema.js";
 
 const PermissionConstraintsSchema = z.object({
 	maxCallsPerHour: z.number().int().positive().optional(),
@@ -8,6 +9,7 @@ const PermissionConstraintsSchema = z.object({
 	requireApproval: z.boolean().optional(),
 	timeWindow: z.object({ start: z.string(), end: z.string() }).optional(),
 	ipAllowlist: z.array(z.string()).optional(),
+	attestation: AttestationConstraintSchema.optional(),
 });
 
 export const PermissionSchema = z.object({

@@ -102,6 +102,9 @@ Earlier versions mounted these routes with no authentication. After upgrading, p
 | [`@glinr/theauth-hono`](/adapters/hono) | Hono | `app.route('/api/theauth', theAuthHono(theauth))` |
 | [`@glinr/theauth`](/adapters/elysia) | Elysia | `new Elysia().mount('/api/theauth', createTheAuthHandler(theauth, { basePath: '' }))` |
 | [`@glinr/theauth`](/adapters/nitro) | Nitro (standalone) | catch-all route `server/routes/api/theauth/[...path].ts` |
+| [`@glinr/theauth`](/adapters/effect) | Effect (3 and 4) | `HttpRouter.add("*", "/api/theauth/*", HttpEffect.fromWebHandler(handler))` |
+| [`@glinr/theauth`](/adapters/encore) | Encore.ts | raw endpoint `api.raw({ path: "/api/theauth/*path", method: "*" }, ...)` |
+| [`@glinr/theauth`](/adapters/convex) | Convex (identity provider) | `auth.config.ts` custom JWT provider, token route on your theAuth server |
 | [`@glinr/theauth`](/adapters/waku) | Waku | API route `src/pages/_api/theauth/[...path].ts` |
 | [`@glinr/theauth`](/adapters/react-router) | React Router v7 | resource route `app/routes/api.theauth.$.ts` |
 | [`@glinr/theauth-express`](/adapters/express) | Express | `app.use('/api/theauth', theAuthExpress(theauth))` |

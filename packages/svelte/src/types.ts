@@ -57,4 +57,12 @@ export interface CreateAgentInput {
 	metadata?: Record<string, unknown>;
 }
 
-export type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };
+/** `code` is the server's error code when it sent one, for example `EMAIL_NOT_VERIFIED`. */
+export type ActionResult<T = void> =
+	| { success: true; data: T }
+	| { success: false; error: string; code?: string };
+
+/** What a sign-up reports. `verificationRequired` means no session yet: verify the email, then sign in. */
+export interface SignUpData {
+	verificationRequired: boolean;
+}

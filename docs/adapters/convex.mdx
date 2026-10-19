@@ -1,0 +1,141 @@
+---
+title: Convex
+description: Use theAuth as the identity provider for a Convex backend. theAuth mints a short-lived ES256 JWT, Convex verifies it through a custom JWT provider, and `ctx.auth.getUserIdentity()` returns the signed-in user.
+icon: code
+---
+
+Convex functions run in Convex's own runtime against Convex's own database. theAuth needs a SQL database, so theAuth does not run inside Convex. The two sit side by side instead: theAuth stays on your server and Convex trusts the tokens it issues.
+
+This is the same shape as using Clerk or Auth0 with Convex. Convex supports [custom JWT providers](https://docs.convex.dev/auth/advanced/custom-jwt): it fetches a JWKS from a URL you give it and checks the signature, issuer, audience and expiry of every token the client sends. There is no Convex package for theAuth. You add one token route to your theAuth server.
+
+<Info>
+  This page covers Convex verifying theAuth sessions. It does not run the theAuth routes (sign in, agents, audit) inside Convex HTTP actions, because those need a SQL database that Convex does not offer.
+</Info>
+
+## Install
+
+```bash
+pnpm add @glinr/theauth jose better-sqlite3
+pnpm add convex
+```
+
+## Serve a JWKS and a token route
+
+Any server that already runs `createTheAuthHandler` works. This example uses `node:http` so it stands alone. The signing key is generated at startup for the example. In production load a persistent private key, or tokens stop verifying on every restart.
+
+```typescript title="server.ts"
+import { createServer } from "node:http";
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler, sendWebResponse, toWebRequest } from "@glinr/theauth/http";
+import { SignJWT, exportJWK, generateKeyPair } from "jose";
+
+const ISSUER = "https://auth.example.com"; // the public URL of this server
+const AUDIENCE = "convex";
+const KID = "convex-1";
+
+const { privateKey, publicKey } = await generateKeyPair("ES256");
+const jwk = { ...(await exportJWK(publicKey)), kid: KID, alg: "ES256", use: "sig" };
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite-native", url: "theauth.db" },
+  auth: { adapter: yourAuthAdapter }, // anything with resolveUser(request)
+});
+
+const handler = createTheAuthHandler(theauth, {
+  basePath: "/api/theauth",
+  authenticate: async (request) => {
+    const user = await theauth.auth.resolveUser(request);
+    return user ? { id: user.id } : null;
+  },
+});
+
+async function convexToken(request: Request): Promise<Response> {
+  const user = await theauth.auth.resolveUser(request);
+  if (!user) return Response.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
+  const token = await new SignJWT({ email: user.email, name: user.name })
+    .setProtectedHeader({ alg: "ES256", kid: KID })
+    .setSubject(user.id)
+    .setIssuer(ISSUER)
+    .setAudience(AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .sign(privateKey);
+  return Response.json({ token });
+}
+
+async function route(request: Request): Promise<Response> {
+  const { pathname } = new URL(request.url);
+  if (pathname === "/.well-known/jwks.json") return Response.json({ keys: [jwk] });
+  if (pathname === "/api/convex/token") return convexToken(request);
+  return handler(request);
+}
+
+createServer(async (req, res) => {
+  await sendWebResponse(res, await route(await toWebRequest(req)));
+}).listen(3000);
+```
+
+`yourAuthAdapter` is whatever resolves your signed-in user from a request, for example a Better Auth session lookup or your own cookie check. The token route refuses callers it cannot resolve, so only signed-in users get a Convex token. Keep the lifetime short: Convex does not call back to theAuth, so a token stays valid until it expires even if the user signs out.
+
+## Tell Convex to trust it
+
+```typescript title="convex/auth.config.ts"
+import type { AuthConfig } from "convex/server";
+
+export default {
+  providers: [
+    {
+      type: "customJwt",
+      applicationID: "convex", // the aud claim
+      issuer: "https://auth.example.com", // the iss claim
+      jwks: "https://auth.example.com/.well-known/jwks.json",
+      algorithm: "ES256",
+    },
+  ],
+} satisfies AuthConfig;
+```
+
+`issuer` and `applicationID` must match the `iss` and `aud` of the tokens exactly. Convex fetches the JWKS from the deployment, so the URL must be reachable from Convex, not only from your machine.
+
+## Read the user in a function
+
+```typescript title="convex/me.ts"
+import { query } from "./_generated/server";
+
+export const whoami = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    return { subject: identity.subject, email: identity.email };
+  },
+});
+```
+
+`identity.subject` is the theAuth user id. On the client, give Convex a token fetcher that calls your token route. With the React client:
+
+```tsx
+import { useCallback, useMemo } from "react";
+import { ConvexProviderWithAuth } from "convex/react";
+
+// Memoize the result. When the hook returns a new object Convex goes back to
+// loading and fetches a token again.
+function useTheAuthConvex() {
+  const isAuthenticated = useYourSessionState(); // for example the theAuth client session hook
+  const fetchAccessToken = useCallback(async (_args: { forceRefreshToken: boolean }) => {
+    const res = await fetch("/api/convex/token", { credentials: "include" });
+    return res.ok ? ((await res.json()) as { token: string }).token : null;
+  }, []);
+  return useMemo(
+    () => ({ isLoading: false, isAuthenticated, fetchAccessToken }),
+    [isAuthenticated, fetchAccessToken],
+  );
+}
+// <ConvexProviderWithAuth client={convex} useAuth={useTheAuthConvex}>
+```
+
+The token route issues a fresh token on every call, so `forceRefreshToken` needs no special handling.
+
+## What was run
+
+Run against the local Convex backend that `npx convex dev` starts in anonymous agent mode (`convex` 1.47.0), with `@glinr/theauth` from a packed tarball and the server above using `http://localhost:4545` as the issuer. With no token, `whoami` returned `null`. With a token from `/api/convex/token` for user `alice`, it returned her subject, email and the issuer. A token with a damaged signature was rejected by Convex with an `InvalidAuthHeader` error. The token route answered 401 without a session. The `ConvexProviderWithAuth` snippet was not run, since it needs a browser.

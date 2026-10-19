@@ -1,3 +1,8 @@
+export type {
+	DeviceAppAssertionFailure,
+	DeviceAppAssertionInput,
+	DeviceAppAssertionResult,
+} from "./app-assertion.js";
 export * from "./attestation/index.js";
 export type {
 	BundleDecision,

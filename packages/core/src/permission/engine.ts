@@ -5,6 +5,7 @@ import { stripReservedAuditKeys } from "../audit/reserved.js";
 import { generateId } from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { evaluateConstraints, findMatchingPermission, inspectConstraints } from "../policy/abac.js";
+import type { AttestationFacts } from "../policy/attestation-constraint.js";
 import type { ResourceMatching } from "../policy/resource-match.js";
 import type { AgentIdentity, AuthorizeRequest, AuthorizeResult } from "../types.js";
 import type { DecisionCode } from "./codes.js";
@@ -69,6 +70,7 @@ export function createPermissionEngine(config: PermissionEngineConfig) {
 				arguments: request.arguments,
 				// Adapters pass the client IP via context; direct callers may set request.ip.
 				ip: request.context?.ip ?? request.ip,
+				attestation: options?.attestation,
 			};
 			let constraintResult = await evaluateConstraints(
 				db,
@@ -225,6 +227,8 @@ export interface AuthorizeOptions {
 	deferDenialAudit?: boolean;
 	/** Extra keys merged into the `parameters` of the audit row this call writes (for example `theauthHook`). */
 	auditParameters?: Record<string, unknown>;
+	/** Verified attestation facts of the calling device, read from the device record by the device module. Never accept these from a request. */
+	attestation?: AttestationFacts;
 }
 
 /** Optional overrides for a denial row written by `recordDenial`. */

@@ -161,6 +161,9 @@
     "@types/sql.js": "^1.4.11",
     "@vitest/coverage-v8": "^3.2.4",
     "better-sqlite3": "^12.9.0",
+    "kysely": "^0.29.7",
+    "tarn": "^3.1.2",
+    "tedious": "^20.3.8",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
@@ -168,6 +171,7 @@
   "peerDependencies": {
     "@libsql/client": ">=0.6.0",
     "better-sqlite3": ">=9.0.0",
+    "kysely": ">=0.28.0",
     "mysql2": ">=3.0.0",
     "pg": ">=8.0.0",
     "sql.js": ">=1.10.0"
@@ -180,6 +184,9 @@
       "optional": true
     },
     "@libsql/client": {
+      "optional": true
+    },
+    "kysely": {
       "optional": true
     },
     "pg": {

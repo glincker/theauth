@@ -6,6 +6,7 @@ import type { McpActorClaim } from "./mcp/types.js";
 import { ADMIN_COMPONENT_SCHEMAS } from "./openapi-admin.js";
 import type { DecisionCode } from "./permission/codes.js";
 import { DECISION_CODES } from "./permission/codes.js";
+import { AttestationConstraintSchema } from "./policy/attestation-constraint-schema.js";
 import type {
 	AgentIdentity,
 	AuditEntry,
@@ -34,6 +35,7 @@ export const PermissionConstraintsSchema = z.object({
 	requireApproval: z.boolean().optional(),
 	timeWindow: z.object({ start: z.string(), end: z.string() }).optional(),
 	ipAllowlist: z.array(z.string()).optional(),
+	attestation: AttestationConstraintSchema.optional(),
 });
 
 export const PermissionSchema = z.object({
@@ -162,6 +164,7 @@ const ConstraintStepSchema = z.object({
 		"requireApproval",
 		"timeWindow",
 		"ipAllowlist",
+		"attestation",
 	]),
 	outcome: z.enum(["pass", "fail", "approval"]),
 	detail: z.string(),

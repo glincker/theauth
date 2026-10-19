@@ -288,3 +288,47 @@ test("initialSession hydrates with no request, and focus refetches only while su
 	await flush();
 	expect(fetchMock).toHaveBeenCalledTimes(1);
 });
+
+test("emailPassword preset targets the email routes and exposes verify and reset", async () => {
+	const urls: string[] = [];
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			urls.push(url);
+			if (url.endsWith("/auth/email/sign-up")) {
+				return { ok: true, status: 201, json: async () => ({ verificationRequired: true }) };
+			}
+			if (url.endsWith("/auth/email/sign-in")) {
+				return {
+					ok: false,
+					status: 403,
+					json: async () => ({ error: { code: "EMAIL_NOT_VERIFIED", message: "Verify first" } }),
+				};
+			}
+			if (url.endsWith("/auth/email/verify") || url.endsWith("/auth/email/forgot-password")) {
+				return { ok: true, status: 200, json: async () => ({}) };
+			}
+			return { ok: false, status: 401, json: async () => ({}) };
+		}) as typeof fetch,
+	);
+	const client = createTheAuthClient({ basePath: "/api/theauth", emailPassword: true });
+	await flush();
+
+	expect(await client.signUp("ada@example.com", "pw-long-enough")).toEqual({
+		success: true,
+		data: { verificationRequired: true },
+	});
+	expect(await client.signIn("ada@example.com", "pw-long-enough")).toEqual({
+		success: false,
+		error: "Verify first",
+		code: "EMAIL_NOT_VERIFIED",
+	});
+	expect(await client.verifyEmail("tok")).toEqual({ success: true, data: undefined });
+	expect(await client.requestPasswordReset("ada@example.com")).toEqual({
+		success: true,
+		data: undefined,
+	});
+	expect(urls).toContain("/api/theauth/auth/email/verify");
+	client.destroy();
+});

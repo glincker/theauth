@@ -233,7 +233,7 @@ describe("@glinr/theauth-react runtime smoke", () => {
 		});
 		await flush();
 
-		expect(signUpResult).toEqual({ success: true, data: undefined });
+		expect(signUpResult).toEqual({ success: true, data: { verificationRequired: false } });
 		expect(latest?.context.isAuthenticated).toBe(true);
 		expect(latest?.user.user?.id).toBe("user-2");
 		expect(JSON.parse(window.localStorage.getItem(SESSION_KEY) ?? "{}")).toMatchObject({

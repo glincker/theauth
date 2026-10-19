@@ -1,3 +1,5 @@
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -133,5 +135,78 @@ describe("apple and tpm", () => {
 		expect(ok).toMatchObject({ ok: true, text: expect.stringContaining("tpm2-quote") });
 		const bad = await runAttest(parseAttestArgs(tpm.map((a) => (a === "9009" ? "9010" : a))));
 		expect(bad).toMatchObject({ ok: false });
+	});
+});
+
+describe("apple assertions and receipts", () => {
+	// Real recordings from veehaitch/devicecheck-appattest (Apache-2.0), see packages/core/tests/fixtures.
+	const fx = JSON.parse(
+		readFileSync(
+			fileURLToPath(new URL("../../core/tests/fixtures/apple-app-assertion.json", import.meta.url)),
+			"utf8",
+		),
+	);
+	const dir = mkdtempSync(join(tmpdir(), "attest-cli-"));
+	const file = (name: string, content: string) => {
+		const p = join(dir, name);
+		writeFileSync(p, content);
+		return p;
+	};
+	const a = fx.assertions.veehaitch_ios_14_4;
+	const assertionArgs = (previous: string) => [
+		"apple-assertion",
+		"--assertion",
+		file("assertion.b64", `${a.assertion}\n`),
+		"--client-data",
+		file("client-data", a.clientData),
+		"--app-id",
+		a.appId,
+		"--public-key",
+		a.publicKey,
+		"--previous-counter",
+		previous,
+	];
+
+	it("needs its own flags", () => {
+		expect(parseAttestArgs(["apple-assertion"]).error).toMatch(/--assertion/);
+		expect(
+			parseAttestArgs([
+				"apple-assertion",
+				"--assertion",
+				"a",
+				"--client-data",
+				"c",
+				"--public-key",
+				"k",
+			]).error,
+		).toMatch(/exactly one --app-id/);
+		expect(parseAttestArgs(["apple-assertion", "--previous-counter", "-1"]).error).toMatch(
+			/previous-counter/,
+		);
+		expect(parseAttestArgs(["apple-receipt"]).error).toMatch(/--receipt/);
+	});
+
+	it("accepts a real assertion once and refuses its replay", async () => {
+		const ok = await runAttest(parseAttestArgs(assertionArgs("0")));
+		expect(ok).toMatchObject({ ok: true, text: expect.stringContaining("counter: 1") });
+		const replay = await runAttest(parseAttestArgs(assertionArgs("1")));
+		expect(replay).toEqual({ ok: false, text: "Refused: Assertion counter did not increase" });
+	});
+
+	it("verifies a real receipt and refuses it after it expired", async () => {
+		const r = fx.receipts.veehaitch_attest_receipt;
+		const args = (now: string) =>
+			parseAttestArgs([
+				"apple-receipt",
+				"--receipt",
+				file("receipt.b64", r.receipt),
+				"--app-id",
+				r.appId,
+				"--now",
+				now,
+			]);
+		const ok = await runAttest(args("2021-02-01T00:00:00Z"));
+		expect(ok).toMatchObject({ ok: true, text: expect.stringContaining('type: "ATTEST"') });
+		expect((await runAttest(args("2022-01-01T00:00:00Z"))).ok).toBe(false);
 	});
 });

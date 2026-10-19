@@ -5,13 +5,14 @@ import { runSocialSignIn } from "./social.js";
 import { createMemoryStorage } from "./storage.js";
 import type {
 	ActionResult,
+	SignUpData,
 	TheAuthContextValue,
 	TheAuthExpoConfig,
 	TheAuthSession,
 	TheAuthStorage,
 	TheAuthUser,
 } from "./types.js";
-import { parseError, parseSession } from "./wire.js";
+import { failure, isVerificationRequired, parseSession } from "./wire.js";
 
 const SESSION_KEY = "theauth_session";
 
@@ -44,9 +45,11 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 	const [isLoading, setIsLoading] = useState(true);
 
 	const base = config.basePath.replace(/\/$/, "");
-	const signInPath = config.signInPath ?? "/auth/username/sign-in";
-	const signUpPath = config.signUpPath ?? "/auth/username/sign-up";
-	const identifierField = config.identifierField ?? "username";
+	const signInPath =
+		config.signInPath ?? (config.emailPassword ? "/auth/email/sign-in" : "/auth/username/sign-in");
+	const signUpPath =
+		config.signUpPath ?? (config.emailPassword ? "/auth/email/sign-up" : "/auth/username/sign-up");
+	const identifierField = config.identifierField ?? (config.emailPassword ? "email" : "username");
 
 	// Stable storage ref so callbacks don't re-create on each render
 	const storageRef = useRef<TheAuthStorage>(config.storage ?? createMemoryStorage());
@@ -112,7 +115,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 				const json: unknown = await res.json().catch(() => null);
 
 				if (!res.ok) {
-					return { success: false, error: parseError(json, `Sign-in failed (${res.status})`) };
+					return failure(json, `Sign-in failed (${res.status})`);
 				}
 
 				const next = parseSession(json);
@@ -131,7 +134,7 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 	);
 
 	const signUp = useCallback(
-		async (email: string, password: string, name?: string): Promise<ActionResult> => {
+		async (email: string, password: string, name?: string): Promise<ActionResult<SignUpData>> => {
 			try {
 				const res = await fetchRef.current(`${base}${signUpPath}`, {
 					method: "POST",
@@ -142,14 +145,19 @@ export function TheAuthExpoProvider({ config, children }: TheAuthExpoProviderPro
 				const json: unknown = await res.json().catch(() => null);
 
 				if (!res.ok) {
-					return { success: false, error: parseError(json, `Sign-up failed (${res.status})`) };
+					return failure(json, `Sign-up failed (${res.status})`);
+				}
+
+				// The account exists but has no session yet: the user verifies, then signs in.
+				if (isVerificationRequired(json)) {
+					return { success: true, data: { verificationRequired: true } };
 				}
 
 				const next = parseSession(json);
 				if (!next) return { success: false, error: "Sign-up returned an unexpected response" };
 				await storageRef.current.setItem(SESSION_KEY, next.token);
 				setSession(next);
-				return { success: true, data: undefined };
+				return { success: true, data: { verificationRequired: false } };
 			} catch (err) {
 				return {
 					success: false,

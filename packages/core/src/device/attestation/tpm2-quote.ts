@@ -63,7 +63,11 @@ function bytesFromEvidence(s: string): Uint8Array {
 	return fromBase64Url(s);
 }
 
-async function webKey(pub: TpmPublic, hash: TpmHashName, sig: TpmSignature): Promise<CryptoKey> {
+export async function webKey(
+	pub: TpmPublic,
+	hash: TpmHashName,
+	sig: TpmSignature,
+): Promise<CryptoKey> {
 	const subtle = globalThis.crypto.subtle;
 	if (pub.type === "rsa" && pub.rsa) {
 		return subtle.importKey(
@@ -86,13 +90,13 @@ async function webKey(pub: TpmPublic, hash: TpmHashName, sig: TpmSignature): Pro
 	throw new Error("Key and signature algorithm do not match");
 }
 
-function intBytes(n: number): Uint8Array {
+export function intBytes(n: number): Uint8Array {
 	const out: number[] = [];
 	for (let v = n; v > 0; v = Math.floor(v / 256)) out.unshift(v % 256);
 	return Uint8Array.from(out);
 }
 
-function ensureBuffer(b: Uint8Array): Uint8Array<ArrayBuffer> {
+export function ensureBuffer(b: Uint8Array): Uint8Array<ArrayBuffer> {
 	const out = new Uint8Array(new ArrayBuffer(b.length));
 	out.set(b);
 	return out;
@@ -107,7 +111,7 @@ function leftPad(b: Uint8Array, size: number): Uint8Array {
 	return out;
 }
 
-async function verifyQuoteSignature(
+export async function verifyQuoteSignature(
 	key: CryptoKey,
 	pub: TpmPublic,
 	sig: TpmSignature,
@@ -133,11 +137,11 @@ async function verifyQuoteSignature(
 	return false;
 }
 
-async function digest(hash: TpmHashName, data: Uint8Array): Promise<Uint8Array> {
+export async function digest(hash: TpmHashName, data: Uint8Array): Promise<Uint8Array> {
 	return new Uint8Array(await globalThis.crypto.subtle.digest(WEB_HASH[hash], ensureBuffer(data)));
 }
 
-function concat(parts: Uint8Array[]): Uint8Array {
+export function concat(parts: Uint8Array[]): Uint8Array {
 	const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
 	let at = 0;
 	for (const p of parts) {
@@ -155,7 +159,11 @@ async function akName(pub: TpmPublic): Promise<string | undefined> {
 	return toHex(concat([Uint8Array.from([pub.nameAlg >> 8, pub.nameAlg & 0xff]), h]));
 }
 
-async function certMatchesAk(cert: X509Cert, pub: TpmPublic, hash: TpmHashName): Promise<boolean> {
+export async function certMatchesAk(
+	cert: X509Cert,
+	pub: TpmPublic,
+	hash: TpmHashName,
+): Promise<boolean> {
 	const subtle = globalThis.crypto.subtle;
 	try {
 		const spki = ensureBuffer(cert.spki);

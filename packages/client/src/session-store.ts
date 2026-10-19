@@ -1,11 +1,13 @@
 /**
  * Framework-neutral session store. It holds `{ session, isLoading }`, lets a UI
- * framework subscribe to changes, and talks to the routes the theAuth handler really
- * serves: `POST /auth/username/sign-in`, `POST /auth/username/sign-up`,
- * `POST /auth/sign-out` and `GET /auth/session`. The core has no email and password
- * route, so `signInPath` and `signUpPath` let you point at your own. It uses only Web
- * Standard APIs (fetch), so it runs in browsers, workers and edge runtimes. Storage is
- * injected, so nothing touches `window` unless you pass `localStorage`.
+ * framework subscribe to changes, and talks to the routes the theAuth handler serves:
+ * `POST /auth/sign-out` and `GET /auth/session`, plus either the username routes
+ * (`/auth/username/sign-in`, `/auth/username/sign-up`, which you mount with
+ * `theauth.username.handleRequest`) or, with `emailPassword: true`, the email and
+ * password routes `createTheAuthHandler` serves under `/auth/email/*`. `signInPath` and
+ * `signUpPath` let you point at your own. It uses only Web Standard APIs (fetch), so it
+ * runs in browsers, workers and edge runtimes. Storage is injected, so nothing touches
+ * `window` unless you pass `localStorage`.
  *
  * The store never logs and never puts a token in an error message.
  */
@@ -30,7 +32,21 @@ export interface SessionState {
 	isLoading: boolean;
 }
 
-export type StoreActionResult = { success: true } | { success: false; error: string };
+/**
+ * `verificationRequired` is set by an email sign-up that created the account but no
+ * session: the user must open the emailed link, then sign in. `code` is the server's
+ * error code when it sent one, for example `EMAIL_NOT_VERIFIED` or `SIGN_IN_LOCKED`.
+ */
+export type StoreActionResult =
+	| { success: true; verificationRequired?: boolean }
+	| { success: false; error: string; code?: string };
+
+/** The routes and body field of the core email and password module (`emailPassword` config). */
+export const EMAIL_PASSWORD_ROUTES = {
+	signInPath: "/auth/email/sign-in",
+	signUpPath: "/auth/email/sign-up",
+	identifierField: "email",
+} as const;
 
 /** The subset of `Storage` the store needs. */
 export interface SessionStorageLike {
@@ -45,11 +61,16 @@ export interface SessionStoreOptions {
 	storage?: SessionStorageLike;
 	storageKey?: string;
 	fetch?: typeof fetch;
-	/** Default `/auth/username/sign-in`, the route the username module serves. */
+	/**
+	 * Use the core email and password routes (`/auth/email/sign-in`, `/auth/email/sign-up`,
+	 * body field `email`). Explicit `signInPath`, `signUpPath` and `identifierField` still win.
+	 */
+	emailPassword?: boolean;
+	/** Default `/auth/username/sign-in`, or `/auth/email/sign-in` with `emailPassword`. */
 	signInPath?: string;
-	/** Default `/auth/username/sign-up`. */
+	/** Default `/auth/username/sign-up`, or `/auth/email/sign-up` with `emailPassword`. */
 	signUpPath?: string;
-	/** Body field that carries the first argument of `signIn` and `signUp`. Default `username`. */
+	/** Body field that carries the first argument of `signIn` and `signUp`. Default `username`, or `email` with `emailPassword`. */
 	identifierField?: string;
 	/**
 	 * Refetch triggers (focus, reconnect, interval). They run while the store has at
@@ -85,7 +106,19 @@ export interface SessionStore {
 	/** Aborts an in-flight refresh and stops every refetch trigger. The store stays usable. */
 	destroy(): void;
 	signIn(identifier: string, password: string): Promise<StoreActionResult>;
+	/**
+	 * With the email routes and verification on, success carries `verificationRequired: true`
+	 * and the store stays signed out until the user verifies and signs in.
+	 */
 	signUp(identifier: string, password: string, name?: string): Promise<StoreActionResult>;
+	/** Confirms an address with the token from the verification email (`POST /auth/email/verify`). */
+	verifyEmail(token: string): Promise<StoreActionResult>;
+	/** Asks for another verification email. Succeeds whether or not the address exists. */
+	resendVerification(email: string): Promise<StoreActionResult>;
+	/** Emails a reset link. Succeeds whether or not the address exists. Needs `passwordReset` on the server. */
+	requestPasswordReset(email: string): Promise<StoreActionResult>;
+	/** Sets a new password from the emailed token. Needs `passwordReset` on the server. */
+	resetPassword(token: string, password: string): Promise<StoreActionResult>;
 	/** Clears local state at once, then revokes the session on the server. */
 	signOut(): Promise<StoreActionResult>;
 }
@@ -103,6 +136,7 @@ interface WireBody {
 	session?: { token?: unknown; expiresAt?: unknown };
 	token?: unknown;
 	error?: unknown;
+	verificationRequired?: unknown;
 }
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v ? v : undefined);
@@ -125,6 +159,15 @@ function errorOf(body: WireBody | null, fallback: string): string {
 	return fallback;
 }
 
+function codeOf(body: WireBody | null): { code: string } | Record<string, never> {
+	const e = body?.error;
+	if (e && typeof e === "object" && "code" in e) {
+		const c = (e as { code?: unknown }).code;
+		if (typeof c === "string" && c) return { code: c };
+	}
+	return {};
+}
+
 function isExpired(expiresAt: string | undefined): boolean {
 	if (!expiresAt) return false;
 	const t = Date.parse(expiresAt);
@@ -134,9 +177,16 @@ function isExpired(expiresAt: string | undefined): boolean {
 export function createSessionStore(options: SessionStoreOptions = {}): SessionStore {
 	const base = (options.basePath ?? "/api/theauth").replace(/\/+$/, "");
 	const key = options.storageKey ?? "theauth_session";
-	const signInPath = options.signInPath ?? "/auth/username/sign-in";
-	const signUpPath = options.signUpPath ?? "/auth/username/sign-up";
-	const field = options.identifierField ?? "username";
+	const preset = options.emailPassword
+		? EMAIL_PASSWORD_ROUTES
+		: {
+				signInPath: "/auth/username/sign-in",
+				signUpPath: "/auth/username/sign-up",
+				identifierField: "username",
+			};
+	const signInPath = options.signInPath ?? preset.signInPath;
+	const signUpPath = options.signUpPath ?? preset.signUpPath;
+	const field = options.identifierField ?? preset.identifierField;
 	const doFetch = options.fetch ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
 	const listeners = new Set<(state: SessionState) => void>();
 	let state: SessionState = { session: null, isLoading: true };
@@ -201,7 +251,11 @@ export function createSessionStore(options: SessionStoreOptions = {}): SessionSt
 
 	async function failure(res: Response, label: string): Promise<StoreActionResult> {
 		const body = (await res.json().catch(() => null)) as WireBody | null;
-		return { success: false, error: errorOf(body, `${label} failed (${res.status})`) };
+		return {
+			success: false,
+			error: errorOf(body, `${label} failed (${res.status})`),
+			...codeOf(body),
+		};
 	}
 
 	async function authenticate(
@@ -213,6 +267,10 @@ export function createSessionStore(options: SessionStoreOptions = {}): SessionSt
 		if (typeof res === "string") return { success: false, error: res };
 		if (!res.ok) return failure(res, label);
 		const body = (await res.json().catch(() => null)) as WireBody | null;
+		if (body?.verificationRequired === true) {
+			// The account exists but has no session yet. Stay signed out.
+			return { success: true, verificationRequired: true };
+		}
 		const user = toUser(body?.user);
 		const token = str(body?.session?.token) ?? str(body?.token);
 		if (!user || !token)
@@ -222,9 +280,18 @@ export function createSessionStore(options: SessionStoreOptions = {}): SessionSt
 		return { success: true };
 	}
 
+	/** A POST whose answer is only success or an error, like verify and reset. */
+	async function act(path: string, payload: unknown, label: string): Promise<StoreActionResult> {
+		const res = await post(path, payload);
+		if (typeof res === "string") return { success: false, error: res };
+		return res.ok ? { success: true } : failure(res, label);
+	}
+
 	async function run(): Promise<void> {
 		const mine = epoch;
-		const ctl = new AbortController();
+		// Some runtimes (Lynx's PrimJS) have fetch but no AbortController. Then a refresh
+		// cannot be cancelled, and the epoch check still drops its late answer.
+		const ctl = typeof AbortController === "undefined" ? null : new AbortController();
 		controller = ctl;
 		const stored = read();
 		if (!state.session && stored) set({ session: stored, isLoading: true });
@@ -234,7 +301,7 @@ export function createSessionStore(options: SessionStoreOptions = {}): SessionSt
 				method: "GET",
 				credentials: "include",
 				headers: bearer(token),
-				signal: ctl.signal,
+				...(ctl && { signal: ctl.signal }),
 			});
 			if (mine !== epoch) return;
 			if (res.status === 401 || res.status === 403) {
@@ -319,6 +386,11 @@ export function createSessionStore(options: SessionStoreOptions = {}): SessionSt
 			authenticate(signInPath, { [field]: identifier, password }, "Sign-in"),
 		signUp: (identifier, password, name) =>
 			authenticate(signUpPath, { [field]: identifier, password, name }, "Sign-up"),
+		verifyEmail: (token) => act("/auth/email/verify", { token }, "Verification"),
+		resendVerification: (email) => act("/auth/email/resend-verification", { email }, "Resend"),
+		requestPasswordReset: (email) => act("/auth/email/forgot-password", { email }, "Reset request"),
+		resetPassword: (token, password) =>
+			act("/auth/email/reset-password", { token, password }, "Password reset"),
 		async signOut() {
 			epoch += 1;
 			controller?.abort();

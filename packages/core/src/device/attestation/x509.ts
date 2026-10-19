@@ -168,7 +168,7 @@ const CURVES: Record<string, { name: "P-256" | "P-384" | "P-521"; size: number }
 };
 
 /** ECDSA-Sig-Value (RFC 3279 section 2.2.3) to the fixed width r||s Web Crypto expects. */
-function ecdsaDerToRaw(der: Uint8Array, size: number): Uint8Array {
+export function ecdsaDerToRaw(der: Uint8Array, size: number): Uint8Array {
 	const [r, s] = children(parseOne(der));
 	if (!r || !s) throw new DerError("bad ECDSA signature");
 	const pad = (t: Tlv): Uint8Array => {

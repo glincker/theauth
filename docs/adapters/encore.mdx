@@ -1,0 +1,116 @@
+---
+title: Encore
+description: Serve theAuth routes from an Encore.ts service with a raw endpoint, and let `auth: true` endpoints accept agent tokens through a gateway auth handler. No extra package.
+icon: code
+---
+
+Encore.ts has no fetch handler mount, but it has raw endpoints that give you a Node `IncomingMessage` and `ServerResponse`. `@glinr/theauth/http` exports the two bridge functions you need, `toWebRequest` and `sendWebResponse`, so there is no Encore package.
+
+## Install
+
+```bash
+pnpm add @glinr/theauth better-sqlite3 encore.dev
+```
+
+Put the code below in one Encore service, for example `auth/` with an `encore.service.ts`.
+
+## Create the instance once
+
+```typescript title="auth/theauth.ts"
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler } from "@glinr/theauth/http";
+
+async function setup() {
+  const theauth = await createTheAuth({
+    database: { provider: "sqlite-native", url: "theauth.db" },
+    agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+  });
+  const handler = createTheAuthHandler(theauth, {
+    basePath: "/api/theauth",
+    // Who may call the management routes. Return { id } to allow, null for a 401.
+    authenticate: async (request) => {
+      const user = await theauth.auth.resolveUser(request);
+      return user ? { id: user.id } : null;
+    },
+  });
+  return { theauth, handler };
+}
+
+let instance: ReturnType<typeof setup> | undefined;
+
+/** Created on first use and shared by every endpoint in the service. */
+export function useTheAuth() {
+  instance ??= setup();
+  return instance;
+}
+```
+
+`sqlite-native` writes a file next to the running service. For a deployed Encore app use a Postgres database instead (see [choose storage](/choose-storage)).
+
+## Mount the handler
+
+```typescript title="auth/routes.ts"
+import { api } from "encore.dev/api";
+import { sendWebResponse, toWebRequest } from "@glinr/theauth/http";
+import { useTheAuth } from "./theauth";
+
+export const theauthRoutes = api.raw(
+  { expose: true, path: "/api/theauth/*path", method: "*" },
+  async (req, res) => {
+    const { handler } = await useTheAuth();
+    await sendWebResponse(res, await handler(await toWebRequest(req)));
+  },
+);
+```
+
+`toWebRequest` buffers the body for you and throws `RequestBodyTooLargeError` past 1 MiB by default. Pass `{ maxBodyBytes }` to change the cap.
+
+## Accept agent tokens on `auth: true` endpoints
+
+An Encore gateway auth handler decides who the caller is for every endpoint marked `auth: true`. This one treats the bearer credential as a theAuth agent token.
+
+```typescript title="auth/gateway.ts"
+import { APIError, Gateway, Header } from "encore.dev/api";
+import { authHandler } from "encore.dev/auth";
+import { useTheAuth } from "./theauth";
+
+interface AuthParams {
+  authorization: Header<"Authorization">;
+}
+
+interface AuthData {
+  userID: string; // the agent owner, which is what getAuthData().userID means in Encore
+  agentID: string;
+}
+
+const handler = authHandler<AuthParams, AuthData>(async (params) => {
+  const { theauth } = await useTheAuth();
+  const token = /^Bearer\s+(.+)$/i.exec(params.authorization)?.[1]?.trim();
+  const agent = token ? await theauth.agent.validateToken(token) : null;
+  if (!agent) throw APIError.unauthenticated("invalid agent token");
+  return { userID: agent.ownerId, agentID: agent.id };
+});
+
+export const gateway = new Gateway({ authHandler: handler });
+```
+
+```typescript title="auth/me.ts"
+import { api } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
+
+export const me = api(
+  { expose: true, auth: true, method: "GET", path: "/me" },
+  async (): Promise<{ userID: string; agentID: string }> => {
+    const data = getAuthData();
+    return { userID: data?.userID ?? "", agentID: data?.agentID ?? "" };
+  },
+);
+```
+
+`validateToken` checks that the token is valid, not revoked and not expired. It does not check a permission. For a permission check on a specific action, call `requireAgent` from `@glinr/theauth/http` inside a raw endpoint, or `theauth.authorizeByToken`.
+
+The auth handler only runs for endpoints marked `auth: true`, so the raw theAuth endpoint above still accepts its own bearer tokens (for example MCP access tokens).
+
+## What was run
+
+Run with the Encore CLI 1.58.7 (`encore run`) and `encore.dev` 1.58.7, `@glinr/theauth` from a packed tarball. `GET /api/theauth/agents` without a session answered 401, an unknown path answered 404, a request with an unrelated bearer token to `/api/theauth/mcp/jwks` reached theAuth (404 because no MCP module was configured). `GET /me` with a real agent token answered 200 with the owner and agent ids, and without a token answered 401. `POST /api/theauth/authorize/token` with a JSON body and the agent token answered 200 for a granted action.

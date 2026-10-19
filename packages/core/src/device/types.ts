@@ -1,5 +1,7 @@
 import type { JWK } from "jose";
+import type { AttestationFacts } from "../policy/attestation-constraint.js";
 import type { Permission } from "../types.js";
+import type { DeviceAttestationServices } from "./attestation/tpm2-certify.js";
 import type { IssuedRevocationSnapshot } from "./revocation.js";
 import type { DeviceSpiffeConfig } from "./spiffe/service.js";
 
@@ -22,6 +24,8 @@ export interface DeviceAttestationInput {
 	credentialKind?: DeviceCredentialKind;
 	/** RFC 7638 SHA-256 thumbprint of the enrolled public key when `credentialKind` is `jwk`. A verifier that attests a key compares it with the attested key. */
 	credentialKeyThumbprint?: string;
+	/** Server side helpers for verifiers that need state, such as the TPM credential activation of `createTpm2CertifyVerifier`. Always set by enrollment. */
+	services?: DeviceAttestationServices;
 }
 
 export interface DeviceConfig {
@@ -259,6 +263,8 @@ export interface DeviceBundleClaims {
 	perms: Permission[];
 	/** Resource matching mode of the issuer. Present only for `path`; absent means `colon`. The offline decision uses it so a device agrees with the server. */
 	rm?: "path";
+	/** Verified attestation facts of the device at enrollment (see `attestationFacts`). Present only for a device enrolled with hardware evidence. Permissions with an `attestation` constraint are decided against it offline, and deny when it is absent. */
+	att?: AttestationFacts;
 }
 
 export interface IssuedDeviceBundle {

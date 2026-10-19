@@ -9,6 +9,8 @@ import { singleUseFor } from "../db/store/for-database.js";
 import type { DenialCode } from "../permission/codes.js";
 import { codeForConstraint } from "../permission/codes.js";
 import type { Permission, PermissionConstraints } from "../types.js";
+import type { AttestationFacts } from "./attestation-constraint.js";
+import { checkAttestationConstraint } from "./attestation-constraint.js";
 import type { ResourceMatching } from "./resource-match.js";
 import { matchColonResource, matchPathResource } from "./resource-match.js";
 
@@ -17,6 +19,8 @@ export interface ConstraintEvaluationInput {
 	resource: string;
 	arguments?: Record<string, unknown>;
 	ip?: string;
+	/** Verified attestation facts of the calling device, from the device record, never from the request. Absent for agents and users, so an `attestation` constraint denies them. */
+	attestation?: AttestationFacts;
 }
 
 export interface ConstraintResult {
@@ -219,7 +223,8 @@ export type ConstraintName =
 	| "allowedArgPatterns"
 	| "requireApproval"
 	| "timeWindow"
-	| "ipAllowlist";
+	| "ipAllowlist"
+	| "attestation";
 
 export interface ConstraintStep {
 	constraint: ConstraintName;
@@ -248,7 +253,7 @@ export interface InspectOptions {
 }
 
 /**
- * Evaluate every constraint without touching storage. Constraint order is rate limit, arg patterns, approval, time window, IP allowlist, and the walk stops at the first failure, exactly like evaluateConstraints.
+ * Evaluate every constraint without touching storage. Constraint order is rate limit, arg patterns, attestation, approval, time window, IP allowlist, and the walk stops at the first failure, exactly like evaluateConstraints.
  */
 export function inspectConstraints(
 	input: ConstraintEvaluationInput,
@@ -316,6 +321,30 @@ export function inspectConstraints(
 			detail: "All string arguments match the allowed patterns",
 			observed: input.arguments,
 			configured: constraints.allowedArgPatterns,
+		});
+	}
+
+	// Before the approval step: a human is never asked to approve what this device cannot do.
+	if (constraints.attestation) {
+		const check = checkAttestationConstraint(constraints.attestation, input.attestation);
+		if (!check.ok) {
+			return stop(
+				{
+					constraint: "attestation",
+					outcome: "fail",
+					detail: check.reason ?? "Attestation requirement not met",
+					...(input.attestation && { observed: input.attestation }),
+					configured: constraints.attestation,
+				},
+				check.reason,
+			);
+		}
+		steps.push({
+			constraint: "attestation",
+			outcome: "pass",
+			detail: "Device attestation meets the requirement",
+			observed: input.attestation,
+			configured: constraints.attestation,
 		});
 	}
 
@@ -407,7 +436,7 @@ export function inspectConstraints(
 }
 
 /**
- * Evaluate every constraint on a permission. Returns the first failure, or { allowed: true } if all pass. Constraint order: rate limit, arg patterns, approval, time window, IP allowlist.
+ * Evaluate every constraint on a permission. Returns the first failure, or { allowed: true } if all pass. Constraint order: rate limit, arg patterns, attestation, approval, time window, IP allowlist.
  * The rate limit step records the call; everything after it is delegated to inspectConstraints so the simulator evaluates the same rules.
  */
 export async function evaluateConstraints(
@@ -449,6 +478,7 @@ export function isCacheUnsafe(constraints?: PermissionConstraints): boolean {
 	return (
 		constraints.maxCallsPerHour != null ||
 		Boolean(constraints.timeWindow) ||
+		Boolean(constraints.attestation) ||
 		(Array.isArray(constraints.allowedArgPatterns) && constraints.allowedArgPatterns.length > 0)
 	);
 }

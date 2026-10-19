@@ -7,6 +7,8 @@
 
 export const TPM_ALG = {
 	rsa: 0x0001,
+	aes: 0x0006,
+	cfb: 0x0043,
 	sha1: 0x0004,
 	sha256: 0x000b,
 	sha384: 0x000c,
@@ -38,6 +40,7 @@ export const HASH_SIZE: Record<TpmHashName, number> = {
 export const OBJECT_ATTR = {
 	fixedTPM: 0x2,
 	fixedParent: 0x10,
+	sensitiveDataOrigin: 0x20,
 	restricted: 0x10000,
 	decrypt: 0x20000,
 	sign: 0x40000,
@@ -45,6 +48,7 @@ export const OBJECT_ATTR = {
 
 export const TPM_GENERATED = 0xff544347;
 export const TPM_ST_ATTEST_QUOTE = 0x8018;
+export const TPM_ST_ATTEST_CERTIFY = 0x8017;
 
 class Reader {
 	offset = 0;
@@ -104,8 +108,13 @@ const CURVES: Record<number, "P-256" | "P-384" | "P-521"> = {
 	5: "P-521",
 };
 
+export interface ParseTpmPublicOptions {
+	/** Accept an AES symmetric definition, as a storage or endorsement key has. Signing keys must have none. */
+	allowSymmetric?: boolean;
+}
+
 /** Accepts TPMT_PUBLIC, or TPM2B_PUBLIC (what `tpm2_readpublic` and TSS write), told apart by the leading size. */
-export function parseTpmPublic(input: Uint8Array): TpmPublic {
+export function parseTpmPublic(input: Uint8Array, opts: ParseTpmPublicOptions = {}): TpmPublic {
 	let data = input;
 	if (data.length > 2 && ((data[0] as number) << 8) + (data[1] as number) === data.length - 2) {
 		data = data.subarray(2);
@@ -116,7 +125,14 @@ export function parseTpmPublic(input: Uint8Array): TpmPublic {
 	const attributes = r.u32();
 	r.sized(); // authPolicy
 	const readSymmetric = () => {
-		if (r.u16() !== TPM_ALG.null) throw new Error("A signing key must have a null symmetric");
+		const alg = r.u16();
+		if (alg === TPM_ALG.null) return;
+		// TPMT_SYM_DEF_OBJECT: algorithm, keyBits, mode. Only AES in CFB, what an EK template uses.
+		if (!opts.allowSymmetric || alg !== TPM_ALG.aes) {
+			throw new Error("A signing key must have a null symmetric");
+		}
+		r.u16();
+		if (r.u16() !== TPM_ALG.cfb) throw new Error("Unsupported symmetric mode");
 	};
 	const readScheme = () => {
 		const alg = r.u16();
@@ -238,5 +254,46 @@ export function parseTpmQuote(data: Uint8Array): TpmQuote {
 		firmwareVersion,
 		selections,
 		pcrDigest,
+	};
+}
+
+export interface TpmCertify {
+	qualifiedSigner: Uint8Array;
+	extraData: Uint8Array;
+	clock: bigint;
+	resetCount: number;
+	restartCount: number;
+	safe: boolean;
+	firmwareVersion: bigint;
+	/** Name of the certified object: nameAlg then the digest of its TPMT_PUBLIC. */
+	name: Uint8Array;
+	qualifiedName: Uint8Array;
+}
+
+/** TPMS_ATTEST of type TPM_ST_ATTEST_CERTIFY (TPM2_Certify): the TPM vouches that an object with this name is loaded in it. */
+export function parseTpmCertify(data: Uint8Array): TpmCertify {
+	const r = new Reader(data);
+	if (r.u32() !== TPM_GENERATED) throw new Error("Certify does not start with TPM_GENERATED_VALUE");
+	if (r.u16() !== TPM_ST_ATTEST_CERTIFY) throw new Error("Attestation is not a certify");
+	const qualifiedSigner = r.sized();
+	const extraData = r.sized();
+	const clock = r.u64();
+	const resetCount = r.u32();
+	const restartCount = r.u32();
+	const safe = r.u8() !== 0;
+	const firmwareVersion = r.u64();
+	const name = r.sized();
+	const qualifiedName = r.sized();
+	r.done();
+	return {
+		qualifiedSigner,
+		extraData,
+		clock,
+		resetCount,
+		restartCount,
+		safe,
+		firmwareVersion,
+		name,
+		qualifiedName,
 	};
 }

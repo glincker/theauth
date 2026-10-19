@@ -93,6 +93,12 @@ export function createSingleUseStores(kernel: StoreKernel): SingleUseStores {
 				return next !== null;
 			},
 		},
+		devices: {
+			advanceAppAttestCounter: (id, counter) =>
+				flip("devices", [eqTo("id", id), { field: "appAttestCounter", op: "lt", value: counter }], {
+					appAttestCounter: counter,
+				}),
+		},
 		approvals: {
 			decide: (id, decision, now) =>
 				flip(

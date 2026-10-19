@@ -7,6 +7,7 @@ import { EnrollmentTokenTable } from "../src/components/enrollment-token-table.j
 import { devicesUnavailable } from "../src/pages/devices.js";
 import {
 	activeCredentialKinds,
+	attestationLines,
 	buildCredentialInput,
 	buildEnrollmentInput,
 	buildSpiffeId,
@@ -219,6 +220,52 @@ describe("device components", () => {
 		expect(html).toContain("jwk");
 		expect(html).toContain("thumb123");
 		expect(html).toContain("hw-9");
+	});
+});
+
+describe("attestation display", () => {
+	const base = { credentials: [] };
+	it("lists verified android claims in the detail panel", () => {
+		const html = renderToStaticMarkup(
+			<DeviceDetailPanel
+				device={{
+					...device({
+						attestation: {
+							format: "android-key-attestation",
+							securityLevel: "strongbox",
+							keySecurityLevel: "strongbox",
+							verifiedBootState: "verified",
+							deviceLocked: true,
+							packages: ["com.example.lock"],
+						},
+					}),
+					...base,
+				}}
+			/>,
+		);
+		expect(html).toContain("Hardware attestation");
+		expect(html).toContain("strongbox");
+		expect(html).toContain("com.example.lock");
+	});
+
+	it("says so when a device has no attestation", () => {
+		const html = renderToStaticMarkup(<DeviceDetailPanel device={{ ...device({}), ...base }} />);
+		expect(html).toContain("No hardware attestation");
+	});
+
+	it("formats apple, tpm and unknown formats", () => {
+		expect(
+			attestationLines({ format: "apple-app-attest", appId: "T.b", environment: "production" }).map(
+				(l) => l.label,
+			),
+		).toEqual(["Format", "Security level", "App", "Environment"]);
+		expect(attestationLines({ format: "tpm2-quote", akVerified: false })[1]?.value).toContain(
+			"not verified",
+		);
+		expect(attestationLines({ format: "custom", securityLevel: "strongbox" })).toEqual([
+			{ label: "Format", value: "custom" },
+		]);
+		expect(attestationLines(undefined)).toEqual([]);
 	});
 });
 

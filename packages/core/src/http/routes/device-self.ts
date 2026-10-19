@@ -1,6 +1,10 @@
 import type { InputSource } from "../../audit/provenance.js";
 import { INPUTS_HEADER, parseInputsHeader } from "../../audit/provenance-wire.js";
-import { DeviceAuthorizeSchema, EnrollDeviceSchema } from "../../device/schemas.js";
+import {
+	DeviceAuthorizeSchema,
+	EnrollDeviceSchema,
+	TpmActivationRequestSchema,
+} from "../../device/schemas.js";
 import type { DeviceAuthResult, DeviceCredentialInput } from "../../device/types.js";
 import type { RequestContext } from "../../types.js";
 import { statusForDecisionCode } from "../require-agent.js";
@@ -65,6 +69,18 @@ async function attestationNonce(ctx: RouteContext): Promise<Response> {
 	}
 }
 
+async function tpmActivation(ctx: RouteContext): Promise<Response> {
+	const devices = ctx.auth.device;
+	if (!devices) return devicesUnavailable();
+	const body = await readBody(ctx, TpmActivationRequestSchema);
+	if (!body.ok) return body.response;
+	try {
+		return ok(await devices.tpmActivationChallenge(body.data));
+	} catch (err) {
+		return deviceFailure(err, "Failed to start the TPM credential activation");
+	}
+}
+
 async function authorizeSelf(ctx: RouteContext): Promise<Response> {
 	const auth = await authenticated(ctx);
 	if (!auth.ok) return auth.response;
@@ -120,6 +136,16 @@ export const deviceSelfRoutes: HttpRoute[] = [
 		group,
 		summary: "Get a single use nonce to bind into attestation evidence (RFC 9334 freshness)",
 		handle: attestationNonce,
+	},
+	{
+		method: "POST",
+		path: "/device/tpm-activation",
+		auth: "public",
+		group,
+		body: TpmActivationRequestSchema,
+		summary:
+			"Start a TPM credential activation: TPM2_MakeCredential for the device's EK and AK (needs a live attestation nonce)",
+		handle: tpmActivation,
 	},
 	{
 		method: "POST",

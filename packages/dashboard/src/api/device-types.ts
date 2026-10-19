@@ -14,6 +14,8 @@ export interface DeviceRow {
 	status: DeviceStatus;
 	statusReason?: string;
 	groups: string[];
+	/** Claims the attestation verifier proved at enrollment. Absent for a device enrolled without hardware evidence. */
+	attestation?: Record<string, unknown>;
 	expiresAt: string | null;
 	lastSeenAt: string | null;
 	lastSeenIp?: string;

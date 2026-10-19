@@ -1,0 +1,129 @@
+---
+title: Effect
+description: Serve theAuth routes from an Effect HTTP server with `createTheAuthHandler` and `HttpEffect.fromWebHandler`. No extra package. Covers Effect 4 and Effect 3.
+icon: code
+---
+
+Effect can turn any `(request: Request) => Promise<Response>` function into a route, which is what `createTheAuthHandler` from `@glinr/theauth/http` returns. So there is no Effect package: you use the core handler directly.
+
+The HTTP modules moved between major versions. Effect 4 ships them inside `effect` (`effect/http`), Effect 3 ships them in `@effect/platform`. The wiring is the same, only the import paths and the router API differ.
+
+## Install
+
+```bash
+# Effect 4
+pnpm add @glinr/theauth better-sqlite3 effect @effect/platform-node
+# Effect 3
+pnpm add @glinr/theauth better-sqlite3 effect@3 @effect/platform @effect/platform-node
+```
+
+## Effect 4
+
+```typescript title="server.ts"
+import { createServer } from "node:http";
+import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler, requireAgent } from "@glinr/theauth/http";
+import { Effect, Layer } from "effect";
+import { HttpEffect, HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite-native", url: "theauth.db" },
+  agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+});
+
+const handler = createTheAuthHandler(theauth, {
+  basePath: "/api/theauth",
+  // Who may call the management routes. Return { id } to allow, null for a 401.
+  authenticate: async (request) => {
+    const user = await theauth.auth.resolveUser(request);
+    return user ? { id: user.id } : null;
+  },
+});
+
+// "/api/theauth/*" also matches "/api/theauth" itself, so one route is enough.
+const TheAuthRoutes = HttpRouter.add("*", "/api/theauth/*", HttpEffect.fromWebHandler(handler));
+
+const Docs = HttpRouter.add(
+  "GET",
+  "/docs",
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.toWeb(yield* HttpServerRequest.HttpServerRequest);
+    const result = yield* Effect.promise(() =>
+      requireAgent(theauth, request, { action: "read", resource: "docs" }),
+    );
+    if (!result.ok) return HttpServerResponse.fromWeb(result.response); // 401 or 403
+    return yield* HttpServerResponse.json({ agentId: result.agent.id });
+  }),
+);
+
+const Server = HttpRouter.serve(Layer.mergeAll(TheAuthRoutes, Docs)).pipe(
+  Layer.provide(NodeHttpServer.layer(createServer, { port: 3000 })),
+);
+
+Layer.launch(Server).pipe(NodeRuntime.runMain);
+```
+
+Do not register `"/api/theauth"` as a second route. The router rejects it as a duplicate of the wildcard.
+
+Inside a handler, build the Web `Request` with `HttpServerRequest.toWeb`. Passing `request.url` to `new Request(...)` fails, because the server request holds only the path.
+
+## Effect 3
+
+```typescript title="server.ts"
+import { createServer } from "node:http";
+import {
+  HttpApp,
+  HttpRouter,
+  HttpServer,
+  HttpServerRequest,
+  HttpServerResponse,
+} from "@effect/platform";
+import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler, requireAgent } from "@glinr/theauth/http";
+import { Effect, Layer } from "effect";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite-native", url: "theauth.db" },
+  agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+});
+
+const handler = createTheAuthHandler(theauth, {
+  basePath: "/api/theauth",
+  authenticate: async (request) => {
+    const user = await theauth.auth.resolveUser(request);
+    return user ? { id: user.id } : null;
+  },
+});
+
+const router = HttpRouter.empty.pipe(
+  HttpRouter.all("/api/theauth/*", HttpApp.fromWebHandler(handler)),
+  HttpRouter.get(
+    "/docs",
+    Effect.gen(function* () {
+      const request = yield* HttpServerRequest.toWeb(yield* HttpServerRequest.HttpServerRequest);
+      const result = yield* Effect.promise(() =>
+        requireAgent(theauth, request, { action: "read", resource: "docs" }),
+      );
+      if (!result.ok) return HttpServerResponse.fromWeb(result.response);
+      return yield* HttpServerResponse.json({ agentId: result.agent.id });
+    }),
+  ),
+);
+
+const Server = router.pipe(
+  HttpServer.serve(),
+  Layer.provide(NodeHttpServer.layer(createServer, { port: 3000 })),
+);
+
+NodeRuntime.runMain(Layer.launch(Server));
+```
+
+## Serverless and tests
+
+`HttpRouter.toWebHandler(routes)` turns the same routes back into a `(request) => Promise<Response>`, which is handy for tests and for runtimes that want a fetch handler. You then do not need `NodeHttpServer`.
+
+## What was run
+
+Both snippets type check under `strict` and were started with `tsx`, against `effect` 4.0.5 with `@effect/platform-node` 4.0.5, and `effect` 3.22.3 with `@effect/platform` 0.97.2. `@glinr/theauth` was installed from a packed tarball. On both versions: `GET /api/theauth/agents` without a session answered 401, an unknown path under the mount answered 404, `GET /docs` without a token answered 401, and with a real agent token `GET /docs` answered 200 and `POST /api/theauth/authorize/token` with a JSON body answered 200 for a granted action.

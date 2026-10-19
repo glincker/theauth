@@ -16,6 +16,7 @@ import type { ApiKeyManagerConfig } from "./auth/api-key-manager.js";
 import type { CaptchaConfig } from "./auth/captcha.js";
 import type { TrustedProxyConfig } from "./auth/client-ip.js";
 import type { EmailOtpConfig } from "./auth/email-otp.js";
+import type { EmailPasswordConfig } from "./auth/email-password.js";
 import type { EmailVerificationConfig } from "./auth/email-verification.js";
 import type { MagicLinkConfig } from "./auth/magic-link.js";
 import type { OrgConfig } from "./auth/organization.js";
@@ -40,6 +41,7 @@ import type { ObservabilityConfig, TheAuthLogger } from "./observability/types.j
 import type { DecisionCode } from "./permission/codes.js";
 import type { PermissionCatalog } from "./permission/typed.js";
 import type { TheAuthPlugin } from "./plugin/types.js";
+import type { AttestationConstraint } from "./policy/attestation-constraint.js";
 import type { ResourceMatching } from "./policy/resource-match.js";
 import type { PolicyEngineConfig } from "./policy/types.js";
 import type { RedirectConfig } from "./redirect/chain.js";
@@ -156,6 +158,13 @@ export interface TheAuthConfig {
 	/** Username and password authentication. Enables `theauth.username`. */
 	username?: UsernameAuthConfig;
 
+	/**
+	 * Email and password authentication. Enables `theauth.emailPassword` and serves the
+	 * `/auth/email/*` routes from `createTheAuthHandler`. Needs `auth.session`, and
+	 * `emailVerification` unless `requireVerification` is `false`.
+	 */
+	emailPassword?: EmailPasswordConfig;
+
 	/** Password reset (forgot password) flow. Enables `theauth.passwordReset`. */
 	passwordReset?: PasswordResetConfig;
 
@@ -267,6 +276,8 @@ export interface PermissionConstraints {
 	requireApproval?: boolean;
 	timeWindow?: { start: string; end: string };
 	ipAllowlist?: string[];
+	/** Only a device whose verified hardware attestation meets this rule may use the permission. Fails closed for a caller with no attestation (every agent and user). See docs/iot-devices.mdx. */
+	attestation?: AttestationConstraint;
 }
 
 export interface CreateAgentInput {

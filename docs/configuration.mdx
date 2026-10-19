@@ -256,7 +256,7 @@ Plugins are factories passed in the `plugins` array. They register HTTP endpoint
 | `rateLimit(config?)` | Per-IP limits on `/auth/*` endpoints |
 | `oauth(config)` | Social OAuth sign-in endpoints |
 
-`emailPassword()` is not part of `@glinr/theauth`. It ships in the separate `@glinr/theauth-email` package (see [Email and password](/auth/email-password)). Inside core, username and password sign-in is the top-level `username` option (with `passwordReset` and `emailVerification` alongside it). `deviceAuth()` (see [Device authorization](/auth/device)) and `agentRegistration()` (see [Agent registration tokens](/agent-registration-tokens)) are exported from `@glinr/theauth/auth` too. Multi-session support lives in the session module, see [Multi-session](/multi-session).
+Email and password is the top-level `emailPassword` option (with `emailVerification` and `passwordReset` alongside it), see [Email and password](/auth/email-password). The `emailPassword()` plugin in the separate `@glinr/theauth-email` package is deprecated. Username and password sign-in is the top-level `username` option. `deviceAuth()` (see [Device authorization](/auth/device)) and `agentRegistration()` (see [Agent registration tokens](/agent-registration-tokens)) are exported from `@glinr/theauth/auth` too. Multi-session support lives in the session module, see [Multi-session](/multi-session).
 
 ## Environment variables pattern
 

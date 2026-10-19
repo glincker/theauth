@@ -30,11 +30,13 @@ import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
 import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import { parseRememberMe } from "../plugin/helpers.js";
 import type { SessionManager } from "../session/session.js";
+import type { ClaimOptions } from "./email-claim.js";
+import { claimVerifiedMailbox } from "./email-claim.js";
 import { normalizeEmail } from "./normalize-email.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-export interface MagicLinkConfig {
+export interface MagicLinkConfig extends ClaimOptions {
 	/** Send the magic link email. You provide the transport. */
 	sendMagicLink: (email: string, token: string, url: string) => Promise<void>;
 	/** Base URL for magic link (e.g. "https://app.example.com") */
@@ -169,6 +171,7 @@ export function createMagicLinkModule(
 		if (!(await singleUseFor(db).magicLinks.markUsed(token, now))) return null;
 
 		const user = await findOrCreateUser(link.email);
+		await claimVerifiedMailbox(db, user.id, config, (id) => sessionManager.revokeAll(id));
 		const decision = await gate.evaluate({
 			userId: user.id,
 			method: "magic_link",

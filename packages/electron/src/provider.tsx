@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { SecureStorage } from "./storage.js";
-import { parseError, parseSession } from "./wire.js";
+import { failure, isVerificationRequired, parseSession } from "./wire.js";
 
 interface TheAuthUser {
 	id: string;
@@ -16,7 +16,15 @@ interface TheAuthSession {
 	expiresAt?: string;
 }
 
-type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };
+/** `code` is the server's error code when it sent one, for example `EMAIL_NOT_VERIFIED`. */
+type ActionResult<T = void> =
+	| { success: true; data: T }
+	| { success: false; error: string; code?: string };
+
+/** What a sign-up reports. `verificationRequired` means no session yet: verify the email, then sign in. */
+export interface SignUpData {
+	verificationRequired: boolean;
+}
 
 interface TheAuthContextValue {
 	session: TheAuthSession | null;
@@ -24,7 +32,7 @@ interface TheAuthContextValue {
 	isLoading: boolean;
 	isAuthenticated: boolean;
 	signIn: (email: string, password: string) => Promise<ActionResult>;
-	signUp: (email: string, password: string, name?: string) => Promise<ActionResult>;
+	signUp: (email: string, password: string, name?: string) => Promise<ActionResult<SignUpData>>;
 	signOut: () => Promise<void>;
 	refresh: () => Promise<void>;
 }
@@ -37,15 +45,16 @@ export interface ElectronTheAuthProviderProps {
 	/** Persist session to secure storage across restarts. Defaults to true. */
 	persistSession?: boolean;
 	/**
-	 * Sign-in route under `basePath`. Default `/auth/username/sign-in`, the route the
-	 * username module serves. The core has no email and password route: point this at
-	 * your own, or at the one `@glinr/theauth-email` serves (`/auth/sign-in`, with
-	 * `identifierField: "email"`).
+	 * Use the core email and password routes (`/auth/email/sign-in`, `/auth/email/sign-up`,
+	 * body field `email`), which `createTheAuthHandler` serves when the server sets the
+	 * `emailPassword` config. Explicit `signInPath`, `signUpPath` and `identifierField` still win.
 	 */
+	emailPassword?: boolean;
+	/** Sign-in route under `basePath`. Default `/auth/username/sign-in`, or `/auth/email/sign-in` with `emailPassword`. */
 	signInPath?: string;
-	/** Sign-up route under `basePath`. Default `/auth/username/sign-up`. */
+	/** Sign-up route under `basePath`. Default `/auth/username/sign-up`, or `/auth/email/sign-up` with `emailPassword`. */
 	signUpPath?: string;
-	/** Body field that carries the first argument of `signIn` and `signUp`. Default `username`. */
+	/** Body field that carries the first argument of `signIn` and `signUp`. Default `username`, or `email` with `emailPassword`. */
 	identifierField?: string;
 }
 
@@ -77,9 +86,10 @@ export function ElectronTheAuthProvider({
 	basePath = "/api/theauth",
 	storage,
 	persistSession = true,
-	signInPath = "/auth/username/sign-in",
-	signUpPath = "/auth/username/sign-up",
-	identifierField = "username",
+	emailPassword = false,
+	signInPath = emailPassword ? "/auth/email/sign-in" : "/auth/username/sign-in",
+	signUpPath = emailPassword ? "/auth/email/sign-up" : "/auth/username/sign-up",
+	identifierField = emailPassword ? "email" : "username",
 }: ElectronTheAuthProviderProps): ReactNode {
 	const [session, setSession] = useState<TheAuthSession | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
@@ -171,7 +181,7 @@ export function ElectronTheAuthProvider({
 				const json: unknown = await res.json().catch(() => null);
 
 				if (!res.ok) {
-					return { success: false, error: parseError(json, `Sign-in failed (${res.status})`) };
+					return failure(json, `Sign-in failed (${res.status})`);
 				}
 
 				const s = parseSession(json);
@@ -191,7 +201,7 @@ export function ElectronTheAuthProvider({
 	);
 
 	const signUp = useCallback(
-		async (email: string, password: string, name?: string): Promise<ActionResult> => {
+		async (email: string, password: string, name?: string): Promise<ActionResult<SignUpData>> => {
 			try {
 				const res = await fetch(`${base}${signUpPath}`, {
 					method: "POST",
@@ -202,7 +212,12 @@ export function ElectronTheAuthProvider({
 				const json: unknown = await res.json().catch(() => null);
 
 				if (!res.ok) {
-					return { success: false, error: parseError(json, `Sign-up failed (${res.status})`) };
+					return failure(json, `Sign-up failed (${res.status})`);
+				}
+
+				// The account exists but has no session yet: the user verifies, then signs in.
+				if (isVerificationRequired(json)) {
+					return { success: true, data: { verificationRequired: true } };
 				}
 
 				const s = parseSession(json);
@@ -210,7 +225,7 @@ export function ElectronTheAuthProvider({
 				tokenRef.current = s.token;
 				setSession(s);
 				await persistToStorage(s);
-				return { success: true, data: undefined };
+				return { success: true, data: { verificationRequired: false } };
 			} catch (err) {
 				return {
 					success: false,

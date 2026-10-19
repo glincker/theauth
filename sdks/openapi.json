@@ -244,6 +244,38 @@
                               "items": {
                                 "type": "string"
                               }
+                            },
+                            "attestation": {
+                              "type": "object",
+                              "properties": {
+                                "minSecurityLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "hardware",
+                                    "strongbox"
+                                  ]
+                                },
+                                "bootState": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "verified",
+                                      "self_signed",
+                                      "unverified",
+                                      "failed",
+                                      "unlocked"
+                                    ]
+                                  }
+                                },
+                                "appIds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                }
+                              }
                             }
                           }
                         }
@@ -499,6 +531,38 @@
                               "type": "array",
                               "items": {
                                 "type": "string"
+                              }
+                            },
+                            "attestation": {
+                              "type": "object",
+                              "properties": {
+                                "minSecurityLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "hardware",
+                                    "strongbox"
+                                  ]
+                                },
+                                "bootState": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "verified",
+                                      "self_signed",
+                                      "unverified",
+                                      "failed",
+                                      "unlocked"
+                                    ]
+                                  }
+                                },
+                                "appIds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                }
                               }
                             }
                           }
@@ -1174,6 +1238,38 @@
                               "type": "array",
                               "items": {
                                 "type": "string"
+                              }
+                            },
+                            "attestation": {
+                              "type": "object",
+                              "properties": {
+                                "minSecurityLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "hardware",
+                                    "strongbox"
+                                  ]
+                                },
+                                "bootState": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "verified",
+                                      "self_signed",
+                                      "unverified",
+                                      "failed",
+                                      "unlocked"
+                                    ]
+                                  }
+                                },
+                                "appIds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                }
                               }
                             }
                           }
@@ -3420,6 +3516,38 @@
                                       "items": {
                                         "type": "string"
                                       }
+                                    },
+                                    "attestation": {
+                                      "type": "object",
+                                      "properties": {
+                                        "minSecurityLevel": {
+                                          "type": "string",
+                                          "enum": [
+                                            "hardware",
+                                            "strongbox"
+                                          ]
+                                        },
+                                        "bootState": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "enum": [
+                                              "verified",
+                                              "self_signed",
+                                              "unverified",
+                                              "failed",
+                                              "unlocked"
+                                            ]
+                                          }
+                                        },
+                                        "appIds": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          }
+                                        }
+                                      }
                                     }
                                   }
                                 }
@@ -3687,6 +3815,38 @@
                                         "items": {
                                           "type": "string"
                                         }
+                                      },
+                                      "attestation": {
+                                        "type": "object",
+                                        "properties": {
+                                          "minSecurityLevel": {
+                                            "type": "string",
+                                            "enum": [
+                                              "hardware",
+                                              "strongbox"
+                                            ]
+                                          },
+                                          "bootState": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "verified",
+                                                "self_signed",
+                                                "unverified",
+                                                "failed",
+                                                "unlocked"
+                                              ]
+                                            }
+                                          },
+                                          "appIds": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            }
+                                          }
+                                        }
                                       }
                                     }
                                   }
@@ -3939,6 +4099,38 @@
                               "type": "array",
                               "items": {
                                 "type": "string"
+                              }
+                            },
+                            "attestation": {
+                              "type": "object",
+                              "properties": {
+                                "minSecurityLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "hardware",
+                                    "strongbox"
+                                  ]
+                                },
+                                "bootState": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "verified",
+                                      "self_signed",
+                                      "unverified",
+                                      "failed",
+                                      "unlocked"
+                                    ]
+                                  }
+                                },
+                                "appIds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                }
                               }
                             }
                           }
@@ -4355,6 +4547,38 @@
                               "items": {
                                 "type": "string"
                               }
+                            },
+                            "attestation": {
+                              "type": "object",
+                              "properties": {
+                                "minSecurityLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "hardware",
+                                    "strongbox"
+                                  ]
+                                },
+                                "bootState": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "verified",
+                                      "self_signed",
+                                      "unverified",
+                                      "failed",
+                                      "unlocked"
+                                    ]
+                                  }
+                                },
+                                "appIds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                }
+                              }
                             }
                           }
                         }
@@ -4664,6 +4888,38 @@
                                     "items": {
                                       "type": "string"
                                     }
+                                  },
+                                  "attestation": {
+                                    "type": "object",
+                                    "properties": {
+                                      "minSecurityLevel": {
+                                        "type": "string",
+                                        "enum": [
+                                          "hardware",
+                                          "strongbox"
+                                        ]
+                                      },
+                                      "bootState": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "verified",
+                                            "self_signed",
+                                            "unverified",
+                                            "failed",
+                                            "unlocked"
+                                          ]
+                                        }
+                                      },
+                                      "appIds": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      }
+                                    }
                                   }
                                 }
                               }
@@ -4886,6 +5142,38 @@
                                     "items": {
                                       "type": "string"
                                     }
+                                  },
+                                  "attestation": {
+                                    "type": "object",
+                                    "properties": {
+                                      "minSecurityLevel": {
+                                        "type": "string",
+                                        "enum": [
+                                          "hardware",
+                                          "strongbox"
+                                        ]
+                                      },
+                                      "bootState": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "verified",
+                                            "self_signed",
+                                            "unverified",
+                                            "failed",
+                                            "unlocked"
+                                          ]
+                                        }
+                                      },
+                                      "appIds": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      }
+                                    }
                                   }
                                 }
                               }
@@ -5073,6 +5361,38 @@
                               "type": "array",
                               "items": {
                                 "type": "string"
+                              }
+                            },
+                            "attestation": {
+                              "type": "object",
+                              "properties": {
+                                "minSecurityLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "hardware",
+                                    "strongbox"
+                                  ]
+                                },
+                                "bootState": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "verified",
+                                      "self_signed",
+                                      "unverified",
+                                      "failed",
+                                      "unlocked"
+                                    ]
+                                  }
+                                },
+                                "appIds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                }
                               }
                             }
                           }
@@ -5295,6 +5615,38 @@
                                     "type": "array",
                                     "items": {
                                       "type": "string"
+                                    }
+                                  },
+                                  "attestation": {
+                                    "type": "object",
+                                    "properties": {
+                                      "minSecurityLevel": {
+                                        "type": "string",
+                                        "enum": [
+                                          "hardware",
+                                          "strongbox"
+                                        ]
+                                      },
+                                      "bootState": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "verified",
+                                            "self_signed",
+                                            "unverified",
+                                            "failed",
+                                            "unlocked"
+                                          ]
+                                        }
+                                      },
+                                      "appIds": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      }
                                     }
                                   }
                                 }
@@ -5544,6 +5896,38 @@
                                     "type": "array",
                                     "items": {
                                       "type": "string"
+                                    }
+                                  },
+                                  "attestation": {
+                                    "type": "object",
+                                    "properties": {
+                                      "minSecurityLevel": {
+                                        "type": "string",
+                                        "enum": [
+                                          "hardware",
+                                          "strongbox"
+                                        ]
+                                      },
+                                      "bootState": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "verified",
+                                            "self_signed",
+                                            "unverified",
+                                            "failed",
+                                            "unlocked"
+                                          ]
+                                        }
+                                      },
+                                      "appIds": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      }
                                     }
                                   }
                                 }
@@ -6215,6 +6599,38 @@
                                         "items": {
                                           "type": "string"
                                         }
+                                      },
+                                      "attestation": {
+                                        "type": "object",
+                                        "properties": {
+                                          "minSecurityLevel": {
+                                            "type": "string",
+                                            "enum": [
+                                              "hardware",
+                                              "strongbox"
+                                            ]
+                                          },
+                                          "bootState": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "verified",
+                                                "self_signed",
+                                                "unverified",
+                                                "failed",
+                                                "unlocked"
+                                              ]
+                                            }
+                                          },
+                                          "appIds": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            }
+                                          }
+                                        }
                                       }
                                     }
                                   }
@@ -6546,6 +6962,107 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/device/tpm-activation": {
+      "post": {
+        "summary": "Start a TPM credential activation: TPM2_MakeCredential for the device's EK and AK (needs a live attestation nonce)",
+        "operationId": "startDeviceTpmActivation",
+        "tags": [
+          "Device API"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "activationId": {
+                          "type": "string",
+                          "description": "Send back inside the enrollment evidence as activation.id"
+                        },
+                        "credentialBlob": {
+                          "type": "string",
+                          "description": "TPM2B_ID_OBJECT, the credentialBlob input of TPM2_ActivateCredential (base64url)"
+                        },
+                        "encryptedSecret": {
+                          "type": "string",
+                          "description": "TPM2B_ENCRYPTED_SECRET, the secret input of TPM2_ActivateCredential (base64url)"
+                        }
+                      },
+                      "required": [
+                        "activationId",
+                        "credentialBlob",
+                        "encryptedSecret"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Keys are not valid, or the nonce is unknown, expired or used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Devices are not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ekPublic": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Endorsement key, TPMT_PUBLIC or TPM2B_PUBLIC as base64url"
+                  },
+                  "akPublic": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Attestation key, TPMT_PUBLIC or TPM2B_PUBLIC as base64url"
+                  },
+                  "nonce": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "A live nonce from POST /device/attestation-nonce. Not spent here."
+                  }
+                },
+                "required": [
+                  "ekPublic",
+                  "akPublic",
+                  "nonce"
+                ]
               }
             }
           }
@@ -7808,6 +8325,7 @@
           "device_revoked",
           "device_expired",
           "owner_mismatch",
+          "attestation_required",
           "hook_denied",
           "hook_timeout",
           "hook_error",
@@ -7866,6 +8384,38 @@
                 "type": "array",
                 "items": {
                   "type": "string"
+                }
+              },
+              "attestation": {
+                "type": "object",
+                "properties": {
+                  "minSecurityLevel": {
+                    "type": "string",
+                    "enum": [
+                      "hardware",
+                      "strongbox"
+                    ]
+                  },
+                  "bootState": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "verified",
+                        "self_signed",
+                        "unverified",
+                        "failed",
+                        "unlocked"
+                      ]
+                    }
+                  },
+                  "appIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
                 }
               }
             }
@@ -8337,7 +8887,8 @@
                     "allowedArgPatterns",
                     "requireApproval",
                     "timeWindow",
-                    "ipAllowlist"
+                    "ipAllowlist",
+                    "attestation"
                   ]
                 },
                 "outcome": {

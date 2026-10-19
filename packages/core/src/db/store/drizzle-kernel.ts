@@ -52,6 +52,8 @@ interface HandleExtras {
 	resultKind?: "sync" | "async";
 	batch?: (queries: unknown[]) => Promise<unknown>;
 	transaction?: (fn: (tx: Database) => unknown) => unknown;
+	/** Raw statements: MySQL and Postgres handles only. */
+	execute?: (query: SQL) => Promise<unknown>;
 }
 
 const SCHEMA_TABLES: Record<string, SQLiteTable> = Object.fromEntries(
@@ -195,7 +197,13 @@ function build(
 
 	async function findMany(model: ModelName, q: FindManyQuery = {}): Promise<Row[]> {
 		const w = where(model, q.where ?? []);
-		let query = db.select().from(table(model)).where(w).$dynamic();
+		const projection = q.columns?.length
+			? Object.fromEntries(q.columns.map((field) => [field, column(model, field)]))
+			: undefined;
+		let query = (projection ? db.select(projection) : db.select())
+			.from(table(model))
+			.where(w)
+			.$dynamic();
 		if (q.orderBy?.length) {
 			query = query.orderBy(
 				...q.orderBy.map((o) => {
@@ -261,11 +269,29 @@ function build(
 			const rows = (await returning.call(statement, { v: col })) as Array<{ v: unknown }>;
 			return rows.length === 0 ? null : Number(rows[0]?.v);
 		}
-		// MySQL has no RETURNING: count the change, then read the value back. Under concurrent
-		// increments of the same row the value read can include later increments.
-		if ((await claimCount(statement)) === 0) return null;
-		const after = await findOne(model, filters);
-		return after ? Number(after[field]) : null;
+		// MySQL has no RETURNING. LAST_INSERT_ID(expr) remembers the new value on the connection that ran
+		// the update, so a transaction (one connection) reads back this statement's own value, even when
+		// other callers bump the same row. Reading the row again by `filters` was wrong twice over: it
+		// returned a later caller's value, and it missed the row altogether once the increment made it
+		// stop matching `filters` (the last allowed use of a capped counter), so a granted use read as refused.
+		const t = table(model);
+		const bump = (handle: Database) =>
+			handle
+				.update(t)
+				.set({ [field]: sql`last_insert_id(${col} + ${by})` })
+				.where(w);
+		const run = async (handle: Database): Promise<number | null> => {
+			if ((await claimCount(bump(handle))) === 0) return null;
+			const result = await (handle as unknown as HandleExtras).execute?.(
+				sql`select last_insert_id() as v`,
+			);
+			const rows = Array.isArray(result) ? result[0] : undefined;
+			const first = Array.isArray(rows) ? (rows[0] as { v?: unknown } | undefined) : undefined;
+			return first?.v === undefined ? null : Number(first.v);
+		};
+		const extras = db as unknown as HandleExtras;
+		if (typeof extras.transaction !== "function") return run(db);
+		return (await extras.transaction.call(db, (tx: Database) => run(tx))) as number | null;
 	}
 
 	async function batch(ops: readonly WriteOp[]): Promise<void> {

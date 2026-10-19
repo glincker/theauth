@@ -8,7 +8,7 @@ import type {
 import { createSessionStore } from "@glinr/theauth-client";
 import type { App, InjectionKey } from "vue";
 import { inject, shallowRef } from "vue";
-import type { ActionResult, TheAuthContextValue, TheAuthUser } from "./types.js";
+import type { ActionResult, SignUpData, TheAuthContextValue, TheAuthUser } from "./types.js";
 
 export const THEAUTH_KEY: InjectionKey<TheAuthContextValue> = Symbol("theauth");
 
@@ -31,11 +31,16 @@ export interface TheAuthPluginOptions {
 	refetch?: RefetchOptions;
 	/** Session the server already resolved (SSR). Skips the first request. `null` means signed out. */
 	initialSession?: HydrateInput | null;
-	/** Default `/auth/username/sign-in`. The core has no email and password route. */
+	/**
+	 * Use the core email and password routes (`/auth/email/*`, served when the server sets the
+	 * `emailPassword` config). Explicit `signInPath`, `signUpPath` and `identifierField` still win.
+	 */
+	emailPassword?: boolean;
+	/** Default `/auth/username/sign-in`, or `/auth/email/sign-in` with `emailPassword`. */
 	signInPath?: string;
-	/** Default `/auth/username/sign-up`. */
+	/** Default `/auth/username/sign-up`, or `/auth/email/sign-up` with `emailPassword`. */
 	signUpPath?: string;
-	/** Body field for the sign-in identifier. Default `username`. */
+	/** Body field for the sign-in identifier. Default `username`, or `email` with `emailPassword`. */
 	identifierField?: string;
 	/** Defaults to `window.localStorage` when the browser allows it. */
 	storage?: SessionStorageLike;
@@ -54,7 +59,14 @@ function browserStorage(): SessionStorageLike | undefined {
 }
 
 function toActionResult(r: StoreActionResult): ActionResult {
-	return r.success ? { success: true, data: undefined } : { success: false, error: r.error };
+	return r.success
+		? { success: true, data: undefined }
+		: { success: false, error: r.error, ...(r.code !== undefined && { code: r.code }) };
+}
+
+function toSignUpResult(r: StoreActionResult): ActionResult<SignUpData> {
+	if (!r.success) return toActionResult(r) as ActionResult<SignUpData>;
+	return { success: true, data: { verificationRequired: r.verificationRequired === true } };
 }
 
 export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
@@ -65,6 +77,7 @@ export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 				basePath: base,
 				storage: options.storage ?? browserStorage(),
 				fetch: options.fetch,
+				emailPassword: options.emailPassword,
 				signInPath: options.signInPath,
 				signUpPath: options.signUpPath,
 				identifierField: options.identifierField,
@@ -107,7 +120,13 @@ export function createTheAuthPlugin(options: TheAuthPluginOptions = {}) {
 				basePath: base,
 				signIn: async (email, password) => toActionResult(await store.signIn(email, password)),
 				signUp: async (email, password, name) =>
-					toActionResult(await store.signUp(email, password, name)),
+					toSignUpResult(await store.signUp(email, password, name)),
+				verifyEmail: async (token) => toActionResult(await store.verifyEmail(token)),
+				resendVerification: async (email) => toActionResult(await store.resendVerification(email)),
+				requestPasswordReset: async (email) =>
+					toActionResult(await store.requestPasswordReset(email)),
+				resetPassword: async (token, password) =>
+					toActionResult(await store.resetPassword(token, password)),
 				signOut: async () => {
 					await store.signOut();
 				},

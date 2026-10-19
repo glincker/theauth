@@ -76,7 +76,7 @@ The curl from step 3 returns the demo agent:
 
 The same call without the `Authorization` header answers 401. The seed creates the owner with `theauth.user.create` before the agent, so the foreign key on `owner_id` holds. Running `init` again skips every file that exists, so it never overwrites your edits (pass `--force` to replace the generated files; `.env` is only ever created). See [CLI tools](/cli-tools#init) for every flag. The two tracks below show the same calls by hand.
 
-## Track A: Add agent auth
+## Track A: add agent auth
 
 <Steps>
 
@@ -191,7 +191,7 @@ Run it with `npx tsx agent.ts`.
 
 </Steps>
 
-## Track B: Add human auth
+## Track B: add human auth
 
 theAuth ships 14 human auth methods and 48 OAuth providers as plugins and modules; this track uses email and password, the most common starting point. See [Authentication](/auth) for the rest.
 
@@ -202,60 +202,76 @@ theAuth ships 14 human auth methods and 48 OAuth providers as plugins and module
 ### Install
 
 ```bash title="terminal"
-pnpm add @glinr/theauth @glinr/theauth-email better-sqlite3
+pnpm add @glinr/theauth better-sqlite3
 ```
 
 </Step>
 
 <Step>
 
-### Add the plugin
+### Turn on email and password
 
-`emailPassword()` registers `POST /auth/sign-up`, `/auth/sign-in`, `/auth/verify-email`, `/auth/request-reset`, `/auth/reset-password` and `/auth/change-password`. You supply the email transport; the callbacks below just log. Passwords are hashed before storage. These routes exist only while `@glinr/theauth-email` is installed: the core on its own serves `/auth/username/sign-up` and `/auth/username/sign-in` instead.
+`emailPassword` is part of core. It serves `POST /auth/email/sign-up`, `/auth/email/sign-in`, `/auth/email/verify`, `/auth/email/resend-verification`, `/auth/email/forgot-password`, `/auth/email/reset-password` and `/auth/email/change-password` from the same handler as everything else. You supply the email transport; the callbacks below just log. Passwords are hashed before storage, and sessions are the same sessions the rest of theAuth reads.
 
 ```ts title="human.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { emailPassword } from '@glinr/theauth-email';
+import { createTheAuthHandler } from '@glinr/theauth/http';
+
+const verifications: string[] = [];
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' },
-  plugins: [
-    emailPassword({
-      appUrl: 'http://localhost:3000',
-      requireVerification: false, // development only, default is true
-      sendVerificationEmail: async (email, _token, url) => console.log('verify', email, url),
-      sendResetEmail: async (email, _token, url) => console.log('reset', email, url),
-    }),
-  ],
+  auth: { session: { secret: 'a-session-secret-of-at-least-32-characters' } },
+  agents: { enabled: true, maxPerUser: 10, auditAll: true }, // for the agent step below
+  emailVerification: {
+    verifyUrl: 'http://localhost:3000/verify-email',
+    sendVerificationEmail: async (email, token, url) => {
+      verifications.push(token);
+      console.log('verify', email, url);
+    },
+  },
+  emailPassword: {}, // requireVerification is true unless you set it to false
 });
+
+const handler = createTheAuthHandler(theauth, { basePath: '/api/theauth' });
 ```
 
 </Step>
 
 <Step>
 
-### Sign up and sign in
+### Sign up, verify and sign in
 
-The plugin endpoints take standard `Request` objects, so you can call them directly or mount them with a [framework adapter](/adapters).
+The handler takes standard `Request` objects, so you can call it directly or mount it with a [framework adapter](/adapters).
 
 ```ts title="human.ts"
 const post = (path: string, body: unknown) =>
-  theauth.plugins.handleRequest(
-    new Request(`http://localhost${path}`, {
+  handler(
+    new Request(`http://localhost/api/theauth${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     }),
   );
 
-const signUp = await post('/auth/sign-up', { email: 'ada@example.com', password: 'correct horse battery', name: 'Ada' });
-console.log(signUp?.status); // 201
+const creds = { email: 'ada@example.com', password: 'correct horse battery' };
 
-const signIn = await post('/auth/sign-in', { email: 'ada@example.com', password: 'correct horse battery' });
-console.log(await signIn?.json()); // { user, session: { token, expiresAt } }
+console.log((await post('/auth/email/sign-up', { ...creds, name: 'Ada' })).status); // 201, no session yet
+console.log((await post('/auth/email/sign-in', creds)).status); // 403 EMAIL_NOT_VERIFIED
+await post('/auth/email/verify', { token: verifications[0] });
+
+const signIn = await post('/auth/email/sign-in', creds);
+const { user, session } = await signIn.json(); // { user, session: { token, expiresAt } }
+
+const me = await handler(
+  new Request('http://localhost/api/theauth/auth/session', {
+    headers: { authorization: `Bearer ${session.token}` },
+  }),
+);
+console.log((await me.json()).user.email); // ada@example.com
 ```
 
-Run it with `npx tsx human.ts`. With `requireVerification` left at its default of `true`, sign-in fails with `EMAIL_NOT_VERIFIED` until the user posts the token from the verification email to `/auth/verify-email`.
+Run it with `npx tsx human.ts`. The browser clients take `emailPassword: true` and call the same routes ([React](/react), [Vue](/vue), [Svelte](/svelte), [Expo](/expo), [Electron](/electron)). Details, the error codes and what the routes reveal are on [Email and password](/auth/email-password).
 
 </Step>
 
@@ -263,10 +279,9 @@ Run it with `npx tsx human.ts`. With `requireVerification` left at its default o
 
 ### Give the user an agent
 
-The sign-up response contains `user.id`. Pass it as `ownerId` in Track A and the foreign key is satisfied with no manual seeding.
+The sign-in response contains `user.id`. Pass it as `ownerId` in Track A and the foreign key is satisfied with no manual seeding.
 
 ```ts title="human.ts"
-const { user } = await signUp!.json();
 const agent = await theauth.agent.create({
   ownerId: user.id,
   name: 'assistant',
@@ -438,13 +453,13 @@ Run `npx wrangler d1 execute theauth --file=./theauth-schema.sql` to apply the s
 
 ### "Email address has not been verified" after sign-up
 
-With the `@glinr/theauth-email` plugin, sign-in requires email verification by default and fails with `EMAIL_NOT_VERIFIED` (HTTP 401). Either:
-1. Post the token from the verification email (the one passed to your `sendVerificationEmail` callback) to `/auth/verify-email`
-2. Set `requireVerification: false` in the `emailPassword()` config (development only)
+With the `emailPassword` config, sign-in requires email verification by default and fails with `EMAIL_NOT_VERIFIED` (HTTP 403). Either:
+1. Post the token from the verification email (the one passed to your `sendVerificationEmail` callback) to `/auth/email/verify`
+2. Set `requireVerification: false` in the `emailPassword` config (development only)
 
 ### "FOREIGN KEY constraint failed" when creating agents
 
-The `ownerId` must match a row in `theauth_users`. Sign the user up with the email plugin (Track B), or create one with `theauth.user.create()` as shown in step 2 of Track A.
+The `ownerId` must match a row in `theauth_users`. Sign the user up with `emailPassword` (Track B), or create one with `theauth.user.create()` as shown in step 2 of Track A.
 
 ### Session not persisting after page reload
 

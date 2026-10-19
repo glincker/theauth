@@ -65,6 +65,34 @@ export const EnrollDeviceSchema = z.object({
 	metadata: z.record(z.unknown()).optional(),
 });
 
+export const TpmActivationRequestSchema = z.object({
+	ekPublic: z
+		.string()
+		.min(1)
+		.max(4096)
+		.describe("Endorsement key, TPMT_PUBLIC or TPM2B_PUBLIC as base64url"),
+	akPublic: z
+		.string()
+		.min(1)
+		.max(4096)
+		.describe("Attestation key, TPMT_PUBLIC or TPM2B_PUBLIC as base64url"),
+	nonce: z
+		.string()
+		.min(1)
+		.max(128)
+		.describe("A live nonce from POST /device/attestation-nonce. Not spent here."),
+});
+
+export const TpmActivationSchema = z.object({
+	activationId: z.string().describe("Send back inside the enrollment evidence as activation.id"),
+	credentialBlob: z
+		.string()
+		.describe("TPM2B_ID_OBJECT, the credentialBlob input of TPM2_ActivateCredential (base64url)"),
+	encryptedSecret: z
+		.string()
+		.describe("TPM2B_ENCRYPTED_SECRET, the secret input of TPM2_ActivateCredential (base64url)"),
+});
+
 export const DeviceAuthorizeSchema = z.object({
 	action: z.string().min(1),
 	resource: z.string().min(1),

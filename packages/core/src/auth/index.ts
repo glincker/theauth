@@ -99,6 +99,16 @@ export type { EmailOtpConfig, EmailOtpModule } from "./email-otp.js";
 export { createEmailOtpModule } from "./email-otp.js";
 // Email OTP plugin (TheAuthPlugin wrapper)
 export { emailOtp } from "./email-otp-plugin.js";
+export type {
+	EmailPasswordConfig,
+	EmailPasswordDeps,
+	EmailPasswordErrorCode,
+	EmailPasswordModule,
+	EmailPasswordSession,
+	EmailPasswordUser,
+	EmailSignUpResult,
+} from "./email-password.js";
+export { createEmailPasswordModule, EmailPasswordError } from "./email-password.js";
 export type { EmailVerificationConfig, EmailVerificationModule } from "./email-verification.js";
 export { createEmailVerificationModule } from "./email-verification.js";
 // Ephemeral sessions (short-lived agent credentials for computer-use agents)

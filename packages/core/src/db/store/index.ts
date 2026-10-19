@@ -1,7 +1,17 @@
+export { createAuditLogRepo, createKeyedQueue } from "./audit-repo.js";
 export { createDrizzleKernel, detectDialect } from "./drizzle-kernel.js";
-export { singleUseFor } from "./for-database.js";
+export {
+	overrideStores,
+	singleUseFor,
+	singleUseWithTables,
+	storesFor,
+	storesFromKernel,
+} from "./for-database.js";
 export { createSingleUseStores } from "./single-use.js";
 export type {
+	AuditHead,
+	AuditInsertRow,
+	AuditLogRepo,
 	FindManyQuery,
 	ModelName,
 	ModelRow,

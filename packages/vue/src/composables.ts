@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { useRequiredContext } from "./plugin.js";
-import type { ActionResult, CreateAgentInput, TheAuthAgent } from "./types.js";
+import type { ActionResult, CreateAgentInput, SignUpData, TheAuthAgent } from "./types.js";
 
 /**
  * Returns the current session, loading state, and a manual refresh function.
@@ -66,7 +66,11 @@ export function useSignUp() {
 	const isLoading = ref(false);
 	const error = ref<string | null>(null);
 
-	async function signUp(email: string, password: string, name?: string): Promise<ActionResult> {
+	async function signUp(
+		email: string,
+		password: string,
+		name?: string,
+	): Promise<ActionResult<SignUpData>> {
 		isLoading.value = true;
 		error.value = null;
 		const result = await ctx.signUp(email, password, name);
@@ -78,6 +82,20 @@ export function useSignUp() {
 	}
 
 	return { signUp, isLoading, error };
+}
+
+/**
+ * Verify, resend, forgot and reset for the email and password routes
+ * (`createTheAuthPlugin({ emailPassword: true })`). Each result carries the server `code` on failure.
+ */
+export function useEmailPassword() {
+	const ctx = useRequiredContext("useEmailPassword");
+	return {
+		verifyEmail: ctx.verifyEmail,
+		resendVerification: ctx.resendVerification,
+		requestPasswordReset: ctx.requestPasswordReset,
+		resetPassword: ctx.resetPassword,
+	};
 }
 
 export function useSignOut() {

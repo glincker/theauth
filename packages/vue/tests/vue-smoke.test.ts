@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createApp, defineComponent, nextTick } from "vue";
-import { createTheAuthPlugin, useSession, useSignIn, useSignOut, useUser } from "../src/index.js";
+import {
+	createTheAuthPlugin,
+	useSession,
+	useSignIn,
+	useSignOut,
+	useSignUp,
+	useUser,
+} from "../src/index.js";
 
 const SESSION_KEY = "theauth_session";
 
@@ -248,4 +255,55 @@ test("refetches on window focus and stops after unmount", async () => {
 	window.dispatchEvent(new Event("focus"));
 	await flush();
 	expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+test("emailPassword preset targets the email routes and reports verificationRequired", async () => {
+	const urls: string[] = [];
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			urls.push(url);
+			if (url.endsWith("/auth/email/sign-up")) {
+				return { ok: true, status: 201, json: async () => ({ verificationRequired: true }) };
+			}
+			if (url.endsWith("/auth/email/sign-in")) {
+				return {
+					ok: false,
+					status: 403,
+					json: async () => ({ error: { code: "EMAIL_NOT_VERIFIED", message: "Verify first" } }),
+				};
+			}
+			return { ok: false, status: 401, json: async () => ({}) };
+		}) as typeof fetch,
+	);
+	const api: { up: ReturnType<typeof useSignUp> | null; inn: ReturnType<typeof useSignIn> | null } =
+		{
+			up: null,
+			inn: null,
+		};
+	const Harness = defineComponent({
+		setup() {
+			api.up = useSignUp();
+			api.inn = useSignIn();
+			return () => null;
+		},
+	});
+	const app = createApp(Harness);
+	app.use(createTheAuthPlugin({ basePath: "/api/theauth", emailPassword: true }));
+	app.mount(document.createElement("div"));
+	await flush();
+
+	expect(await api.up?.signUp("ada@example.com", "pw-long-enough")).toEqual({
+		success: true,
+		data: { verificationRequired: true },
+	});
+	expect(await api.inn?.signIn("ada@example.com", "pw-long-enough")).toEqual({
+		success: false,
+		error: "Verify first",
+		code: "EMAIL_NOT_VERIFIED",
+	});
+	expect(urls).toContain("/api/theauth/auth/email/sign-up");
+	expect(urls).toContain("/api/theauth/auth/email/sign-in");
+	app.unmount();
 });

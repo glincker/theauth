@@ -1,9 +1,21 @@
 import { desc, eq } from "drizzle-orm";
-import { generateId, sha256 } from "../crypto/web-crypto.js";
+import {
+	constantTimeEqual,
+	fromBase64Url,
+	generateId,
+	randomBytes,
+	sha256,
+	sha256Raw,
+	toBase64Url,
+	toHex,
+} from "../crypto/web-crypto.js";
 import type { Database } from "../db/database.js";
 import { deviceEnrollments } from "../db/schema.js";
 import { singleUseFor } from "../db/store/for-database.js";
 import type { SecondaryStorage } from "../storage/types.js";
+import { tpm2MakeCredential, tpmObjectName } from "./attestation/tpm2-activation.js";
+import type { TpmActivationRecord } from "./attestation/tpm2-certify.js";
+import { parseTpmPublic } from "./attestation/tpm2-structures.js";
 import { normalizeDeviceJwk, normalizeX509Thumbprint } from "./credentials.js";
 import type { DeviceRegistry } from "./registry.js";
 import { DeviceInputError, nowSec } from "./registry.js";
@@ -171,6 +183,86 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 		return spent.count === 1;
 	}
 
+	/**
+	 * First half of the TPM credential activation: wrap a fresh secret to the device's EK and AK name (TPM2_MakeCredential). The device runs TPM2_ActivateCredential and sends the recovered secret back inside its enrollment evidence. Needs a live nonce from `attestationNonce()` so the route cannot be used as a free RSA oracle, and does not spend it.
+	 */
+	async function tpmActivationChallenge(input: {
+		ekPublic: string;
+		akPublic: string;
+		nonce: string;
+	}): Promise<{ activationId: string; credentialBlob: string; encryptedSecret: string }> {
+		if ((await storage.get(`nonce:${await sha256(input.nonce)}`)) === null) {
+			throw new DeviceEnrollmentError(
+				"nonce_invalid",
+				"Attestation nonce is unknown, expired or used",
+			);
+		}
+		let ekPublic: Uint8Array;
+		let akName: Uint8Array;
+		let ekName: Uint8Array;
+		try {
+			ekPublic = fromBase64Url(input.ekPublic);
+			const ek = parseTpmPublic(ekPublic, { allowSymmetric: true });
+			const ak = parseTpmPublic(fromBase64Url(input.akPublic));
+			akName = await tpmObjectName(ak);
+			ekName = await tpmObjectName(ek);
+		} catch (err) {
+			throw new DeviceInputError(
+				"INVALID_INPUT",
+				err instanceof Error ? err.message : "Keys are not valid",
+			);
+		}
+		const secret = randomBytes(32);
+		let made: Awaited<ReturnType<typeof tpm2MakeCredential>>;
+		try {
+			made = await tpm2MakeCredential({ ekPublic, akName, credential: secret });
+		} catch (err) {
+			throw new DeviceInputError(
+				"INVALID_INPUT",
+				err instanceof Error ? err.message : "Endorsement key is not valid",
+			);
+		}
+		const activationId = generateId().replace(/-/g, "");
+		await storage.set(
+			`tpmact:${activationId}`,
+			JSON.stringify({
+				akName: toHex(akName),
+				ekName: toHex(ekName),
+				secretHash: toHex(await sha256Raw(secret)),
+			}),
+			NONCE_TTL_SECONDS,
+		);
+		return {
+			activationId,
+			credentialBlob: toBase64Url(made.credentialBlob),
+			encryptedSecret: toBase64Url(made.encryptedSecret),
+		};
+	}
+
+	async function consumeTpmActivation(
+		id: string,
+		secret: Uint8Array,
+	): Promise<TpmActivationRecord | null> {
+		const key = `tpmact:${id}`;
+		const raw = await storage.get(key);
+		if (raw === null) return null;
+		let record: TpmActivationRecord & { secretHash: string };
+		try {
+			record = JSON.parse(raw) as typeof record;
+		} catch {
+			return null;
+		}
+		const good = constantTimeEqual(
+			new TextEncoder().encode(toHex(await sha256Raw(secret))),
+			new TextEncoder().encode(record.secretHash),
+		);
+		// A wrong secret leaves the activation alone so one bad guess does not burn the honest device's attempt, but the secret is 256 bits, so guessing is not a concern. Count spends so two enrollments cannot both win.
+		if (!good) return null;
+		const spent = await storage.incr(`spent:${key}`, NONCE_TTL_SECONDS);
+		await storage.delete(key);
+		return spent.count === 1 ? { akName: record.akName, ekName: record.ekName } : null;
+	}
+
 	async function checkAttestation(
 		input: EnrollDeviceInput,
 		enrollmentId: string,
@@ -202,6 +294,7 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 		let result: Awaited<ReturnType<NonNullable<typeof att.verify>>>;
 		try {
 			result = await att.verify({
+				services: { consumeTpmActivation },
 				evidence: input.evidence,
 				enrollmentId,
 				credentialKind: input.credential.kind,
@@ -273,5 +366,14 @@ export function createDeviceEnrollment(deps: EnrollmentDeps) {
 		return { device: created.device, credential: created.credential };
 	}
 
-	return { createToken, listTokens, getToken, revokeToken, attestationNonce, enroll };
+	return {
+		createToken,
+		listTokens,
+		getToken,
+		revokeToken,
+		attestationNonce,
+		tpmActivationChallenge,
+		spendNonce,
+		enroll,
+	};
 }

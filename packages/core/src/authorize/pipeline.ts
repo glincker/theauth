@@ -11,6 +11,7 @@ import type { Observability } from "../observability/index.js";
 import type { DecisionEvent } from "../observability/types.js";
 import { DECISION_CODES, isApprovalDenial, violationTypeOf } from "../permission/codes.js";
 import type { createPermissionEngine } from "../permission/engine.js";
+import type { AttestationFacts } from "../policy/attestation-constraint.js";
 import type { AgentIdentity, AuthorizeRequest, AuthorizeResult, RequestContext } from "../types.js";
 import type { HookBlock } from "./hook-outcome.js";
 import { hookAuditDetail, isHookBlock, withHookDetail } from "./hook-outcome.js";
@@ -33,6 +34,8 @@ export interface AuthorizePipelineDeps {
 export interface PipelineAuthorizeOptions {
 	/** Merged into the `parameters` of every audit row this call writes, for example `theauthPrincipal`. Keys must be reserved (`theauth*`). */
 	auditParameters?: Record<string, unknown>;
+	/** Verified attestation facts of the calling device, for `attestation` constraints. Set by the device module only. */
+	attestation?: AttestationFacts;
 }
 
 export interface AuthorizePipeline {
@@ -159,7 +162,15 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 			});
 		}
 
-		return authorizeResolved(agent, request, context, "authorize", startedAt, extra);
+		return authorizeResolved(
+			agent,
+			request,
+			context,
+			"authorize",
+			startedAt,
+			extra,
+			options?.attestation,
+		);
 	}
 
 	/** Everything after the agent is resolved and active: hook, own permissions, delegated fallback, audit, notifications. */
@@ -170,6 +181,7 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 		source: AuthorizeSource,
 		startedAt: number,
 		extra?: Record<string, unknown>,
+		attestation?: AttestationFacts,
 	): Promise<AuthorizeResult> {
 		const agentId = agent.id;
 		const enrichedRequest: AuthorizeRequest = context ? { ...request, context } : request;
@@ -214,6 +226,7 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 		const ownResult = await permissionEngine.authorize(agent, enrichedRequest, {
 			deferDenialAudit: true,
 			auditParameters,
+			attestation,
 		});
 
 		let finalResult: AuthorizeResult;
@@ -232,7 +245,7 @@ export function createAuthorizePipeline(deps: AuthorizePipelineDeps): AuthorizeP
 				const delegatedResult = await permissionEngine.authorize(
 					agentWithDelegated,
 					enrichedRequest,
-					{ deferDenialAudit: true, auditParameters },
+					{ deferDenialAudit: true, auditParameters, attestation },
 				);
 				// Both denied: keep the original denial, unless an approval failure is more specific.
 				const approvalDenied = isApprovalDenial(delegatedResult.code);

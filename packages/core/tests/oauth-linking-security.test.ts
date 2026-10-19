@@ -25,12 +25,19 @@ function provider(userInfo: OAuthUserInfo): OAuthProvider {
 	};
 }
 
-async function setup(userInfo: OAuthUserInfo) {
+async function setup(userInfo: OAuthUserInfo, unsafeAllowUnverifiedEmailLinking?: boolean) {
 	const theauth = await createTheAuth({
 		database: { provider: "sqlite", url: ":memory:" },
 		baseUrl: "https://app.example.com",
 		auth: { session: { secret: "test-session-secret-that-is-at-least-32-chars!!" } },
-		plugins: [oauth({ providers: { mock: provider(userInfo) } })],
+		plugins: [
+			oauth({
+				providers: { mock: provider(userInfo) },
+				...(unsafeAllowUnverifiedEmailLinking !== undefined && {
+					unsafeAllowUnverifiedEmailLinking,
+				}),
+			}),
+		],
 	});
 	return theauth;
 }
@@ -93,6 +100,13 @@ describe("OAuth account linking by email", () => {
 		const res = await signIn(theauth);
 		expect(res.status).toBe(302);
 		expect(res.headers.get("set-cookie")).toContain("theauth_session=");
+	});
+
+	it("keeps the old behavior behind unsafeAllowUnverifiedEmailLinking", async () => {
+		const theauth = await setup({ id: "a-1", email: "victim@example.com", raw: {} }, true);
+		await seedUser(theauth, "victim@example.com", 0);
+		const res = await signIn(theauth);
+		expect(res.status).toBe(302);
 	});
 
 	it("creates new users unverified when the provider does not vouch for the email", async () => {

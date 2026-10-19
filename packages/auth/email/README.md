@@ -4,6 +4,8 @@
 
 Email and password authentication plugin for theAuth.
 
+> **Deprecated.** Core now has email and password built in (the `emailPassword` config key and the `/auth/email/*` routes, see the [docs](https://docs.theauth.dev/auth/email-password)). This plugin's sign-in token is not a core session: `GET /auth/session` answers 401 for it, it sets no cookie, and its sign-up returns a session token before the address is verified. Use it only to keep an existing install running.
+
 [![npm](https://img.shields.io/npm/v/@glinr/theauth-email?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-email)
 
 Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).

@@ -4,6 +4,8 @@ import { generateId } from "../crypto/web-crypto.js";
 import type { DecisionCode } from "../permission/codes.js";
 import { DECISION_CODES } from "../permission/codes.js";
 import { findMatchingPermission, inspectConstraints } from "../policy/abac.js";
+import type { AttestationFacts } from "../policy/attestation-constraint.js";
+import { parseAttestationFacts } from "../policy/attestation-constraint.js";
 import type { ResourceMatching } from "../policy/resource-match.js";
 import { resolveResourceMatching } from "../policy/resource-match.js";
 import type { Permission } from "../types.js";
@@ -59,6 +61,8 @@ export interface SignBundleInput {
 	nowMs?: number;
 	/** Written to the signed claims when `path`, so offline decisions match the server. */
 	resourceMatching?: ResourceMatching;
+	/** Facts of the device attestation, written to the signed `att` claim. */
+	attestation?: AttestationFacts;
 }
 
 /** Sign an offline policy bundle (compact JWS). */
@@ -78,6 +82,7 @@ export async function signDeviceBundle(input: SignBundleInput): Promise<IssuedDe
 		groups: input.groups,
 		perms: input.permissions.map(stripRelation),
 		...(input.resourceMatching === "path" && { rm: "path" as const }),
+		...(input.attestation && { att: input.attestation }),
 	};
 	const key = await importSigningKey(input.signing.privateKey, input.signing.alg);
 	const token = await new SignJWT({ ...claims })
@@ -243,7 +248,14 @@ export function evaluateDeviceBundle(
 		};
 	}
 	const inspection = inspectConstraints(
-		{ subjectId: claims.sub, resource: input.resource, arguments: input.arguments, ip: input.ip },
+		{
+			subjectId: claims.sub,
+			resource: input.resource,
+			arguments: input.arguments,
+			ip: input.ip,
+			// Re-parsed: the claim is signed, but a verifier must still not trust its shape.
+			attestation: parseAttestationFacts(claims.att),
+		},
 		constraints,
 		{ now, rateUsage: input.callsInLastHour },
 	);

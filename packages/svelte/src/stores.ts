@@ -11,6 +11,7 @@ import { derived, readable, writable } from "svelte/store";
 import type {
 	ActionResult,
 	CreateAgentInput,
+	SignUpData,
 	TheAuthAgent,
 	TheAuthSession,
 	TheAuthUser,
@@ -52,11 +53,16 @@ export interface TheAuthClientOptions {
 	refetch?: RefetchOptions;
 	/** Session the server already resolved (SSR). Skips the first request. `null` means signed out. */
 	initialSession?: HydrateInput | null;
-	/** Default `/auth/username/sign-in`. The core has no email and password route. */
+	/**
+	 * Use the core email and password routes (`/auth/email/*`, served when the server sets the
+	 * `emailPassword` config). Explicit `signInPath`, `signUpPath` and `identifierField` still win.
+	 */
+	emailPassword?: boolean;
+	/** Default `/auth/username/sign-in`, or `/auth/email/sign-in` with `emailPassword`. */
 	signInPath?: string;
-	/** Default `/auth/username/sign-up`. */
+	/** Default `/auth/username/sign-up`, or `/auth/email/sign-up` with `emailPassword`. */
 	signUpPath?: string;
-	/** Body field for the sign-in identifier. Default `username`. */
+	/** Body field for the sign-in identifier. Default `username`, or `email` with `emailPassword`. */
 	identifierField?: string;
 	/** Defaults to `window.localStorage` when the browser allows it. */
 	storage?: SessionStorageLike;
@@ -69,7 +75,15 @@ export interface TheAuthClient {
 	isAuthenticated: Readable<boolean>;
 	isLoading: Readable<boolean>;
 	signIn: (email: string, password: string) => Promise<ActionResult>;
-	signUp: (email: string, password: string, name?: string) => Promise<ActionResult>;
+	signUp: (email: string, password: string, name?: string) => Promise<ActionResult<SignUpData>>;
+	/** Email and password only. Confirms an address with the token from the verification email. */
+	verifyEmail: (token: string) => Promise<ActionResult>;
+	/** Email and password only. Sends the verification email again. */
+	resendVerification: (email: string) => Promise<ActionResult>;
+	/** Email and password only. Emails a reset link when the server has `passwordReset`. */
+	requestPasswordReset: (email: string) => Promise<ActionResult>;
+	/** Email and password only. Sets a new password from the emailed token. */
+	resetPassword: (token: string, password: string) => Promise<ActionResult>;
 	signOut: () => Promise<void>;
 	refresh: () => Promise<void>;
 	/** Seeds the session from SSR output with no request. */
@@ -87,7 +101,14 @@ function browserStorage(): SessionStorageLike | undefined {
 }
 
 function toActionResult(r: StoreActionResult): ActionResult {
-	return r.success ? { success: true, data: undefined } : { success: false, error: r.error };
+	return r.success
+		? { success: true, data: undefined }
+		: { success: false, error: r.error, ...(r.code !== undefined && { code: r.code }) };
+}
+
+function toSignUpResult(r: StoreActionResult): ActionResult<SignUpData> {
+	if (!r.success) return toActionResult(r) as ActionResult<SignUpData>;
+	return { success: true, data: { verificationRequired: r.verificationRequired === true } };
 }
 
 /**
@@ -102,6 +123,7 @@ export function createTheAuthClient(options?: TheAuthClientOptions): TheAuthClie
 		basePath,
 		storage: options?.storage ?? browserStorage(),
 		fetch: options?.fetch,
+		emailPassword: options?.emailPassword,
 		signInPath: options?.signInPath,
 		signUpPath: options?.signUpPath,
 		identifierField: options?.identifierField,
@@ -134,7 +156,12 @@ export function createTheAuthClient(options?: TheAuthClientOptions): TheAuthClie
 		isLoading: isLoading as Readable<boolean>,
 		signIn: async (email, password) => toActionResult(await store.signIn(email, password)),
 		signUp: async (email, password, name) =>
-			toActionResult(await store.signUp(email, password, name)),
+			toSignUpResult(await store.signUp(email, password, name)),
+		verifyEmail: async (token) => toActionResult(await store.verifyEmail(token)),
+		resendVerification: async (email) => toActionResult(await store.resendVerification(email)),
+		requestPasswordReset: async (email) => toActionResult(await store.requestPasswordReset(email)),
+		resetPassword: async (token, password) =>
+			toActionResult(await store.resetPassword(token, password)),
 		signOut: async () => {
 			await store.signOut();
 		},

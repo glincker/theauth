@@ -1,6 +1,6 @@
 /**
- * Wire parsing for the routes the theAuth handler serves: `POST /auth/username/sign-in`,
- * `POST /auth/username/sign-up`, `GET /auth/session` and `POST /auth/sign-out`. The
+ * Wire parsing for the routes the theAuth handler serves: `POST /auth/email/sign-in` and
+ * `/auth/email/sign-up` (or the username equivalents), `GET /auth/session` and `POST /auth/sign-out`. The
  * sign-in routes answer `{ user, session: { token, expiresAt } }`. `GET /auth/session`
  * answers `{ user, session: { id, expiresAt } }` with no token, so the caller keeps the
  * token it already holds. The older `{ data: { token, user } }` envelope is still read.
@@ -63,4 +63,27 @@ export function parseError(body: unknown, fallback: string): string {
 		if (typeof m === "string" && m) return m;
 	}
 	return fallback;
+}
+
+/** Reads `error.code` from `{ error: { code } }`, when the server sent one. */
+export function parseErrorCode(body: unknown): string | undefined {
+	const e = (body as WireBody | null)?.error;
+	if (e && typeof e === "object") {
+		return str((e as { code?: unknown }).code);
+	}
+	return undefined;
+}
+
+/** True when a sign-up created the account but no session (email verification is on). */
+export function isVerificationRequired(body: unknown): boolean {
+	return (body as { verificationRequired?: unknown } | null)?.verificationRequired === true;
+}
+
+/** A failed action result with the server message and, when sent, its code. */
+export function failure(
+	body: unknown,
+	fallback: string,
+): { success: false; error: string; code?: string } {
+	const code = parseErrorCode(body);
+	return { success: false, error: parseError(body, fallback), ...(code && { code }) };
 }

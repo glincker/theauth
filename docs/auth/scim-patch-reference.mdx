@@ -475,7 +475,7 @@ Google Workspace sends URN-prefixed paths for extension attributes.
 
 **Groups PATCH is partial.** `PATCH /scim/v2/Groups/{id}` routes through a separate handler (`handlePatchGroup`) that does not use the `scim-patch.ts` engine. Value-filter operations on group members are not supported. A full rewrite to use the shared engine is planned for a follow-up release.
 
-**Value-filter member operations.** Filtering on `members[value eq "user-id"]` in a group context is not yet evaluated against the engine's AST walker. Sending such a path against the groups endpoint will not produce a predictable error -- it will silently fail or return unexpected results.
+**Value-filter member operations.** Filtering on `members[value eq "user-id"]` in a group context is not yet evaluated against the engine's AST walker. Sending such a path against the groups endpoint will not produce a predictable error. It will silently fail or return unexpected results.
 
 **Filter operators.** The current AST walker in `scim-filter.ts` supports the comparison operators (`eq`, `ne`, `co`, `sw`, `ew`, `pr`, `gt`, `lt`, `ge`, `le`) and logical operators (`and`, `or`, `not`). Complex nested logical expressions with more than two clauses may not parse correctly.
 

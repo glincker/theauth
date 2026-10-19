@@ -1,5 +1,6 @@
 export {
 	useAgents,
+	useEmailPassword,
 	useSession,
 	useSignIn,
 	useSignOut,
@@ -23,6 +24,7 @@ export type {
 	AuthSession,
 	AuthUser,
 	CreateAgentInput,
+	SignUpData,
 	TheAuthAgent,
 	TheAuthContextValue,
 	TheAuthPermission,

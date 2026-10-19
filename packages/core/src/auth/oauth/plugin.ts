@@ -29,6 +29,10 @@ export interface OAuthPluginConfig extends OAuthModuleConfig {
 	 * Native app sign-in. When set, `authorize` accepts `mobile_redirect` and a PKCE `code_challenge`, and the app trades the code it receives for a session at `POST /auth/oauth/mobile/exchange`. Off when omitted.
 	 */
 	mobile?: MobileOAuthConfig;
+	/**
+	 * Sign in to an existing local account with the same email even when the provider does not vouch for the address or the local address is unverified (default: false). The old behavior lets anyone who registered an address first take over the account its owner later opens through a provider. Leave it off.
+	 */
+	unsafeAllowUnverifiedEmailLinking?: boolean;
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -221,7 +225,10 @@ export function oauth(config: OAuthPluginConfig): TheAuthPlugin {
 								// address. An unverified provider email lets anyone who controls
 								// a provider account with the victim's address sign in as them,
 								// and an unverified local account may be a pre-registered squat.
-								if (result.userInfo.emailVerified !== true || !existing[0].emailVerified) {
+								if (
+									!config.unsafeAllowUnverifiedEmailLinking &&
+									(result.userInfo.emailVerified !== true || !existing[0].emailVerified)
+								) {
 									return fail(
 										"An account with this email already exists. Sign in with your existing method and link this provider from account settings.",
 										409,

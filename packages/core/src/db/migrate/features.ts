@@ -98,11 +98,16 @@ export function resolveEnabledFeatures(config?: TheAuthConfig): EnabledFeatures 
 		passkey: !!config.passkey || hasPlugin("theauth-passkey"),
 		sso: !!config.sso,
 		apiKey: !!config.apiKeys || hasPlugin("theauth-api-key"),
-		username: !!config.username,
+		username: !!config.username || !!config.emailPassword,
 		phone: !!config.phone,
 		device: hasSession,
 		// OAuth plugins hold the native app sign-in codes here.
-		oneTimeToken: hasMagicLink || hasEmailOtp || !!config.passwordReset || hasOAuth,
+		oneTimeToken:
+			hasMagicLink ||
+			hasEmailOtp ||
+			!!config.passwordReset ||
+			!!config.emailVerification ||
+			hasOAuth,
 		loginHistory: hasSession,
 		oidcProvider: hasOidc,
 		// MCP refresh token families live in the jwt family tables.

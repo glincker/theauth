@@ -32,6 +32,8 @@ export const devices = sqliteTable("theauth_devices", {
 	lastSeenAt: bigintNumber("last_seen_at"),
 	lastSeenIp: text("last_seen_ip"),
 	statusReason: text("status_reason"),
+	/** Highest Apple App Attest assertion counter accepted for this device's attested key (migration 0015). */
+	appAttestCounter: bigintNumber("app_attest_counter").notNull().default(0),
 	createdAt: bigintNumber("created_at").notNull(),
 	updatedAt: bigintNumber("updated_at").notNull(),
 });

@@ -11,6 +11,7 @@ import {
 	JwksSchema,
 	RegisteredDeviceSchema,
 	RevokedDeviceSchema,
+	TpmActivationSchema,
 } from "./schemas.js";
 import { SpiffeIssuedTokenSchema, SpiffeVerifyResultSchema } from "./spiffe/schemas.js";
 
@@ -200,6 +201,16 @@ export const DEVICE_OPERATIONS: Record<string, OperationMeta> = {
 		status: 200,
 		response: AttestationNonceSchema,
 		errors: { 404: "Devices are not configured" },
+	},
+	"POST /device/tpm-activation": {
+		operationId: "startDeviceTpmActivation",
+		tag: "Device API",
+		status: 200,
+		response: TpmActivationSchema,
+		errors: {
+			400: "Keys are not valid, or the nonce is unknown, expired or used",
+			404: "Devices are not configured",
+		},
 	},
 	"POST /device/authorize": {
 		operationId: "authorizeDevice",

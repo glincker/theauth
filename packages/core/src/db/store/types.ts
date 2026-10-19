@@ -45,6 +45,8 @@ export interface OrderBy {
 
 export interface FindManyQuery {
 	where?: readonly Where[];
+	/** Property names to return. Omitted means every column. Other keys are absent from the rows. */
+	columns?: readonly string[];
 	/** Ties are broken by later entries, so callers that need a total order list a unique field last. */
 	orderBy?: readonly OrderBy[];
 	limit?: number;
@@ -146,6 +148,10 @@ export interface SingleUseStores {
 		/** Spend one use: only while uses are under the cap, the token is not revoked and not expired. */
 		spendUse(id: string, nowSeconds: number): Promise<boolean>;
 	};
+	readonly devices: {
+		/** Raise the App Attest counter to `counter` only while it is lower, in one statement. True for the one caller that advanced it, so a replayed assertion loses. */
+		advanceAppAttestCounter(id: string, counter: number): Promise<boolean>;
+	};
 	readonly approvals: {
 		/** Decide a request that is still pending and unexpired at `now`. */
 		decide(
@@ -183,8 +189,35 @@ export interface SingleUseStores {
 	};
 }
 
-/** The repositories core will call. Later slices add the rest and a `storesFromKernel` factory. */
+/** A row to insert into the audit table: the schema's insert shape. */
+export type AuditInsertRow = SchemaModule["auditLogs"]["$inferInsert"];
+
+/** The newest chained row of one agent: what the next append links to. */
+export interface AuditHead {
+	seq: number;
+	hash: string;
+	recordedAtMs: number;
+}
+
+/**
+ * The audit table as the chain writer sees it. Hashing, retry and pseudonyms stay in `audit/chain.ts`, a backend never computes a hash. It must round trip every hashed field exactly (integers, nullable strings, booleans as booleans, JSON text byte for byte, timestamps in whole seconds), because verification recomputes the hash from what it reads back.
+ */
+export interface AuditLogRepo {
+	/** Highest `chain_seq` of the agent among chained rows, or null when it has none. */
+	readHead(agentId: string): Promise<AuditHead | null>;
+	/** Insert at the exact `chainSeq` the row carries. Throws `StoreConflictError` when the seq is taken. */
+	appendAt(row: AuditInsertRow): Promise<void>;
+	/** Insert a row that is not part of a chain. */
+	insertUnchained(row: AuditInsertRow): Promise<void>;
+	/**
+	 * Runs `run` after every earlier call for the same agent on this store object has settled, so same-process writers for one agent queue up instead of racing. The unique index on (agent_id, chain_seq) still arbitrates between processes. A failure in one run does not block the next.
+	 */
+	exclusive<T>(agentId: string, run: () => Promise<T>): Promise<T>;
+}
+
+/** The repositories core calls. Later slices add the rest. */
 export interface Stores {
 	readonly kernel: StoreKernel;
 	readonly singleUse: SingleUseStores;
+	readonly audit: AuditLogRepo;
 }

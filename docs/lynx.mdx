@@ -1,0 +1,103 @@
+---
+title: Lynx
+description: Use theAuth from a Lynx app (ReactLynx). What Lynx provides, what the client session store needs from the runtime, and a storage recipe. Checked against the docs and a stripped runtime, not on a device.
+icon: mobile-screen
+---
+
+[Lynx](https://lynxjs.org) is ByteDance's cross-platform UI framework (Android, iOS, web), and ReactLynx is its React flavor. There is no `@glinr/theauth-lynx` package. The framework-neutral session store in `@glinr/theauth-client` is what a Lynx app uses, and this page says what it needs from the runtime, what I checked and what I did not.
+
+<Warning>
+  I did not run this on a Lynx simulator or device. The checks below are the Lynx documentation, a type check of the recipe against `@lynx-js/react` 0.126.0, and a test that runs the store against the real theAuth handler with the globals Lynx lacks removed. Treat the cookie and fetch notes as the first things to test on a device.
+</Warning>
+
+## What Better Auth does
+
+Better Auth documents Lynx with a `better-auth/lynx` entry that exports `createAuthClient` and a `useStore` hook over its nanostores session atom, with `@lynx-js/react` as the only added dependency. Its page says nothing about cookies, storage or the thread model, so it does not tell you what the runtime needs.
+
+## What Lynx gives you
+
+From the Lynx docs ([networking](https://lynxjs.org/guide/interaction/networking), [fetch reference](https://lynxjs.org/api/lynx-api/global/fetch), [best practices](https://lynxjs.org/react/best-practices.html), [@lynx-js/react](https://lynxjs.org/api/react/)):
+
+- **`fetch`** is provided and described as compatible with the Web API, with "subtle differences". It needs the HTTP service of the integrated Lynx Service. The compatibility note says Lynx does not support Web-only features like CORS, redirect and keepalive, and that `FormData` and `Blob` are unsupported. `credentials`, `AbortController` and `signal` are not mentioned.
+- **No web storage.** I found no built-in `localStorage`. The Lynx native modules guide shows a storage module you write yourself on each platform.
+- **No `TextEncoder` or `TextDecoder`** in PrimJS, the JavaScript engine. Lynx ships `TextCodecHelper` for UTF-8.
+- **React 17 API.** ReactLynx follows React 17 and skips concurrent features such as `useTransition`. `useSyncExternalStore` is in the `@lynx-js/react` API reference.
+- **Two threads.** Rendering runs on the main thread. Effects, event handlers and native module calls belong on the background thread, and calling native modules from the main thread blocks the UI.
+
+## What the session store needs
+
+| Need | Store behavior | On Lynx |
+|---|---|---|
+| `fetch` | The only network call. Sign in, sign out and session reads all use it. | Provided. |
+| `AbortController` | Optional. With one, a new refresh cancels the old one. Without one, a late answer is dropped by an epoch check. | Not documented, so the store no longer requires it. |
+| `window`, `document` | Only for refetch on focus and reconnect. Without them those triggers do nothing. | Absent, nothing to configure. |
+| Storage | A sync `getItem`, `setItem`, `removeItem`. Optional. | Pass none and persist through `hydrateSession`, below. |
+| Cookies | `credentials: "include"` is sent, and the session cookie is a convenience. | Unknown. Use the bearer token the sign-in response carries, which the store keeps and sends. |
+| `TextEncoder` | Not used by the store. | Not needed. DPoP (`createDPoPClient`) and passkeys use Web Crypto and are not available. |
+
+The store change that came out of this check: `refresh` used `new AbortController()` unconditionally and would throw where it is missing. It is now optional, and `packages/client/tests/session-store-email-password.test.ts` runs a full sign up, verify, sign in, refresh, rehydrate and sign out against the real handler with `AbortController`, `window`, `localStorage`, `TextEncoder` and `TextDecoder` removed.
+
+## Recipe
+
+Sign-in goes through the [email and password routes](/auth/email-password). Lynx has no page origin, so `basePath` is an absolute URL. Storage is a native module you implement, and the store persists through it by `subscribe` and `hydrateSession`, because native calls are asynchronous and the store's own storage hook is synchronous.
+
+```typescript title="lib/auth.ts"
+import { createSessionStore } from "@glinr/theauth-client";
+import { useSyncExternalStore } from "@lynx-js/react";
+
+/** Your own Lynx native module. Lynx has no built-in key value storage. */
+interface SessionStorageModule {
+  get(key: string, done: (value: string | null) => void): void;
+  set(key: string, value: string): void;
+  remove(key: string): void;
+}
+declare const NativeModules: { SessionStorage: SessionStorageModule };
+
+const KEY = "theauth_session";
+
+export const store = createSessionStore({
+  basePath: "https://api.example.com/api/theauth",
+  emailPassword: true,
+});
+
+/** Call once at startup, from the background thread (an effect or a 'background only' function). */
+export function startAuth(): void {
+  NativeModules.SessionStorage.get(KEY, (raw) => {
+    if (raw) {
+      const saved = JSON.parse(raw) as { token: string; user: { id: string }; expiresAt?: string };
+      store.hydrateSession(saved);
+    }
+    void store.refresh();
+  });
+  store.subscribe((state) => {
+    if (state.session) NativeModules.SessionStorage.set(KEY, JSON.stringify(state.session));
+    else NativeModules.SessionStorage.remove(KEY);
+  });
+}
+
+export function useAuthState() {
+  return useSyncExternalStore(store.subscribe, store.getState, store.getState);
+}
+```
+
+```tsx title="SignIn.tsx"
+import { store, useAuthState } from "./lib/auth";
+
+export function Account() {
+  const { session, isLoading } = useAuthState();
+  if (isLoading) return <text>Loading</text>;
+  if (session) return <text bindtap={() => store.signOut()}>{session.user.email} (sign out)</text>;
+  return <text bindtap={() => store.signIn("ada@example.com", "correct horse battery")}>Sign in</text>;
+}
+```
+
+Both files type check against `@lynx-js/react` 0.126.0 and `@glinr/theauth-client`. The thread rules are yours to apply: keep `startAuth` and the handlers that call `store` on the background thread.
+
+## What a first-class Lynx client would need
+
+I would not add a package yet. If Lynx use turns out to be real, in order:
+
+1. A device check of `fetch` with the bearer token: does the response body parse, is `Set-Cookie` kept, does `credentials: "include"` do anything.
+2. An async storage option on the session store (`getItem` returning a promise), so the native module recipe collapses into one option. Expo already has this shape in `TheAuthStorage`.
+3. A thin `useSyncExternalStore` hook export from a `@glinr/theauth-client/lynx` subpath, which is what Better Auth ships, so users do not copy the hook.
+4. Whether `@glinr/theauth-react` runs unchanged under `@lynx-js/react` (it uses `useSyncExternalStore`, `useMemo` and the automatic JSX runtime). It is untested, which is why the recipe uses the store directly.

@@ -6,6 +6,7 @@ import type { Database } from "../db/database.js";
 import type { DecisionCode } from "../permission/codes.js";
 import { DECISION_CODES } from "../permission/codes.js";
 import type { DenialExtra } from "../permission/engine.js";
+import { attestationFacts } from "../policy/attestation-constraint.js";
 import type { ResourceMatching } from "../policy/resource-match.js";
 import type { SecondaryStorage } from "../storage/types.js";
 import type {
@@ -19,6 +20,7 @@ import type {
 	RequestContext,
 	UpdateAgentInput,
 } from "../types.js";
+import { createDeviceAppAssertion } from "./app-assertion.js";
 import { clampBundleTtl, deviceBundleJwks, signDeviceBundle } from "./bundle.js";
 import { createDeviceAuthenticator } from "./device-auth.js";
 import { createDeviceEnrollment } from "./enrollment.js";
@@ -108,6 +110,12 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 		storage: deps.storage,
 		config,
 		guard: (ownerId, tenantId, name, perms) => guard(ownerId, tenantId, name, perms ?? []),
+	});
+	const verifyAppAssertion = createDeviceAppAssertion({
+		db,
+		registry,
+		spendNonce: enrollment.spendNonce,
+		requireNonce: config.attestation?.requireNonce !== false,
 	});
 	const authenticator = createDeviceAuthenticator({ registry, storage: deps.storage, config });
 
@@ -298,8 +306,10 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 				code: blocked,
 			};
 		}
+		const attestation = attestationFacts(device.attestation);
 		return deps.authorize(device.agentId, request, context, {
 			auditParameters: devicePrincipal(device.id),
+			...(attestation && { attestation }),
 		});
 	}
 
@@ -326,6 +336,7 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 		if (blocked)
 			throw new DeviceInputError("CONFLICT", `Device is ${blocked.replace("device_", "")}`);
 		const delegated = await deps.getEffectivePermissions(device.agentId);
+		const facts = attestationFacts(device.attestation);
 		let ttl = clampBundleTtl(options.ttlSeconds, config.bundleTtlSeconds);
 		// Never outlive the device itself.
 		if (device.expiresAt)
@@ -342,6 +353,7 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 			permissions: [...device.permissions, ...delegated].filter((p) => !p.relation),
 			ttlSeconds: ttl,
 			...(deps.resourceMatching && { resourceMatching: deps.resourceMatching }),
+			...(facts && { attestation: facts }),
 		});
 		if (config.revocations) {
 			const deviceIds = await collectBlockedIds(
@@ -381,6 +393,10 @@ export function createDeviceModule(deps: DeviceModuleDeps) {
 		revokeEnrollmentToken: enrollment.revokeToken,
 		getEnrollmentToken: enrollment.getToken,
 		attestationNonce: enrollment.attestationNonce,
+		/** First half of the TPM credential activation (TPM2_MakeCredential). See `createTpm2CertifyVerifier`. */
+		tpmActivationChallenge: enrollment.tpmActivationChallenge,
+		/** Verify an Apple App Attest assertion against the key attested at enrollment, with an atomic replay counter. */
+		verifyAppAssertion,
 		enroll,
 		authenticate: authenticator.authenticate,
 		authenticateRequest: authenticator.authenticateRequest,

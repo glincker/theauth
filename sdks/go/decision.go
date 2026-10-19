@@ -42,6 +42,7 @@ const (
 	DecisionDeviceRevoked              DecisionCode = "device_revoked"
 	DecisionDeviceExpired              DecisionCode = "device_expired"
 	DecisionOwnerMismatch              DecisionCode = "owner_mismatch"
+	DecisionAttestationRequired        DecisionCode = "attestation_required"
 	DecisionHookDenied                 DecisionCode = "hook_denied"
 	DecisionHookTimeout                DecisionCode = "hook_timeout"
 	DecisionHookError                  DecisionCode = "hook_error"

@@ -5,6 +5,7 @@ import { createPrivilegeAnalyzer } from "./analyzer/privilege.js";
 import { createApprovalModule } from "./approval/approval.js";
 import { createAuditFacade } from "./audit/facade.js";
 import { createConfiguredAuditModule } from "./audit/setup.js";
+import { registerEmailPasswordEndpoints } from "./auth/email-password-http.js";
 import { createHumanAuthModules } from "./auth/human-modules.js";
 import type { SignInGate } from "./auth/sign-in-gate.js";
 import { createSignInGate } from "./auth/sign-in-gate.js";
@@ -119,7 +120,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		config: config.signInGate,
 		sessionSecret: config.auth?.session?.secret,
 		totpAvailable: !!config.totp || (config.plugins?.some((p) => p.id === "theauth-2fa") ?? false),
-		usernameAccountsAvailable: !!config.username,
+		usernameAccountsAvailable: !!config.username || !!config.emailPassword,
 	});
 
 	const privilegeAnalyzer = createPrivilegeAnalyzer(db);
@@ -155,6 +156,7 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		adminModule,
 		apiKeyManagerModule,
 		usernameModule,
+		emailPasswordModule,
 		oneTimeTokenModule,
 		passwordResetModule,
 		emailVerificationModule,
@@ -188,6 +190,11 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 	});
 
 	if (sessionManager) registerSessionEndpoints(pluginRegistry, sessionManager, endpointCtx);
+	registerEmailPasswordEndpoints(pluginRegistry, emailPasswordModule, {
+		passwordReset: passwordResetModule,
+		sessionManager,
+		baseUrl: config.baseUrl,
+	});
 
 	const {
 		agent: agentProxy,
@@ -375,6 +382,8 @@ export async function createTheAuthWith(config: TheAuthConfig, openDatabase: Dat
 		 * ```
 		 */
 		username: usernameModule,
+		/** Email and password authentication, served under `/auth/email/*`. Null unless `emailPassword` and `auth.session` are configured. */
+		emailPassword: emailPasswordModule,
 		/**
 		 * Password reset. Null unless `passwordReset` and `auth.session` are configured.
 		 *

@@ -214,7 +214,7 @@ Postgres now works across the whole instance. Before, the first write and every 
 - `provider: "mysql"` throws `THEAUTH_MYSQL_UNSUPPORTED` unless you pass `experimental: true`.
 - `theauth_refresh_tokens.used` is now `BIGINT` on Postgres and MySQL, so the refresh reuse grace window works. SQLite is unchanged.
 
-## Cookies are Secure by default, PBKDF2 is stronger
+## Cookies are secure by default, PBKDF2 is stronger
 
 The `Secure` cookie default no longer reads `NODE_ENV`. It used to be off when `NODE_ENV` was unset, which is the normal state on Workers, Deno and Bun.
 
@@ -407,3 +407,69 @@ An approval can require more than one approver with `requiredApprovals` (default
 ## Device attestation evidence needs a nonce
 
 `devices.attestation.verify` is now only called for evidence that comes with a nonce from `device.attestationNonce()` (`POST /device/attestation-nonce`). Evidence without one is refused with `nonce_invalid`, because it cannot be shown to be fresh (RFC 9334 section 10). Before, a missing nonce skipped the check and left replay protection to your verifier. If your verifier proves freshness another way, for example a signed timestamp, set `attestation.requireNonce: false`. The hook input also gains `credentialKind` and `credentialKeyThumbprint`. See [IoT devices](/iot-devices).
+
+## Client bindings: store methods and sign-in routes
+
+`SessionStore.refresh()` now returns a promise, and `SessionStore.signOut()` returns `Promise<StoreActionResult>`. Code that treats either one as synchronous must await it.
+
+The default sign-in and sign-up routes for the client bindings are now `POST /auth/username/sign-in` and `POST /auth/username/sign-up`, and the first argument is sent as `username`. The core never served `/auth/sign-in` or `/auth/sign-up`, so the old defaults answered 404. Managed sessions are confirmed with `GET /auth/session`, and `signOut` calls `POST /auth/sign-out` after it clears local state.
+
+What to do:
+
+- Await `refresh()` and `signOut()` wherever you call them on a `SessionStore`.
+- If you serve your own `/auth/sign-in` or `/auth/sign-up` for these bindings, set `signInPath`, `signUpPath` and `identifierField`. In React, pass them in the `managed` prop. In Vue and Svelte, set them in the plugin or client options. Expo and Electron take the same three options.
+- If an Expo or Electron app relied on `/sign-in/email` and `/sign-up/email`, set the three options to the routes your server serves.
+
+See [Client SDK](/client-sdk) and [React](/react).
+
+## UI, Expo, Electron and dashboard route changes
+
+`TwoFactorVerify` posts `{ code }` to `POST /auth/2fa/verify`, and a backup code goes in the same `code` field. It reads the core's `{ error: "..." }` body.
+
+`OAuthButtons` navigates to `/auth/oauth/authorize/:provider`. The server builds the callback URL itself. In Electron, `openOAuthWindow` waits for the core callback redirect before it reports success, instead of closing the window on the provider redirect.
+
+In the dashboard, revoking an agent uses `DELETE /agents/:id`, and an agent's permissions come from `GET /agents/:id`. The Users, Permissions, Settings and MCP Servers pages call routes that only the CLI dev server serves. Against any other server, those pages show a "does not serve" message.
+
+## SMS senders time out and hide response bodies
+
+`twilioOtpSender`, `vonageOtpSender` and `plivoOtpSender` all time out after 10 seconds (`timeoutMs`). Their errors carry only the HTTP status and the vendor error code. The response body is no longer attached, so phone numbers and codes do not reach logs. Code that read the body text from these errors must match on the status or the code instead.
+
+See [SMS OTP](/auth/otp).
+
+## SCIM group PUT changes only the members that differ
+
+`PUT` on a SCIM group now removes only the members missing from the list and adds only the new ones. Before, it deleted and re-inserted every member. Members who stay in the group keep their row id and their roles. Before this change, a role other than `member` was lost on every group `PUT`.
+
+## Migration 0014 adds hot path indexes
+
+Migration `0014-hot-path-indexes` is additive. It adds indexes for agent lookup by token hash, active agents per owner, permissions per agent, delegation links in both directions, the hourly rate limit read and the pending approval list.
+
+`createTheAuth` applies it. With `database.skipMigrations: true`, `createTheAuth` throws `SchemaOutdatedError` until you apply it. Run `theauth db up`, or generate the SQL with `theauth db sql --dialect <yours>` and apply it with your own tooling.
+
+## Migration 0015 and the `attestation_required` decision code
+
+Migration 0015 adds `theauth_devices.app_attest_counter` (`NOT NULL DEFAULT 0`, additive) for Apple App Attest assertion counters. `createTheAuth` applies it. With `database.skipMigrations: true` it throws `SchemaOutdatedError` until you run `theauth db up` or apply the SQL from `theauth db sql --dialect <yours>`.
+
+`DECISION_CODES` gains `attestation_required`, returned when a permission carries a `constraints.attestation` rule that the caller does not meet. If you switch exhaustively over `DecisionCode` in TypeScript, add the case. Python and Go clients list it after you regenerate them. `PermissionConstraints` gains the optional `attestation` field, so a permission read from storage by older code would ignore it: do not run old and new processes against the same permissions while you use it.
+
+The Apple App Attest verifier now returns an `attestedPublicKey` claim, and the TPM and App Attest claim sets are read by `attestationFacts`. Devices that enrolled before this release have no `attestedPublicKey`, so `device.verifyAppAssertion` answers `not_app_attest` for them until they enroll again.
+
+## Database hooks fail closed
+
+Database hooks are new in this release. They run `before` and `after` hooks on user, session and account creates and updates. A `before` hook can return `false` to abort, or `{ data }` to replace allowed fields. For users, only `email`, `name` and `metadata` can be replaced.
+
+A `before` hook that throws, times out or returns a malformed value stops the write with a `DatabaseHookError`. The error code is `DATABASE_HOOK_FAILED`, `DATABASE_HOOK_TIMEOUT` or `DATABASE_HOOK_INVALID_PAYLOAD`, whatever `hookSafety.onError` is set to. A stopped SCIM write answers 403. A stopped Stripe or Polar webhook answers 500, so the provider retries the event.
+
+`after` hooks run once the row exists, so they cannot undo it. A throw or timeout in an `after` hook is logged and swallowed.
+
+See [Database hooks](/database-hooks).
+
+## Email linking needs verified addresses
+
+Google One Tap, magic link and email OTP no longer trust an unverified account. The OAuth plugin already refused it since 0.7.0.
+
+- One Tap signs in to an existing account by email only when Google reports `email_verified: true` and the local address is verified. Otherwise it answers 409 with `ACCOUNT_EXISTS`. Users already stored with an unverified address must verify it first, or sign in once with magic link or email OTP.
+- Redeeming a magic link or email OTP marks the address verified. On an account that was unverified, it first deletes the password, linked providers, passkeys and sessions created before that proof.
+- Escape hatches, all off by default: `unsafeAllowUnverifiedEmailLinking` on `oneTap()` and `oauth()`, and `keepUnverifiedCredentials` on `magicLink` and `emailOtp`.
+
+If your existing One Tap users were created by your own sign-up flow with unverified addresses, set `emailVerified` for them before upgrading, or they get a 409 at their next sign-in.

@@ -14,6 +14,7 @@ import { oauthAuthEvidence } from "./0011-oauth-auth-evidence.js";
 import { oidcRefreshFamily } from "./0012-oidc-refresh-family.js";
 import { approvalQuorum } from "./0013-approval-quorum.js";
 import { hotPathIndexes } from "./0014-hot-path-indexes.js";
+import { deviceAppAttestCounter } from "./0015-device-app-attest-counter.js";
 
 /**
  * Every migration, in order. Ids are append only and never reused.
@@ -35,6 +36,7 @@ export const MIGRATIONS: readonly Migration[] = [
 	oidcRefreshFamily,
 	approvalQuorum,
 	hotPathIndexes,
+	deviceAppAttestCounter,
 ];
 
 export const BASELINE_ID = baseline.id;

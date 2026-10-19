@@ -123,9 +123,10 @@ await createAgent({ name: 'My AI assistant', permissions: ['read:data'] });
 <ParamField path="basePath" type="string" default="'/api/theauth'">Base path where your theAuth handler is mounted.</ParamField>
 <ParamField path="refetch" type="RefetchOptions">Refetch the session on window focus, reconnect or an interval. Off unless set. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
 <ParamField path="initialSession" type="HydrateInput | null">Session the server already resolved. Skips the first request.</ParamField>
-<ParamField path="signInPath" type="string" default="'/auth/username/sign-in'">Route for `signIn`. Core has no email and password route, so point this at your own if you need one.</ParamField>
-<ParamField path="signUpPath" type="string" default="'/auth/username/sign-up'">Route for `signUp`.</ParamField>
-<ParamField path="identifierField" type="string" default="'username'">Body field that carries the first argument of `signIn` and `signUp`.</ParamField>
+<ParamField path="emailPassword" type="boolean" default="false">Use the core email and password routes (`/auth/email/sign-in`, `/auth/email/sign-up`, body field `email`). Needs the `emailPassword` config on the server, see [Email and password](/auth/email-password). `signUp` then resolves to `data.verificationRequired`, and the context also exposes `verifyEmail`, `resendVerification`, `requestPasswordReset` and `resetPassword`. Failed results carry the server `code`, for example `EMAIL_NOT_VERIFIED`.</ParamField>
+<ParamField path="signInPath" type="string" default="'/auth/username/sign-in'">Route for `signIn` (`/auth/email/sign-in` with `emailPassword`). The username routes are not served by `createTheAuthHandler`: forward them with `theauth.username.handleRequest`.</ParamField>
+<ParamField path="signUpPath" type="string" default="'/auth/username/sign-up'">Route for `signUp` (`/auth/email/sign-up` with `emailPassword`).</ParamField>
+<ParamField path="identifierField" type="string" default="'username'">Body field that carries the first argument of `signIn` and `signUp` (`email` with `emailPassword`).</ParamField>
 <ParamField path="storage" type="SessionStorageLike">Defaults to `window.localStorage` when the browser allows it.</ParamField>
 
 On install the plugin shows a stored session at once, then confirms it with `GET {basePath}/auth/session`. `signOut` clears local state first, then calls `POST {basePath}/auth/sign-out` to revoke the session on the server.

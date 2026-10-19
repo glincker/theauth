@@ -31,7 +31,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Secondary storage](https://docs.theauth.dev/secondary-storage): Choose where TheAuth keeps rate limit counters, device codes and other short-lived state. Memory, your database, Cloudflare KV, Redis, or your own store.
 - [Authentication](https://docs.theauth.dev/auth/index): Human sign-in methods and OAuth providers for the humans who own and manage agents.
 - [Last login tracking](https://docs.theauth.dev/last-login): Record every successful authentication per user via createLastLoginModule. Retrieve last sign-in timestamp, method, and IP for security pages or your own checks.
-- [Email and password](https://docs.theauth.dev/auth/email-password): Email and password with the @glinr/theauth-email plugin, plus username, passwordless (magic link, email OTP) and bring-your-own-adapter options.
+- [Email and password](https://docs.theauth.dev/auth/email-password): Email and password built into core (emailPassword config, /auth/email routes), plus username, passwordless (magic link, email OTP) and bring-your-own-adapter options.
 - [Username and password](https://docs.theauth.dev/auth/username): Authenticate users with a unique username and password via the `username` module. Covers length limits, pattern validation, and uniqueness enforcement at sign-up.
 - [Magic link](https://docs.theauth.dev/auth/magic-link): Issue single-use email links for passwordless sign-in with `magicLink()`. Configure the app URL, a send function, and token expiry.
 - [Email OTP](https://docs.theauth.dev/auth/email-otp): Authenticate users with a six-digit OTP sent to their email via `emailOtp`. Provide a `sendOtp` callback to deliver the code, then verify it to open a session.
@@ -168,6 +168,9 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Hono](https://docs.theauth.dev/adapters/hono): Mount theAuth auth routes on a Hono app with `theAuthHono(theauth)`. Web-standard Request/Response, runs on Workers, Bun, Deno, and Node.
 - [Elysia](https://docs.theauth.dev/adapters/elysia): Serve theAuth routes from an Elysia app with `createTheAuthHandler` and `app.mount`. No extra package, runs on Bun and any runtime Elysia supports.
 - [Nitro](https://docs.theauth.dev/adapters/nitro): Serve theAuth routes from a standalone Nitro server (v2 or v3) with `createTheAuthHandler`. No extra package. For Nuxt, use the Nuxt adapter.
+- [Effect](https://docs.theauth.dev/adapters/effect): Serve theAuth routes from an Effect HTTP server with `createTheAuthHandler` and `HttpEffect.fromWebHandler`. No extra package. Covers Effect 4 and Effect 3.
+- [Encore](https://docs.theauth.dev/adapters/encore): Serve theAuth routes from an Encore.ts service with a raw endpoint, and let `auth: true` endpoints accept agent tokens through a gateway auth handler. No extra package.
+- [Convex](https://docs.theauth.dev/adapters/convex): Use theAuth as the identity provider for a Convex backend. theAuth mints a short-lived ES256 JWT, Convex verifies it through a custom JWT provider, and `ctx.auth.getUserIdentity()` returns the signed-in user.
 - [Waku](https://docs.theauth.dev/adapters/waku): Serve theAuth routes from a Waku API route with `createTheAuthHandler`. No extra package, plus the bundler settings Waku needs for native packages.
 - [React Router](https://docs.theauth.dev/adapters/react-router): Serve theAuth routes from a React Router v7 resource route with `createTheAuthHandler`. Works on Node, Workers and any runtime that gives you a Request.
 - [Express](https://docs.theauth.dev/adapters/express): Mount theAuth auth routes on Express with `theAuthExpress(theauth)`. Returns a Router with agent identity, delegation, audit, and MCP OAuth 2.1 endpoints pre-mounted.
@@ -185,6 +188,7 @@ Install the SDK with `pnpm add @glinr/theauth`. The full text of every page is i
 - [Svelte](https://docs.theauth.dev/svelte): Add theAuth auth to Svelte and SvelteKit apps with createTheAuthClient and createAgentStore. Session state is exposed as reactive Svelte stores.
 - [Solid](https://docs.theauth.dev/solid): Session accessors for Solid from `@glinr/theauth-client`, built on a framework-neutral session store with no solid-js dependency.
 - [Expo / React Native](https://docs.theauth.dev/expo): Wire theAuth auth into React Native and Expo apps with @glinr/theauth-expo. Stores tokens in AsyncStorage or SecureStore and authenticates via Authorization header.
+- [Lynx](https://docs.theauth.dev/lynx): Use theAuth from a Lynx app (ReactLynx). What Lynx provides, what the client session store needs from the runtime, and a storage recipe. Checked against the docs and a stripped runtime, not on a device.
 - [Go SDK](https://docs.theauth.dev/sdk-go): Call a theAuth TypeScript server from Go with theauth-go. Agents, delegation, audit, MCP servers, DPoP proofs and typed plugin endpoint calls with no third party dependencies.
 - [Python SDK](https://docs.theauth.dev/sdk-python): Use theAuth from Python with the theauth package. Sync and async httpx clients, MCP server registry, DPoP proofs and plugin route calls.
 - [Electron](https://docs.theauth.dev/electron): Add auth to Electron apps via `ElectronTheAuthProvider`. Covers OS keychain token storage, OAuth popup windows, IPC bridge, and session persistence.

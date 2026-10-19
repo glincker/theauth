@@ -31,6 +31,8 @@ export type EndpointKey =
 export const PATH_TO_CONFIG_KEY: ReadonlyArray<readonly [string, EndpointKey]> = [
 	// Password and credential sign-in, plus second factor steps that finish a sign-in.
 	["/auth/username/sign-in", "signIn"],
+	["/auth/email/sign-in", "signIn"],
+	["/auth/email/change-password", "signIn"],
 	["/auth/sign-in", "signIn"],
 	["/auth/sign-in/two-factor", "signIn"],
 	["/auth/sign-in/password-change", "signIn"],
@@ -41,11 +43,14 @@ export const PATH_TO_CONFIG_KEY: ReadonlyArray<readonly [string, EndpointKey]> =
 	["/auth/one-tap/callback", "signIn"],
 	// Account creation.
 	["/auth/username/sign-up", "signUp"],
+	["/auth/email/sign-up", "signUp"],
 	["/auth/sign-up", "signUp"],
 	["/auth/anonymous", "signUp"],
 	["/auth/anonymous/upgrade", "signUp"],
 	// Password reset (link and OTP variants).
 	["/auth/forgot-password", "passwordReset"],
+	["/auth/email/forgot-password", "passwordReset"],
+	["/auth/email/reset-password", "passwordReset"],
 	["/auth/forgot-password/otp", "passwordReset"],
 	["/auth/reset-password", "passwordReset"],
 	["/auth/reset-password/otp", "passwordReset"],
@@ -58,6 +63,7 @@ export const PATH_TO_CONFIG_KEY: ReadonlyArray<readonly [string, EndpointKey]> =
 	["/auth/phone/send-code", "codeSend"],
 	["/auth/2fa/otp/send", "codeSend"],
 	["/auth/verify-email/send", "codeSend"],
+	["/auth/email/resend-verification", "codeSend"],
 	// Endpoints that accept a short code or one time token (guessing).
 	["/auth/magic-link/verify", "codeVerify"],
 	["/auth/email-otp/verify", "codeVerify"],
@@ -70,6 +76,7 @@ export const PATH_TO_CONFIG_KEY: ReadonlyArray<readonly [string, EndpointKey]> =
 	["/auth/2fa/disable", "codeVerify"],
 	["/auth/2fa/backup-codes", "codeVerify"],
 	["/auth/verify-email/confirm", "codeVerify"],
+	["/auth/email/verify", "codeVerify"],
 	["/auth/oauth/mobile/exchange", "codeVerify"],
 	// Agent and device flows.
 	["/auth/agent/authorize", "agentAuthorize"],

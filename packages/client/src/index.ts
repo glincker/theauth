@@ -96,7 +96,7 @@ export type {
 	StoreSession,
 	StoreUser,
 } from "./session-store.js";
-export { createSessionStore } from "./session-store.js";
+export { createSessionStore, EMAIL_PASSWORD_ROUTES } from "./session-store.js";
 export type { SolidAuth, SolidPrimitives } from "./solid.js";
 export { createSolidAuth } from "./solid.js";
 export type {

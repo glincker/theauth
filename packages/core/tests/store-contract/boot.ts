@@ -53,6 +53,8 @@ function systemAgent(auth: Awaited<ReturnType<typeof createTheAuth>>): Promise<s
 export async function bootTarget(
 	makeConfig: () => DatabaseConfig,
 	shared: boolean,
+	/** Routes the repositories of the booted handle to another kernel. Returns what to close with the target. */
+	route?: (db: Database) => { close(): Promise<void> },
 ): Promise<StoreContractTarget> {
 	const mail: ContractMailbox = { magicTokens: [], otpCodes: [] };
 	const auth = await createTheAuth({
@@ -76,10 +78,12 @@ export async function bootTarget(
 		plugins: [oauth({ providers: {} })],
 	});
 
+	const routed = route?.(auth.db);
+
 	return {
 		auth: auth as unknown as StoreContractTarget["auth"],
 		mail,
-		peer: shared ? () => bootTarget(makeConfig, shared) : undefined,
+		peer: shared ? () => bootTarget(makeConfig, shared, route) : undefined,
 		duplicateInsert: async () => {
 			const now = new Date();
 			const row = {
@@ -124,6 +128,9 @@ export async function bootTarget(
 				return result.ok;
 			},
 		},
-		close: () => closeDatabase(auth.db),
+		close: async () => {
+			await routed?.close();
+			await closeDatabase(auth.db);
+		},
 	};
 }

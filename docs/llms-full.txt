@@ -411,7 +411,7 @@ The curl from step 3 returns the demo agent:
 
 The same call without the `Authorization` header answers 401. The seed creates the owner with `theauth.user.create` before the agent, so the foreign key on `owner_id` holds. Running `init` again skips every file that exists, so it never overwrites your edits (pass `--force` to replace the generated files; `.env` is only ever created). See [CLI tools](/cli-tools#init) for every flag. The two tracks below show the same calls by hand.
 
-## Track A: Add agent auth
+## Track A: add agent auth
 
 <Steps>
 
@@ -526,7 +526,7 @@ Run it with `npx tsx agent.ts`.
 
 </Steps>
 
-## Track B: Add human auth
+## Track B: add human auth
 
 theAuth ships 14 human auth methods and 48 OAuth providers as plugins and modules; this track uses email and password, the most common starting point. See [Authentication](/auth) for the rest.
 
@@ -537,60 +537,76 @@ theAuth ships 14 human auth methods and 48 OAuth providers as plugins and module
 ### Install
 
 ```bash title="terminal"
-pnpm add @glinr/theauth @glinr/theauth-email better-sqlite3
+pnpm add @glinr/theauth better-sqlite3
 ```
 
 </Step>
 
 <Step>
 
-### Add the plugin
+### Turn on email and password
 
-`emailPassword()` registers `POST /auth/sign-up`, `/auth/sign-in`, `/auth/verify-email`, `/auth/request-reset`, `/auth/reset-password` and `/auth/change-password`. You supply the email transport; the callbacks below just log. Passwords are hashed before storage. These routes exist only while `@glinr/theauth-email` is installed: the core on its own serves `/auth/username/sign-up` and `/auth/username/sign-in` instead.
+`emailPassword` is part of core. It serves `POST /auth/email/sign-up`, `/auth/email/sign-in`, `/auth/email/verify`, `/auth/email/resend-verification`, `/auth/email/forgot-password`, `/auth/email/reset-password` and `/auth/email/change-password` from the same handler as everything else. You supply the email transport; the callbacks below just log. Passwords are hashed before storage, and sessions are the same sessions the rest of theAuth reads.
 
 ```ts title="human.ts"
 import { createTheAuth } from '@glinr/theauth';
-import { emailPassword } from '@glinr/theauth-email';
+import { createTheAuthHandler } from '@glinr/theauth/http';
+
+const verifications: string[] = [];
 
 const theauth = await createTheAuth({
   database: { provider: 'sqlite', url: ':memory:' },
-  plugins: [
-    emailPassword({
-      appUrl: 'http://localhost:3000',
-      requireVerification: false, // development only, default is true
-      sendVerificationEmail: async (email, _token, url) => console.log('verify', email, url),
-      sendResetEmail: async (email, _token, url) => console.log('reset', email, url),
-    }),
-  ],
+  auth: { session: { secret: 'a-session-secret-of-at-least-32-characters' } },
+  agents: { enabled: true, maxPerUser: 10, auditAll: true }, // for the agent step below
+  emailVerification: {
+    verifyUrl: 'http://localhost:3000/verify-email',
+    sendVerificationEmail: async (email, token, url) => {
+      verifications.push(token);
+      console.log('verify', email, url);
+    },
+  },
+  emailPassword: {}, // requireVerification is true unless you set it to false
 });
+
+const handler = createTheAuthHandler(theauth, { basePath: '/api/theauth' });
 ```
 
 </Step>
 
 <Step>
 
-### Sign up and sign in
+### Sign up, verify and sign in
 
-The plugin endpoints take standard `Request` objects, so you can call them directly or mount them with a [framework adapter](/adapters).
+The handler takes standard `Request` objects, so you can call it directly or mount it with a [framework adapter](/adapters).
 
 ```ts title="human.ts"
 const post = (path: string, body: unknown) =>
-  theauth.plugins.handleRequest(
-    new Request(`http://localhost${path}`, {
+  handler(
+    new Request(`http://localhost/api/theauth${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     }),
   );
 
-const signUp = await post('/auth/sign-up', { email: 'ada@example.com', password: 'correct horse battery', name: 'Ada' });
-console.log(signUp?.status); // 201
+const creds = { email: 'ada@example.com', password: 'correct horse battery' };
 
-const signIn = await post('/auth/sign-in', { email: 'ada@example.com', password: 'correct horse battery' });
-console.log(await signIn?.json()); // { user, session: { token, expiresAt } }
+console.log((await post('/auth/email/sign-up', { ...creds, name: 'Ada' })).status); // 201, no session yet
+console.log((await post('/auth/email/sign-in', creds)).status); // 403 EMAIL_NOT_VERIFIED
+await post('/auth/email/verify', { token: verifications[0] });
+
+const signIn = await post('/auth/email/sign-in', creds);
+const { user, session } = await signIn.json(); // { user, session: { token, expiresAt } }
+
+const me = await handler(
+  new Request('http://localhost/api/theauth/auth/session', {
+    headers: { authorization: `Bearer ${session.token}` },
+  }),
+);
+console.log((await me.json()).user.email); // ada@example.com
 ```
 
-Run it with `npx tsx human.ts`. With `requireVerification` left at its default of `true`, sign-in fails with `EMAIL_NOT_VERIFIED` until the user posts the token from the verification email to `/auth/verify-email`.
+Run it with `npx tsx human.ts`. The browser clients take `emailPassword: true` and call the same routes ([React](/react), [Vue](/vue), [Svelte](/svelte), [Expo](/expo), [Electron](/electron)). Details, the error codes and what the routes reveal are on [Email and password](/auth/email-password).
 
 </Step>
 
@@ -598,10 +614,9 @@ Run it with `npx tsx human.ts`. With `requireVerification` left at its default o
 
 ### Give the user an agent
 
-The sign-up response contains `user.id`. Pass it as `ownerId` in Track A and the foreign key is satisfied with no manual seeding.
+The sign-in response contains `user.id`. Pass it as `ownerId` in Track A and the foreign key is satisfied with no manual seeding.
 
 ```ts title="human.ts"
-const { user } = await signUp!.json();
 const agent = await theauth.agent.create({
   ownerId: user.id,
   name: 'assistant',
@@ -773,13 +788,13 @@ Run `npx wrangler d1 execute theauth --file=./theauth-schema.sql` to apply the s
 
 ### "Email address has not been verified" after sign-up
 
-With the `@glinr/theauth-email` plugin, sign-in requires email verification by default and fails with `EMAIL_NOT_VERIFIED` (HTTP 401). Either:
-1. Post the token from the verification email (the one passed to your `sendVerificationEmail` callback) to `/auth/verify-email`
-2. Set `requireVerification: false` in the `emailPassword()` config (development only)
+With the `emailPassword` config, sign-in requires email verification by default and fails with `EMAIL_NOT_VERIFIED` (HTTP 403). Either:
+1. Post the token from the verification email (the one passed to your `sendVerificationEmail` callback) to `/auth/email/verify`
+2. Set `requireVerification: false` in the `emailPassword` config (development only)
 
 ### "FOREIGN KEY constraint failed" when creating agents
 
-The `ownerId` must match a row in `theauth_users`. Sign the user up with the email plugin (Track B), or create one with `theauth.user.create()` as shown in step 2 of Track A.
+The `ownerId` must match a row in `theauth_users`. Sign the user up with `emailPassword` (Track B), or create one with `theauth.user.create()` as shown in step 2 of Track A.
 
 ### Session not persisting after page reload
 
@@ -1620,7 +1635,7 @@ Plugins are factories passed in the `plugins` array. They register HTTP endpoint
 | `rateLimit(config?)` | Per-IP limits on `/auth/*` endpoints |
 | `oauth(config)` | Social OAuth sign-in endpoints |
 
-`emailPassword()` is not part of `@glinr/theauth`. It ships in the separate `@glinr/theauth-email` package (see [Email and password](/auth/email-password)). Inside core, username and password sign-in is the top-level `username` option (with `passwordReset` and `emailVerification` alongside it). `deviceAuth()` (see [Device authorization](/auth/device)) and `agentRegistration()` (see [Agent registration tokens](/agent-registration-tokens)) are exported from `@glinr/theauth/auth` too. Multi-session support lives in the session module, see [Multi-session](/multi-session).
+Email and password is the top-level `emailPassword` option (with `emailVerification` and `passwordReset` alongside it), see [Email and password](/auth/email-password). The `emailPassword()` plugin in the separate `@glinr/theauth-email` package is deprecated. Username and password sign-in is the top-level `username` option. `deviceAuth()` (see [Device authorization](/auth/device)) and `agentRegistration()` (see [Agent registration tokens](/agent-registration-tokens)) are exported from `@glinr/theauth/auth` too. Multi-session support lives in the session module, see [Multi-session](/multi-session).
 
 ## Environment variables pattern
 
@@ -2221,6 +2236,29 @@ The pooler suite is in `packages/core/tests/store-contract/pg-pooler.test.ts` an
 
 One behavior to expect behind any pooler: the hourly call budget reserves before it checks, so when a burst is larger than the budget it can refuse calls that would have fit. It never admits more than the budget. Under a pooler that interleaves the reservations, a burst of 24 calls against a budget of 10 admitted between one and three.
 
+## Run the suite against your own database
+
+The suites above run on a local file and a local Postgres. To check a real Turso, Neon or Supabase database, point the opt-in tests at it. They live in `packages/core/tests/store-contract/hosted.test.ts` and are skipped unless their variable is set, so a plain `vitest run` never opens a network connection.
+
+| Variable | Value |
+|---|---|
+| `THEAUTH_TEST_TURSO_URL`, `THEAUTH_TEST_TURSO_AUTH_TOKEN` | `libsql://...` URL and token of a throwaway Turso database |
+| `THEAUTH_TEST_NEON_URL` | Neon connection string (the `-pooler` host works too) |
+| `THEAUTH_TEST_SUPABASE_URL` | Supabase connection string: direct, session pooler or transaction pooler |
+| `THEAUTH_TEST_HOSTED_RESET=1` | Drop the `theauth_*` tables of each configured database before and after its suite |
+
+```bash
+cd packages/core
+THEAUTH_TEST_SUPABASE_URL='postgres://...:6543/postgres?uselibpqcompat=true&sslmode=require' \
+  npx vitest run tests/store-contract/hosted.test.ts
+```
+
+Use an empty database you can throw away. The store contract suite (the same 14 checks as above, ten parallel callers) writes users, agents, sessions and audit rows with random ids, and does not clean up after itself. `THEAUTH_TEST_HOSTED_RESET=1` removes tables whose names start with `theauth_` and nothing else. Each configured host also gets a restart check: data written by one instance is read by a second one booted with `skipMigrations: true`, and the schema reports nothing pending.
+
+If `@neondatabase/serverless` is installed in `packages/core`, a second Neon suite runs through its WebSocket `Pool` (the path from the Neon section). The package is not a dependency of this repository, so add it with `pnpm add -D @neondatabase/serverless` while you try it and drop the change afterwards.
+
+I ran the file against a local libSQL file (as `THEAUTH_TEST_TURSO_URL`) and a local Postgres 14 (as `THEAUTH_TEST_NEON_URL`) to check the wiring: the suites ran and passed, and every other suite was skipped. I did not run it against a real Turso, Neon or Supabase endpoint.
+
 ---
 
 # Which storage should I pick
@@ -2275,6 +2313,32 @@ All providers share one versioned schema (`theauth_schema_migrations`, see [Data
 > Postgres works through the `pg` driver. We run the full test suite against Postgres 14 by hand before each release; it is not in CI yet. Timestamps are stored as integer epoch seconds, the same as SQLite, so use `to_timestamp(created_at)` when you query the tables yourself. The store contract also ran behind a transaction mode pooler (PgBouncer) and, through a bring your own handle, on Neon's WebSocket driver against a local Postgres (see [Turso, Neon and Supabase](/hosted-databases)). Other Postgres drivers (postgres.js, PGlite) are not supported yet.
 >
 > MySQL is not supported in this release. `provider: "mysql"` throws unless you pass `experimental: true`, and even then the baseline schema does not apply on a real server. We will turn it on once the same suite passes on MySQL 8.4.
+
+## SQL Server, and why there is no `kysely` option yet
+
+You cannot run theAuth on SQL Server today, and there is no `database: { kysely, dialect }` config. The reason is narrow. Core still talks to one Drizzle handle in about 700 places. Only two parts go through a store layer that another backend can implement: the single-use state (magic links, OTP guesses, refresh token claims, approvals, enrollment uses, the hourly budget) and the audit chain write path. Drizzle has no SQL Server driver, so an instance cannot boot on it, and a config option that accepted a Kysely handle but still needed a second, Drizzle-compatible connection to the same database would only mislead.
+
+What exists is internal and tested. A Kysely kernel (`packages/core/src/db/store/kysely`) implements the store contract for SQLite, Postgres, MySQL and SQL Server: conditional claims decided by the affected row count, guarded increments, atomic batches, interactive transactions and typed unique conflicts. A generator (`packages/core/src/db/ddl/mssql.ts`) writes SQL Server DDL for every core table from the Drizzle schema plus the indexes the migrations declare. Both are meant for the remaining aggregate ports, after which the option can be exposed.
+
+What was run, on this repository's contract suites:
+
+| Backend | Kernel and repository contract (59 checks) | Instance contract with the kernel routed in (14 checks) |
+|---------|------|------|
+| Kysely on SQLite (better-sqlite3 file) | passed | passed |
+| Kysely on Postgres 14 (local) | passed | passed |
+| Kysely on MySQL 8.4 (Docker) | passed | passed |
+| Kysely on SQL Server (Azure SQL Edge 15.0 in Docker) | passed | not possible, no Drizzle driver |
+
+The kernel contract covers each kernel primitive, value round trips, the single-use repositories under 24 parallel callers, and the audit repository: one test per hashed audit field (the hash is recomputed from what the backend returns), a gapless chain from parallel writers, and one chain from two processes. The instance contract is the full `runStoreContract` suite with the Kysely kernel taking over the single-use and audit writes while Drizzle serves everything else on the same database.
+
+Limits you should know about:
+
+- SQL Server DDL is generated for the current schema only. There is no migration ledger for it, so an existing table is never altered. Rerunning the statements is safe.
+- Text columns use a binary collation (`Latin1_General_100_BIN2`) because the server default ignores case. A text column that is part of an index has a bounded length: 191 characters for ids, and what is left of the 1700 byte index limit for other columns (850 characters at most). Values longer than that fail to insert.
+- A unique index over a nullable column is created as a filtered index (`WHERE column IS NOT NULL`), because SQL Server treats NULLs as equal in a unique index.
+- Trailing spaces are ignored in comparisons on SQL Server and on MySQL with the binary collation. Two tokens that differ only by trailing spaces collide there.
+- Reads and claims must go to the primary. A Kysely setup that routes reads to a replica breaks claim then read flows such as refresh token reuse detection.
+- The Azure SQL Edge image used for the run was retired by Microsoft in 2025. It was the one that runs on Apple silicon. The generated statements stay with features from SQL Server 2016 on (filtered indexes, OFFSET and FETCH, 1700 byte index keys), but only the SQL Server 2019 engine in the Edge image was run.
 
 ## Secondary storage, in one paragraph each
 
@@ -4435,9 +4499,91 @@ IP addresses are stored as-is. Normalise or hash them before passing if your pri
 
 Source: https://docs.theauth.dev/auth/email-password
 
-## Option 1: The email plugin (`@glinr/theauth-email`)
+## Option 1: Email and password in core
 
-`emailPassword()` is a full email-and-password flow: sign-up, sign-in, email verification, password reset and password change, with per-endpoint rate limits. You provide the email transport.
+`emailPassword` is a top-level config key. It stores a real email in `users.email`, hashes the password with PBKDF2, locks repeated failures, and creates ordinary core sessions, so `GET /auth/session`, `POST /auth/sign-out`, every framework adapter and the client bindings work with no extra wiring. `createTheAuthHandler` serves its routes under `/auth/email/*`.
+
+```typescript title="lib/theauth.ts"
+import { createTheAuth } from '@glinr/theauth';
+
+export const theauth = await createTheAuth({
+  database: { provider: 'sqlite-native', url: 'theauth.db' },
+  auth: { session: { secret: process.env.SESSION_SECRET! } },
+  // You provide the email transport. Each callback receives a ready link.
+  emailVerification: {
+    verifyUrl: 'https://app.example.com/verify-email',
+    sendVerificationEmail: async (email, token, url) => { /* send url */ },
+  },
+  passwordReset: {
+    resetUrl: 'https://app.example.com/reset-password',
+    sendResetEmail: async (email, token, url) => { /* send url */ },
+  },
+  emailPassword: {
+    // requireVerification defaults to true
+    password: { minLength: 10 },
+  },
+});
+```
+
+`emailPassword` needs `auth.session`. With `requireVerification` on (the default) it also needs `emailVerification`, and `createTheAuth` throws at startup if that is missing. `passwordReset` is optional: without it the forgot and reset routes are not served.
+
+| Route | Body | Answer |
+|---|---|---|
+| `POST /auth/email/sign-up` | `{ email, password, name? }` | `201 { verificationRequired: true }`, or `{ user, session }` when verification is off |
+| `POST /auth/email/sign-in` | `{ email, password, rememberMe? }` | `200 { user, session }` and the session cookie |
+| `POST /auth/email/verify` | `{ token }` | `200 { verified: true, user }` |
+| `POST /auth/email/resend-verification` | `{ email }` | `204`, whether or not the address exists |
+| `POST /auth/email/forgot-password` | `{ email }` | `204` (needs `passwordReset`) |
+| `POST /auth/email/reset-password` | `{ token, password }` | `200 { success: true }` (needs `passwordReset`) |
+| `POST /auth/email/change-password` | `{ current, newPassword }` | `200 { success: true }`, signed-in user only |
+
+Errors are `{ error: { code, message } }` with one of `INVALID_EMAIL`, `INVALID_PASSWORD`, `INVALID_CREDENTIALS` (401), `EMAIL_NOT_VERIFIED` (403), `INVALID_TOKEN`, `EMAIL_TAKEN` (409, only with verification off) or `SIGN_IN_LOCKED` (429 with `Retry-After`). A sign-in that the [sign-in gate](/sign-in-gate) holds back answers like the username module does.
+
+### What it does and does not tell the caller
+
+- **Verification on (default).** Sign-up creates the account and sends the email, but creates no session. Sign-in checks the password first and only then answers `EMAIL_NOT_VERIFIED`, so someone who guesses an address learns nothing.
+- **Taken addresses look new.** Sign-up for an address that already has a user answers the same `201 { verificationRequired: true }`. It never attaches a password to the existing user, so an address that signed up through Google cannot be claimed by someone else. A password account that is still unverified gets a fresh verification email; its password does not change.
+- **A reset proves the inbox.** A completed password reset marks the address verified and replaces the password, which also clears an account that someone else pre-registered with your address.
+- **Lockout and rate limits** follow the [username module](#failed-sign-in-lockout) (`emailPassword.lockout`, same defaults) and each route has a per-IP limit.
+- **Credentials** live in the same table as username accounts, so password reset, forced password change and two-factor through the gate work unchanged. Accounts imported with `theauth migrate` (credential keyed by the lowercase address) sign in here too.
+
+### Sign up, verify and sign in without a browser
+
+```typescript title="flow.ts"
+import { createTheAuthHandler } from '@glinr/theauth/http';
+import { theauth } from './lib/theauth';
+
+const handler = createTheAuthHandler(theauth, { basePath: '/api/theauth' });
+const post = (path: string, body: unknown) =>
+  handler(new Request(`http://localhost/api/theauth${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  }));
+
+await post('/auth/email/sign-up', { email: 'ada@example.com', password: 'correct horse battery' });
+// The token from your sendVerificationEmail callback:
+await post('/auth/email/verify', { token });
+const res = await post('/auth/email/sign-in', { email: 'ada@example.com', password: 'correct horse battery' });
+const { session } = await res.json();
+
+const me = await handler(new Request('http://localhost/api/theauth/auth/session', {
+  headers: { authorization: `Bearer ${session.token}` },
+}));
+console.log((await me.json()).user.email); // ada@example.com
+```
+
+The [client bindings](/react) take `emailPassword: true` and talk to these routes. There is a test of exactly this flow through the session store, in `packages/client/tests/session-store-email-password.test.ts`.
+
+### Programmatic use
+
+`theauth.emailPassword` is the module behind the routes: `signUp`, `signIn`, `verifyEmail`, `resendVerification`, `changePassword` and `markVerified`. They throw `EmailPasswordError` (with a `code`), `LoginLockedError` or `SignInGateError`.
+
+## Option 1a: The email plugin (`@glinr/theauth-email`), legacy
+
+<Warning>
+  The plugin predates the core module and does not work with core sessions. Its sign-in token is a random id in its own format, so `GET /auth/session`, `POST /auth/sign-out` and the adapters answer 401 for it, it sets no cookie, it writes with raw SQLite statements so it is only reliable on the SQLite drivers, and its sign-up returns a session token before the address is verified. Use Option 1 for new projects. The package stays published for existing installs and is deprecated.
+</Warning>
 
 ```bash
 pnpm add @glinr/theauth @glinr/theauth-email
@@ -4454,22 +4600,12 @@ const theauth = await createTheAuth({
       appUrl: 'https://app.example.com',
       sendVerificationEmail: async (email, token, url) => { /* send url */ },
       sendResetEmail: async (email, token, url) => { /* send url */ },
-      password: { minLength: 10 },
-      // requireVerification defaults to true
     }),
   ],
 });
 ```
 
-| Endpoint | Purpose |
-|---|---|
-| `POST /auth/sign-up` | Register (5 per minute) |
-| `POST /auth/sign-in` | Sign in (10 per minute) |
-| `POST /auth/verify-email` | Confirm the emailed token |
-| `POST /auth/request-reset`, `/auth/reset-password` | Reset flow (3 per minute for requests) |
-| `POST /auth/change-password` | Change password while signed in |
-
-Route requests with `theauth.plugins.handleRequest(request)` or a [framework adapter](/adapters). The [quickstart](/quickstart#track-b-add-human-auth) has a runnable version. Rate limit windows are per client IP.
+It registers `POST /auth/sign-up`, `/auth/sign-in`, `/auth/verify-email`, `/auth/request-reset`, `/auth/reset-password` and `/auth/change-password`. To move to the core module, replace the plugin with the `emailPassword`, `emailVerification` and `passwordReset` config keys and point your client at `/auth/email/*`. The plugin keeps its accounts in `theauth_email_accounts`, so existing users need to reset their password once or be imported.
 
 ## Option 1b: Username as the identifier
 
@@ -4879,6 +5015,9 @@ The send endpoint is limited to **5 requests per minute per IP address** (taken 
 | `appUrl` | `string` | required | Base URL prepended to the callback path, for example `https://app.example.com` |
 | `tokenExpiry` | `number` | `900` | Token lifetime in seconds (15 minutes) |
 | `callbackPath` | `string` | `/auth/magic-link/verify` | Path appended to `appUrl` in the link |
+| `keepUnverifiedCredentials` | `boolean` | `false` | When the owner first proves the mailbox on an account whose address was unverified, theAuth deletes the password, linked providers, passkeys and sessions that were created before the proof. Set `true` to keep them |
+
+Redeeming a link or code marks the address verified. The cleanup stops account pre-hijacking: someone who registered the victim's address first would otherwise keep the password they set after the victim signs in.
 
 ## Related
 
@@ -5009,6 +5148,9 @@ A wrong, expired, or exhausted code returns `401`. After `maxAttempts` verificat
 | `codeLength` | `number` | `6` | Number of digits in the OTP |
 | `codeExpiry` | `number` | `300` | Code lifetime in seconds (5 minutes) |
 | `maxAttempts` | `number` | `5` | Verification attempts allowed per code |
+| `keepUnverifiedCredentials` | `boolean` | `false` | When the owner first proves the mailbox on an account whose address was unverified, theAuth deletes the password, linked providers, passkeys and sessions that were created before the proof. Set `true` to keep them |
+
+Redeeming a link or code marks the address verified. The cleanup stops account pre-hijacking: someone who registered the victim's address first would otherwise keep the password they set after the victim signs in.
 
 ## Related
 
@@ -6656,6 +6798,9 @@ Google sends a `g_csrf_token` cookie with the request. theAuth validates that th
 | `clientId` | string | required | Google OAuth client ID |
 | `autoCreateUser` | boolean | `true` | Create user if not found |
 | `csrfCookieName` | string | `"g_csrf_token"` | CSRF cookie name |
+| `unsafeAllowUnverifiedEmailLinking` | boolean | `false` | Sign in to an existing account with the same email even when Google or the local address is unverified. Leave it off: it allows account pre-hijacking |
+
+An existing account is matched by email (case-insensitive) only when Google reports `email_verified: true` and the local address is verified. Otherwise the callback answers 409 with code `ACCOUNT_EXISTS` and no session. New users are stored as verified only when Google said so.
 
 ## Endpoint
 
@@ -6996,7 +7141,9 @@ The provider account is identified by the provider's own user ID, so the same pr
 
 ## Account linking
 
-When the email returned by the provider matches an existing user, theAuth links the provider account to that user. Otherwise it creates a new user with the email marked as verified. A user can have several linked providers. Only the email and name are copied onto the user record; the avatar is not stored.
+When the email returned by the provider matches an existing user, theAuth links the provider account to that user only if the provider says the address is verified and the existing user's address is verified too. If either side is unverified, the callback answers 409 and links nothing: the user signs in with their existing method and links the provider from account settings. This stops account pre-hijacking, where someone registers a victim's address first and keeps access after the victim signs in with a provider. Otherwise it creates a new user, with the email marked verified only when the provider vouched for it. Providers that do not report verification (Microsoft, Linear, Cloudflare, PayPal, Kick, Spotify and Apple) never link by email. A user can have several linked providers. Only the email and name are copied onto the user record; the avatar is not stored.
+
+Apps that need the old behavior can set `unsafeAllowUnverifiedEmailLinking: true` on `oauth()`. It links by email whatever either side says, so only use it when every sign-up path of your app verifies addresses first.
 
 If a provider returns no email (Reddit, for example), the callback cannot match or create a user. The account row stays unassigned and the callback responds with JSON (`isNewAccount`, `account`, `userInfo`) instead of a session.
 
@@ -12900,7 +13047,7 @@ Google Workspace sends URN-prefixed paths for extension attributes.
 
 **Groups PATCH is partial.** `PATCH /scim/v2/Groups/{id}` routes through a separate handler (`handlePatchGroup`) that does not use the `scim-patch.ts` engine. Value-filter operations on group members are not supported. A full rewrite to use the shared engine is planned for a follow-up release.
 
-**Value-filter member operations.** Filtering on `members[value eq "user-id"]` in a group context is not yet evaluated against the engine's AST walker. Sending such a path against the groups endpoint will not produce a predictable error -- it will silently fail or return unexpected results.
+**Value-filter member operations.** Filtering on `members[value eq "user-id"]` in a group context is not yet evaluated against the engine's AST walker. Sending such a path against the groups endpoint will not produce a predictable error. It will silently fail or return unexpected results.
 
 **Filter operators.** The current AST walker in `scim-filter.ts` supports the comparison operators (`eq`, `ne`, `co`, `sw`, `ew`, `pr`, `gt`, `lt`, `ge`, `le`) and logical operators (`and`, `or`, `not`). Complex nested logical expressions with more than two clauses may not parse correctly.
 
@@ -14404,7 +14551,7 @@ The built in Android, Apple and TPM verifiers refuse an empty nonce (`""`) as we
 
 A verifier that throws counts as a refusal. The claims you return are stored on the device as `attestation`.
 
-#### Android Key Attestation (built in)
+#### Android key attestation (built in)
 
 `createAndroidKeyAttestationVerifier` checks the certificate chain that `KeyStore.getCertificateChain` returns for a hardware backed key. It implements Google's published steps: the chain must end at a Google Hardware Attestation root, no certificate may be on Google's revocation list, the key attestation extension must appear once and in the leaf (a later copy could have been added by an attacker), the key and the attestation must meet a minimum security level (TEE or StrongBox), the TEE enforced root of trust must show a locked bootloader and verified boot, the key must have been generated in hardware, and the attestation challenge must equal the enrollment nonce.
 
@@ -14470,10 +14617,43 @@ Things to know:
 - The bundled root was downloaded over HTTPS from `apple.com/certificateauthority/Apple_App_Attestation_Root_CA.pem` on 2026-10-18. Apple publishes no fingerprint for it, so the evidence that it is the right root is that the intermediate certificates in real attestations verify against it. Pass `roots` to pin your own.
 - The credential certificate is valid for about three days. Verify at enrollment, not later. There is no revocation list for App Attest, so no revocation option exists.
 - Two extensions in `authData` are returned as claims when present: `apple_validation_category_01` (Apple's guide shows 1 for an OS distributed app, a development signed build on an iPhone reported 3) and `apple_bundle_version_01`. Apple's own 2026 sample sets only the attested credential flag yet carries the extension map, so the verifier reads the map whenever bytes follow the key, and the map is covered by the certificate's nonce.
-- Not built: verifying the fraud metric receipt (a PKCS#7 object from Apple, outside the signed data), verifying assertions from `generateAssertion` and tracking their counters, and any macOS specific checks.
+- The claims also carry `attestedPublicKey`, the App Attest key as a base64 X9.62 point, which later assertions are checked against (see below).
+- Not built: asking Apple's service to refresh a fraud metric (it needs your own credentials), and any macOS specific checks.
 - `theauth device attest apple --evidence att.json --nonce <n> --app-id <TeamID.BundleID>` runs the same verifier from the command line.
 
 **How this verifier was tested.** Three real attestation objects, copied unmodified into `packages/core/tests/fixtures/apple-app-attest.json`: the sample in Apple's validation guide (fetched from developer.apple.com on 2026-10-18, example app `com.example.myapp`), a recording from a physical iPhone on iOS 14.4 in the development environment from [veehaitch/devicecheck-appattest](https://github.com/veehaitch/devicecheck-appattest/blob/main/src/test/resources/ios-14.4.yaml) (Apache License 2.0), and a recording from an iPhone on iOS 27.0.1 in the production environment from [jewei/app-attest-php](https://github.com/jewei/app-attest-php/blob/main/spec/termakan-ios27-attestation.json) (MIT). All three verify against the bundled root with the clock set inside their three day window, which also shows the chain, the nonce and the key id logic match what Apple's service produces. The tests refuse a different nonce, another App ID, the wrong environment, a wrong key id, a changed `authData`, an expired certificate and a foreign root. Limits of that evidence: the tests do not bind with real keys, because those devices never saw our client data format. The `client-data` path is run on real data by reading the iOS 27 recording's challenge (which contains colons) as `<nonce>:<thumbprint>`, which exercises the code but is not a recording of a device doing it. Nothing here covers attestation objects from macOS, Mac Catalyst or visionOS. Treat the verifier as reviewed against Apple's documentation and tested against real fixtures, not as certified by Apple.
+
+#### Apple App Attest assertions and receipts
+
+An attestation proves a key was made in your app once. An assertion proves a later request came from the same app instance: the app calls `generateAssertion(keyId, clientDataHash)` and the server checks it with `verifyAppleAssertion`, following the assertion steps of Apple's [validation guide](https://developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server). It hashes the client data, computes `SHA-256(authenticatorData || clientDataHash)`, verifies the ECDSA signature over that with the attested key, checks that `rpIdHash` is SHA-256 of your App ID and that the counter is higher than the last one stored.
+
+The device module does this for an enrolled device and keeps the counter for you:
+
+```ts
+const nonce = await auth.device.attestationNonce();
+// The app puts the nonce inside its client data, for example {"nonce":"..."}, and sends the assertion.
+const res = await auth.device.verifyAppAssertion(deviceId, {
+  assertion,           // base64 or base64url of the CBOR object
+  clientData,          // the exact bytes the app hashed
+  nonce: nonce.nonce,  // single use, must appear inside clientData
+});
+if (!res.ok) return deny(res.code); // device_not_found, device_blocked, not_app_attest, nonce_invalid, assertion_invalid, assertion_replayed
+```
+
+The key and the App ID come from the claims stored at enrollment (`attestedPublicKey`, `appId`), so a device that enrolled with Apple evidence before this release has no key to check against and gets `not_app_attest`. The counter lives in `theauth_devices.app_attest_counter` (migration 0015) and moves forward with one conditional `UPDATE ... WHERE app_attest_counter < new`, so two requests with the same assertion cannot both pass: exactly one wins and the rest get `assertion_replayed`. A gap in the counter is fine (the app may have asserted offline), a lower or equal value is not. Refusals write an audit row `device.app_assertion.refused`. Without a nonce the check is refused unless `attestation.requireNonce` is false, because a counter alone does not show that the client data is fresh.
+
+The fraud receipt that Apple returns with an attestation or assertion is a CMS (PKCS#7) object. `verifyAppleReceipt` checks Apple's signature, the chain (signer `Application Attestation Fraud Receipt Signing`, issuer `Apple Application Integration CA 5 - G1`, root Apple Root CA - G3, bundled in `APPLE_RECEIPT_ROOTS`), the App ID, optionally the attested key, and that the receipt has not expired. It returns the risk metric (the number of keys Apple saw for the device in the last 30 days, present only in a refreshed receipt), the creation and expiry times and the token you would send to Apple to refresh it. Sending that token to Apple is not done here.
+
+```ts
+import { verifyAppleReceipt } from "@glinr/theauth";
+
+const r = await verifyAppleReceipt(receiptBase64, { appId: "ABCDE12345.com.example.robot", publicKey: device.attestation?.attestedPublicKey as string });
+if (r.ok && (r.receipt.riskMetric ?? 0) > 2) flagForReview(device);
+```
+
+From the command line: `theauth device attest apple-assertion` and `theauth device attest apple-receipt` (see the CLI section).
+
+**How this was tested.** Real recordings, copied unmodified into `packages/core/tests/fixtures/apple-app-assertion.json`: an assertion from an iPhone on iOS 14.4 and two receipts from the same device, from [veehaitch/devicecheck-appattest](https://github.com/veehaitch/devicecheck-appattest/blob/main/src/test/resources/ios-14.4.yaml) (Apache License 2.0), and an iOS 27 assertion whose `authenticatorData` carries Apple extension bytes, from [block/buzz](https://github.com/block/buzz) (Apache License 2.0) through [jewei/app-attest-php](https://github.com/jewei/app-attest-php). Both assertions verify, with counters 1 and 116. Apple Root CA - G3 was downloaded from `apple.com/certificateauthority/AppleRootCA-G3.cer` on 2026-10-19 and its SHA-256 matches the fingerprint Apple lists. The tests refuse a replayed counter, other client data, another App ID, another key, flipped bytes and truncation, and for receipts an expired receipt, another key or app, a foreign root, and a changed payload. The real receipts carry no signed attributes, so a second path (with signed attributes, as OpenSSL and most CMS tools write them) is tested with receipts made by `openssl cms` under a throwaway CA, labelled as synthetic in the fixture. The fixtures come from a handful of devices, so treat this as reviewed against the documentation and exercised on real data, not as certified by Apple.
 
 #### TPM 2.0 quotes (built in)
 
@@ -14499,11 +14679,78 @@ The evidence is JSON: `akPublic` (TPMT_PUBLIC or TPM2B_PUBLIC, base64), `quote` 
 Things to know:
 
 - There is no bundled root. TPM vendors and clouds each run their own, so you pass the one you trust. Without `roots` you must pass `allowUnverifiedAk: true`, and the claims then say `akVerified: false`: the quote proves someone holding that key signed a TPM shaped structure, not that a TPM exists.
-- This verifier does not run the TPM2_MakeCredential and TPM2_ActivateCredential handshake that proves an attestation key shares a TPM with an endorsement key, and it does not check TPM2_Certify of the enrolled device key. A genuine TPM therefore vouches for the nonce, but the quote does not prove that the enrolled credential lives in that TPM. If that matters, make the attestation key the device identity or add the handshake on your server.
+- This verifier does not run the credential activation handshake that proves an attestation key shares a TPM with an endorsement key, and it does not check TPM2_Certify of the enrolled device key. A genuine TPM therefore vouches for the nonce, but the quote does not prove that the enrolled credential lives in that TPM. `createTpm2CertifyVerifier` (next section) does both.
 - The event log, RSA-PSS signatures and ECDAA are not supported. PCR values are reported in the claims, and `expectedPcrs` compares chosen ones.
 - `theauth device attest tpm --evidence quote.json --nonce <n> --root vendor-root.pem` runs the same verifier from the command line.
 
 **How this verifier was tested.** The fixture is a real attestation from a Google Compute Engine Shielded VM (virtual TPM) in [google/go-tpm-tools](https://github.com/google/go-tpm-tools/blob/7350267efdfa67fc62be505004fd61d7d05e5288/internal/test/attestations/gce-cos-85-nonce9009.pb) (Apache License 2.0): three quotes of the same machine (SHA-1, SHA-256 and SHA-384 PCR banks, signed RSASSA-2048 with SHA-256), a second file with quotes taken without a nonce, and the key certificate from the same file. Google's published [intermediate](https://pki.goog/cloud_integrity/tpm_ek_intermediate_2.crt) and [root](https://pki.goog/cloud_integrity/tpm_ek_root_1.crt) were fetched on 2026-10-18 to complete the chain. `openssl verify` accepts that chain, and `openssl dgst -verify` accepts all six quote signatures and finds each PCR digest in its quote, which agrees with this verifier. The tests also refuse another nonce, a quote taken without one, changed PCR values, a changed quote or signature, a key that is not restricted, a foreign root and an expired chain. Limits: it is one vendor and one virtual TPM, so physical TPMs from Infineon, STMicro, Nuvoton or Intel and Windows platform keys are untested. In this fixture the certified key carries the endorsement key certificate usage, which is how that cloud issues it. The ECDSA branch is covered only by keys generated inside the test, which shows the code path works and nothing about any device.
+
+#### TPM 2.0 credential activation and TPM2_Certify (built in)
+
+`createTpm2CertifyVerifier` proves what a quote cannot: that the attestation key (AK) and the endorsement key (EK) live in one TPM, and that the key the device enrolls lives in that TPM and cannot be exported.
+
+1. The device sends its EK and AK public areas to `POST /device/tpm-activation` together with a live nonce from `/device/attestation-nonce`. The server runs TPM2_MakeCredential (`tpm2MakeCredential`): it wraps a fresh 32 byte secret so that only the TPM holding that EK, with an AK of that exact name loaded, can recover it, and answers with `credentialBlob`, `encryptedSecret` and an `activationId`.
+2. The device runs TPM2_ActivateCredential, which gives back the secret, and TPM2_Certify of its enrolled key with the enrollment nonce as qualifying data, signed by the AK.
+3. At enrollment the evidence carries both. The verifier checks the AK is a restricted, fixedTPM, fixedParent signing key, the Certify signature and qualifying data, that the certified name equals the key's public area, that the key has `fixedTPM`, `fixedParent` and `sensitiveDataOrigin` (generated in the TPM, never imported, not duplicable), that it is the enrolled `jwk` credential (same RFC 7638 thumbprint, ECC keys only), and that the activation secret is the one issued for this AK and this EK. The activation is single use and lives five minutes.
+
+```ts
+import { createTpm2CertifyVerifier } from "@glinr/theauth";
+
+devices: {
+  attestation: {
+    required: true,
+    verify: createTpm2CertifyVerifier({
+      ekRoots: [manufacturerRootPem], // EK certificate chain to a root you trust, says the TPM is real
+      // allowUnverifiedEk: true,     // development only: claims then say ekVerified: false
+    }),
+  },
+}
+```
+
+Evidence is JSON: `ekPublic`, `akPublic`, `keyPublic` (TPMT_PUBLIC or TPM2B_PUBLIC, base64url), `certifyInfo` (the TPMS_ATTEST of TPM2_Certify), `signature` (TPMT_SIGNATURE), `activation: { id, secret }` and, with `ekRoots`, `ekCertificates` (base64 DER, leaf first). Without `ekRoots` nobody vouches that the EK belongs to a real TPM, and the claims say `ekVerified: false`. The policy facts below then read `software`, because a software TPM can run the whole handshake.
+
+Tested against a software TPM: swtpm 0.7.3 (libtpms) with tpm2-tools 5.7 and tpm2-pytss 2.3.0 in Docker, which produced real EK, AK and key public areas for RSA and ECC, real TPM2_Certify output (checked by the tests), and a real TPM2_MakeCredential and TPM2_ActivateCredential round trip. More important, the credential blobs this library makes were fed to TPM2_ActivateCredential on that TPM, which recovered the secret for both an RSA and an ECC EK. The tests pin the randomness (the RSA seed, the ECC ephemeral key) and compare the blob byte for byte with the one the TPM accepted. The scripts are in `docs-local/tpm2` of the Go repository (`sh docs-local/tpm2/run.sh`, needs Docker). Not covered: a hardware TPM (Infineon, STMicro, Nuvoton), real EK certificates and manufacturer roots, and TPM 1.2.
+
+## Policy on attestation claims
+
+A permission can demand a hardware attested device. Put an `attestation` constraint on it:
+
+```ts
+await auth.device.register({
+  ownerId: "owner-1",
+  name: "front-door-lock",
+  permissions: [
+    { resource: "door:front", actions: ["status"] },
+    {
+      resource: "door:front",
+      actions: ["unlock"],
+      constraints: {
+        attestation: {
+          minSecurityLevel: "hardware",        // "hardware" or "strongbox"
+          bootState: ["verified"],             // optional, Android only
+          appIds: ["com.example.lock"],        // optional, one of them must be attested
+        },
+      },
+    },
+  ],
+});
+```
+
+The rule reads facts that the server derives from the claims stored at enrollment (`attestationFacts`), never from the request:
+
+| Format | `securityLevel` | `bootState` | `appIds` |
+| --- | --- | --- | --- |
+| `android-key-attestation` | the lower of the attestation and key level: TEE is `hardware`, StrongBox is `strongbox`, else `software` | the verified boot state, or `unlocked` when the bootloader is unlocked | the attested package names |
+| `apple-app-attest` | `hardware` (the key is in the Secure Enclave) | not attested | the App ID |
+| `tpm2-quote` | `hardware` when the AK chained to a trusted root, else `software` | not attested | none |
+| `tpm2-certify` | `hardware` when the credential was activated and the EK chained to a trusted root, else `software` | not attested | none |
+| anything else (a custom verifier) | no facts | | |
+
+A field you set must hold. The rule fails closed: a caller with no attestation (every agent and every user), a device that enrolled without evidence, claims of an unknown format, a boot state the format does not report, and a malformed rule all deny, with the code `attestation_required`. It runs after the argument patterns and before `requireApproval`, so a person is never asked to approve something the device cannot do. `device.authorize` passes the device's facts to the permission engine. Delegation can only narrow it: a child keeps the strictest level and the intersection of boot states and app ids, and an empty intersection denies.
+
+Offline bundles carry the facts as the signed `att` claim, so `evaluateDeviceBundle` and the Go `device.Evaluate` decide the same way without a round trip. A bundle issued to a device without evidence has no `att`, and permissions with an attestation constraint deny. The facts are fixed at enrollment: a device that is later compromised keeps them until you suspend or revoke it, and `app_id` is only as strong as the format (Android package names are software enforced).
+
+The dashboard shows the verified claims in the device detail panel. `theauth device attest` prints the facts next to the claims, so you can see what a rule would read before you write it.
 
 ## Authorization, delegation and revocation
 
@@ -14596,6 +14843,7 @@ Device facing routes (turn them off with `routes: { devices: false }`):
 | --- | --- | --- |
 | POST | `/device/enroll` | enrollment token in the body |
 | POST | `/device/attestation-nonce` | none |
+| POST | `/device/tpm-activation` | none, needs a live nonce |
 | POST | `/device/authorize` | device credential; 401 bad credential, 403 denied |
 | GET | `/device/bundle` | device credential |
 | GET | `/device/jwks` | none |
@@ -14626,6 +14874,8 @@ theauth device revoke <deviceId> --config ./theauth.config.mjs
 theauth device attest android --evidence chain.json --nonce <nonce> --revocation google
 theauth device attest apple --evidence att.json --nonce <nonce> --app-id ABCDE12345.com.example.robot
 theauth device attest tpm --evidence quote.json --nonce <nonce> --challenge hex --root vendor-root.pem
+theauth device attest apple-assertion --assertion a.b64 --client-data cd.bin --app-id ABCDE12345.com.example.robot --public-key <attestedPublicKey> --previous-counter 0
+theauth device attest apple-receipt --receipt r.b64 --app-id ABCDE12345.com.example.robot
 theauth device spiffe verify-x509 --cert leaf.pem --root ca.pem
 theauth device spiffe link <deviceId> spiffe://example.org/ns/yard/sa/robot-7 --config ./theauth.config.mjs
 ```
@@ -14634,7 +14884,7 @@ SPIFFE SVIDs as device credentials are covered in [SPIFFE workload identity](/sp
 
 ## What is not here yet
 
-CWT and COSE encoding of bundles for very small devices, a built in verifier for EAT, App Attest assertions and the TPM credential activation handshake, uploading decisions a device made offline into the audit chain, and a dashboard page.
+CWT and COSE encoding of bundles for very small devices, a built in verifier for EAT, an HTTP route for App Attest assertions (the library call exists), asking Apple's service for a fresh fraud metric, and uploading decisions a device made offline into the audit chain.
 
 ---
 
@@ -14938,7 +15188,9 @@ These are single runs. Rerun the command on your hardware before you plan capaci
 
 ## Go
 
-The kit is TypeScript only. There is no Go twin of the fleet runner, and the Go client (`sdks/go`) does not include one. A Go service that verifies bundles can be checked against the kit by feeding it the tokens the kit stored, as described below, and comparing decisions.
+The Go SDK has its own kit, the package `iot/fleet` of `theauth-go` (`github.com/glincker/theauth-go/v2/iot/fleet`). It runs the same scenarios against the Go authorization server, with one difference you should know: the Go server mints scoped tokens and has no per action authorize route, so the "assertion" scenario checks the token endpoint (a granted scope gets a token, an ungranted one gets `invalid_scope`). It also adds a suspend and resume scenario. Offline bundles and snapshots come from a small local issuer inside the kit, because the TypeScript core is the real issuer in production. The Go twin has numbers of its own, in the Go repository's `docs/device-fleet-kit.md`.
+
+A Go service that verifies bundles can also be checked against this kit by feeding it the tokens the kit stored, as described below, and comparing decisions.
 
 ## Using it with your own verifier
 
@@ -25207,6 +25459,9 @@ Earlier versions mounted these routes with no authentication. After upgrading, p
 | [`@glinr/theauth-hono`](/adapters/hono) | Hono | `app.route('/api/theauth', theAuthHono(theauth))` |
 | [`@glinr/theauth`](/adapters/elysia) | Elysia | `new Elysia().mount('/api/theauth', createTheAuthHandler(theauth, { basePath: '' }))` |
 | [`@glinr/theauth`](/adapters/nitro) | Nitro (standalone) | catch-all route `server/routes/api/theauth/[...path].ts` |
+| [`@glinr/theauth`](/adapters/effect) | Effect (3 and 4) | `HttpRouter.add("*", "/api/theauth/*", HttpEffect.fromWebHandler(handler))` |
+| [`@glinr/theauth`](/adapters/encore) | Encore.ts | raw endpoint `api.raw({ path: "/api/theauth/*path", method: "*" }, ...)` |
+| [`@glinr/theauth`](/adapters/convex) | Convex (identity provider) | `auth.config.ts` custom JWT provider, token route on your theAuth server |
 | [`@glinr/theauth`](/adapters/waku) | Waku | API route `src/pages/_api/theauth/[...path].ts` |
 | [`@glinr/theauth`](/adapters/react-router) | React Router v7 | resource route `app/routes/api.theauth.$.ts` |
 | [`@glinr/theauth-express`](/adapters/express) | Express | `app.use('/api/theauth', theAuthExpress(theauth))` |
@@ -25871,6 +26126,395 @@ On Nitro 2 pass `toWebRequest(event)` instead of `event.req`.
 ## What was run
 
 Both versions were built with `nitro build` and `nitropack build` and started from the build output, with `@glinr/theauth` installed from a packed tarball (so the bundler treated it like an installed dependency). On Nitro 3 beta (`3.0.260903-beta`, h3 2.0.5) and Nitro 2: `GET /api/theauth/agents` without a session answered 401, an unknown path under the mount answered 404, and `GET /docs` without a token answered 401. With an `authenticate` stub that accepts a test header, `GET /api/theauth/agents` answered 200. The `sql.js` and missing `pg` and `mysql2` failures above come from those runs.
+
+---
+
+# Effect
+
+Source: https://docs.theauth.dev/adapters/effect
+
+Effect can turn any `(request: Request) => Promise<Response>` function into a route, which is what `createTheAuthHandler` from `@glinr/theauth/http` returns. So there is no Effect package: you use the core handler directly.
+
+The HTTP modules moved between major versions. Effect 4 ships them inside `effect` (`effect/http`), Effect 3 ships them in `@effect/platform`. The wiring is the same, only the import paths and the router API differ.
+
+## Install
+
+```bash
+# Effect 4
+pnpm add @glinr/theauth better-sqlite3 effect @effect/platform-node
+# Effect 3
+pnpm add @glinr/theauth better-sqlite3 effect@3 @effect/platform @effect/platform-node
+```
+
+## Effect 4
+
+```typescript title="server.ts"
+import { createServer } from "node:http";
+import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler, requireAgent } from "@glinr/theauth/http";
+import { Effect, Layer } from "effect";
+import { HttpEffect, HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite-native", url: "theauth.db" },
+  agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+});
+
+const handler = createTheAuthHandler(theauth, {
+  basePath: "/api/theauth",
+  // Who may call the management routes. Return { id } to allow, null for a 401.
+  authenticate: async (request) => {
+    const user = await theauth.auth.resolveUser(request);
+    return user ? { id: user.id } : null;
+  },
+});
+
+// "/api/theauth/*" also matches "/api/theauth" itself, so one route is enough.
+const TheAuthRoutes = HttpRouter.add("*", "/api/theauth/*", HttpEffect.fromWebHandler(handler));
+
+const Docs = HttpRouter.add(
+  "GET",
+  "/docs",
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.toWeb(yield* HttpServerRequest.HttpServerRequest);
+    const result = yield* Effect.promise(() =>
+      requireAgent(theauth, request, { action: "read", resource: "docs" }),
+    );
+    if (!result.ok) return HttpServerResponse.fromWeb(result.response); // 401 or 403
+    return yield* HttpServerResponse.json({ agentId: result.agent.id });
+  }),
+);
+
+const Server = HttpRouter.serve(Layer.mergeAll(TheAuthRoutes, Docs)).pipe(
+  Layer.provide(NodeHttpServer.layer(createServer, { port: 3000 })),
+);
+
+Layer.launch(Server).pipe(NodeRuntime.runMain);
+```
+
+Do not register `"/api/theauth"` as a second route. The router rejects it as a duplicate of the wildcard.
+
+Inside a handler, build the Web `Request` with `HttpServerRequest.toWeb`. Passing `request.url` to `new Request(...)` fails, because the server request holds only the path.
+
+## Effect 3
+
+```typescript title="server.ts"
+import { createServer } from "node:http";
+import {
+  HttpApp,
+  HttpRouter,
+  HttpServer,
+  HttpServerRequest,
+  HttpServerResponse,
+} from "@effect/platform";
+import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler, requireAgent } from "@glinr/theauth/http";
+import { Effect, Layer } from "effect";
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite-native", url: "theauth.db" },
+  agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+});
+
+const handler = createTheAuthHandler(theauth, {
+  basePath: "/api/theauth",
+  authenticate: async (request) => {
+    const user = await theauth.auth.resolveUser(request);
+    return user ? { id: user.id } : null;
+  },
+});
+
+const router = HttpRouter.empty.pipe(
+  HttpRouter.all("/api/theauth/*", HttpApp.fromWebHandler(handler)),
+  HttpRouter.get(
+    "/docs",
+    Effect.gen(function* () {
+      const request = yield* HttpServerRequest.toWeb(yield* HttpServerRequest.HttpServerRequest);
+      const result = yield* Effect.promise(() =>
+        requireAgent(theauth, request, { action: "read", resource: "docs" }),
+      );
+      if (!result.ok) return HttpServerResponse.fromWeb(result.response);
+      return yield* HttpServerResponse.json({ agentId: result.agent.id });
+    }),
+  ),
+);
+
+const Server = router.pipe(
+  HttpServer.serve(),
+  Layer.provide(NodeHttpServer.layer(createServer, { port: 3000 })),
+);
+
+NodeRuntime.runMain(Layer.launch(Server));
+```
+
+## Serverless and tests
+
+`HttpRouter.toWebHandler(routes)` turns the same routes back into a `(request) => Promise<Response>`, which is handy for tests and for runtimes that want a fetch handler. You then do not need `NodeHttpServer`.
+
+## What was run
+
+Both snippets type check under `strict` and were started with `tsx`, against `effect` 4.0.5 with `@effect/platform-node` 4.0.5, and `effect` 3.22.3 with `@effect/platform` 0.97.2. `@glinr/theauth` was installed from a packed tarball. On both versions: `GET /api/theauth/agents` without a session answered 401, an unknown path under the mount answered 404, `GET /docs` without a token answered 401, and with a real agent token `GET /docs` answered 200 and `POST /api/theauth/authorize/token` with a JSON body answered 200 for a granted action.
+
+---
+
+# Encore
+
+Source: https://docs.theauth.dev/adapters/encore
+
+Encore.ts has no fetch handler mount, but it has raw endpoints that give you a Node `IncomingMessage` and `ServerResponse`. `@glinr/theauth/http` exports the two bridge functions you need, `toWebRequest` and `sendWebResponse`, so there is no Encore package.
+
+## Install
+
+```bash
+pnpm add @glinr/theauth better-sqlite3 encore.dev
+```
+
+Put the code below in one Encore service, for example `auth/` with an `encore.service.ts`.
+
+## Create the instance once
+
+```typescript title="auth/theauth.ts"
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler } from "@glinr/theauth/http";
+
+async function setup() {
+  const theauth = await createTheAuth({
+    database: { provider: "sqlite-native", url: "theauth.db" },
+    agents: { enabled: true, maxPerUser: 10, defaultPermissions: [], auditAll: true },
+  });
+  const handler = createTheAuthHandler(theauth, {
+    basePath: "/api/theauth",
+    // Who may call the management routes. Return { id } to allow, null for a 401.
+    authenticate: async (request) => {
+      const user = await theauth.auth.resolveUser(request);
+      return user ? { id: user.id } : null;
+    },
+  });
+  return { theauth, handler };
+}
+
+let instance: ReturnType<typeof setup> | undefined;
+
+/** Created on first use and shared by every endpoint in the service. */
+export function useTheAuth() {
+  instance ??= setup();
+  return instance;
+}
+```
+
+`sqlite-native` writes a file next to the running service. For a deployed Encore app use a Postgres database instead (see [choose storage](/choose-storage)).
+
+## Mount the handler
+
+```typescript title="auth/routes.ts"
+import { api } from "encore.dev/api";
+import { sendWebResponse, toWebRequest } from "@glinr/theauth/http";
+import { useTheAuth } from "./theauth";
+
+export const theauthRoutes = api.raw(
+  { expose: true, path: "/api/theauth/*path", method: "*" },
+  async (req, res) => {
+    const { handler } = await useTheAuth();
+    await sendWebResponse(res, await handler(await toWebRequest(req)));
+  },
+);
+```
+
+`toWebRequest` buffers the body for you and throws `RequestBodyTooLargeError` past 1 MiB by default. Pass `{ maxBodyBytes }` to change the cap.
+
+## Accept agent tokens on `auth: true` endpoints
+
+An Encore gateway auth handler decides who the caller is for every endpoint marked `auth: true`. This one treats the bearer credential as a theAuth agent token.
+
+```typescript title="auth/gateway.ts"
+import { APIError, Gateway, Header } from "encore.dev/api";
+import { authHandler } from "encore.dev/auth";
+import { useTheAuth } from "./theauth";
+
+interface AuthParams {
+  authorization: Header<"Authorization">;
+}
+
+interface AuthData {
+  userID: string; // the agent owner, which is what getAuthData().userID means in Encore
+  agentID: string;
+}
+
+const handler = authHandler<AuthParams, AuthData>(async (params) => {
+  const { theauth } = await useTheAuth();
+  const token = /^Bearer\s+(.+)$/i.exec(params.authorization)?.[1]?.trim();
+  const agent = token ? await theauth.agent.validateToken(token) : null;
+  if (!agent) throw APIError.unauthenticated("invalid agent token");
+  return { userID: agent.ownerId, agentID: agent.id };
+});
+
+export const gateway = new Gateway({ authHandler: handler });
+```
+
+```typescript title="auth/me.ts"
+import { api } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
+
+export const me = api(
+  { expose: true, auth: true, method: "GET", path: "/me" },
+  async (): Promise<{ userID: string; agentID: string }> => {
+    const data = getAuthData();
+    return { userID: data?.userID ?? "", agentID: data?.agentID ?? "" };
+  },
+);
+```
+
+`validateToken` checks that the token is valid, not revoked and not expired. It does not check a permission. For a permission check on a specific action, call `requireAgent` from `@glinr/theauth/http` inside a raw endpoint, or `theauth.authorizeByToken`.
+
+The auth handler only runs for endpoints marked `auth: true`, so the raw theAuth endpoint above still accepts its own bearer tokens (for example MCP access tokens).
+
+## What was run
+
+Run with the Encore CLI 1.58.7 (`encore run`) and `encore.dev` 1.58.7, `@glinr/theauth` from a packed tarball. `GET /api/theauth/agents` without a session answered 401, an unknown path answered 404, a request with an unrelated bearer token to `/api/theauth/mcp/jwks` reached theAuth (404 because no MCP module was configured). `GET /me` with a real agent token answered 200 with the owner and agent ids, and without a token answered 401. `POST /api/theauth/authorize/token` with a JSON body and the agent token answered 200 for a granted action.
+
+---
+
+# Convex
+
+Source: https://docs.theauth.dev/adapters/convex
+
+Convex functions run in Convex's own runtime against Convex's own database. theAuth needs a SQL database, so theAuth does not run inside Convex. The two sit side by side instead: theAuth stays on your server and Convex trusts the tokens it issues.
+
+This is the same shape as using Clerk or Auth0 with Convex. Convex supports [custom JWT providers](https://docs.convex.dev/auth/advanced/custom-jwt): it fetches a JWKS from a URL you give it and checks the signature, issuer, audience and expiry of every token the client sends. There is no Convex package for theAuth. You add one token route to your theAuth server.
+
+<Info>
+  This page covers Convex verifying theAuth sessions. It does not run the theAuth routes (sign in, agents, audit) inside Convex HTTP actions, because those need a SQL database that Convex does not offer.
+</Info>
+
+## Install
+
+```bash
+pnpm add @glinr/theauth jose better-sqlite3
+pnpm add convex
+```
+
+## Serve a JWKS and a token route
+
+Any server that already runs `createTheAuthHandler` works. This example uses `node:http` so it stands alone. The signing key is generated at startup for the example. In production load a persistent private key, or tokens stop verifying on every restart.
+
+```typescript title="server.ts"
+import { createServer } from "node:http";
+import { createTheAuth } from "@glinr/theauth";
+import { createTheAuthHandler, sendWebResponse, toWebRequest } from "@glinr/theauth/http";
+import { SignJWT, exportJWK, generateKeyPair } from "jose";
+
+const ISSUER = "https://auth.example.com"; // the public URL of this server
+const AUDIENCE = "convex";
+const KID = "convex-1";
+
+const { privateKey, publicKey } = await generateKeyPair("ES256");
+const jwk = { ...(await exportJWK(publicKey)), kid: KID, alg: "ES256", use: "sig" };
+
+const theauth = await createTheAuth({
+  database: { provider: "sqlite-native", url: "theauth.db" },
+  auth: { adapter: yourAuthAdapter }, // anything with resolveUser(request)
+});
+
+const handler = createTheAuthHandler(theauth, {
+  basePath: "/api/theauth",
+  authenticate: async (request) => {
+    const user = await theauth.auth.resolveUser(request);
+    return user ? { id: user.id } : null;
+  },
+});
+
+async function convexToken(request: Request): Promise<Response> {
+  const user = await theauth.auth.resolveUser(request);
+  if (!user) return Response.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
+  const token = await new SignJWT({ email: user.email, name: user.name })
+    .setProtectedHeader({ alg: "ES256", kid: KID })
+    .setSubject(user.id)
+    .setIssuer(ISSUER)
+    .setAudience(AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .sign(privateKey);
+  return Response.json({ token });
+}
+
+async function route(request: Request): Promise<Response> {
+  const { pathname } = new URL(request.url);
+  if (pathname === "/.well-known/jwks.json") return Response.json({ keys: [jwk] });
+  if (pathname === "/api/convex/token") return convexToken(request);
+  return handler(request);
+}
+
+createServer(async (req, res) => {
+  await sendWebResponse(res, await route(await toWebRequest(req)));
+}).listen(3000);
+```
+
+`yourAuthAdapter` is whatever resolves your signed-in user from a request, for example a Better Auth session lookup or your own cookie check. The token route refuses callers it cannot resolve, so only signed-in users get a Convex token. Keep the lifetime short: Convex does not call back to theAuth, so a token stays valid until it expires even if the user signs out.
+
+## Tell Convex to trust it
+
+```typescript title="convex/auth.config.ts"
+import type { AuthConfig } from "convex/server";
+
+export default {
+  providers: [
+    {
+      type: "customJwt",
+      applicationID: "convex", // the aud claim
+      issuer: "https://auth.example.com", // the iss claim
+      jwks: "https://auth.example.com/.well-known/jwks.json",
+      algorithm: "ES256",
+    },
+  ],
+} satisfies AuthConfig;
+```
+
+`issuer` and `applicationID` must match the `iss` and `aud` of the tokens exactly. Convex fetches the JWKS from the deployment, so the URL must be reachable from Convex, not only from your machine.
+
+## Read the user in a function
+
+```typescript title="convex/me.ts"
+import { query } from "./_generated/server";
+
+export const whoami = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    return { subject: identity.subject, email: identity.email };
+  },
+});
+```
+
+`identity.subject` is the theAuth user id. On the client, give Convex a token fetcher that calls your token route. With the React client:
+
+```tsx
+import { useCallback, useMemo } from "react";
+import { ConvexProviderWithAuth } from "convex/react";
+
+// Memoize the result. When the hook returns a new object Convex goes back to
+// loading and fetches a token again.
+function useTheAuthConvex() {
+  const isAuthenticated = useYourSessionState(); // for example the theAuth client session hook
+  const fetchAccessToken = useCallback(async (_args: { forceRefreshToken: boolean }) => {
+    const res = await fetch("/api/convex/token", { credentials: "include" });
+    return res.ok ? ((await res.json()) as { token: string }).token : null;
+  }, []);
+  return useMemo(
+    () => ({ isLoading: false, isAuthenticated, fetchAccessToken }),
+    [isAuthenticated, fetchAccessToken],
+  );
+}
+// <ConvexProviderWithAuth client={convex} useAuth={useTheAuthConvex}>
+```
+
+The token route issues a fresh token on every call, so `forceRefreshToken` needs no special handling.
+
+## What was run
+
+Run against the local Convex backend that `npx convex dev` starts in anonymous agent mode (`convex` 1.47.0), with `@glinr/theauth` from a packed tarball and the server above using `http://localhost:4545` as the issuer. With no token, `whoami` returned `null`. With a token from `/api/convex/token` for user `alice`, it returned her subject, email and the issuer. A token with a damaged signature was rejected by Convex with an `InvalidAuthHeader` error. The token route answered 401 without a session. The `ConvexProviderWithAuth` snippet was not run, since it needs a browser.
 
 ---
 
@@ -27970,7 +28614,20 @@ store.hydrateSession({ user: { id: "u_123", email: "ada@example.com" }, expiresA
 
 Leave `token` out of the HTML you render. Cookie sessions do not need it, and the store asks the server again on the next refresh. An expired or malformed value counts as signed out, and `hydrateSession(null)` means the server found no session. Neither the store nor the refetch code logs anything, and no error message contains a token.
 
-The routes the store calls are `POST /auth/username/sign-in`, `POST /auth/username/sign-up`, `POST /auth/sign-out` and `GET /auth/session`. The core has no email and password route, so set `signInPath`, `signUpPath` and `identifierField` if you serve your own.
+The routes the store calls are `POST /auth/sign-out`, `GET /auth/session`, and either the username routes (`/auth/username/sign-in` and `/auth/username/sign-up`, which you forward with `theauth.username.handleRequest`) or, with `emailPassword: true`, the core email and password routes that `createTheAuthHandler` serves (`/auth/email/sign-in` and `/auth/email/sign-up`, body field `email`). Set `signInPath`, `signUpPath` and `identifierField` if you serve your own.
+
+```ts
+import { createSessionStore } from '@glinr/theauth-client';
+
+const store = createSessionStore({ emailPassword: true });
+const up = await store.signUp('ada@example.com', 'correct horse battery', 'Ada');
+// up: { success: true, verificationRequired: true } while the address is unverified
+await store.verifyEmail(tokenFromTheEmailLink);
+const inn = await store.signIn('ada@example.com', 'correct horse battery');
+// inn.success is false with inn.code === 'EMAIL_NOT_VERIFIED' before verification
+```
+
+The store also has `resendVerification(email)`, `requestPasswordReset(email)` and `resetPassword(token, password)`. See [Email and password](/auth/email-password) for the server side and the error codes.
 
 ## Next steps
 
@@ -28043,15 +28700,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 <ParamField path="basePath" type="string" default="&quot;/api/theauth&quot;">Path to your theAuth API handler. Must match the route you mounted in the adapter.</ParamField>
 <ParamField path="external" type="ExternalAuthConfig" default="undefined">Delegate authentication to an external API instead of the managed mode described below. See "External auth mode".</ParamField>
-<ParamField path="managed" type="ManagedAuthConfig" default="undefined">Options for managed mode: `refetch` (focus, reconnect, interval), `initialSession` (SSR seed), `signInPath`, `signUpPath` and `identifierField`. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
+<ParamField path="managed" type="ManagedAuthConfig" default="undefined">Options for managed mode: `emailPassword`, `refetch` (focus, reconnect, interval), `initialSession` (SSR seed), `signInPath`, `signUpPath` and `identifierField`. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
 <ParamField path="debug" type="boolean" default="false">Enable verbose auth state logging (also enabled when `localStorage.DEBUG === "theauth"`).</ParamField>
 
 <Info>
 In managed mode (no `external` prop) the session token is stored in `localStorage` under the key `theauth_session`. On load the provider shows that stored session at once, then confirms it with `GET {basePath}/auth/session`. A 401 or 403 clears it. A network error or a 5xx keeps it, so going offline never signs anyone out. Cookie-only sessions work too: with nothing stored, the same request picks up the session cookie.
 </Info>
 
+### Email and password
+
+Pass `managed={{ emailPassword: true }}` to use the core `emailPassword` routes: `POST {basePath}/auth/email/sign-in` and `POST {basePath}/auth/email/sign-up` with `{ email, password }` (plus `name` for sign-up). The server side is the `emailPassword` config key, see [Email and password](/auth/email-password). With email verification on (the default), `signUp` succeeds with `data.verificationRequired === true` and signs nobody in. A sign-in before verification fails with `code: "EMAIL_NOT_VERIFIED"`.
+
+```tsx
+<TheAuthProvider managed={{ emailPassword: true }}>
+  <App />
+</TheAuthProvider>
+```
+
 <Warning>
-Managed mode signs in and up through the username module: `POST {basePath}/auth/username/sign-in` and `POST {basePath}/auth/username/sign-up` with `{ username, password }` (plus `name` for sign-up), answering `{ user, session: { token, expiresAt } }`. The first argument of `signIn` and `signUp` is sent as `username`. theAuth core has no email-and-password route, so for one of your own set `managed.signInPath`, `managed.signUpPath` and `managed.identifierField` (for example `"email"`), and return the same response shape.
+Without `emailPassword`, managed mode signs in and up through the username module: `POST {basePath}/auth/username/sign-in` and `POST {basePath}/auth/username/sign-up` with `{ username, password }`, answering `{ user, session: { token, expiresAt } }`. `createTheAuthHandler` does not serve those two routes. Forward them yourself with `theauth.username.handleRequest(request)`. To use routes of your own set `managed.signInPath`, `managed.signUpPath` and `managed.identifierField`, and return the same response shape.
 </Warning>
 
 ## useSession
@@ -28109,7 +28776,7 @@ function ProfileCard() {
 
 Handles email and password sign-in. Returns `signIn(email, password)` plus `isLoading` and `error` (a string or `null`).
 
-The hook posts to `POST {basePath}/auth/username/sign-in` by default (see the warning above about the server route).
+The hook posts to `POST {basePath}/auth/username/sign-in` by default, or `POST {basePath}/auth/email/sign-in` with `managed.emailPassword` (see the notes above about the server route). A failed result carries the server's `code` when it sent one.
 
 ```tsx
 import { useSignIn } from '@glinr/theauth-react';
@@ -28144,7 +28811,7 @@ function SignInForm() {
 
 ## useSignUp
 
-Handles new account registration with `signUp(email, password, name?)`. Posts to `POST {basePath}/auth/username/sign-up` by default.
+Handles new account registration with `signUp(email, password, name?)`. Posts to `POST {basePath}/auth/username/sign-up` by default, or `POST {basePath}/auth/email/sign-up` with `managed.emailPassword`. The result is `{ success: true, data: { verificationRequired } }`: when `verificationRequired` is true the account exists but there is no session yet, so show a "check your inbox" screen.
 
 ```tsx
 import { useSignUp } from '@glinr/theauth-react';
@@ -28171,6 +28838,19 @@ function SignUpForm() {
       <button type="submit" disabled={isLoading}>Create account</button>
     </form>
   );
+}
+```
+
+## useEmailPassword
+
+For the email and password routes (`managed={{ emailPassword: true }}`). Returns `verifyEmail(token)`, `resendVerification(email)`, `requestPasswordReset(email)` and `resetPassword(token, password)`. Each resolves to an `ActionResult` with the server `code` on failure. `requestPasswordReset` and `resetPassword` need `passwordReset` on the server. In external mode they return a failure result.
+
+```tsx
+import { useEmailPassword } from '@glinr/theauth-react';
+
+function VerifyPage({ token }: { token: string }) {
+  const { verifyEmail, resendVerification } = useEmailPassword();
+  // verifyEmail(token) then send the user to sign in. resendVerification(email) for a new link.
 }
 ```
 
@@ -28404,9 +29084,10 @@ await createAgent({ name: 'My AI assistant', permissions: ['read:data'] });
 <ParamField path="basePath" type="string" default="'/api/theauth'">Base path where your theAuth handler is mounted.</ParamField>
 <ParamField path="refetch" type="RefetchOptions">Refetch the session on window focus, reconnect or an interval. Off unless set. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
 <ParamField path="initialSession" type="HydrateInput | null">Session the server already resolved. Skips the first request.</ParamField>
-<ParamField path="signInPath" type="string" default="'/auth/username/sign-in'">Route for `signIn`. Core has no email and password route, so point this at your own if you need one.</ParamField>
-<ParamField path="signUpPath" type="string" default="'/auth/username/sign-up'">Route for `signUp`.</ParamField>
-<ParamField path="identifierField" type="string" default="'username'">Body field that carries the first argument of `signIn` and `signUp`.</ParamField>
+<ParamField path="emailPassword" type="boolean" default="false">Use the core email and password routes (`/auth/email/sign-in`, `/auth/email/sign-up`, body field `email`). Needs the `emailPassword` config on the server, see [Email and password](/auth/email-password). `signUp` then resolves to `data.verificationRequired`, and the context also exposes `verifyEmail`, `resendVerification`, `requestPasswordReset` and `resetPassword`. Failed results carry the server `code`, for example `EMAIL_NOT_VERIFIED`.</ParamField>
+<ParamField path="signInPath" type="string" default="'/auth/username/sign-in'">Route for `signIn` (`/auth/email/sign-in` with `emailPassword`). The username routes are not served by `createTheAuthHandler`: forward them with `theauth.username.handleRequest`.</ParamField>
+<ParamField path="signUpPath" type="string" default="'/auth/username/sign-up'">Route for `signUp` (`/auth/email/sign-up` with `emailPassword`).</ParamField>
+<ParamField path="identifierField" type="string" default="'username'">Body field that carries the first argument of `signIn` and `signUp` (`email` with `emailPassword`).</ParamField>
 <ParamField path="storage" type="SessionStorageLike">Defaults to `window.localStorage` when the browser allows it.</ParamField>
 
 On install the plugin shows a stored session at once, then confirms it with `GET {basePath}/auth/session`. `signOut` clears local state first, then calls `POST {basePath}/auth/sign-out` to revoke the session on the server.
@@ -28547,9 +29228,10 @@ The store also exposes `rotate(agentId)`.
 <ParamField path="basePath" type="string" default="'/api/theauth'">Base path where your theAuth handler is mounted.</ParamField>
 <ParamField path="refetch" type="RefetchOptions">Refetch the session on window focus, reconnect or an interval. Runs while any of the client's stores has a subscriber. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
 <ParamField path="initialSession" type="HydrateInput | null">Session the server already resolved. Skips the first request. Also available later as `client.hydrateSession(initial)`.</ParamField>
-<ParamField path="signInPath" type="string" default="'/auth/username/sign-in'">Route for `signIn`. Core has no email and password route, so point this at your own if you need one.</ParamField>
-<ParamField path="signUpPath" type="string" default="'/auth/username/sign-up'">Route for `signUp`.</ParamField>
-<ParamField path="identifierField" type="string" default="'username'">Body field that carries the first argument of `signIn` and `signUp`.</ParamField>
+<ParamField path="emailPassword" type="boolean" default="false">Use the core email and password routes (`/auth/email/sign-in`, `/auth/email/sign-up`, body field `email`). Needs the `emailPassword` config on the server, see [Email and password](/auth/email-password). `signUp` then resolves to `data.verificationRequired`, and the context also exposes `verifyEmail`, `resendVerification`, `requestPasswordReset` and `resetPassword`. Failed results carry the server `code`, for example `EMAIL_NOT_VERIFIED`.</ParamField>
+<ParamField path="signInPath" type="string" default="'/auth/username/sign-in'">Route for `signIn` (`/auth/email/sign-in` with `emailPassword`). The username routes are not served by `createTheAuthHandler`: forward them with `theauth.username.handleRequest`.</ParamField>
+<ParamField path="signUpPath" type="string" default="'/auth/username/sign-up'">Route for `signUp` (`/auth/email/sign-up` with `emailPassword`).</ParamField>
+<ParamField path="identifierField" type="string" default="'username'">Body field that carries the first argument of `signIn` and `signUp` (`email` with `emailPassword`).</ParamField>
 
 On creation the client shows a stored session at once, then confirms it with `GET {basePath}/auth/session`. `signOut` clears local state first, then calls `POST {basePath}/auth/sign-out`. `client.destroy()` stops the refetch triggers and aborts an in-flight refresh.
 
@@ -28613,7 +29295,7 @@ export function Profile() {
 }
 ```
 
-Call `store.refresh()` once on the client. It reads `GET {basePath}/auth/session` (cookie or stored bearer token) and shows a saved session while it waits. `store.signIn(identifier, password)` and `store.signUp(identifier, password, name)` post to `/auth/username/sign-in` and `/auth/username/sign-up` by default and return `{ success: true }` or `{ success: false, error }`. `store.signOut()` clears local state, then revokes the session with `POST {basePath}/auth/sign-out`. To refetch on focus or an interval, pass `refetch` to `createSessionStore`, see [Session refetch and SSR](/client-sdk#session-refetch-and-ssr). `createSolidAuth` also returns `refresh` and `hydrateSession`. The store uses `fetch` only, so it runs in browsers, workers and edge runtimes. Without a `storage`, the session lives in memory only.
+Call `store.refresh()` once on the client. It reads `GET {basePath}/auth/session` (cookie or stored bearer token) and shows a saved session while it waits. `store.signIn(identifier, password)` and `store.signUp(identifier, password, name)` post to `/auth/username/sign-in` and `/auth/username/sign-up` by default (`/auth/email/sign-in` and `/auth/email/sign-up` with `emailPassword: true`, see [Client SDK](/client-sdk)) and return `{ success: true }` or `{ success: false, error, code? }`. `store.signOut()` clears local state, then revokes the session with `POST {basePath}/auth/sign-out`. To refetch on focus or an interval, pass `refetch` to `createSessionStore`, see [Session refetch and SSR](/client-sdk#session-refetch-and-ssr). `createSolidAuth` also returns `refresh` and `hydrateSession`. The store uses `fetch` only, so it runs in browsers, workers and edge runtimes. Without a `storage`, the session lives in memory only.
 
 ## What was run
 
@@ -28824,7 +29506,18 @@ const result = await signIn(email, password);
 ```tsx
 const { signUp, isLoading, error } = useSignUp();
 const result = await signUp(email, password, name);
+// result.data.verificationRequired is true when the account needs email verification first
 ```
+
+### Email and password
+
+By default `signIn` and `signUp` call the username routes. Set `emailPassword: true` in the provider config to call the core email and password routes instead (`POST {basePath}/auth/email/sign-in` and `/auth/email/sign-up`, body field `email`), served when the server sets the `emailPassword` config (see [Email and password](/auth/email-password)).
+
+```tsx
+<TheAuthExpoProvider config={{ basePath: 'https://api.myapp.com/api/theauth', emailPassword: true }}>
+```
+
+With email verification on (the default) `signUp` resolves to `data.verificationRequired === true` and the user stays signed out. A sign-in before verification fails with `code: "EMAIL_NOT_VERIFIED"`. The verify and reset steps are plain `POST` calls to `/auth/email/verify` and `/auth/email/reset-password`, usually from the web page the emailed link opens, so the Expo provider does not wrap them.
 
 ### `useSignOut`
 
@@ -28872,6 +29565,110 @@ The default in-memory storage loses the session when the app restarts. Always pa
     Configure social sign-in providers for the OAuth redirect flow.
   </Card>
 </CardGroup>
+
+---
+
+# Lynx
+
+Source: https://docs.theauth.dev/lynx
+
+[Lynx](https://lynxjs.org) is ByteDance's cross-platform UI framework (Android, iOS, web), and ReactLynx is its React flavor. There is no `@glinr/theauth-lynx` package. The framework-neutral session store in `@glinr/theauth-client` is what a Lynx app uses, and this page says what it needs from the runtime, what I checked and what I did not.
+
+<Warning>
+  I did not run this on a Lynx simulator or device. The checks below are the Lynx documentation, a type check of the recipe against `@lynx-js/react` 0.126.0, and a test that runs the store against the real theAuth handler with the globals Lynx lacks removed. Treat the cookie and fetch notes as the first things to test on a device.
+</Warning>
+
+## What Better Auth does
+
+Better Auth documents Lynx with a `better-auth/lynx` entry that exports `createAuthClient` and a `useStore` hook over its nanostores session atom, with `@lynx-js/react` as the only added dependency. Its page says nothing about cookies, storage or the thread model, so it does not tell you what the runtime needs.
+
+## What Lynx gives you
+
+From the Lynx docs ([networking](https://lynxjs.org/guide/interaction/networking), [fetch reference](https://lynxjs.org/api/lynx-api/global/fetch), [best practices](https://lynxjs.org/react/best-practices.html), [@lynx-js/react](https://lynxjs.org/api/react/)):
+
+- **`fetch`** is provided and described as compatible with the Web API, with "subtle differences". It needs the HTTP service of the integrated Lynx Service. The compatibility note says Lynx does not support Web-only features like CORS, redirect and keepalive, and that `FormData` and `Blob` are unsupported. `credentials`, `AbortController` and `signal` are not mentioned.
+- **No web storage.** I found no built-in `localStorage`. The Lynx native modules guide shows a storage module you write yourself on each platform.
+- **No `TextEncoder` or `TextDecoder`** in PrimJS, the JavaScript engine. Lynx ships `TextCodecHelper` for UTF-8.
+- **React 17 API.** ReactLynx follows React 17 and skips concurrent features such as `useTransition`. `useSyncExternalStore` is in the `@lynx-js/react` API reference.
+- **Two threads.** Rendering runs on the main thread. Effects, event handlers and native module calls belong on the background thread, and calling native modules from the main thread blocks the UI.
+
+## What the session store needs
+
+| Need | Store behavior | On Lynx |
+|---|---|---|
+| `fetch` | The only network call. Sign in, sign out and session reads all use it. | Provided. |
+| `AbortController` | Optional. With one, a new refresh cancels the old one. Without one, a late answer is dropped by an epoch check. | Not documented, so the store no longer requires it. |
+| `window`, `document` | Only for refetch on focus and reconnect. Without them those triggers do nothing. | Absent, nothing to configure. |
+| Storage | A sync `getItem`, `setItem`, `removeItem`. Optional. | Pass none and persist through `hydrateSession`, below. |
+| Cookies | `credentials: "include"` is sent, and the session cookie is a convenience. | Unknown. Use the bearer token the sign-in response carries, which the store keeps and sends. |
+| `TextEncoder` | Not used by the store. | Not needed. DPoP (`createDPoPClient`) and passkeys use Web Crypto and are not available. |
+
+The store change that came out of this check: `refresh` used `new AbortController()` unconditionally and would throw where it is missing. It is now optional, and `packages/client/tests/session-store-email-password.test.ts` runs a full sign up, verify, sign in, refresh, rehydrate and sign out against the real handler with `AbortController`, `window`, `localStorage`, `TextEncoder` and `TextDecoder` removed.
+
+## Recipe
+
+Sign-in goes through the [email and password routes](/auth/email-password). Lynx has no page origin, so `basePath` is an absolute URL. Storage is a native module you implement, and the store persists through it by `subscribe` and `hydrateSession`, because native calls are asynchronous and the store's own storage hook is synchronous.
+
+```typescript title="lib/auth.ts"
+import { createSessionStore } from "@glinr/theauth-client";
+import { useSyncExternalStore } from "@lynx-js/react";
+
+/** Your own Lynx native module. Lynx has no built-in key value storage. */
+interface SessionStorageModule {
+  get(key: string, done: (value: string | null) => void): void;
+  set(key: string, value: string): void;
+  remove(key: string): void;
+}
+declare const NativeModules: { SessionStorage: SessionStorageModule };
+
+const KEY = "theauth_session";
+
+export const store = createSessionStore({
+  basePath: "https://api.example.com/api/theauth",
+  emailPassword: true,
+});
+
+/** Call once at startup, from the background thread (an effect or a 'background only' function). */
+export function startAuth(): void {
+  NativeModules.SessionStorage.get(KEY, (raw) => {
+    if (raw) {
+      const saved = JSON.parse(raw) as { token: string; user: { id: string }; expiresAt?: string };
+      store.hydrateSession(saved);
+    }
+    void store.refresh();
+  });
+  store.subscribe((state) => {
+    if (state.session) NativeModules.SessionStorage.set(KEY, JSON.stringify(state.session));
+    else NativeModules.SessionStorage.remove(KEY);
+  });
+}
+
+export function useAuthState() {
+  return useSyncExternalStore(store.subscribe, store.getState, store.getState);
+}
+```
+
+```tsx title="SignIn.tsx"
+import { store, useAuthState } from "./lib/auth";
+
+export function Account() {
+  const { session, isLoading } = useAuthState();
+  if (isLoading) return <text>Loading</text>;
+  if (session) return <text bindtap={() => store.signOut()}>{session.user.email} (sign out)</text>;
+  return <text bindtap={() => store.signIn("ada@example.com", "correct horse battery")}>Sign in</text>;
+}
+```
+
+Both files type check against `@lynx-js/react` 0.126.0 and `@glinr/theauth-client`. The thread rules are yours to apply: keep `startAuth` and the handlers that call `store` on the background thread.
+
+## What a first-class Lynx client would need
+
+I would not add a package yet. If Lynx use turns out to be real, in order:
+
+1. A device check of `fetch` with the bearer token: does the response body parse, is `Set-Cookie` kept, does `credentials: "include"` do anything.
+2. An async storage option on the session store (`getItem` returning a promise), so the native module recipe collapses into one option. Expo already has this shape in `TheAuthStorage`.
+3. A thin `useSyncExternalStore` hook export from a `@glinr/theauth-client/lynx` subpath, which is what Better Auth ships, so users do not copy the hook.
+4. Whether `@glinr/theauth-react` runs unchanged under `@lynx-js/react` (it uses `useSyncExternalStore`, `useMemo` and the automatic JSX runtime). It is untested, which is why the recipe uses the store directly.
 
 ---
 
@@ -29262,7 +30059,7 @@ function SignedInView() {
 }
 ```
 
-`signIn` and `signUp` authenticate against the email/password endpoints on your theAuth API. For OAuth providers, trigger `openOAuthWindow` from the main process (see above), then call `refresh()` from the renderer once the window resolves to pick up the new session.
+`signIn` and `signUp` call the username routes by default. Pass `emailPassword` to `ElectronTheAuthProvider` to call the core email and password routes (`/auth/email/sign-in` and `/auth/email/sign-up`, body field `email`) that the server serves when it sets the `emailPassword` config, see [Email and password](/auth/email-password). With verification on (the default) `signUp` resolves to `data.verificationRequired === true` and signs nobody in, and a sign-in before verification fails with `code: "EMAIL_NOT_VERIFIED"`. For OAuth providers, trigger `openOAuthWindow` from the main process (see above), then call `refresh()` from the renderer once the window resolves to pick up the new session.
 
 ## Features
 
@@ -34556,9 +35353,9 @@ W3C Verifiable Credentials solve this. A credential is a signed JSON document th
 
 This matters for three reasons:
 
-1. **Offline verification** -- an agent can prove its identity and permissions without the issuing server being reachable
-2. **Cross-organization trust** -- if you trust the issuer's DID, you trust the credential, regardless of where the agent lives
-3. **Delegation chains** -- a credential can encode a chain of delegations, so a sub-agent can prove it was authorized by its parent
+1. **Offline verification**: an agent can prove its identity and permissions without the issuing server being reachable
+2. **Cross-organization trust**: if you trust the issuer's DID, you trust the credential, regardless of where the agent lives
+3. **Delegation chains**: a credential can encode a chain of delegations, so a sub-agent can prove it was authorized by its parent
 
 <Info>
 VCs build on top of theAuth DID support. If you have not set up DIDs yet, see the [DID identity](/did) page first.
@@ -34600,7 +35397,7 @@ const result = await issuer.issueAgentCredential({
 });
 
 if (result.success) {
-  // Send the JWT to the agent -- it carries this as a bearer credential
+  // Send the JWT to the agent. It carries this as a bearer credential
   const jwt = result.data.jwt;
 }
 ```
@@ -34973,7 +35770,7 @@ Verification checks:
 4. Audience matches this instance (if audience is set in the token)
 5. Trust level rules are applied to downgrade permissions if needed
 
-## Embedding Verifiable Credentials
+## Embedding verifiable credentials
 
 You can attach a W3C Verifiable Credential to the federation token for offline verification. This is useful when the target instance needs cryptographic proof of the agent's capabilities that does not depend on the source instance's availability.
 
@@ -35669,7 +36466,7 @@ Postgres now works across the whole instance. Before, the first write and every 
 - `provider: "mysql"` throws `THEAUTH_MYSQL_UNSUPPORTED` unless you pass `experimental: true`.
 - `theauth_refresh_tokens.used` is now `BIGINT` on Postgres and MySQL, so the refresh reuse grace window works. SQLite is unchanged.
 
-## Cookies are Secure by default, PBKDF2 is stronger
+## Cookies are secure by default, PBKDF2 is stronger
 
 The `Secure` cookie default no longer reads `NODE_ENV`. It used to be off when `NODE_ENV` was unset, which is the normal state on Workers, Deno and Bun.
 
@@ -35861,6 +36658,72 @@ An approval can require more than one approver with `requiredApprovals` (default
 ## Device attestation evidence needs a nonce
 
 `devices.attestation.verify` is now only called for evidence that comes with a nonce from `device.attestationNonce()` (`POST /device/attestation-nonce`). Evidence without one is refused with `nonce_invalid`, because it cannot be shown to be fresh (RFC 9334 section 10). Before, a missing nonce skipped the check and left replay protection to your verifier. If your verifier proves freshness another way, for example a signed timestamp, set `attestation.requireNonce: false`. The hook input also gains `credentialKind` and `credentialKeyThumbprint`. See [IoT devices](/iot-devices).
+
+## Client bindings: store methods and sign-in routes
+
+`SessionStore.refresh()` now returns a promise, and `SessionStore.signOut()` returns `Promise<StoreActionResult>`. Code that treats either one as synchronous must await it.
+
+The default sign-in and sign-up routes for the client bindings are now `POST /auth/username/sign-in` and `POST /auth/username/sign-up`, and the first argument is sent as `username`. The core never served `/auth/sign-in` or `/auth/sign-up`, so the old defaults answered 404. Managed sessions are confirmed with `GET /auth/session`, and `signOut` calls `POST /auth/sign-out` after it clears local state.
+
+What to do:
+
+- Await `refresh()` and `signOut()` wherever you call them on a `SessionStore`.
+- If you serve your own `/auth/sign-in` or `/auth/sign-up` for these bindings, set `signInPath`, `signUpPath` and `identifierField`. In React, pass them in the `managed` prop. In Vue and Svelte, set them in the plugin or client options. Expo and Electron take the same three options.
+- If an Expo or Electron app relied on `/sign-in/email` and `/sign-up/email`, set the three options to the routes your server serves.
+
+See [Client SDK](/client-sdk) and [React](/react).
+
+## UI, Expo, Electron and dashboard route changes
+
+`TwoFactorVerify` posts `{ code }` to `POST /auth/2fa/verify`, and a backup code goes in the same `code` field. It reads the core's `{ error: "..." }` body.
+
+`OAuthButtons` navigates to `/auth/oauth/authorize/:provider`. The server builds the callback URL itself. In Electron, `openOAuthWindow` waits for the core callback redirect before it reports success, instead of closing the window on the provider redirect.
+
+In the dashboard, revoking an agent uses `DELETE /agents/:id`, and an agent's permissions come from `GET /agents/:id`. The Users, Permissions, Settings and MCP Servers pages call routes that only the CLI dev server serves. Against any other server, those pages show a "does not serve" message.
+
+## SMS senders time out and hide response bodies
+
+`twilioOtpSender`, `vonageOtpSender` and `plivoOtpSender` all time out after 10 seconds (`timeoutMs`). Their errors carry only the HTTP status and the vendor error code. The response body is no longer attached, so phone numbers and codes do not reach logs. Code that read the body text from these errors must match on the status or the code instead.
+
+See [SMS OTP](/auth/otp).
+
+## SCIM group PUT changes only the members that differ
+
+`PUT` on a SCIM group now removes only the members missing from the list and adds only the new ones. Before, it deleted and re-inserted every member. Members who stay in the group keep their row id and their roles. Before this change, a role other than `member` was lost on every group `PUT`.
+
+## Migration 0014 adds hot path indexes
+
+Migration `0014-hot-path-indexes` is additive. It adds indexes for agent lookup by token hash, active agents per owner, permissions per agent, delegation links in both directions, the hourly rate limit read and the pending approval list.
+
+`createTheAuth` applies it. With `database.skipMigrations: true`, `createTheAuth` throws `SchemaOutdatedError` until you apply it. Run `theauth db up`, or generate the SQL with `theauth db sql --dialect <yours>` and apply it with your own tooling.
+
+## Migration 0015 and the `attestation_required` decision code
+
+Migration 0015 adds `theauth_devices.app_attest_counter` (`NOT NULL DEFAULT 0`, additive) for Apple App Attest assertion counters. `createTheAuth` applies it. With `database.skipMigrations: true` it throws `SchemaOutdatedError` until you run `theauth db up` or apply the SQL from `theauth db sql --dialect <yours>`.
+
+`DECISION_CODES` gains `attestation_required`, returned when a permission carries a `constraints.attestation` rule that the caller does not meet. If you switch exhaustively over `DecisionCode` in TypeScript, add the case. Python and Go clients list it after you regenerate them. `PermissionConstraints` gains the optional `attestation` field, so a permission read from storage by older code would ignore it: do not run old and new processes against the same permissions while you use it.
+
+The Apple App Attest verifier now returns an `attestedPublicKey` claim, and the TPM and App Attest claim sets are read by `attestationFacts`. Devices that enrolled before this release have no `attestedPublicKey`, so `device.verifyAppAssertion` answers `not_app_attest` for them until they enroll again.
+
+## Database hooks fail closed
+
+Database hooks are new in this release. They run `before` and `after` hooks on user, session and account creates and updates. A `before` hook can return `false` to abort, or `{ data }` to replace allowed fields. For users, only `email`, `name` and `metadata` can be replaced.
+
+A `before` hook that throws, times out or returns a malformed value stops the write with a `DatabaseHookError`. The error code is `DATABASE_HOOK_FAILED`, `DATABASE_HOOK_TIMEOUT` or `DATABASE_HOOK_INVALID_PAYLOAD`, whatever `hookSafety.onError` is set to. A stopped SCIM write answers 403. A stopped Stripe or Polar webhook answers 500, so the provider retries the event.
+
+`after` hooks run once the row exists, so they cannot undo it. A throw or timeout in an `after` hook is logged and swallowed.
+
+See [Database hooks](/database-hooks).
+
+## Email linking needs verified addresses
+
+Google One Tap, magic link and email OTP no longer trust an unverified account. The OAuth plugin already refused it since 0.7.0.
+
+- One Tap signs in to an existing account by email only when Google reports `email_verified: true` and the local address is verified. Otherwise it answers 409 with `ACCOUNT_EXISTS`. Users already stored with an unverified address must verify it first, or sign in once with magic link or email OTP.
+- Redeeming a magic link or email OTP marks the address verified. On an account that was unverified, it first deletes the password, linked providers, passkeys and sessions created before that proof.
+- Escape hatches, all off by default: `unsafeAllowUnverifiedEmailLinking` on `oneTap()` and `oauth()`, and `keepUnverifiedCredentials` on `magicLink` and `emailOtp`.
+
+If your existing One Tap users were created by your own sign-up flow with unverified addresses, set `emailVerified` for them before upgrading, or they get a 409 at their next sign-in.
 
 ---
 

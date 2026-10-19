@@ -129,3 +129,58 @@ export function buildSpiffeId(text: string): string {
 		return "A SPIFFE ID looks like spiffe://example.org/ns/prod/sa/robot";
 	return value;
 }
+
+export interface AttestationLine {
+	label: string;
+	value: string;
+}
+
+function text(v: unknown): string | undefined {
+	return typeof v === "string" && v !== "" ? v : undefined;
+}
+
+/**
+ * The verified attestation claims of a device as label and value lines for the detail panel, or an empty list when it enrolled without hardware evidence. Reads only claims the verifiers set (android-key-attestation, apple-app-attest, tpm2-quote). Unknown formats show the format name alone: their claims are not interpreted.
+ */
+export function attestationLines(claims: Record<string, unknown> | undefined): AttestationLine[] {
+	if (!claims) return [];
+	const format = text(claims.format);
+	const lines: AttestationLine[] = [];
+	if (format) lines.push({ label: "Format", value: format });
+	if (format === "android-key-attestation") {
+		const level = text(claims.securityLevel);
+		const keyLevel = text(claims.keySecurityLevel);
+		if (level)
+			lines.push({
+				label: "Security level",
+				value: keyLevel && keyLevel !== level ? `${level} (key ${keyLevel})` : level,
+			});
+		const boot = text(claims.verifiedBootState);
+		if (boot)
+			lines.push({
+				label: "Boot state",
+				value: claims.deviceLocked === false ? `${boot}, bootloader unlocked` : boot,
+			});
+		if (Array.isArray(claims.packages) && claims.packages.length > 0) {
+			lines.push({
+				label: "Apps",
+				value: claims.packages.filter((p) => typeof p === "string").join(", "),
+			});
+		}
+	} else if (format === "apple-app-attest") {
+		lines.push({ label: "Security level", value: "Secure Enclave" });
+		const appId = text(claims.appId);
+		if (appId) lines.push({ label: "App", value: appId });
+		const env = text(claims.environment);
+		if (env) lines.push({ label: "Environment", value: env });
+	} else if (format === "tpm2-quote") {
+		lines.push({
+			label: "Security level",
+			value:
+				claims.akVerified === true
+					? "TPM, attestation key chained to a trusted root"
+					: "software, attestation key not verified",
+		});
+	}
+	return lines;
+}

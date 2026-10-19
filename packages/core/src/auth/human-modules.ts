@@ -14,6 +14,8 @@ import type { CaptchaModule } from "./captcha.js";
 import { createCaptchaModule } from "./captcha.js";
 import type { EmailOtpModule } from "./email-otp.js";
 import { createEmailOtpModule } from "./email-otp.js";
+import type { EmailPasswordModule } from "./email-password.js";
+import { createEmailPasswordModule } from "./email-password.js";
 import type { EmailVerificationModule } from "./email-verification.js";
 import { createEmailVerificationModule } from "./email-verification.js";
 import type { MagicLinkModule } from "./magic-link.js";
@@ -150,6 +152,17 @@ export function createHumanAuthModules(
 			)
 		: null;
 
+	const emailPasswordModule: EmailPasswordModule | null =
+		config.emailPassword && sessionManager
+			? createEmailPasswordModule(config.emailPassword, db, sessionManager, signInGate, {
+					storage: createSecondaryStorageResolver(config.secondaryStorage, db).for("rateLimit"),
+					logger: createObservability(config.observability, config.logger).logger,
+					ids: databaseHooks,
+					databaseHooks,
+					emailVerification: emailVerificationModule,
+				})
+			: null;
+
 	const phoneModule: PhoneAuthModule | null =
 		config.phone && sessionManager
 			? createPhoneAuthModule(config.phone, db, sessionManager, signInGate, databaseHooks)
@@ -172,6 +185,7 @@ export function createHumanAuthModules(
 		adminModule,
 		apiKeyManagerModule,
 		usernameModule,
+		emailPasswordModule,
 		oneTimeTokenModule,
 		passwordResetModule,
 		emailVerificationModule,

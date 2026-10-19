@@ -86,7 +86,9 @@ These are single runs. Rerun the command on your hardware before you plan capaci
 
 ## Go
 
-The kit is TypeScript only. There is no Go twin of the fleet runner, and the Go client (`sdks/go`) does not include one. A Go service that verifies bundles can be checked against the kit by feeding it the tokens the kit stored, as described below, and comparing decisions.
+The Go SDK has its own kit, the package `iot/fleet` of `theauth-go` (`github.com/glincker/theauth-go/v2/iot/fleet`). It runs the same scenarios against the Go authorization server, with one difference you should know: the Go server mints scoped tokens and has no per action authorize route, so the "assertion" scenario checks the token endpoint (a granted scope gets a token, an ungranted one gets `invalid_scope`). It also adds a suspend and resume scenario. Offline bundles and snapshots come from a small local issuer inside the kit, because the TypeScript core is the real issuer in production. The Go twin has numbers of its own, in the Go repository's `docs/device-fleet-kit.md`.
+
+A Go service that verifies bundles can also be checked against this kit by feeding it the tokens the kit stored, as described below, and comparing decisions.
 
 ## Using it with your own verifier
 

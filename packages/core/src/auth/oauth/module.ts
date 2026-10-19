@@ -6,8 +6,7 @@
 import { and, eq, lt } from "drizzle-orm";
 import { generateId } from "../../crypto/web-crypto.js";
 import type { Database } from "../../db/database.js";
-import { createDrizzleKernel } from "../../db/store/drizzle-kernel.js";
-import { createSingleUseStores } from "../../db/store/single-use.js";
+import { singleUseWithTables } from "../../db/store/for-database.js";
 import { createDatabaseHookRunner } from "../../hooks/database-hooks.js";
 import { resolveRedirectTarget } from "../../redirect/allowlist.js";
 import { generateCodeVerifier } from "./pkce.js";
@@ -26,6 +25,9 @@ import type {
 // Defaults
 
 const DEFAULT_STATE_TTL_SECONDS = 600; // 10 minutes
+
+/** The one plugin table the single-use repositories reach: authorization state. */
+const STATE_TABLES = { oauthStates };
 
 /**
  * Create an OAuth module bound to a database instance.
@@ -56,9 +58,6 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 	// Throws now (not on first login) when encryption is enabled without keys.
 	const nowMs = config.now ?? Date.now;
 	const sealer = createTokenSealer(config.tokenEncryption);
-	const stateStore = createSingleUseStores(
-		createDrizzleKernel(db, { extraTables: { oauthStates } }),
-	);
 	const tokenApi = createTokenApi(db, config, sealer);
 	const databaseHooks = config.databaseHooks ?? createDatabaseHookRunner(undefined);
 
@@ -187,7 +186,7 @@ export function createOAuthModule(db: Database, config: OAuthModuleConfig): OAut
 
 		// Consume the state, delete before network calls to prevent replay attacks.
 		// The delete is the claim: a concurrent callback with the same state gets no row back.
-		if (!(await stateStore.oauthStates.consume(state))) {
+		if (!(await singleUseWithTables(db, STATE_TABLES).oauthStates.consume(state))) {
 			throw new Error("OAuth callback: unknown or already-used state value.");
 		}
 

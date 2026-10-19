@@ -9,7 +9,7 @@ export {
 } from "./ipc.js";
 export type { OAuthWindowConfig, OAuthWindowResult } from "./oauth-window.js";
 export { openOAuthWindow } from "./oauth-window.js";
-export type { ElectronTheAuthProviderProps } from "./provider.js";
+export type { ElectronTheAuthProviderProps, SignUpData } from "./provider.js";
 export {
 	ElectronTheAuthContext,
 	ElectronTheAuthProvider,

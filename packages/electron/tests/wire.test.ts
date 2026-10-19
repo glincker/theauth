@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseError, parseSession } from "../src/wire.js";
+import { failure, isVerificationRequired, parseError, parseSession } from "../src/wire.js";
 
 describe("parseSession", () => {
 	it("reads the core sign-in body", () => {
@@ -38,5 +38,21 @@ describe("parseError", () => {
 		);
 		expect(parseError({ error: { message: "nope" } }, "x")).toBe("nope");
 		expect(parseError({}, "fallback")).toBe("fallback");
+	});
+});
+
+describe("email and password wire helpers", () => {
+	it("reads the error code beside the message", () => {
+		expect(
+			failure({ error: { code: "EMAIL_NOT_VERIFIED", message: "Verify first" } }, "fallback"),
+		).toEqual({ success: false, error: "Verify first", code: "EMAIL_NOT_VERIFIED" });
+		expect(failure({ error: "plain" }, "fallback")).toEqual({ success: false, error: "plain" });
+		expect(failure(null, "fallback")).toEqual({ success: false, error: "fallback" });
+	});
+
+	it("detects a sign-up that created no session", () => {
+		expect(isVerificationRequired({ verificationRequired: true })).toBe(true);
+		expect(isVerificationRequired({ user: { id: "u" } })).toBe(false);
+		expect(isVerificationRequired(null)).toBe(false);
 	});
 });

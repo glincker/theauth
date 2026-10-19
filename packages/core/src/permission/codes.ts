@@ -39,6 +39,8 @@ export const DECISION_CODES = {
 	DEVICE_REVOKED: "device_revoked",
 	DEVICE_EXPIRED: "device_expired",
 	OWNER_MISMATCH: "owner_mismatch",
+	/** The permission needs a hardware attested device and the caller's attestation is missing or too weak. */
+	ATTESTATION_REQUIRED: "attestation_required",
 	HOOK_DENIED: "hook_denied",
 	HOOK_TIMEOUT: "hook_timeout",
 	HOOK_ERROR: "hook_error",
@@ -105,6 +107,7 @@ const CONSTRAINT_CODES: Record<ConstraintName, DenialCode> = {
 	requireApproval: "approval_required",
 	timeWindow: "time_restricted",
 	ipAllowlist: "ip_not_allowed",
+	attestation: "attestation_required",
 };
 
 /** Map a constraint name to the code its failure carries. */

@@ -109,3 +109,26 @@ If you are on a Node server and do not need Neon's WebSocket driver, `provider: 
 The pooler suite is in `packages/core/tests/store-contract/pg-pooler.test.ts` and runs when `THEAUTH_TEST_PG_POOLER_URL` points at an empty database behind a transaction mode pooler.
 
 One behavior to expect behind any pooler: the hourly call budget reserves before it checks, so when a burst is larger than the budget it can refuse calls that would have fit. It never admits more than the budget. Under a pooler that interleaves the reservations, a burst of 24 calls against a budget of 10 admitted between one and three.
+
+## Run the suite against your own database
+
+The suites above run on a local file and a local Postgres. To check a real Turso, Neon or Supabase database, point the opt-in tests at it. They live in `packages/core/tests/store-contract/hosted.test.ts` and are skipped unless their variable is set, so a plain `vitest run` never opens a network connection.
+
+| Variable | Value |
+|---|---|
+| `THEAUTH_TEST_TURSO_URL`, `THEAUTH_TEST_TURSO_AUTH_TOKEN` | `libsql://...` URL and token of a throwaway Turso database |
+| `THEAUTH_TEST_NEON_URL` | Neon connection string (the `-pooler` host works too) |
+| `THEAUTH_TEST_SUPABASE_URL` | Supabase connection string: direct, session pooler or transaction pooler |
+| `THEAUTH_TEST_HOSTED_RESET=1` | Drop the `theauth_*` tables of each configured database before and after its suite |
+
+```bash
+cd packages/core
+THEAUTH_TEST_SUPABASE_URL='postgres://...:6543/postgres?uselibpqcompat=true&sslmode=require' \
+  npx vitest run tests/store-contract/hosted.test.ts
+```
+
+Use an empty database you can throw away. The store contract suite (the same 14 checks as above, ten parallel callers) writes users, agents, sessions and audit rows with random ids, and does not clean up after itself. `THEAUTH_TEST_HOSTED_RESET=1` removes tables whose names start with `theauth_` and nothing else. Each configured host also gets a restart check: data written by one instance is read by a second one booted with `skipMigrations: true`, and the schema reports nothing pending.
+
+If `@neondatabase/serverless` is installed in `packages/core`, a second Neon suite runs through its WebSocket `Pool` (the path from the Neon section). The package is not a dependency of this repository, so add it with `pnpm add -D @neondatabase/serverless` while you try it and drop the change afterwards.
+
+I ran the file against a local libSQL file (as `THEAUTH_TEST_TURSO_URL`) and a local Postgres 14 (as `THEAUTH_TEST_NEON_URL`) to check the wiring: the suites ran and passed, and every other suite was skipped. I did not run it against a real Turso, Neon or Supabase endpoint.

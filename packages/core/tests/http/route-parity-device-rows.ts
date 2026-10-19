@@ -238,6 +238,20 @@ export const DEVICE_ROWS: DeviceRow[] = [
 		call: () => ({ method: "POST", path: "/device/attestation-nonce" }),
 	},
 	{
+		// Public like the nonce route. The body is refused (400) because a real activation needs a TPM's keys and a live nonce, covered in tests/device-tpm-activation.test.ts.
+		method: "POST",
+		spec: "/device/tpm-activation",
+		as: "none",
+		allowed: 400,
+		unauthenticated: 400,
+		forbidden: null,
+		call: () => ({
+			method: "POST",
+			path: "/device/tpm-activation",
+			body: { ekPublic: "AAAA", akPublic: "AAAA", nonce: "none" },
+		}),
+	},
+	{
 		method: "POST",
 		spec: "/device/authorize",
 		as: "device",

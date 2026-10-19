@@ -56,15 +56,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 <ParamField path="basePath" type="string" default="&quot;/api/theauth&quot;">Path to your theAuth API handler. Must match the route you mounted in the adapter.</ParamField>
 <ParamField path="external" type="ExternalAuthConfig" default="undefined">Delegate authentication to an external API instead of the managed mode described below. See "External auth mode".</ParamField>
-<ParamField path="managed" type="ManagedAuthConfig" default="undefined">Options for managed mode: `refetch` (focus, reconnect, interval), `initialSession` (SSR seed), `signInPath`, `signUpPath` and `identifierField`. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
+<ParamField path="managed" type="ManagedAuthConfig" default="undefined">Options for managed mode: `emailPassword`, `refetch` (focus, reconnect, interval), `initialSession` (SSR seed), `signInPath`, `signUpPath` and `identifierField`. See [Session refetch and SSR](/client-sdk#session-refetch-and-ssr).</ParamField>
 <ParamField path="debug" type="boolean" default="false">Enable verbose auth state logging (also enabled when `localStorage.DEBUG === "theauth"`).</ParamField>
 
 <Info>
 In managed mode (no `external` prop) the session token is stored in `localStorage` under the key `theauth_session`. On load the provider shows that stored session at once, then confirms it with `GET {basePath}/auth/session`. A 401 or 403 clears it. A network error or a 5xx keeps it, so going offline never signs anyone out. Cookie-only sessions work too: with nothing stored, the same request picks up the session cookie.
 </Info>
 
+### Email and password
+
+Pass `managed={{ emailPassword: true }}` to use the core `emailPassword` routes: `POST {basePath}/auth/email/sign-in` and `POST {basePath}/auth/email/sign-up` with `{ email, password }` (plus `name` for sign-up). The server side is the `emailPassword` config key, see [Email and password](/auth/email-password). With email verification on (the default), `signUp` succeeds with `data.verificationRequired === true` and signs nobody in. A sign-in before verification fails with `code: "EMAIL_NOT_VERIFIED"`.
+
+```tsx
+<TheAuthProvider managed={{ emailPassword: true }}>
+  <App />
+</TheAuthProvider>
+```
+
 <Warning>
-Managed mode signs in and up through the username module: `POST {basePath}/auth/username/sign-in` and `POST {basePath}/auth/username/sign-up` with `{ username, password }` (plus `name` for sign-up), answering `{ user, session: { token, expiresAt } }`. The first argument of `signIn` and `signUp` is sent as `username`. theAuth core has no email-and-password route, so for one of your own set `managed.signInPath`, `managed.signUpPath` and `managed.identifierField` (for example `"email"`), and return the same response shape.
+Without `emailPassword`, managed mode signs in and up through the username module: `POST {basePath}/auth/username/sign-in` and `POST {basePath}/auth/username/sign-up` with `{ username, password }`, answering `{ user, session: { token, expiresAt } }`. `createTheAuthHandler` does not serve those two routes. Forward them yourself with `theauth.username.handleRequest(request)`. To use routes of your own set `managed.signInPath`, `managed.signUpPath` and `managed.identifierField`, and return the same response shape.
 </Warning>
 
 ## useSession
@@ -122,7 +132,7 @@ function ProfileCard() {
 
 Handles email and password sign-in. Returns `signIn(email, password)` plus `isLoading` and `error` (a string or `null`).
 
-The hook posts to `POST {basePath}/auth/username/sign-in` by default (see the warning above about the server route).
+The hook posts to `POST {basePath}/auth/username/sign-in` by default, or `POST {basePath}/auth/email/sign-in` with `managed.emailPassword` (see the notes above about the server route). A failed result carries the server's `code` when it sent one.
 
 ```tsx
 import { useSignIn } from '@glinr/theauth-react';
@@ -157,7 +167,7 @@ function SignInForm() {
 
 ## useSignUp
 
-Handles new account registration with `signUp(email, password, name?)`. Posts to `POST {basePath}/auth/username/sign-up` by default.
+Handles new account registration with `signUp(email, password, name?)`. Posts to `POST {basePath}/auth/username/sign-up` by default, or `POST {basePath}/auth/email/sign-up` with `managed.emailPassword`. The result is `{ success: true, data: { verificationRequired } }`: when `verificationRequired` is true the account exists but there is no session yet, so show a "check your inbox" screen.
 
 ```tsx
 import { useSignUp } from '@glinr/theauth-react';
@@ -184,6 +194,19 @@ function SignUpForm() {
       <button type="submit" disabled={isLoading}>Create account</button>
     </form>
   );
+}
+```
+
+## useEmailPassword
+
+For the email and password routes (`managed={{ emailPassword: true }}`). Returns `verifyEmail(token)`, `resendVerification(email)`, `requestPasswordReset(email)` and `resetPassword(token, password)`. Each resolves to an `ActionResult` with the server `code` on failure. `requestPasswordReset` and `resetPassword` need `passwordReset` on the server. In external mode they return a failure result.
+
+```tsx
+import { useEmailPassword } from '@glinr/theauth-react';
+
+function VerifyPage({ token }: { token: string }) {
+  const { verifyEmail, resendVerification } = useEmailPassword();
+  // verifyEmail(token) then send the user to sign in. resendVerification(email) for a new link.
 }
 ```
 

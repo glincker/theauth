@@ -57,7 +57,15 @@ export interface CreateAgentInput {
 	metadata?: Record<string, unknown>;
 }
 
-export type ActionResult<T = void> = { success: true; data: T } | { success: false; error: string };
+/** `code` is the server's error code when it sent one, for example `EMAIL_NOT_VERIFIED`. */
+export type ActionResult<T = void> =
+	| { success: true; data: T }
+	| { success: false; error: string; code?: string };
+
+/** What a sign-up reports. `verificationRequired` means no session yet: verify the email, then sign in. */
+export interface SignUpData {
+	verificationRequired: boolean;
+}
 
 /** Matches AsyncStorage and SecureStore. Pass one in without importing those packages here. */
 export interface TheAuthStorage {
@@ -102,14 +110,17 @@ export interface TheAuthExpoConfig {
 	/** Storage adapter for persisting session tokens. Defaults to in-memory. */
 	storage?: TheAuthStorage;
 	/**
-	 * Sign-in route under `basePath`. Default `/auth/username/sign-in`, the route the
-	 * username module serves. The core has no email and password route: point this at
-	 * your own, or at the one `@glinr/theauth-email` serves (`/auth/sign-in`, with `identifierField: "email"`).
+	 * Use the core email and password routes (`/auth/email/sign-in`, `/auth/email/sign-up`,
+	 * body field `email`), which `createTheAuthHandler` serves when the server sets the
+	 * `emailPassword` config. Explicit `signInPath`, `signUpPath` and `identifierField` still win.
+	 * Verify and reset pages run on the web, or call `/auth/email/verify` yourself.
 	 */
+	emailPassword?: boolean;
+	/** Sign-in route under `basePath`. Default `/auth/username/sign-in`, or `/auth/email/sign-in` with `emailPassword`. */
 	signInPath?: string;
-	/** Sign-up route under `basePath`. Default `/auth/username/sign-up`. */
+	/** Sign-up route under `basePath`. Default `/auth/username/sign-up`, or `/auth/email/sign-up` with `emailPassword`. */
 	signUpPath?: string;
-	/** Body field that carries the first argument of `signIn` and `signUp`. Default `username`. */
+	/** Body field that carries the first argument of `signIn` and `signUp`. Default `username`, or `email` with `emailPassword`. */
 	identifierField?: string;
 	social?: SocialSignInConfig;
 	passkeys?: PasskeyAuthenticator;
@@ -134,7 +145,7 @@ export interface TheAuthContextValue {
 	isLoading: boolean;
 	isAuthenticated: boolean;
 	signIn: (email: string, password: string) => Promise<ActionResult>;
-	signUp: (email: string, password: string, name?: string) => Promise<ActionResult>;
+	signUp: (email: string, password: string, name?: string) => Promise<ActionResult<SignUpData>>;
 	/** Sign in with a social provider through the system browser. Needs `config.social`. */
 	signInWithProvider: (provider: string) => Promise<ActionResult>;
 	/** Sign in with a passkey. Needs `config.passkeys`. */

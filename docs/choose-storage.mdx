@@ -54,6 +54,33 @@ All providers share one versioned schema (`theauth_schema_migrations`, see [Data
 > MySQL is not supported in this release. `provider: "mysql"` throws unless you pass `experimental: true`, and even then the baseline schema does not apply on a real server. We will turn it on once the same suite passes on MySQL 8.4.
 
 
+## SQL Server, and why there is no `kysely` option yet
+
+You cannot run theAuth on SQL Server today, and there is no `database: { kysely, dialect }` config. The reason is narrow. Core still talks to one Drizzle handle in about 700 places. Only two parts go through a store layer that another backend can implement: the single-use state (magic links, OTP guesses, refresh token claims, approvals, enrollment uses, the hourly budget) and the audit chain write path. Drizzle has no SQL Server driver, so an instance cannot boot on it, and a config option that accepted a Kysely handle but still needed a second, Drizzle-compatible connection to the same database would only mislead.
+
+What exists is internal and tested. A Kysely kernel (`packages/core/src/db/store/kysely`) implements the store contract for SQLite, Postgres, MySQL and SQL Server: conditional claims decided by the affected row count, guarded increments, atomic batches, interactive transactions and typed unique conflicts. A generator (`packages/core/src/db/ddl/mssql.ts`) writes SQL Server DDL for every core table from the Drizzle schema plus the indexes the migrations declare. Both are meant for the remaining aggregate ports, after which the option can be exposed.
+
+What was run, on this repository's contract suites:
+
+| Backend | Kernel and repository contract (59 checks) | Instance contract with the kernel routed in (14 checks) |
+|---------|------|------|
+| Kysely on SQLite (better-sqlite3 file) | passed | passed |
+| Kysely on Postgres 14 (local) | passed | passed |
+| Kysely on MySQL 8.4 (Docker) | passed | passed |
+| Kysely on SQL Server (Azure SQL Edge 15.0 in Docker) | passed | not possible, no Drizzle driver |
+
+The kernel contract covers each kernel primitive, value round trips, the single-use repositories under 24 parallel callers, and the audit repository: one test per hashed audit field (the hash is recomputed from what the backend returns), a gapless chain from parallel writers, and one chain from two processes. The instance contract is the full `runStoreContract` suite with the Kysely kernel taking over the single-use and audit writes while Drizzle serves everything else on the same database.
+
+Limits you should know about:
+
+- SQL Server DDL is generated for the current schema only. There is no migration ledger for it, so an existing table is never altered. Rerunning the statements is safe.
+- Text columns use a binary collation (`Latin1_General_100_BIN2`) because the server default ignores case. A text column that is part of an index has a bounded length: 191 characters for ids, and what is left of the 1700 byte index limit for other columns (850 characters at most). Values longer than that fail to insert.
+- A unique index over a nullable column is created as a filtered index (`WHERE column IS NOT NULL`), because SQL Server treats NULLs as equal in a unique index.
+- Trailing spaces are ignored in comparisons on SQL Server and on MySQL with the binary collation. Two tokens that differ only by trailing spaces collide there.
+- Reads and claims must go to the primary. A Kysely setup that routes reads to a replica breaks claim then read flows such as refresh token reuse detection.
+- The Azure SQL Edge image used for the run was retired by Microsoft in 2025. It was the one that runs on Apple silicon. The generated statements stay with features from SQL Server 2016 on (filtered indexes, OFFSET and FETCH, 1700 byte index keys), but only the SQL Server 2019 engine in the Edge image was run.
+
+
 ## Secondary storage, in one paragraph each
 
 | Backend | Counts exactly | Shared between instances | Pick it when |

@@ -290,4 +290,52 @@ describe("@glinr/theauth-expo runtime smoke", () => {
 		expect(await storage.getItem(SESSION_KEY)).toBeNull();
 		expect(latest?.context.session).toBeNull();
 	});
+
+	it("emailPassword targets the email routes, reports verificationRequired and the error code", async () => {
+		const seen: string[] = [];
+		const emailFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+			const path = new URL(String(input), "http://localhost").pathname;
+			seen.push(`${init?.method ?? "GET"} ${path}`);
+			if (path.endsWith("/auth/email/sign-up")) {
+				return jsonResponse({ verificationRequired: true }, 201);
+			}
+			if (path.endsWith("/auth/email/sign-in")) {
+				signInBody = JSON.parse(String(init?.body));
+				return jsonResponse(
+					{ error: { code: "EMAIL_NOT_VERIFIED", message: "Verify your email address" } },
+					403,
+				);
+			}
+			return jsonResponse({ error: "Not authenticated" }, 401);
+		}) as typeof fetch;
+
+		render(
+			<TheAuthExpoProvider
+				config={{ basePath: "/api/theauth", storage, fetch: emailFetch, emailPassword: true }}
+			>
+				<Probe />
+			</TheAuthExpoProvider>,
+		);
+		await flush();
+
+		let up: ActionResult<{ verificationRequired: boolean }> | undefined;
+		await act(async () => {
+			up = await latest!.signUp.signUp("ada@example.com", "secret123", "Ada");
+		});
+		expect(up).toEqual({ success: true, data: { verificationRequired: true } });
+		expect(latest?.context.isAuthenticated).toBe(false);
+
+		let inn: ActionResult | undefined;
+		await act(async () => {
+			inn = await latest!.signIn.signIn("ada@example.com", "secret123");
+		});
+		expect(inn).toEqual({
+			success: false,
+			error: "Verify your email address",
+			code: "EMAIL_NOT_VERIFIED",
+		});
+		expect(signInBody).toEqual({ email: "ada@example.com", password: "secret123" });
+		expect(seen).toContain("POST /api/theauth/auth/email/sign-up");
+		expect(seen).toContain("POST /api/theauth/auth/email/sign-in");
+	});
 });

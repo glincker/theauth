@@ -14,6 +14,11 @@ interface PermissionConstraintsRow {
 	requireApproval?: boolean;
 	timeWindow?: { start: string; end: string };
 	ipAllowlist?: string[];
+	attestation?: {
+		minSecurityLevel?: "hardware" | "strongbox";
+		bootState?: Array<"verified" | "self_signed" | "unverified" | "failed" | "unlocked">;
+		appIds?: string[];
+	};
 }
 
 interface AgentConfirmationRow {

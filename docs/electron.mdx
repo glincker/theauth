@@ -81,7 +81,7 @@ function SignedInView() {
 }
 ```
 
-`signIn` and `signUp` authenticate against the email/password endpoints on your theAuth API. For OAuth providers, trigger `openOAuthWindow` from the main process (see above), then call `refresh()` from the renderer once the window resolves to pick up the new session.
+`signIn` and `signUp` call the username routes by default. Pass `emailPassword` to `ElectronTheAuthProvider` to call the core email and password routes (`/auth/email/sign-in` and `/auth/email/sign-up`, body field `email`) that the server serves when it sets the `emailPassword` config, see [Email and password](/auth/email-password). With verification on (the default) `signUp` resolves to `data.verificationRequired === true` and signs nobody in, and a sign-in before verification fails with `code: "EMAIL_NOT_VERIFIED"`. For OAuth providers, trigger `openOAuthWindow` from the main process (see above), then call `refresh()` from the renderer once the window resolves to pick up the new session.
 
 ## Features
 

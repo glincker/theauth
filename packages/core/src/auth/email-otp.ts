@@ -24,11 +24,13 @@ import { singleUseFor } from "../db/store/for-database.js";
 import type { DatabaseHookRunner } from "../hooks/database-hooks.js";
 import { createDatabaseHookRunner } from "../hooks/database-hooks.js";
 import type { SessionManager } from "../session/session.js";
+import type { ClaimOptions } from "./email-claim.js";
+import { claimVerifiedMailbox } from "./email-claim.js";
 import { normalizeEmail } from "./normalize-email.js";
 import type { SignInGate } from "./sign-in-gate.js";
 import { createSignInGate, SignInGateError, signInGateResponse } from "./sign-in-gate.js";
 
-export interface EmailOtpConfig {
+export interface EmailOtpConfig extends ClaimOptions {
 	/** Send the OTP code via email. */
 	sendOtp: (email: string, code: string) => Promise<void>;
 	/** Digit length of the generated code (default: 6) */
@@ -208,6 +210,7 @@ export function createEmailOtpModule(
 		if (!(await singleUseFor(db).emailOtps.consume(record.id))) return null;
 
 		const user = await findOrCreateUser(email);
+		await claimVerifiedMailbox(db, user.id, config, (id) => sessionManager.revokeAll(id));
 		const decision = await gate.evaluate({
 			userId: user.id,
 			method: "email_otp",
