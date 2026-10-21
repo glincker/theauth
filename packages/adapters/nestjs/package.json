@@ -43,7 +43,7 @@
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
     "@nestjs/common": "^11.0.0",
-    "@nestjs/core": "^11.0.0",
+    "@nestjs/core": "^12.2.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.0",
     "@types/supertest": "^7.2.0",
