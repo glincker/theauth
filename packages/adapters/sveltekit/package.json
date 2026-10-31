@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
-    "@sveltejs/kit": "^2.70.2",
+    "@sveltejs/kit": "^3.0.0",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11",
