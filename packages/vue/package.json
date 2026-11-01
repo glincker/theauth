@@ -34,7 +34,7 @@
     "@glinr/theauth-client": "workspace:*"
   },
   "devDependencies": {
-    "vue": "^3.5.32",
+    "vue": "^3.5.44",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"

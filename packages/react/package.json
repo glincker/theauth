@@ -45,7 +45,7 @@
     "vitest": "^4.1.11",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
-    "@tanstack/react-query": "^5.0.0"
+    "@tanstack/react-query": "^5.105.0"
   },
   "dependencies": {
     "@glinr/theauth-client": "workspace:*"
