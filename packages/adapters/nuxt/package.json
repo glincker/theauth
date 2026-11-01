@@ -43,11 +43,11 @@
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
     "h3": "^1.15.11",
-    "nuxt": "^3.21.10",
+    "nuxt": "^4.6.3",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11",
-    "zod": "^3.24.0"
+    "zod": "^4.6.6"
   },
   "homepage": "https://docs.theauth.dev/adapters/nuxt",
   "bugs": {
