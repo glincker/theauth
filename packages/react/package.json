@@ -37,15 +37,15 @@
     "@tanstack/react-query": ">=5.0.0"
   },
   "devDependencies": {
-    "@types/react-dom": "^19.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "@types/react-dom": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "jsdom": "^29.0.1",
-    "@types/react": "^19.0.0",
+    "@types/react": "^19.3.0",
     "vitest": "^4.1.11",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
-    "@tanstack/react-query": "^5.0.0"
+    "@tanstack/react-query": "^5.105.0"
   },
   "dependencies": {
     "@glinr/theauth-client": "workspace:*"
