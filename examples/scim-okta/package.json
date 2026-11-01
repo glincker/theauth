@@ -9,12 +9,12 @@
   "dependencies": {
     "@glinr/theauth": "workspace:*",
     "@glinr/theauth-hono": "workspace:*",
-    "hono": "^4.13.7",
+    "hono": "^4.13.14",
     "@hono/node-server": "^1.19.15",
     "better-sqlite3": "^12.9.0"
   },
   "devDependencies": {
-    "tsx": "^4.19.2",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "@types/better-sqlite3": "^7.6.13"
   }

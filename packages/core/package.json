@@ -150,14 +150,14 @@
   "homepage": "https://docs.theauth.dev/concepts",
   "dependencies": {
     "drizzle-orm": "^0.45.2",
-    "jose": "^6.0.0",
-    "sql.js": "^1.14.1",
+    "jose": "^6.2.13",
+    "sql.js": "^1.15.2",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.6.0",
-    "@types/pg": "^8.20.0",
+    "@types/pg": "^8.23.1",
     "@types/sql.js": "^1.4.11",
     "@vitest/coverage-v8": "4.1.11",
     "better-sqlite3": "^12.9.0",
@@ -166,7 +166,7 @@
     "tedious": "^20.3.8",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
-    "tsx": "^4.21.0",
+    "tsx": "^4.23.15",
     "vitest": "^4.1.11"
   },
   "peerDependencies": {

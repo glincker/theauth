@@ -42,9 +42,9 @@
   "devDependencies": {
     "@glinr/theauth": "workspace:*",
     "@types/express": "^5.0.0",
-    "@types/supertest": "^7.2.0",
-    "express": "^5.1.0",
-    "supertest": "^7.0.0",
+    "@types/supertest": "^7.2.1",
+    "express": "^5.3.0",
+    "supertest": "^7.3.1",
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11",
