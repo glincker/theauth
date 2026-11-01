@@ -1,0 +1,43 @@
+---
+title: When not to use theAuth
+description: Cases where another auth tool fits better than theAuth, with links to Better Auth, Auth.js, Clerk, Auth0, Keycloak and lower-level Go libraries.
+icon: circle-question
+---
+
+theAuth is a young project (20 GitHub stars on 2026-10-31, GitHub API). It will not be the right pick for every product. These are the cases where we would look elsewhere first. Facts about other products were checked on 2026-10-31 and are linked to their source.
+
+## You only need human sign in for a web app
+
+If your app has no agents, devices or MCP, most of what theAuth adds goes unused. [Better Auth](https://www.better-auth.com) is MIT licensed and had 30,541 GitHub stars on 2026-10-31 (GitHub API, `better-auth/better-auth`). It has a much larger community and more third party material. [Auth.js](https://authjs.dev) is a good fit when all you need is sign in with a provider and a session in Next.js or another supported framework. See [Migrate from Auth.js](/migrate/from-next-auth) if you start there and outgrow it.
+
+## You want a hosted service and no auth code to run
+
+[Clerk](https://clerk.com/pricing) and [Auth0](https://auth0.com/pricing) run the service for you, ship prebuilt UI, and take on operations. theAuth runs on your stack with your database, so you own uptime, backups and upgrades. If nobody on your team wants that, pick a managed platform. Clerk and Auth0 both document features for AI agents of their own: Auth0 documents Token Vault and CIBA for agents on its [Auth0 for AI Agents](https://auth0.com/docs/get-started/auth0-for-ai-agents) page, and Clerk lists Agent Task methods in its [documentation index](https://clerk.com/docs/llms.txt) (both read 2026-10-31). Compare what each covers against your needs before assuming a gap. See [theAuth vs paid platforms](/compare/vs-paid).
+
+## You need a server with an admin console for employee SSO
+
+[Keycloak](https://www.keycloak.org) is a deployed identity server with an admin console, built for workforce identity. theAuth is a library you embed. See [theAuth vs Keycloak](/compare/vs-keycloak).
+
+## You need MongoDB, MSSQL or MySQL today
+
+Better Auth documents more database options than theAuth does. theAuth's Postgres support is run by hand before each release, D1 is untested and MySQL is not supported in the TypeScript library. See [Packages and status](/packages#supported-databases).
+
+## You need an audited SAML implementation
+
+theAuth's SAML verifier is our own code and has had no independent audit. Put an audited SAML library or a managed provider in front, and pass the identity to your own session code.
+
+## You are building a Go OAuth server from low-level parts
+
+If you want a toolkit rather than a batteries-included library, look at [ory/fosite](https://github.com/ory/fosite) or [zitadel/oidc](https://github.com/zitadel/oidc). The [theauth-go](https://github.com/glincker/theauth-go) library is opinionated and ships the agent and MCP model with it.
+
+## You need certification or a named production user
+
+theAuth has no OpenID certification, no published third party security audit and no case study we can link. If your procurement process requires them, a certified or commercially backed product is the safer choice.
+
+## Features marked unstable
+
+Check the [Packages and status](/packages) page. Packages below 1.0 may change between minor releases, and the cookie session cache and SAML are experimental.
+
+## Still a fit
+
+If your product runs AI agents or devices that need their own identity, scoped permissions, delegation and an audit trail, and you are happy to run it yourself, start with the [quickstart](/quickstart). The [comparison pages](/compare) list what we verified for each alternative.

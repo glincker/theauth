@@ -1,10 +1,12 @@
 ---
 title: Go SDK
-description: Call a theAuth TypeScript server from Go with theauth-go. Agents, delegation, audit, MCP servers, DPoP proofs and typed plugin endpoint calls with no third party dependencies.
+description: Call a theAuth TypeScript server from Go with the REST client in sdks/go. Agents, delegation, audit, MCP servers, DPoP proofs and typed plugin endpoint calls with no third party dependencies.
 icon: code
 ---
 
-`github.com/glincker/theauth-go` is the Go client for a theAuth server. It talks to the same REST API as `@glinr/theauth-client`. This is a client, not the Go server library.
+This is the Go REST client for a theAuth TypeScript server, source in [`sdks/go`](https://github.com/glincker/theauth/tree/main/sdks/go). It talks to the same REST API as `@glinr/theauth-client`. The Go server library is a separate project, [theauth-go](https://github.com/glincker/theauth-go), see its [docs](/go/getting-started/overview).
+
+<Warning>The module path in `sdks/go/go.mod` is `github.com/glincker/theauth-go`, the same path as the server library repository, so `go get` below fetches the server library. Vendor `sdks/go` until the client gets its own path.</Warning>
 
 ## Installation
 
