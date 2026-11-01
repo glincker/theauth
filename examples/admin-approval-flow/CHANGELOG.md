@@ -1,5 +1,12 @@
 # @glinr/theauth-example-admin-approval-flow
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [d1f20cc]
+  - @glinr/theauth@2.0.1
+
 ## 0.0.3
 
 ### Patch Changes

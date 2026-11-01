@@ -1,5 +1,11 @@
 # theauth
 
+## 2.0.1
+
+### Patch Changes
+
+- d1f20cc: `session.list()` now uses the injected clock, like `validate`, so expiry is consistent when a clock is provided. Adds `tsx` as a dev dependency so the audit chain vector test runs in CI.
+
 ## 2.0.0
 
 ### Major Changes
