@@ -1,14 +1,14 @@
 ---
 title: theAuth vs better-auth
-description: A sourced comparison of theAuth and better-auth for TypeScript applications, last checked 2026-10-18.
+description: A sourced comparison of theAuth and better-auth for TypeScript applications, last checked 2026-10-31.
 icon: code-compare
 ---
 
 better-auth and theAuth are both open-source TypeScript auth libraries, and they start from different places. better-auth grew out of human sign-in and added a plugin system on top. theAuth is built around identities that can be humans, agents or devices, so permissions, delegation and audit apply to all of them.
 
-better-auth is the larger project with the larger community, and it has an agent plugin of its own. Its latest stable release on 2026-10-18 was v1.7.10, published 2026-10-15 (a v1.8.0 beta was out the day after). This page lists what each documents, with the source for each row, so you can check the rows that matter to you. Where we did not verify a row for better-auth, we left it out instead of guessing. Last checked: 2026-10-18.
+better-auth is the larger project with the larger community, and it has an agent plugin of its own. Its latest stable release on 2026-10-31 was v1.7.14, published 2026-10-26 (GitHub API). This page lists what each documents, with the source for each row, so you can check the rows that matter to you. Where we did not verify a row for better-auth, we left it out instead of guessing. Last checked: 2026-10-31. The "did not find" statements below were last fetched on 2026-10-18 and have not all been re-read.
 
-Status words for theAuth rows: "Published" means it is in the npm release `@glinr/theauth` 1.2.0 (or the Go release named). "Release branch" means it is written and tested on `release/agent-wave9-2026-10-18` and is not in a published release.
+Status words for theAuth rows: "Published" means it is in the npm release `@glinr/theauth` 1.2.0 (`latest` on 2026-10-31) or the Go release named. "Release branch" means it is in the repository and not in a published npm release.
 
 A migration guide is available: [Migrate from better-auth](/migrate/from-better-auth).
 
@@ -48,7 +48,7 @@ These come from our own repository. For each of the five differentiators below w
 
 ## Where better-auth is ahead or equal
 
-- Adoption and ecosystem. better-auth had 30.4k GitHub stars on 2026-10-18 and a large plugin and integration community. It also ships more named social providers than we do. We counted 36 provider source files in its repository on 2026-10-18, which is a file count and not a figure from its docs. theAuth is new and has no user numbers we can quote.
+- Adoption and ecosystem. better-auth had 30.5k GitHub stars on 2026-10-31 (GitHub API) and a large plugin and integration community. It also ships more named social providers than we do. We counted 36 provider source files in its repository on 2026-10-18, which is a file count and not a figure from its docs. theAuth is new and has no user numbers we can quote.
 - Databases. better-auth documents Kysely (SQLite and D1, PostgreSQL, MySQL, MSSQL), Prisma, Drizzle and MongoDB. theAuth has Drizzle and a Prisma adapter, and the Go library has memory, SQLite, Postgres and MySQL. If you need MongoDB or MSSQL, better-auth covers it today. Redis in better-auth is secondary storage, not a database.
 - MCP. Both ship an OAuth 2.1 server for MCP, so that alone does not separate them.
 - Approvals. Both support human approval of agent actions. The difference is the argument binding noted above.
@@ -67,6 +67,8 @@ These come from our own repository. For each of the five differentiators below w
 - You want its agent plugin and are fine with it being marked not yet stable.
 
 ## Related
+
+If theAuth is the wrong fit, read [When not to use theAuth](/when-not-to-use).
 
 <CardGroup cols={2}>
   <Card title="Migrate from better-auth" href="/migrate/from-better-auth" icon="arrow-right-arrow-left">

@@ -45,8 +45,6 @@ Claude Desktop (`claude_desktop_config.json`, using the `mcp-remote` bridge):
 }
 ```
 
-[![npm](https://img.shields.io/npm/v/@glinr/theauth-gateway?style=flat-square)](https://www.npmjs.com/package/@glinr/theauth-gateway)
-
 Part of [theAuth](https://theauth.dev), open-source auth for AI agents and humans. Docs: [docs.theauth.dev](https://docs.theauth.dev).
 
 ## Install
@@ -57,34 +55,42 @@ npm install @glinr/theauth-gateway
 
 ## Usage
 
-Create a gateway with route policies, then call `handle` on every incoming request.
+Create a gateway from a config object and a `TheAuth` instance. `handleRequest` takes a web `Request` and returns a `Response`; `listen` starts a Node server.
 
 ```ts
-import { createGateway, loadConfigFile } from '@glinr/theauth-gateway';
+import { createTheAuth } from '@glinr/theauth';
+import { createGateway } from '@glinr/theauth-gateway';
+
+const theauth = await createTheAuth({
+  database: { provider: 'sqlite-native', url: './theauth.db' },
+  agents: { enabled: true },
+});
 
 const gateway = createGateway({
-  theAuthApiUrl: 'https://auth.yourapp.com',
-  tenantId: 'your-tenant-id',
   upstream: 'http://localhost:3001',
+  theauth,
   policies: [
     {
-      match: { path: '/api/**', methods: ['GET', 'POST'] },
-      require: { permissions: ['api:access'] },
-      rateLimit: { requests: 100, windowMs: 60_000 },
+      path: '/api/**',
+      method: ['GET', 'POST'],
+      requiredPermissions: [{ resource: 'api', actions: ['access'] }],
+      rateLimit: { windowMs: 60_000, max: 100 },
     },
   ],
 });
 
-// Node HTTP server
-import { createServer } from 'http';
-createServer((req, res) => gateway.handle(req, res)).listen(8080);
+await gateway.listen(8080);
 ```
 
 ### File-based config
 
+The file is JSON (`upstream`, `policies`, `rateLimit`, `trustedProxy`, `mcp` and more). It does not hold the `TheAuth` instance, so pass that yourself.
+
 ```ts
-const config = await loadConfigFile('./theauth-gateway.json');
-const gateway = createGateway(config);
+import { loadConfigFile } from '@glinr/theauth-gateway';
+
+const fileConfig = loadConfigFile('./theauth-gateway.json'); // synchronous
+const gateway = createGateway({ ...fileConfig, theauth });
 ```
 
 ### Behind a proxy
@@ -128,8 +134,10 @@ and choose their own IP.
 ## Exports
 
 - `createGateway`: creates a gateway instance
-- `loadConfigFile`: loads gateway config from a JSON/YAML file
+- `loadConfigFile`: loads and validates a JSON gateway config file
 - `matchPolicy`: utility to test a request against a policy
+
+See the [docs](https://docs.theauth.dev/gateway) for the full option list.
 
 ## Docs
 

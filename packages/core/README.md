@@ -1,4 +1,4 @@
-[npm](https://www.npmjs.com/package/@glinr/theauth) · [Source](https://github.com/glincker/theauth/tree/main/packages/core) · [Docs](https://docs.theauth.dev/concepts) · [All packages](https://github.com/glincker/theauth#packages)
+[npm](https://www.npmjs.com/package/@glinr/theauth) · [Source](https://github.com/glincker/theauth/tree/main/packages/core) · [Docs](https://docs.theauth.dev/concepts) · [All packages](https://docs.theauth.dev/packages)
 
 <p align="center">
   <img src="https://theauth.dev/logo.svg" height="64" alt="theAuth" />
@@ -133,7 +133,7 @@ Organizations + RBAC, SAML SSO, SCIM directory sync, admin controls, API key man
 <td>
 
 ### Edge compatible
-Runs on Cloudflare Workers (D1), Deno, Bun, and Node.js. Only 3 runtime deps: `drizzle-orm`, `jose`, `zod`.
+Runs on Cloudflare Workers (D1), Deno, Bun, and Node.js. Four runtime deps: `drizzle-orm`, `jose`, `sql.js`, `zod`.
 
 </td>
 </tr>
@@ -253,7 +253,7 @@ Questions and help in the `#theauth` forum on the [GLINR Discord](https://discor
 - [API reference](https://docs.theauth.dev/api)
 - [DPoP](https://docs.theauth.dev/dpop)
 - [Session hardening](https://docs.theauth.dev/session-hardening)
-- [All packages](https://github.com/glincker/theauth#packages)
+- [All packages](https://docs.theauth.dev/packages)
 - [GitHub Discussions](https://github.com/glincker/theauth/discussions) for questions
 - [Report a security issue](https://github.com/glincker/theauth/blob/main/SECURITY.md)
 
