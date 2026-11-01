@@ -10,13 +10,13 @@ The tradeoff is real too. You run on their service, and the bill scales with you
 
 ## The structural differences
 
-**Open source vs. closed.** theAuth is MIT. You can read every line, fork it, run it anywhere. Clerk and Auth0 are hosted platforms, so you rely on their security posture, their uptime commitments and their product roadmap. Both services are proprietary. Clerk's terms keep all rights in the service and give customers a limited, revocable right to use it ([terms](https://clerk.com/legal/terms), fetched 2026-10-18). Only their SDKs are open source: Clerk's `clerk/javascript` repository and Auth0's `node-auth0` are MIT licensed (GitHub, 2026-10-18). Auth0 does list a Private Deployment add-on on its pricing page as an Enterprise option with a custom quote ([pricing](https://auth0.com/pricing), 2026-10-18). We did not find a self-hosting offer for Clerk on the pages we fetched.
+**Open source vs. closed.** theAuth is MIT. You can read every line, fork it, run it anywhere. Clerk and Auth0 are hosted platforms, so you rely on their security posture, their uptime commitments and their product roadmap. Both services are proprietary. Clerk's terms keep all rights in the service and give customers a limited, revocable right to use it ([terms](https://clerk.com/legal/terms), fetched 2026-10-31). Only their SDKs are open source: Clerk's `clerk/javascript` repository and Auth0's `node-auth0` are MIT licensed (GitHub API, 2026-10-31). Auth0 does list a Private Deployment add-on on its pricing page as an Enterprise option with a custom quote ([pricing](https://auth0.com/pricing), 2026-10-31). We did not find a self-hosting offer for Clerk on the pages we fetched.
 
 **Self-hosted vs. vendor.** Running theAuth means you control the database, the logs, and the data residency. That matters if you're in healthcare, finance, or working under GDPR data locality requirements. Vendor platforms handle the infrastructure, which also means your auth logs live in their service.
 
-**Agent identity in the core.** theAuth models agents directly: `AgentIdentity`, delegation chains, ephemeral sessions and cost attribution are part of the library. Clerk and Auth0 now document MCP and agent features of their own, so compare what each one covers (Auth0 labels parts of this early access, as of 2026-10-18). Clerk's Agent Tasks create authenticated sessions on behalf of users, and Auth0 documents Token Vault and CIBA (CIBA needs an Enterprise plan or add-on). On 2026-10-18 we did not find approvals bound to call arguments, a tamper evident audit chain, device or IoT principals, ROS 2 support, or delegation chains with revocation that reaches issued tokens on the Clerk and Auth0 pages we fetched. That says nothing about pages we did not read.
+**Agent identity in the core.** theAuth models agents directly: `AgentIdentity`, delegation chains, ephemeral sessions and cost attribution are part of the library. Clerk and Auth0 now document MCP and agent features of their own, so compare what each one covers . Auth0 documents Token Vault and CIBA for agents ([Auth0 for AI Agents](https://auth0.com/docs/get-started/auth0-for-ai-agents), read 2026-10-31). Clerk lists Agent Task create and revoke methods in its [documentation index](https://clerk.com/docs/llms.txt) (read 2026-10-31). We have not compared these against theAuth feature by feature, so check each vendor's docs for the rows that matter to you.
 
-Status of the theAuth pieces named here: `AgentIdentity` and delegation chains are Published (npm `@glinr/theauth` 1.2.0). Devices, MQTT and ROS 2 support, and revocation that reaches issued MCP tokens, are on the release branch and not yet in a published release. With theAuth the model lives in the library you run.
+Status: npm `@glinr/theauth` `latest` was 1.2.0 on 2026-10-31. Some pieces named here are in the repository at 2.0.0 and not yet published. See [Packages and status](/packages).
 
 ## When managed platforms make sense
 
@@ -32,6 +32,8 @@ For a product with AI agents, compare the agent features of each option. Better 
 
 ## Related
 
+If theAuth is the wrong fit, read [When not to use theAuth](/when-not-to-use).
+
 <CardGroup cols={2}>
   <Card title="Migrate from Clerk" href="/migrate/from-clerk" icon="arrow-right-arrow-left">
     How to move a Clerk app to theAuth with a concrete migration plan.
@@ -43,6 +45,6 @@ For a product with AI agents, compare the agent features of each option. Better 
     Built-in data export and deletion for self-hosted data residency.
   </Card>
   <Card title="Agent identity" href="/agents" icon="robot">
-    The agent primitives that paid platforms don't ship.
+    The agent primitives theAuth ships in the library.
   </Card>
 </CardGroup>

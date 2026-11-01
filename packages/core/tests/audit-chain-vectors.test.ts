@@ -53,7 +53,6 @@ const FIXTURE = fileURLToPath(new URL("./fixtures/audit-chain-vectors.json", imp
 const SCRIPT = fileURLToPath(
 	new URL("../../../scripts/gen-audit-chain-vectors.mjs", import.meta.url),
 );
-const TSX = fileURLToPath(new URL("../../../node_modules/.bin/tsx", import.meta.url));
 const PSEUDONYM_FIELDS = ["userId", "agentId", "subjectId", "actorId", "approverId"] as const;
 
 const committed = readFileSync(FIXTURE, "utf8");
@@ -130,9 +129,10 @@ function applyNegative(n: Negative): Outcome {
 
 describe("audit chain vectors", () => {
 	it("committed file equals a fresh regeneration", () => {
-		const fresh = execFileSync(TSX, [SCRIPT, "--stdout"], {
+		const fresh = execFileSync(process.execPath, ["--import", "tsx", SCRIPT, "--stdout"], {
 			encoding: "utf8",
-			cwd: fileURLToPath(new URL("../../..", import.meta.url)),
+			// cwd is the package so `--import tsx` resolves its own devDependency.
+			cwd: fileURLToPath(new URL("..", import.meta.url)),
 			maxBuffer: 16 * 1024 * 1024,
 		});
 		expect(fresh).toBe(committed);

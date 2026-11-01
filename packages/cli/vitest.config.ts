@@ -5,5 +5,7 @@ export default defineConfig({
 		environment: "node",
 		globals: true,
 		include: ["tests/**/*.test.ts"],
+		// CI runners import the core build slowly; the default 5s flaked.
+		testTimeout: 20_000,
 	},
 });

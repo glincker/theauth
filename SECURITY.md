@@ -76,9 +76,12 @@ When using TheAuth in production:
 
 ## Dependencies
 
-TheAuth has only 3 runtime dependencies:
-- `drizzle-orm` - SQL query builder
-- `jose` - JWT/JWS/JWE implementation
-- `zod` - Schema validation
+theAuth core (`@glinr/theauth`) has 4 runtime dependencies:
+- `drizzle-orm`: SQL query builder
+- `jose`: JWT/JWS/JWE implementation
+- `sql.js`: SQLite compiled to WebAssembly, used for the in-memory provider
+- `zod`: schema validation
+
+The list comes from `packages/core/package.json` and was checked on 2026-10-31.
 
 We actively monitor these for vulnerabilities via GitHub Dependabot.

@@ -121,3 +121,27 @@ describe("agent expiry", () => {
 		expect((await theauth.authorize(b.id, REQ)).allowed).toBe(false);
 	});
 });
+
+describe("agent expiry boundary", () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("denies at the exact expiresAt instant", async () => {
+		const theauth = await setup();
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2030-01-01T00:00:00Z"));
+		const agent = await theauth.agent.create({
+			ownerId: "user-1",
+			name: "edge",
+			type: "autonomous",
+			permissions: PERMS,
+			expiresAt: new Date("2030-01-01T00:00:10Z"),
+		});
+		expect((await theauth.authorize(agent.id, REQ)).allowed).toBe(true);
+		vi.setSystemTime(new Date("2030-01-01T00:00:10Z"));
+		const result = await theauth.authorize(agent.id, REQ);
+		expect(result.allowed).toBe(false);
+		expect(result.code).toBe("agent_expired");
+	});
+});

@@ -125,6 +125,7 @@
               "quickstart",
               "dev-mode",
               "works-with",
+              "packages",
               "whats-new"
             ]
           },
@@ -619,7 +620,8 @@
               "compare/vs-keycloak",
               "compare/vs-hanko",
               "compare/vs-casdoor",
-              "compare/vs-paid"
+              "compare/vs-paid",
+              "when-not-to-use"
             ]
           }
         ]

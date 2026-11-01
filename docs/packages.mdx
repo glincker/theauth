@@ -1,0 +1,112 @@
+---
+title: Packages and status
+description: Every theAuth package with its version and maturity, the supported databases, framework adapters and the known limits you should read before relying on it.
+icon: boxes-stacked
+---
+
+All packages live in the [theAuth monorepo](https://github.com/glincker/theauth) and publish under `@glinr/`. Versions below come from each `package.json` in the repository on 2026-10-31. These are not always what npm serves: npm `latest` for `@glinr/theauth` was 1.2.0 that day, so check `npm view <package> version` before you rely on a 2.x feature. Maturity follows the version: stable is 1.0 or later, beta is 0.2 to 0.9, experimental is 0.1. See [STABILITY.md](https://github.com/glincker/theauth/blob/main/STABILITY.md) for what a version bump promises.
+
+## Known limits
+
+Read these before you rely on theAuth in production.
+
+- **SAML is experimental.** The verifier is our own code, built on Web Crypto. It passes tests against xmllint and xml-crypto output and has had no independent audit. If you need an audit today, put an audited SAML library in front and pass the identity to your own session code.
+- **The cookie session cache is experimental and opt in.** It can lag a revocation by up to its `maxAge`. See [session hardening](/session-hardening).
+- **MySQL is not supported.** `provider: "mysql"` throws unless you pass `experimental: true`, and the baseline schema does not apply on a real server yet.
+- **Postgres is tested by hand, not in CI.** The full suite runs against Postgres 14 before each release. Only the `pg` driver is supported.
+- **D1 is not tested in CI or by hand yet.** The generated SQLite SQL is applied with `skipMigrations: true`.
+- **Client ID metadata documents (CIMD) on Workers and Deno.** Deno uses `node:dns` like Node. Workers need `createDohResolver()`, or `"none"` with `allowedHosts`. DNS rebinding cannot be fully closed without `allowedHosts`. See [CIMD](/mcp-client-id-metadata).
+- **No published third party security audit.** CI runs tests and CodeQL, which is not a substitute for one.
+
+## Supported databases
+
+| Provider | Use it for | Tested in CI |
+|---|---|---|
+| `sqlite` (sql.js) | Tests, CI, demos. In memory only. | Yes |
+| `sqlite-native` (better-sqlite3) | One process, a database file on disk. | Yes |
+| `postgres` (`pg`) | Several instances or real traffic. | No, run by hand |
+| `d1` | Cloudflare Workers. | No |
+| `mysql` | Not supported. | No |
+
+The Prisma adapter reads and writes theAuth tables from code that already uses Prisma. Picking a store and a secondary store: [choose storage](/choose-storage).
+
+## Core packages
+
+| Package | Version | Maturity | What it does |
+|---|---|---|---|
+| [`@glinr/theauth`](https://github.com/glincker/theauth/tree/main/packages/core) | 2.0.0 | Stable | Agent identity, delegation, MCP OAuth 2.1 server, DPoP, passkeys, audit |
+| [`@glinr/theauth-email`](https://github.com/glincker/theauth/tree/main/packages/auth/email) | 4.1.1 | Stable | Email and password sign in |
+| [`@glinr/theauth-mcp`](https://github.com/glincker/theauth/tree/main/packages/mcp) | 2.0.0 | Stable | Read-only MCP server to inspect agents, permissions and audit |
+| [`@glinr/theauth-gateway`](https://github.com/glincker/theauth/tree/main/packages/gateway) | 4.2.0 | Stable | Auth proxy in front of any API or MCP server |
+| [`@glinr/theauth-cli`](https://github.com/glincker/theauth/tree/main/packages/cli) | 1.3.0 | Stable | `init`, `doctor`, migrations, dashboard (also `npx theauth`) |
+| [`@glinr/theauth-client`](https://github.com/glincker/theauth/tree/main/packages/client) | 1.2.0 | Stable | TypeScript client for the REST API |
+| [`@glinr/theauth-plugin-discovery`](https://github.com/glincker/theauth/tree/main/packages/plugins/discovery) | 4.0.2 | Stable | A2A agent card discovery |
+| [`@glinr/theauth-plugin-telemetry`](https://github.com/glincker/theauth/tree/main/packages/plugins/telemetry) | 4.1.0 | Stable | OpenTelemetry spans from auth events |
+| [`@glinr/theauth-react`](https://github.com/glincker/theauth/tree/main/packages/react) | 0.8.0 | Beta | React hooks |
+| [`@glinr/theauth-vue`](https://github.com/glincker/theauth/tree/main/packages/vue) | 0.4.0 | Beta | Vue 3 composables |
+| [`@glinr/theauth-svelte`](https://github.com/glincker/theauth/tree/main/packages/svelte) | 0.4.0 | Beta | Svelte stores |
+| [`@glinr/theauth-expo`](https://github.com/glincker/theauth/tree/main/packages/expo) | 0.5.0 | Beta | React Native and Expo client |
+| [`@glinr/theauth-electron`](https://github.com/glincker/theauth/tree/main/packages/electron) | 0.4.0 | Beta | Electron client |
+| [`@glinr/theauth-ui`](https://github.com/glincker/theauth/tree/main/packages/ui) | 0.4.0 | Beta | Prebuilt auth components |
+| [`@glinr/theauth-ui-headless`](https://github.com/glincker/theauth/tree/main/packages/ui-headless) | 0.2.0 | Beta | Unstyled account components |
+| [`@glinr/theauth-dashboard`](https://github.com/glincker/theauth/tree/main/packages/dashboard) | 0.4.0 | Beta | Admin UI for agents, permissions and audit |
+| [`@glinr/theauth-agent-frameworks`](https://github.com/glincker/theauth/tree/main/packages/agent-frameworks) | 0.2.0 | Beta | Tool guard with human approval for LangChain.js, LangGraph and Mastra |
+| [`@glinr/theauth-conformance`](https://github.com/glincker/theauth/tree/main/packages/conformance) | 0.3.0 | Beta | Black-box conformance suite for OAuth 2.1 and MCP servers |
+| [`@glinr/theauth-test-utils`](https://github.com/glincker/theauth/tree/main/packages/test-utils) | 0.3.0 | Beta | Mock providers, factories and assertions |
+| [`@glinr/create-theauth-app`](https://github.com/glincker/theauth/tree/main/packages/create-theauth-app) | 0.6.0 | Beta | Scaffold an app |
+| [`@glinr/theauth-extension`](https://github.com/glincker/theauth/tree/main/packages/extension) | 0.1.0 | Experimental | OAuth 2.1 for Manifest V3 browser extensions |
+
+## Framework adapters
+
+Every adapter wraps one core handler, so all of them serve the same routes with the same status codes ([route reference](/adapters/routes)).
+
+| Adapter | Version | Docs |
+|---|---|---|
+| `@glinr/theauth-hono` | 6.0.0 | [Hono](/adapters/hono) |
+| `@glinr/theauth-nextjs` | 6.0.0 | [Next.js](/adapters/nextjs) |
+| `@glinr/theauth-express` | 6.0.0 | [Express](/adapters/express) |
+| `@glinr/theauth-fastify` | 6.0.0 | [Fastify](/adapters/fastify) |
+| `@glinr/theauth-nestjs` | 6.0.0 | [NestJS](/adapters/nestjs) |
+| `@glinr/theauth-nuxt` | 6.0.0 | [Nuxt](/adapters/nuxt) |
+| `@glinr/theauth-sveltekit` | 6.0.0 | [SvelteKit](/adapters/sveltekit) |
+| `@glinr/theauth-astro` | 6.0.0 | [Astro](/adapters/astro) |
+| `@glinr/theauth-solidstart` | 6.0.0 | [SolidStart](/adapters/solidstart) |
+| `@glinr/theauth-tanstack` | 6.0.0 | [TanStack Start](/adapters/tanstack) |
+| `@glinr/theauth-prisma` | 4.1.0 | [Prisma](/prisma) |
+| `@glinr/theauth-nextjs-auth` | 1.0.0 | Next.js client for external auth backends |
+
+Mounting Hono, for example:
+
+```typescript
+import { Hono } from "hono";
+import { createTheAuth } from "@glinr/theauth";
+import { theAuthHono } from "@glinr/theauth-hono";
+
+const auth = await createTheAuth({
+  database: { provider: "postgres", url: process.env.DATABASE_URL! },
+});
+
+const app = new Hono();
+app.route("/api/theauth", theAuthHono(auth, { authenticate }));
+```
+
+`authenticate` resolves the caller from the request, see the [Hono guide](/adapters/hono).
+
+## Other languages
+
+- [theauth-go](https://github.com/glincker/theauth-go) is the Go server library (v2). See the [Go library docs](/go/getting-started/overview).
+- A [Go REST client](/sdk-go) and a [Python client](https://pypi.org/project/theauth/) ([source](https://github.com/glincker/theauth/tree/main/sdks/python)) for the TypeScript server, both checked against the generated [`openapi.json`](https://github.com/glincker/theauth/blob/main/sdks/openapi.json).
+- A [Terraform provider](https://registry.terraform.io/providers/glincker/theauth) ([source](https://github.com/glincker/theauth/tree/main/sdks/terraform)).
+
+## Devices and robots
+
+Devices and robots use the same model as agents. A sensor, gateway or machine can hold its own credentials (a pre shared key, a signing key or a TLS client certificate), enroll with a claim code or a bulk token, and be revoked live. For ROS 2, `theauth ros2 export` writes the SROS2 and DDS Security files from the robot's permissions, and a gate node asks theAuth before a hazardous command is published. theAuth is not a safety system, so emergency stops stay in the robot's safety controller. See [IoT devices](/iot-devices) and [robotics and ROS 2](/robotics-ros2).
+
+## By the numbers
+
+Generated by `node scripts/stats.mjs` into [`docs/stats.json`](https://github.com/glincker/theauth/blob/main/docs/stats.json).
+
+- 48 OAuth providers: 22 first class and 26 presets
+- 10 framework adapters
+- 4 runtime dependencies in core (`drizzle-orm`, `jose`, `sql.js`, `zod`)
+- About 5,277 test cases in 410 test files (a textual count of `it(` and `test(` calls, so approximate)
