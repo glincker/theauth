@@ -9,6 +9,11 @@
       "module": "image-size",
       "reason": "Patched in 2.0.3 but the vulnerable 1.2.x is pinned by the Expo CLI toolchain. Overriding to a new major risks breaking expo tooling. Build time only.",
       "reviewBy": "2026-12-31"
+    },
+    {
+      "module": "zod",
+      "reason": "Advisory is fixed only in zod 4.6.6. Core builds OpenAPI from zod 3 internals (src/openapi-zod.ts), so moving to 4 is a tracked migration, not a bump. Memory exhaustion needs oversized constrained collections in schemas that parse untrusted input; review before enabling such schemas.",
+      "reviewBy": "2026-12-31"
     }
   ]
 }

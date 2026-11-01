@@ -39,6 +39,42 @@ updates:
         patterns:
           - "next"
           - "@next/*"
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # Adapter peers are tested against a fixed range; major moves are done by hand in one branch.
+    ignore:
+      - dependency-name: "@sveltejs/kit"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "svelte"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "nuxt"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@nuxt/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "astro"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@nestjs/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "electron"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "express"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "fastify"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "hono"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vue"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
