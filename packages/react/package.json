@@ -43,8 +43,8 @@
     "jsdom": "^29.0.1",
     "@types/react": "^19.0.0",
     "vitest": "^4.1.11",
-    "tsup": "^8.4.0",
-    "typescript": "^6.0.3",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
     "@tanstack/react-query": "^5.0.0"
   },
   "dependencies": {
