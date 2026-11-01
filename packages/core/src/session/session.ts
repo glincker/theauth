@@ -440,7 +440,8 @@ export function createSessionManager(
 	}
 
 	async function list(userId: string): Promise<Session[]> {
-		const now = new Date();
+		// Use the injected clock like validate does, so expiry agrees across methods.
+		const now = new Date(activity.now());
 
 		const rows = await db
 			.select()
