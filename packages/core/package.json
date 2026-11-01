@@ -167,7 +167,7 @@
     "tsup": "^8.4.0",
     "typescript": "^6.0.3",
     "tsx": "^4.21.0",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.5"
   },
   "peerDependencies": {
     "@libsql/client": ">=0.6.0",
