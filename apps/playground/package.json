@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@glinr/theauth": "workspace:*",
-    "sql.js": "^1.14.1"
+    "sql.js": "^1.15.2"
   },
   "devDependencies": {
     "@types/sql.js": "^1.4.11",
