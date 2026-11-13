@@ -46,8 +46,8 @@
     "jsdom": "^29.0.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tsup": "^8.4.0",
-    "typescript": "^6.0.3",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.11"
   },
   "homepage": "https://docs.theauth.dev/ui-components",
