@@ -68,8 +68,8 @@ importers:
         specifier: ^1.14.1
         version: 1.14.1
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@playwright/test':
         specifier: ^1.52.0
@@ -128,7 +128,7 @@ importers:
         version: link:../../packages/mcp
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.1
-        version: 1.32.1(@cfworker/json-schema@4.1.1)(zod@3.25.76)
+        version: 1.32.1(@cfworker/json-schema@4.1.1)(zod@4.6.6)
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
@@ -136,8 +136,8 @@ importers:
         specifier: ^0.45.2
         version: 0.45.4(@cloudflare/workers-types@4.20260418.1)(@libsql/client@0.17.2)(@opentelemetry/api@1.9.0)(@prisma/client@7.5.0(typescript@6.0.3))(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(@types/sql.js@1.4.11)(better-sqlite3@12.9.0)(kysely@0.29.7)(mysql2@3.24.5(@types/node@25.6.0))(pg@8.20.0)(sql.js@1.14.1)
       zod:
-        specifier: ^3.25.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -472,8 +472,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@6.4.6(@types/node@25.9.9)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/adapters/express:
     devDependencies:
@@ -502,8 +502,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/adapters/fastify:
     devDependencies:
@@ -526,8 +526,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.6.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/adapters/hono:
     devDependencies:
@@ -547,8 +547,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/adapters/nestjs:
     devDependencies:
@@ -595,8 +595,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/adapters/nextjs:
     devDependencies:
@@ -616,8 +616,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/adapters/nextjs-auth:
     devDependencies:
@@ -661,8 +661,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@7.3.8(@types/node@25.9.9)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/adapters/prisma:
     dependencies:
@@ -701,8 +701,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/adapters/sveltekit:
     devDependencies:
@@ -722,8 +722,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/adapters/tanstack:
     devDependencies:
@@ -746,8 +746,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/agent-frameworks:
     devDependencies:
@@ -759,10 +759,10 @@ importers:
         version: 1.2.18(@opentelemetry/api@1.9.0)(ws@7.5.13)
       '@langchain/langgraph':
         specifier: 1.5.1
-        version: 1.5.1(@langchain/core@1.2.18(@opentelemetry/api@1.9.0)(ws@7.5.13))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+        version: 1.5.1(@langchain/core@1.2.18(@opentelemetry/api@1.9.0)(ws@7.5.13))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.6.6)
       '@mastra/core':
         specifier: 1.78.0
-        version: 1.78.0(@opentelemetry/api@1.9.0)(express@5.2.1)(rxjs@7.8.2)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)
+        version: 1.78.0(@opentelemetry/api@1.9.0)(express@5.2.1)(rxjs@7.8.2)(zod-to-json-schema@3.25.1(zod@4.6.6))(zod@4.6.6)
       tsup:
         specifier: ^8.4.0
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.32)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.9.1)
@@ -773,8 +773,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.9.9)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: 4.3.6
-        version: 4.3.6
+        specifier: 4.6.6
+        version: 4.6.6
 
   packages/auth/email:
     devDependencies:
@@ -873,8 +873,8 @@ importers:
         specifier: ^1.14.1
         version: 1.14.1
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.13
@@ -1076,17 +1076,17 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1(@noble/hashes@1.8.0))(vite@8.2.2(@types/node@25.6.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.21.0)(yaml@2.9.1))
       zod:
-        specifier: ^3.24.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.1
-        version: 1.32.1(@cfworker/json-schema@4.1.1)(zod@3.25.76)
+        version: 1.32.1(@cfworker/json-schema@4.1.1)(zod@4.6.6)
       zod:
-        specifier: ^3.25.0
-        version: 3.25.76
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@types/node':
         specifier: 25.6.0
@@ -10775,8 +10775,8 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.3.6:
-    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
+  zod@4.6.6:
+    resolution: {integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -10798,21 +10798,21 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@ai-sdk/provider-utils@4.0.40(zod@4.3.6)':
+  '@ai-sdk/provider-utils@4.0.40(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.14
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.1.1
-      zod: 4.3.6
+      zod: 4.6.6
 
-  '@ai-sdk/provider-utils@5.0.54(zod@4.3.6)':
+  '@ai-sdk/provider-utils@5.0.54(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 4.0.22
       '@standard-schema/spec': 1.1.0
       '@workflow/serde': 4.1.0
       eventsource-parser: 3.1.1
       undici: 7.30.2
-      zod: 4.3.6
+      zod: 4.6.6
 
   '@ai-sdk/provider@2.0.3':
     dependencies:
@@ -12460,7 +12460,7 @@ snapshots:
       langsmith: 0.11.0(@opentelemetry/api@1.9.0)(ws@7.5.13)
       mustache: 4.2.0
       p-queue: 6.6.2
-      zod: 3.25.76
+      zod: 4.6.6
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@opentelemetry/exporter-trace-otlp-proto'
@@ -12483,14 +12483,14 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  '@langchain/langgraph@1.5.1(@langchain/core@1.2.18(@opentelemetry/api@1.9.0)(ws@7.5.13))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)':
+  '@langchain/langgraph@1.5.1(@langchain/core@1.2.18(@opentelemetry/api@1.9.0)(ws@7.5.13))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.6.6)':
     dependencies:
       '@langchain/core': 1.2.18(@opentelemetry/api@1.9.0)(ws@7.5.13)
       '@langchain/langgraph-checkpoint': 1.2.0(@langchain/core@1.2.18(@opentelemetry/api@1.9.0)(ws@7.5.13))
       '@langchain/langgraph-sdk': 1.12.5(@langchain/core@1.2.18(@opentelemetry/api@1.9.0)(ws@7.5.13))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@langchain/protocol': 0.0.19
       '@standard-schema/spec': 1.1.0
-      zod: 4.3.6
+      zod: 4.6.6
     transitivePeerDependencies:
       - react
       - react-dom
@@ -12594,27 +12594,27 @@ snapshots:
       - encoding
       - supports-color
 
-  '@mastra/core@1.78.0(@opentelemetry/api@1.9.0)(express@5.2.1)(rxjs@7.8.2)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)':
+  '@mastra/core@1.78.0(@opentelemetry/api@1.9.0)(express@5.2.1)(rxjs@7.8.2)(zod-to-json-schema@3.25.1(zod@4.6.6))(zod@4.6.6)':
     dependencies:
       '@a2a-js/sdk-v0_3': '@a2a-js/sdk@0.3.14(express@5.2.1)'
       '@a2a-js/sdk-v1': '@a2a-js/sdk@1.0.1(express@5.2.1)'
-      '@ai-sdk/provider-utils-v6': '@ai-sdk/provider-utils@4.0.40(zod@4.3.6)'
-      '@ai-sdk/provider-utils-v7': '@ai-sdk/provider-utils@5.0.54(zod@4.3.6)'
+      '@ai-sdk/provider-utils-v6': '@ai-sdk/provider-utils@4.0.40(zod@4.6.6)'
+      '@ai-sdk/provider-utils-v7': '@ai-sdk/provider-utils@5.0.54(zod@4.6.6)'
       '@ai-sdk/provider-v5': '@ai-sdk/provider@2.0.3'
       '@ai-sdk/provider-v6': '@ai-sdk/provider@3.0.14'
       '@ai-sdk/provider-v7': '@ai-sdk/provider@4.0.22'
       '@isaacs/ttlcache': 2.1.5
       '@lukeed/uuid': 2.0.1
-      '@mastra/schema-compat': 1.3.15(zod@4.3.6)
+      '@mastra/schema-compat': 1.3.15(zod@4.6.6)
       '@standard-schema/spec': 1.1.0
-      chat: 4.42.0(zod@4.3.6)
+      chat: 4.42.0(zod@4.6.6)
       croner: 10.0.1
       dotenv: 17.4.2
       execa: 9.6.1
       fastq: 1.20.3
       gray-matter: 4.0.3
       hono: 4.13.18
-      hono-openapi: 1.3.5(hono@4.13.18)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)
+      hono-openapi: 1.3.5(hono@4.13.18)(zod-to-json-schema@3.25.1(zod@4.6.6))(zod@4.6.6)
       ignore: 7.0.12
       jpeg-js: 0.4.4
       json-schema: 0.4.0
@@ -12626,7 +12626,7 @@ snapshots:
       re2js: 2.8.6
       ws: 8.22.0
       xxhash-wasm: 1.1.0
-      zod: 4.3.6
+      zod: 4.6.6
     transitivePeerDependencies:
       - '@bufbuild/protobuf'
       - '@grpc/grpc-js'
@@ -12647,13 +12647,13 @@ snapshots:
       - zod-openapi
       - zod-to-json-schema
 
-  '@mastra/schema-compat@1.3.15(zod@4.3.6)':
+  '@mastra/schema-compat@1.3.15(zod@4.6.6)':
     dependencies:
       json-schema-to-zod: 2.8.1
-      zod: 4.3.6
+      zod: 4.6.6
       zod-from-json-schema: 0.5.6
 
-  '@modelcontextprotocol/sdk@1.32.1(@cfworker/json-schema@4.1.1)(zod@3.25.76)':
+  '@modelcontextprotocol/sdk@1.32.1(@cfworker/json-schema@4.1.1)(zod@4.6.6)':
     dependencies:
       '@hono/node-server': 1.19.15(hono@4.13.13)
       ajv: 8.20.0
@@ -12670,8 +12670,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
+      zod: 4.6.6
+      zod-to-json-schema: 3.25.1(zod@4.6.6)
     optionalDependencies:
       '@cfworker/json-schema': 4.1.1
     transitivePeerDependencies:
@@ -13943,22 +13943,22 @@ snapshots:
 
   '@speed-highlight/core@1.2.24': {}
 
-  '@standard-community/standard-json@0.3.6(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)':
+  '@standard-community/standard-json@0.3.6(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(zod-to-json-schema@3.25.1(zod@4.6.6))(zod@4.6.6)':
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@types/json-schema': 7.0.15
       quansync: 0.2.11
     optionalDependencies:
-      zod: 4.3.6
-      zod-to-json-schema: 3.25.1(zod@4.3.6)
+      zod: 4.6.6
+      zod-to-json-schema: 3.25.1(zod@4.6.6)
 
-  '@standard-community/standard-openapi@0.2.10(@standard-community/standard-json@0.3.6(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@4.3.6)':
+  '@standard-community/standard-openapi@0.2.10(@standard-community/standard-json@0.3.6(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(zod-to-json-schema@3.25.1(zod@4.6.6))(zod@4.6.6))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@4.6.6)':
     dependencies:
-      '@standard-community/standard-json': 0.3.6(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)
+      '@standard-community/standard-json': 0.3.6(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(zod-to-json-schema@3.25.1(zod@4.6.6))(zod@4.6.6)
       '@standard-schema/spec': 1.1.0
       openapi-types: 12.1.3
     optionalDependencies:
-      zod: 4.3.6
+      zod: 4.6.6
 
   '@standard-schema/spec@1.1.0': {}
 
@@ -15318,7 +15318,7 @@ snapshots:
 
   chardet@2.1.1: {}
 
-  chat@4.42.0(zod@4.3.6):
+  chat@4.42.0(zod@4.6.6):
     dependencies:
       '@chat-adapter/catalog': 4.42.0
       '@workflow/serde': 4.1.0-beta.2
@@ -15329,7 +15329,7 @@ snapshots:
       remend: 1.4.0
       unified: 11.0.5
     optionalDependencies:
-      zod: 4.3.6
+      zod: 4.6.6
     transitivePeerDependencies:
       - supports-color
 
@@ -16637,11 +16637,11 @@ snapshots:
     dependencies:
       hermes-estree: 0.33.3
 
-  hono-openapi@1.3.5(hono@4.13.18)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6):
+  hono-openapi@1.3.5(hono@4.13.18)(zod-to-json-schema@3.25.1(zod@4.6.6))(zod@4.6.6):
     dependencies:
       '@hono/standard-validator': 0.4.0(@standard-schema/spec@1.1.0)(hono@4.13.18)
-      '@standard-community/standard-json': 0.3.6(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6)
-      '@standard-community/standard-openapi': 0.2.10(@standard-community/standard-json@0.3.6(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(zod-to-json-schema@3.25.1(zod@4.3.6))(zod@4.3.6))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@4.3.6)
+      '@standard-community/standard-json': 0.3.6(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(zod-to-json-schema@3.25.1(zod@4.6.6))(zod@4.6.6)
+      '@standard-community/standard-openapi': 0.2.10(@standard-community/standard-json@0.3.6(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(zod-to-json-schema@3.25.1(zod@4.6.6))(zod@4.6.6))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@4.6.6)
       '@standard-schema/spec': 1.1.0
       '@types/json-schema': 7.0.15
       hono: 4.13.18
@@ -17116,7 +17116,7 @@ snapshots:
       typescript: 6.0.3
       unbash: 2.2.0
       yaml: 2.8.3
-      zod: 4.3.6
+      zod: 4.6.6
 
   knitwork@1.3.0: {}
 
@@ -21239,16 +21239,15 @@ snapshots:
 
   zod-from-json-schema@0.5.6:
     dependencies:
-      zod: 4.3.6
+      zod: 4.6.6
 
   zod-to-json-schema@3.25.1(zod@3.25.76):
     dependencies:
       zod: 3.25.76
 
-  zod-to-json-schema@3.25.1(zod@4.3.6):
+  zod-to-json-schema@3.25.1(zod@4.6.6):
     dependencies:
-      zod: 4.3.6
-    optional: true
+      zod: 4.6.6
 
   zod-to-ts@1.2.0(typescript@6.0.3)(zod@3.25.76):
     dependencies:
@@ -21257,6 +21256,6 @@ snapshots:
 
   zod@3.25.76: {}
 
-  zod@4.3.6: {}
+  zod@4.6.6: {}
 
   zwitch@2.0.4: {}
