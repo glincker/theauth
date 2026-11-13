@@ -249,8 +249,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/adapters/hono
       '@hono/node-server':
-        specifier: ^1.19.15
-        version: 1.19.15(hono@4.13.18)
+        specifier: ^2.1.6
+        version: 2.1.6(hono@4.13.18)
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
@@ -277,8 +277,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/adapters/hono
       '@hono/node-server':
-        specifier: ^1.19.15
-        version: 1.19.15(hono@4.13.18)
+        specifier: ^2.1.6
+        version: 2.1.6(hono@4.13.18)
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
@@ -435,8 +435,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/adapters/hono
       '@hono/node-server':
-        specifier: ^1.19.15
-        version: 1.19.15(hono@4.13.18)
+        specifier: ^2.1.6
+        version: 2.1.6(hono@4.13.18)
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
@@ -809,8 +809,8 @@ importers:
         specifier: workspace:*
         version: link:../adapters/hono
       '@hono/node-server':
-        specifier: ^1.19.15
-        version: 1.19.15(hono@4.13.18)
+        specifier: ^2.1.6
+        version: 2.1.6(hono@4.13.18)
       hono:
         specifier: ^4.13.16
         version: 4.13.18
@@ -2731,6 +2731,12 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
+
+  '@hono/node-server@2.1.6':
+    resolution: {integrity: sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      hono: ^4 || ^5.0.0-0
 
   '@hono/standard-validator@0.4.0':
     resolution: {integrity: sha512-MxOm1asDh9j7c1D0KiWwppSbFgAQxTRO4YEhjMrJn3lF1BIcXenPdgjSGKDRfQmZdaTaMA8slQLETgVOKyJxFw==}
@@ -12113,7 +12119,7 @@ snapshots:
     dependencies:
       hono: 4.13.13
 
-  '@hono/node-server@1.19.15(hono@4.13.18)':
+  '@hono/node-server@2.1.6(hono@4.13.18)':
     dependencies:
       hono: 4.13.18
 
