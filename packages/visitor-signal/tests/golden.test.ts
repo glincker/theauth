@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { canonicalise } from "../src/canonical.js";
+import { computeConfidence } from "../src/confidence.js";
 import { validatePayload } from "../src/schema.js";
 import { toSignalV1 } from "../src/signal-v1.js";
-import type { Components } from "../src/types.js";
+import type { Components, Flags, UnavailableName } from "../src/types.js";
 
 const fixture = <T>(path: string): T =>
 	JSON.parse(readFileSync(new URL(`./fixtures/${path}`, import.meta.url), "utf8")) as T;
@@ -46,5 +47,58 @@ describe("SignalV1 golden vectors", () => {
 describe("schema validator against manifest", () => {
 	for (const c of fixture<Manifest>("manifest.json").cases) {
 		it(c.file, () => expect(validatePayload(fixture(c.file)).valid).toBe(c.valid));
+	}
+});
+
+interface ConfidenceCase {
+	name: string;
+	mode: "analytics" | "fraud_prevention";
+	platform?: string;
+	mobile?: boolean;
+	uaBrand?: string;
+	flags: Partial<Flags>;
+	unavailable: UnavailableName[];
+	components: number;
+	score: number;
+}
+
+const PAD: Components[] = [
+	{ tz: "UTC" },
+	{ lang: "en" },
+	{ langCount: 1 },
+	{ touchPoints: 0 },
+	{ cores: 4 },
+	{ caps: 1 },
+	{ tzOffsetMin: 0 },
+	{ colorDepth: 24 },
+];
+
+describe("confidence golden vectors", () => {
+	for (const c of fixture<{ confidence: ConfidenceCase[] }>("vectors-extra.json").confidence) {
+		it(c.name, () => {
+			const components: Components = {};
+			if (c.platform !== undefined) components.platform = c.platform;
+			if (c.mobile !== undefined) components.mobile = c.mobile;
+			if (c.uaBrand !== undefined) components.uaBrand = c.uaBrand;
+			for (const pad of PAD) {
+				if (Object.keys(components).length >= c.components) break;
+				Object.assign(components, pad);
+			}
+			expect(Object.keys(components)).toHaveLength(c.components);
+			const flags: Flags = {
+				protectedBrowser: false,
+				webdriver: false,
+				headlessHint: false,
+				inconsistent: false,
+				...c.flags,
+			};
+			const score = computeConfidence({
+				mode: c.mode,
+				components,
+				flags,
+				unavailable: c.unavailable,
+			});
+			expect(score).toBe(c.score);
+		});
 	}
 });
