@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "mode": "analytics",
+  "status": "suppressed",
+  "suppressedReason": "dnt",
+  "ts": 1763467200000,
+  "nonce": "n3Xk9Qz7LmP2vB8w",
+  "components": {},
+  "flags": {
+    "protectedBrowser": false,
+    "webdriver": false,
+    "headlessHint": false,
+    "inconsistent": false,
+    "dnt": true
+  }
+}

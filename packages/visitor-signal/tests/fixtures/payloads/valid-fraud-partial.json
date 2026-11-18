@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "mode": "fraud_prevention",
+  "status": "partial",
+  "ts": 1763467200000,
+  "nonce": "n3Xk9Qz7LmP2vB8w",
+  "challenge": "eyJhbGciOiJIUzI1NiJ9.e30.sig",
+  "components": {
+    "tz": "UTC",
+    "renderHash": "0123456789abcdef"
+  },
+  "unavailable": ["lang", "screen"],
+  "flags": {
+    "protectedBrowser": true,
+    "webdriver": false,
+    "headlessHint": false,
+    "inconsistent": false,
+    "automationGlobals": 2,
+    "noInputObserved": true
+  },
+  "collectMs": 900
+}

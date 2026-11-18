@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://theauth.dev/schemas/visitor-signal/v1.json",
+  "title": "Visitor signal payload v1",
+  "type": "object",
+  "required": ["v", "mode", "ts", "nonce", "status", "components", "flags"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "const": 1 },
+    "mode": { "enum": ["analytics", "fraud_prevention"] },
+    "status": { "enum": ["ok", "suppressed", "partial"] },
+    "suppressedReason": {
+      "enum": ["consent_denied", "consent_unknown", "dnt", "gpc", "route_not_protected"]
+    },
+    "ts": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Client epoch ms. Advisory only, never trusted."
+    },
+    "nonce": { "type": "string", "minLength": 16, "maxLength": 64, "pattern": "^[A-Za-z0-9_-]+$" },
+    "challenge": { "type": "string", "maxLength": 2048 },
+    "components": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tz": { "type": "string", "maxLength": 64 },
+        "tzOffsetMin": { "type": "integer", "minimum": -840, "maximum": 840 },
+        "lang": { "type": "string", "maxLength": 35 },
+        "langCount": { "type": "integer", "minimum": 0, "maximum": 20 },
+        "platform": { "type": "string", "maxLength": 32 },
+        "uaBrand": { "type": "string", "maxLength": 32 },
+        "uaMajor": { "type": "integer", "minimum": 0, "maximum": 999 },
+        "mobile": { "type": "boolean" },
+        "screenBucket": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,2}00x[1-9][0-9]{0,2}00@[0-9](\\.[0-9])?$",
+          "description": "Each side rounded to a 100px bucket, then the device pixel ratio. Never exact."
+        },
+        "colorDepth": { "enum": [16, 24, 30, 32, 48] },
+        "touchPoints": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "cores": {
+          "enum": [1, 2, 4, 8, 16, 32, 64],
+          "description": "Bucketed to the nearest power of two."
+        },
+        "memoryGb": { "enum": [0.25, 0.5, 1, 2, 4, 8] },
+        "reducedMotion": { "type": "boolean" },
+        "colorScheme": { "enum": ["light", "dark", "none"] },
+        "caps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295,
+          "description": "Capability bitfield, see SPEC.md table."
+        },
+        "renderHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$",
+          "description": "fraud_prevention only. Truncated hash of a rendering probe, never raw pixels."
+        }
+      }
+    },
+    "unavailable": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "tz",
+          "lang",
+          "platform",
+          "ua",
+          "screen",
+          "touch",
+          "cores",
+          "memory",
+          "caps",
+          "renderHash"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protectedBrowser", "webdriver", "headlessHint", "inconsistent"],
+      "properties": {
+        "protectedBrowser": { "type": "boolean" },
+        "webdriver": { "type": "boolean" },
+        "headlessHint": { "type": "boolean" },
+        "inconsistent": { "type": "boolean" },
+        "automationGlobals": { "type": "integer", "minimum": 0, "maximum": 32 },
+        "noInputObserved": { "type": "boolean" },
+        "dnt": { "type": "boolean" },
+        "gpc": { "type": "boolean" }
+      }
+    },
+    "collectMs": { "type": "integer", "minimum": 0, "maximum": 60000 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "suppressed" } }, "required": ["status"] },
+      "then": {
+        "required": ["suppressedReason"],
+        "properties": { "components": { "maxProperties": 0 } }
+      },
+      "else": { "not": { "required": ["suppressedReason"] } }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "analytics" } }, "required": ["mode"] },
+      "then": { "properties": { "components": { "not": { "required": ["renderHash"] } } } }
+    }
+  ]
+}
