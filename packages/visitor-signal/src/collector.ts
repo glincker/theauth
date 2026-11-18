@@ -61,7 +61,10 @@ const build = async (options: CollectOptions): Promise<Result<Built>> => {
 	const head = { v: 1 as const, mode: options.mode, ts: started, nonce };
 	const challenge = options.challenge === undefined ? {} : { challenge: options.challenge };
 
-	const decision = await evaluateConsent(options.consent);
+	const decision = await evaluateConsent(
+		options.consent,
+		options.consentTimeoutMs ?? DEFAULTS.consentTimeoutMs,
+	);
 	if (!decision.allowed) {
 		const flags: Flags = { ...baseFlags(), dnt: decision.dnt, gpc: decision.gpc };
 		return finish({

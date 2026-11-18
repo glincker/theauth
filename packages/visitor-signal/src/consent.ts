@@ -1,3 +1,4 @@
+import { DEFAULTS } from "./defaults.js";
 import type { CollectOptions, ConsentState, SuppressedReason } from "./types.js";
 
 export type ConsentDecision =
@@ -7,12 +8,26 @@ export type ConsentDecision =
 export const isDntSet = (value: unknown): boolean =>
 	value === true || value === 1 || value === "1" || value === "yes";
 
-const readConsent = async (hook: CollectOptions["consent"]): Promise<ConsentState> => {
+const readConsent = async (
+	hook: CollectOptions["consent"],
+	timeoutMs: number,
+): Promise<ConsentState> => {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timeout = new Promise<ConsentState>((resolve) => {
+		timer = setTimeout(() => resolve("unknown"), timeoutMs);
+	});
+	const asked = (async (): Promise<ConsentState> => {
+		try {
+			const state = await hook();
+			return state === "granted" || state === "denied" ? state : "unknown";
+		} catch {
+			return "unknown";
+		}
+	})();
 	try {
-		const state = await hook();
-		return state === "granted" || state === "denied" ? state : "unknown";
-	} catch {
-		return "unknown";
+		return await Promise.race([asked, timeout]);
+	} finally {
+		if (timer !== undefined) clearTimeout(timer);
 	}
 };
 
@@ -22,8 +37,9 @@ const readConsent = async (hook: CollectOptions["consent"]): Promise<ConsentStat
  */
 export const evaluateConsent = async (
 	hook: CollectOptions["consent"],
+	timeoutMs: number = DEFAULTS.consentTimeoutMs,
 ): Promise<ConsentDecision> => {
-	const state = await readConsent(hook);
+	const state = await readConsent(hook, timeoutMs);
 	if (state === "denied")
 		return { allowed: false, reason: "consent_denied", dnt: false, gpc: false };
 	if (state === "unknown") {

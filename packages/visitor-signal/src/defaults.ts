@@ -2,6 +2,8 @@
 export const DEFAULTS = {
 	/** Per-source timeout in milliseconds. */
 	sourceTimeoutMs: 250,
+	/** Time to wait for the consent hook before treating it as unknown. */
+	consentTimeoutMs: 5000,
 	/** Length of the generated nonce in characters (16 to 64 allowed by the schema). */
 	nonceLength: 22,
 	/** Bucket size for screen sides in CSS pixels. */

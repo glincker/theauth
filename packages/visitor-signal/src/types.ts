@@ -84,6 +84,8 @@ export interface CollectOptions {
 	consent: ConsentHook;
 	/** Per-source timeout in ms. */
 	sourceTimeoutMs?: number;
+	/** Consent hook timeout in ms. A timeout counts as unknown. */
+	consentTimeoutMs?: number;
 	/** Public per-site string for the SignalV1 digest. */
 	pepper?: string;
 	/** Route identifier; unused in analytics mode, reserved for fraud_prevention. */
