@@ -93,7 +93,7 @@ describe("schema prototype keys", () => {
 			expect(validatePayload(p).valid).toBe(false);
 		});
 		it(`top-level and flags key ${k}`, () => {
-			const top = JSON.parse(base.replace("{", `{"${k}":1,`));
+			const top = JSON.parse(`{"${k}":1,${base.slice(1)}`);
 			expect(validatePayload(top).valid).toBe(false);
 			const fl = JSON.parse(
 				base.replace('"inconsistent":false', `"inconsistent":false,"${k}":true`),

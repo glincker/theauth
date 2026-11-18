@@ -7,9 +7,9 @@ const ser = (v: Json | undefined): string | undefined => {
 	if (v === null) return "null";
 	if (Array.isArray(v)) return `[${v.map((x) => ser(x) ?? "null").join(",")}]`;
 	if (typeof v === "object") {
-		// Default sort compares UTF-16 code units, which is what JCS requires.
+		// JCS orders keys by UTF-16 code unit, so compare with < and >, never localeCompare.
 		const parts: string[] = [];
-		for (const k of Object.keys(v).sort()) {
+		for (const k of Object.keys(v).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))) {
 			const s = ser(v[k]);
 			if (s !== undefined) parts.push(`${JSON.stringify(k)}:${s}`);
 		}
