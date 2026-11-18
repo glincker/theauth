@@ -25,9 +25,10 @@ export const computeConfidence = (payload: Input, model: Partial<ConfidenceModel
 	if (payload.mode === "analytics") score -= m.analyticsMode;
 	const platform = c.platform ?? "";
 	const isIos = platform === "iPhone" || platform === "iPad";
-	if (isIos || (c.mobile === true && c.uaBrand === "Safari")) score -= m.mobileSafari;
 	const androidPlatform = platform.startsWith("Linux armv") || platform.startsWith("Android");
-	if (androidPlatform && c.mobile === true) score -= m.android;
+	// Mutually exclusive: the Safari or iOS check wins, Android applies only otherwise.
+	if (isIos || (c.mobile === true && c.uaBrand === "Safari")) score -= m.mobileSafari;
+	else if (androidPlatform && c.mobile === true) score -= m.android;
 	if (payload.flags.protectedBrowser) score -= m.protectedBrowser;
 	if (payload.flags.inconsistent) score -= m.inconsistent;
 	const missing = payload.unavailable?.length ?? 0;

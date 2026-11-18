@@ -15,7 +15,8 @@ export const timezone = async (): Promise<Result<TimezoneData>> => {
 		const offset = now.getTimezoneOffset();
 		const tzOffsetMin = clampOffset(offset === 0 ? 0 : -offset);
 		const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-		return ok(tz ? { tz, tzOffsetMin } : { tzOffsetMin });
+		// Over-long names would fail schema validation, so drop them and report tz unavailable.
+		return ok(tz && [...tz].length <= 64 ? { tz, tzOffsetMin } : { tzOffsetMin });
 	} catch {
 		return fail("unavailable", "timezone unavailable");
 	}

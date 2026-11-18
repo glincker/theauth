@@ -45,7 +45,11 @@ export const capabilities = async (): Promise<Result<{ caps: number }>> => {
 		webgl: safe(() => {
 			if (typeof document === "undefined") return false;
 			const canvas = document.createElement("canvas");
-			return canvas.getContext("webgl") !== null || canvas.getContext("webgl2") !== null;
+			// A second context is only requested when the first was refused.
+			const gl = canvas.getContext("webgl") ?? canvas.getContext("webgl2");
+			if (!gl) return false;
+			gl.getExtension("WEBGL_lose_context")?.loseContext();
+			return true;
 		}),
 		wasm: safe(() => typeof g.WebAssembly === "object"),
 		intl: safe(() => typeof Intl?.DateTimeFormat === "function"),
