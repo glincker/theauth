@@ -1,0 +1,32 @@
+{
+  "v": 1,
+  "mode": "analytics",
+  "status": "ok",
+  "ts": 1763467200000,
+  "nonce": "abc",
+  "components": {
+    "tz": "Europe/Berlin",
+    "tzOffsetMin": 60,
+    "lang": "de-DE",
+    "langCount": 2,
+    "platform": "MacIntel",
+    "uaBrand": "Chrome",
+    "uaMajor": 130,
+    "mobile": false,
+    "screenBucket": "1500x900@2.0",
+    "colorDepth": 24,
+    "touchPoints": 0,
+    "cores": 8,
+    "memoryGb": 8,
+    "reducedMotion": false,
+    "colorScheme": "dark",
+    "caps": 1023
+  },
+  "flags": {
+    "protectedBrowser": false,
+    "webdriver": false,
+    "headlessHint": false,
+    "inconsistent": false
+  },
+  "collectMs": 42
+}

@@ -1,0 +1,75 @@
+{
+  "note": "Expected outcome per payload against schema/v1.json. error is the typed code a verifier returns.",
+  "cases": [
+    {
+      "file": "payloads/valid-analytics-ok.json",
+      "valid": true,
+      "error": null
+    },
+    {
+      "file": "payloads/valid-fraud-partial.json",
+      "valid": true,
+      "error": null
+    },
+    {
+      "file": "payloads/valid-suppressed-dnt.json",
+      "valid": true,
+      "error": null
+    },
+    {
+      "file": "payloads/invalid-unknown-top-level-field.json",
+      "valid": false,
+      "error": "schema_invalid"
+    },
+    {
+      "file": "payloads/invalid-unknown-component.json",
+      "valid": false,
+      "error": "schema_invalid"
+    },
+    {
+      "file": "payloads/invalid-version-2.json",
+      "valid": false,
+      "error": "unsupported_version"
+    },
+    {
+      "file": "payloads/invalid-short-nonce.json",
+      "valid": false,
+      "error": "schema_invalid"
+    },
+    {
+      "file": "payloads/invalid-exact-screen.json",
+      "valid": false,
+      "error": "schema_invalid"
+    },
+    {
+      "file": "payloads/invalid-cores-not-bucketed.json",
+      "valid": false,
+      "error": "schema_invalid"
+    },
+    {
+      "file": "payloads/invalid-suppressed-with-components.json",
+      "valid": false,
+      "error": "schema_invalid"
+    },
+    {
+      "file": "payloads/invalid-suppressed-no-reason.json",
+      "valid": false,
+      "error": "schema_invalid"
+    },
+    {
+      "file": "payloads/invalid-reason-on-ok.json",
+      "valid": false,
+      "error": "schema_invalid"
+    },
+    {
+      "file": "payloads/invalid-analytics-render-hash.json",
+      "valid": false,
+      "error": "schema_invalid"
+    },
+    {
+      "file": "payloads/invalid-missing-flags.json",
+      "valid": false,
+      "error": "schema_invalid"
+    }
+  ]
+}

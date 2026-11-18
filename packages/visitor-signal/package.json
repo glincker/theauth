@@ -1,0 +1,52 @@
+{
+  "name": "@glinr/theauth-visitor-signal",
+  "version": "0.1.0",
+  "description": "Consent-first browser collector for coarse visitor signals (advisory hint, not an identifier)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "clean": "rm -rf dist .turbo"
+  },
+  "keywords": [
+    "theauth",
+    "visitor-signal",
+    "browser",
+    "consent",
+    "privacy"
+  ],
+  "author": "TheAuth <support@glinr.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glincker/theauth.git",
+    "directory": "packages/visitor-signal"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.4.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "homepage": "https://github.com/glincker/theauth/tree/main/packages/visitor-signal#readme",
+  "bugs": {
+    "url": "https://github.com/glincker/theauth/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,281 @@
+{
+  "note": "SignalV1 digest and sketch vectors. See SPEC.md.",
+  "signalV1": [
+    {
+      "name": "basic",
+      "pepper": "pepper_site_a",
+      "components": {
+        "tz": "Europe/Berlin",
+        "tzOffsetMin": 60,
+        "lang": "de-DE",
+        "langCount": 2,
+        "platform": "MacIntel",
+        "uaBrand": "Chrome",
+        "uaMajor": 130,
+        "mobile": false,
+        "screenBucket": "1500x900@2.0",
+        "colorDepth": 24,
+        "touchPoints": 0,
+        "cores": 8,
+        "memoryGb": 8,
+        "reducedMotion": false,
+        "colorScheme": "dark",
+        "caps": 1023
+      },
+      "digest": "dEdV9O2BP06ijkh6ZIf1dxyDzsWjuMUfp-N61hg7ZJI"
+    },
+    {
+      "name": "other_pepper",
+      "pepper": "pepper_site_b",
+      "components": {
+        "tz": "Europe/Berlin",
+        "tzOffsetMin": 60,
+        "lang": "de-DE",
+        "langCount": 2,
+        "platform": "MacIntel",
+        "uaBrand": "Chrome",
+        "uaMajor": 130,
+        "mobile": false,
+        "screenBucket": "1500x900@2.0",
+        "colorDepth": 24,
+        "touchPoints": 0,
+        "cores": 8,
+        "memoryGb": 8,
+        "reducedMotion": false,
+        "colorScheme": "dark",
+        "caps": 1023
+      },
+      "digest": "aQXfk9ov6vZmxL1owfMLCNuY-lcuGIgWz1s3Lpgi_dw"
+    },
+    {
+      "name": "order_independent",
+      "pepper": "pepper_site_a",
+      "components": {
+        "caps": 1023,
+        "colorScheme": "dark",
+        "reducedMotion": false,
+        "memoryGb": 8,
+        "cores": 8,
+        "touchPoints": 0,
+        "colorDepth": 24,
+        "screenBucket": "1500x900@2.0",
+        "mobile": false,
+        "uaMajor": 130,
+        "uaBrand": "Chrome",
+        "platform": "MacIntel",
+        "langCount": 2,
+        "lang": "de-DE",
+        "tzOffsetMin": 60,
+        "tz": "Europe/Berlin"
+      },
+      "digest": "dEdV9O2BP06ijkh6ZIf1dxyDzsWjuMUfp-N61hg7ZJI"
+    },
+    {
+      "name": "minimal",
+      "pepper": "pepper_site_a",
+      "components": {
+        "tz": "UTC"
+      },
+      "digest": "whD19SxyE-1d7TtUyT1AWuRcPPChTwyxjS7o5hFWgME"
+    },
+    {
+      "name": "fraction_unicode",
+      "pepper": "pepper_site_a",
+      "components": {
+        "tz": "Asia/Kolkata",
+        "lang": "ja-JP",
+        "memoryGb": 0.25,
+        "mobile": true
+      },
+      "digest": "S-P5vqCMExdT7pXE-n3ragQH8-yO2Ky65_F_nNFtbcM"
+    }
+  ],
+  "sketch": {
+    "weights": {
+      "tz": 1,
+      "tzOffsetMin": 0.5,
+      "lang": 1,
+      "langCount": 0.5,
+      "platform": 1,
+      "uaBrand": 0.5,
+      "uaMajor": 0.5,
+      "mobile": 1,
+      "screenBucket": 1.5,
+      "colorDepth": 0.5,
+      "touchPoints": 1,
+      "cores": 1,
+      "memoryGb": 1,
+      "reducedMotion": 0.5,
+      "colorScheme": 0.5,
+      "caps": 1,
+      "renderHash": 2
+    },
+    "minOverlap": 5,
+    "cases": [
+      {
+        "name": "identical",
+        "a": {
+          "tz": "f5da64cf",
+          "tzOffsetMin": "0f173ad0",
+          "lang": "a2c07f25",
+          "langCount": "f7377545",
+          "platform": "5d8de6a8",
+          "uaBrand": "09f80a95",
+          "uaMajor": "a26b6c20",
+          "mobile": "909f45ca",
+          "screenBucket": "49828ed6",
+          "colorDepth": "bc5a3bfb",
+          "touchPoints": "2e925cc1",
+          "cores": "759958f9",
+          "memoryGb": "d16e09d4",
+          "reducedMotion": "00685427",
+          "colorScheme": "f06d13a0",
+          "caps": "d1438f1b"
+        },
+        "b": {
+          "tz": "f5da64cf",
+          "tzOffsetMin": "0f173ad0",
+          "lang": "a2c07f25",
+          "langCount": "f7377545",
+          "platform": "5d8de6a8",
+          "uaBrand": "09f80a95",
+          "uaMajor": "a26b6c20",
+          "mobile": "909f45ca",
+          "screenBucket": "49828ed6",
+          "colorDepth": "bc5a3bfb",
+          "touchPoints": "2e925cc1",
+          "cores": "759958f9",
+          "memoryGb": "d16e09d4",
+          "reducedMotion": "00685427",
+          "colorScheme": "f06d13a0",
+          "caps": "d1438f1b"
+        },
+        "similarity": 1.0
+      },
+      {
+        "name": "ua_major_bump",
+        "a": {
+          "tz": "f5da64cf",
+          "tzOffsetMin": "0f173ad0",
+          "lang": "a2c07f25",
+          "langCount": "f7377545",
+          "platform": "5d8de6a8",
+          "uaBrand": "09f80a95",
+          "uaMajor": "a26b6c20",
+          "mobile": "909f45ca",
+          "screenBucket": "49828ed6",
+          "colorDepth": "bc5a3bfb",
+          "touchPoints": "2e925cc1",
+          "cores": "759958f9",
+          "memoryGb": "d16e09d4",
+          "reducedMotion": "00685427",
+          "colorScheme": "f06d13a0",
+          "caps": "d1438f1b"
+        },
+        "b": {
+          "tz": "f5da64cf",
+          "tzOffsetMin": "0f173ad0",
+          "lang": "a2c07f25",
+          "langCount": "f7377545",
+          "platform": "5d8de6a8",
+          "uaBrand": "09f80a95",
+          "uaMajor": "baef4f63",
+          "mobile": "909f45ca",
+          "screenBucket": "49828ed6",
+          "colorDepth": "bc5a3bfb",
+          "touchPoints": "2e925cc1",
+          "cores": "759958f9",
+          "memoryGb": "d16e09d4",
+          "reducedMotion": "00685427",
+          "colorScheme": "f06d13a0",
+          "caps": "d1438f1b"
+        },
+        "similarity": 0.9615
+      },
+      {
+        "name": "different_device",
+        "a": {
+          "tz": "f5da64cf",
+          "tzOffsetMin": "0f173ad0",
+          "lang": "a2c07f25",
+          "langCount": "f7377545",
+          "platform": "5d8de6a8",
+          "uaBrand": "09f80a95",
+          "uaMajor": "a26b6c20",
+          "mobile": "909f45ca",
+          "screenBucket": "49828ed6",
+          "colorDepth": "bc5a3bfb",
+          "touchPoints": "2e925cc1",
+          "cores": "759958f9",
+          "memoryGb": "d16e09d4",
+          "reducedMotion": "00685427",
+          "colorScheme": "f06d13a0",
+          "caps": "d1438f1b"
+        },
+        "b": {
+          "tz": "f5da64cf",
+          "tzOffsetMin": "0f173ad0",
+          "lang": "a2c07f25",
+          "langCount": "f7377545",
+          "platform": "d8eed44f",
+          "uaBrand": "09f80a95",
+          "uaMajor": "a26b6c20",
+          "mobile": "909f45ca",
+          "screenBucket": "4461603d",
+          "colorDepth": "bc5a3bfb",
+          "touchPoints": "2e925cc1",
+          "cores": "96e97099",
+          "memoryGb": "b4a0bc8a",
+          "reducedMotion": "00685427",
+          "colorScheme": "f06d13a0",
+          "caps": "d1438f1b"
+        },
+        "similarity": 0.6538
+      },
+      {
+        "name": "too_few_components",
+        "a": {
+          "tz": "f5da64cf",
+          "tzOffsetMin": "0f173ad0",
+          "lang": "a2c07f25",
+          "langCount": "f7377545",
+          "platform": "5d8de6a8",
+          "uaBrand": "09f80a95",
+          "uaMajor": "a26b6c20",
+          "mobile": "909f45ca",
+          "screenBucket": "49828ed6",
+          "colorDepth": "bc5a3bfb",
+          "touchPoints": "2e925cc1",
+          "cores": "759958f9",
+          "memoryGb": "d16e09d4",
+          "reducedMotion": "00685427",
+          "colorScheme": "f06d13a0",
+          "caps": "d1438f1b"
+        },
+        "b": {
+          "tz": "ad643994",
+          "lang": "fb32d912"
+        },
+        "similarity": 0.0
+      }
+    ],
+    "sketchOfBase": {
+      "tz": "f5da64cf",
+      "tzOffsetMin": "0f173ad0",
+      "lang": "a2c07f25",
+      "langCount": "f7377545",
+      "platform": "5d8de6a8",
+      "uaBrand": "09f80a95",
+      "uaMajor": "a26b6c20",
+      "mobile": "909f45ca",
+      "screenBucket": "49828ed6",
+      "colorDepth": "bc5a3bfb",
+      "touchPoints": "2e925cc1",
+      "cores": "759958f9",
+      "memoryGb": "d16e09d4",
+      "reducedMotion": "00685427",
+      "colorScheme": "f06d13a0",
+      "caps": "d1438f1b"
+    }
+  }
+}
