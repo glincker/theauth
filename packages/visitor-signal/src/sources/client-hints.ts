@@ -26,6 +26,12 @@ export const pickBrand = (brands: readonly UaBrand[]): UaBrand | undefined => {
 	return real.find((b) => !GREASE.test(b.brand)) ?? real[0];
 };
 
+/** Chromium forks report their own version in the brand, the engine major is stable across them. */
+export const pickMajor = (brands: readonly UaBrand[], picked: UaBrand): number | undefined => {
+	const chromium = brands.find((b) => b.brand.toLowerCase() === "chromium");
+	return parseMajor((chromium ?? picked).version);
+};
+
 export const parseMajor = (version: string): number | undefined => {
 	const major = Number.parseInt(version.split(".")[0] ?? "", 10);
 	return Number.isFinite(major) && major >= 0 && major <= 999 ? major : undefined;
@@ -58,7 +64,7 @@ export const clientHints = async (): Promise<Result<UaData>> => {
 		const picked = uad.brands ? pickBrand(uad.brands) : undefined;
 		if (picked) {
 			data.uaBrand = picked.brand.slice(0, 32);
-			const major = parseMajor(picked.version);
+			const major = pickMajor(uad.brands ?? [], picked);
 			if (major !== undefined) data.uaMajor = major;
 		}
 	}
